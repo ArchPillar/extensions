@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/benchmarks/" />
+  <Folder Name="/benchmarks/Mapper.Benchmarks/">
+    <Project Path="benchmarks/Mapper.Benchmarks/ArchPillar.Mapper.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Mapper/">
+    <Project Path="src/Mapper/ArchPillar.Mapper.csproj" />
+  </Folder>
+  <Folder Name="/tests/" />
+  <Folder Name="/tests/Mapper.Tests/">
+    <Project Path="tests/Mapper.Tests/ArchPillar.Mapper.Tests.csproj" />
+  </Folder>
+</Solution>
