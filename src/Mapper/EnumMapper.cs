@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using ArchPillar.Mapper.Internal;
 
 namespace ArchPillar.Mapper;
 
@@ -21,20 +22,54 @@ namespace ArchPillar.Mapper;
 /// </summary>
 /// <typeparam name="TSource">The source enum type.</typeparam>
 /// <typeparam name="TDest">The destination enum type.</typeparam>
-public sealed class EnumMapper<TSource, TDest>
+public sealed class EnumMapper<TSource, TDest>(Func<TSource, TDest> mappingMethod)
+    : IEnumMapper
     where TSource : struct, Enum
     where TDest   : struct, Enum
 {
+    private readonly Lazy<Expression<Func<TSource, TDest>>> _expression =
+        new(() => BuildExpression(mappingMethod));
+
     /// <summary>
     /// Maps a single source enum value to the destination enum type.
     /// </summary>
     public TDest Map(TSource source)
-        => throw new NotImplementedException();
+        => mappingMethod(source);
 
     /// <summary>
     /// Returns the mapping as a LINQ expression tree (a chain of conditional
     /// expressions covering every <typeparamref name="TSource"/> value).
     /// </summary>
     public Expression<Func<TSource, TDest>> ToExpression()
-        => throw new NotImplementedException();
+        => _expression.Value;
+
+    LambdaExpression IEnumMapper.GetExpression() => ToExpression();
+
+    private static Expression<Func<TSource, TDest>> BuildExpression(Func<TSource, TDest> method)
+    {
+        var sourceParam = Expression.Parameter(typeof(TSource), "source");
+
+        // Build the throw branch for the unreachable else (invalid enum value at runtime)
+        var throwBranch = Expression.Throw(
+            Expression.New(
+                typeof(ArgumentOutOfRangeException).GetConstructor(
+                    [typeof(string), typeof(object), typeof(string)])!,
+                Expression.Constant("source"),
+                Expression.Convert(sourceParam, typeof(object)),
+                Expression.Constant(null, typeof(string))),
+            typeof(TDest));
+
+        // Build the conditional chain from last value to first so the
+        // first value ends up outermost: V1 ? D1 : V2 ? D2 : ... : throw
+        Expression body = throwBranch;
+        foreach (var value in Enum.GetValues<TSource>().Reverse())
+        {
+            body = Expression.Condition(
+                Expression.Equal(sourceParam, Expression.Constant(value)),
+                Expression.Constant(method(value)),
+                body);
+        }
+
+        return Expression.Lambda<Func<TSource, TDest>>(body, sourceParam);
+    }
 }

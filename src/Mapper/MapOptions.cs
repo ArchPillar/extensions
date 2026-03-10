@@ -8,13 +8,22 @@ namespace ArchPillar.Mapper;
 /// <typeparam name="TDest">The destination type whose optional properties are being requested.</typeparam>
 public sealed class MapOptions<TDest>
 {
+    private readonly List<IncludeEntry>           _includes         = [];
+    private readonly Dictionary<object, object?>  _variableBindings = [];
+
+    internal IReadOnlyList<IncludeEntry>          Includes          => _includes;
+    internal IReadOnlyDictionary<object, object?> VariableBindings  => _variableBindings;
+
     /// <summary>
     /// Requests an optional scalar property declared with
     /// <c>IMapperBuilder.Optional()</c>.
     /// </summary>
     public MapOptions<TDest> Include<TValue>(
         Expression<Func<TDest, TValue>> optionalProp)
-        => throw new NotImplementedException();
+    {
+        _includes.Add(new ScalarInclude(ExtractMemberName(optionalProp)));
+        return this;
+    }
 
     /// <summary>
     /// Requests an optional collection property and configures optional
@@ -27,7 +36,16 @@ public sealed class MapOptions<TDest>
     public MapOptions<TDest> Include<TElement>(
         Expression<Func<TDest, IEnumerable<TElement>>> collectionProp,
         Action<MapOptions<TElement>> elementOptions)
-        => throw new NotImplementedException();
+    {
+        var memberName = ExtractMemberName(collectionProp);
+        _includes.Add(new CollectionInclude(memberName, () =>
+        {
+            var nested = new MapOptions<TElement>();
+            elementOptions(nested);
+            return nested;
+        }));
+        return this;
+    }
 
     /// <summary>
     /// Requests one or more optional properties using a dot-separated path
@@ -37,12 +55,54 @@ public sealed class MapOptions<TDest>
     /// <see cref="InvalidOperationException"/>.
     /// </summary>
     public MapOptions<TDest> Include(string path)
-        => throw new NotImplementedException();
+    {
+        _includes.Add(new StringPathInclude(path));
+        return this;
+    }
 
     /// <summary>
     /// Binds a <see cref="Variable{T}"/> to a concrete value for this in-memory mapping call.
     /// Variables not bound here resolve to <c>default(T)</c>.
     /// </summary>
     public MapOptions<TDest> Set<T>(Variable<T> variable, T value)
-        => throw new NotImplementedException();
+    {
+        _variableBindings[variable] = value;
+        return this;
+    }
+
+    private static string ExtractMemberName<TValue>(Expression<Func<TDest, TValue>> expression)
+    {
+        if (expression.Body is MemberExpression member)
+            return member.Member.Name;
+        throw new ArgumentException(
+            $"Expression must be a simple property access, but got: {expression.Body.NodeType}.",
+            nameof(expression));
+    }
+
+    // -------------------------------------------------------------------------
+    // Internal include-entry types
+    // -------------------------------------------------------------------------
+
+    internal abstract class IncludeEntry { }
+
+    internal sealed class ScalarInclude(string memberName) : IncludeEntry
+    {
+        public string MemberName { get; } = memberName;
+    }
+
+    internal sealed class StringPathInclude(string path) : IncludeEntry
+    {
+        public string Path { get; } = path;
+    }
+
+    /// <summary>
+    /// A collection property include with a factory that creates and configures
+    /// a nested <c>MapOptions&lt;TElement&gt;</c> on demand.
+    /// </summary>
+    internal sealed class CollectionInclude(string memberName, Func<object> nestedOptionsFactory)
+        : IncludeEntry
+    {
+        public string       MemberName            { get; } = memberName;
+        public Func<object> NestedOptionsFactory  { get; } = nestedOptionsFactory;
+    }
 }

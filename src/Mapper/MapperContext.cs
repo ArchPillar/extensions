@@ -1,4 +1,6 @@
 using System.Linq.Expressions;
+using System.Reflection;
+using ArchPillar.Mapper.Internal;
 
 namespace ArchPillar.Mapper;
 
@@ -44,6 +46,11 @@ namespace ArchPillar.Mapper;
 public abstract class MapperContext
 {
     /// <summary>
+    /// The options this context was configured with.
+    /// </summary>
+    protected MapperContextOptions Options { get; private set; }
+
+    /// <summary>
     /// Initializes the context with default options (lazy build).
     /// </summary>
     protected MapperContext()
@@ -57,7 +64,11 @@ public abstract class MapperContext
     /// </code>
     /// </summary>
     protected MapperContext(Action<MapperContextOptions> configure)
-        => throw new NotImplementedException();
+    {
+        var options = new MapperContextOptions();
+        configure(options);
+        Options = options;
+    }
 
     /// <summary>
     /// Initializes the context with a pre-built options instance,
@@ -68,7 +79,9 @@ public abstract class MapperContext
     /// </code>
     /// </summary>
     protected MapperContext(MapperContextOptions options)
-        => throw new NotImplementedException();
+    {
+        Options = options;
+    }
 
     // -------------------------------------------------------------------------
     // Factory methods
@@ -88,9 +101,9 @@ public abstract class MapperContext
     /// triggers <see cref="MapperBuilder{TSource,TDest}.Build"/> implicitly via
     /// the conversion operator.
     /// </summary>
-    protected MapperBuilder<TSource, TDest> CreateMapper<TSource, TDest>(
+    protected static MapperBuilder<TSource, TDest> CreateMapper<TSource, TDest>(
         Expression<Func<TSource, TDest>>? memberInitExpression = null)
-        => throw new NotImplementedException();
+        => new(memberInitExpression);
 
     /// <summary>
     /// Creates an enum mapper from a plain mapping method.
@@ -98,11 +111,11 @@ public abstract class MapperContext
     /// calls <paramref name="mappingMethod"/> for each, and builds a
     /// LINQ-translatable conditional expression tree from the results.
     /// </summary>
-    protected EnumMapper<TSource, TDest> CreateEnumMapper<TSource, TDest>(
+    protected static EnumMapper<TSource, TDest> CreateEnumMapper<TSource, TDest>(
         Func<TSource, TDest> mappingMethod)
         where TSource : struct, Enum
         where TDest   : struct, Enum
-        => throw new NotImplementedException();
+        => new(mappingMethod);
 
     /// <summary>
     /// Creates a typed <see cref="Variable{T}"/> that can be used inside
@@ -110,6 +123,30 @@ public abstract class MapperContext
     /// instance as a public property on the context so callers can reference
     /// it by name — no magic strings, full IDE navigation.
     /// </summary>
-    protected static Variable<T> CreateVariable<T>()
-        => throw new NotImplementedException();
+    protected static Variable<T> CreateVariable<T>(string? name = null, T? defaultValue = default)
+        => new(name, defaultValue);
+
+    // -------------------------------------------------------------------------
+    // Eager build
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Forces expression assembly and delegate compilation for every
+    /// <see cref="Mapper{TSource,TDest}"/> property declared on this context.
+    /// Call this at the end of a subclass constructor when
+    /// <see cref="MapperContextOptions.EagerBuild"/> is <see langword="true"/>.
+    /// </summary>
+    protected void EagerBuildAll()
+    {
+        var mapperGenericType = typeof(Mapper<,>);
+        foreach (var property in GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        {
+            var type = property.PropertyType;
+            if (!type.IsGenericType || type.GetGenericTypeDefinition() != mapperGenericType)
+                continue;
+
+            if (property.GetValue(this) is IMapper mapper)
+                mapper.GetBaseExpression();
+        }
+    }
 }

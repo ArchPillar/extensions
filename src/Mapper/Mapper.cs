@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
+using ArchPillar.Mapper.Internal;
 
 namespace ArchPillar.Mapper;
 
@@ -40,8 +41,104 @@ namespace ArchPillar.Mapper;
 ///     LookupById = src.Items.ToDictionary(i => i.Id, i => ItemMapper.Map(i)),
 /// </code>
 /// </summary>
-public sealed class Mapper<TSource, TDest>
+public sealed class Mapper<TSource, TDest> : IMapper
 {
+    private readonly IReadOnlyList<PropertyMapping>    _allMappings;
+    private readonly Lazy<Func<TSource?, TDest?>>      _compiledDefault;
+
+    internal Mapper(IReadOnlyList<PropertyMapping> allMappings)
+    {
+        _allMappings     = allMappings;
+        // Compile mode uses null-safe navigation for optional properties.
+        _compiledDefault = new(() => BuildExpression([], new Dictionary<object, object?>(), nullSafeOptionals: true).Compile()!);
+    }
+
+    // -------------------------------------------------------------------------
+    // Core expression builder
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Assembles a fresh mapping expression from the stored property list.
+    /// </summary>
+    /// <param name="includeNames">Names of optional destination properties to include.</param>
+    /// <param name="variableBindings">Variable-to-value bindings; unbound variables resolve to their default.</param>
+    /// <param name="nullSafeOptionals">
+    /// When <see langword="true"/> (compile / in-memory mode), optional property source expressions
+    /// are wrapped with null guards for each intermediate reference-type member access so that a null
+    /// leg returns <see langword="default"/> instead of throwing.
+    /// When <see langword="false"/> (IQueryable projection mode), source expressions are used as-is
+    /// so that LINQ providers can translate them to SQL without interference.
+    /// </param>
+    private Expression<Func<TSource, TDest>> BuildExpression(
+        HashSet<string>                      includeNames,
+        IReadOnlyDictionary<object, object?> variableBindings,
+        bool                                 nullSafeOptionals)
+    {
+        var sourceParam = Expression.Parameter(typeof(TSource), "src");
+        var replacer    = new VariableReplacer(new Dictionary<object, object?>(variableBindings));
+
+        var bindings = new List<MemberBinding>();
+        foreach (var mapping in _allMappings)
+        {
+            if (mapping.Kind == MappingKind.Optional && !includeNames.Contains(mapping.Destination.Name))
+                continue;
+
+            var body = new ParameterReplacer(mapping.Source!.Parameters[0], sourceParam)
+                           .Visit(mapping.Source.Body);
+            body = replacer.Visit(body);
+
+            if (nullSafeOptionals && mapping.Kind == MappingKind.Optional)
+                body = AddNullSafeNavigation(body);
+
+            bindings.Add(Expression.Bind(mapping.Destination, body));
+        }
+
+        var memberInit = Expression.MemberInit(Expression.New(typeof(TDest)), bindings);
+        return Expression.Lambda<Func<TSource, TDest>>(memberInit, sourceParam);
+    }
+
+    /// <summary>
+    /// Wraps member-access chains with null guards for every intermediate
+    /// reference-type member access, so that a null leg returns <c>default</c>
+    /// rather than throwing.
+    ///
+    /// Example: <c>src.Customer.Name</c> →
+    /// <c>src.Customer == null ? null : src.Customer.Name</c>
+    /// </summary>
+    private static Expression AddNullSafeNavigation(Expression body)
+    {
+        // Collect the member-access chain, outermost node first.
+        var chain = new List<MemberExpression>();
+        var node  = body;
+        while (node is MemberExpression me)
+        {
+            chain.Add(me);
+            node = me.Expression;
+        }
+
+        // Only rewrite chains rooted at the source parameter.
+        if (node is not ParameterExpression || chain.Count == 0)
+            return body;
+
+        // chain[0]  = the final access (e.g. src.Customer.Name)
+        // chain[1+] = intermediate navigations (e.g. src.Customer)
+        // Add a conditional null-check for each intermediate reference-type navigation.
+        var result = body;
+        for (var i = 1; i < chain.Count; i++)
+        {
+            var intermediate = chain[i];
+            if (intermediate.Type.IsValueType && Nullable.GetUnderlyingType(intermediate.Type) == null)
+                continue; // non-nullable value type — cannot be null
+
+            result = Expression.Condition(
+                Expression.Equal(intermediate, Expression.Default(intermediate.Type)),
+                Expression.Default(body.Type),
+                result);
+        }
+
+        return result;
+    }
+
     // -------------------------------------------------------------------------
     // In-memory object mapping
     // -------------------------------------------------------------------------
@@ -82,4 +179,6 @@ public sealed class Mapper<TSource, TDest>
     public Expression<Func<TSource, TDest>> ToExpression(
         Action<ProjectionOptions<TDest>>? options = null)
         => throw new NotImplementedException();
+
+    LambdaExpression IMapper.GetBaseExpression() => ToExpression();
 }
