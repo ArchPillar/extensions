@@ -10,7 +10,20 @@
       "Bash(dotnet build --nologo -v q)",
       "Bash(dotnet test --nologo -v q)",
       "Bash(dotnet test --nologo -v q --filter \"Map_OptionalProperty_AlwaysPopulated\")",
-      "Bash(dotnet test --nologo --filter \"Map_OptionalProperty_AlwaysPopulated\" --logger \"console;verbosity=detailed\")"
+      "Bash(dotnet test --nologo --filter \"Map_OptionalProperty_AlwaysPopulated\" --logger \"console;verbosity=detailed\")",
+      "Bash(dotnet test --verbosity normal)",
+      "Bash(dotnet build benchmarks/Mapper.Benchmarks -c Release)",
+      "Bash(dotnet run -c Release --project benchmarks/Mapper.Benchmarks -- --filter \"MapBenchmarks.Map_Empty\" --job Dry)",
+      "Bash(dotnet run -c Release --project benchmarks/Mapper.Benchmarks -- --filter \"*Map_Empty*\" --job Dry)",
+      "Bash(dotnet run -c Release --project benchmarks/Mapper.Benchmarks -- --list flat)",
+      "Bash(dotnet test --verbosity quiet)",
+      "Bash(dotnet run -c Release --project benchmarks/Mapper.Benchmarks -- --filter \"*Map_SingleProp*\" --job Dry)",
+      "Bash(dotnet run -c Release --project benchmarks/Mapper.Benchmarks -- --filter \"*Dictionary*\" --filter \"*Nested10*\" --filter \"*Empty*\" --job Dry)",
+      "Bash(dotnet run -c Release --project benchmarks/Mapper.Benchmarks -- --filter \"*Dictionary*\" --job Dry)",
+      "Bash(dotnet run -c Release --project benchmarks/Mapper.Benchmarks -- --filter \"*Nested10*\" --job Dry)",
+      "Bash(dotnet run -c Release --project benchmarks/Mapper.Benchmarks -- --filter \"*List*\" --filter \"*Array*\" --filter \"*Baseline*\")",
+      "Bash(dotnet run -c Release --project benchmarks/Mapper.Benchmarks -- --filter \"*Collection*\" --filter \"*Baseline*\")",
+      "Bash(dotnet run -c Release --project benchmarks/Mapper.Benchmarks -- --filter \"*Baseline*\")"
     ]
   }
 }

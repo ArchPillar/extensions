@@ -36,10 +36,11 @@ namespace ArchPillar.Mapper;
 /// });
 /// </code>
 ///
-/// For dictionaries, call <see cref="Map(TSource)"/> inline inside the
-/// standard <c>ToDictionary</c> lambda:
+/// For dictionaries, use <c>ToDictionary</c> with an inline construction
+/// expression (nested mapper inlining is not supported inside
+/// <c>ToDictionary</c> lambdas):
 /// <code>
-///     LookupById = src.Items.ToDictionary(i => i.Id, i => ItemMapper.Map(i)),
+///     LookupById = src.Items.ToDictionary(i => i.Id, i => new ItemDto { Name = i.Name }),
 /// </code>
 /// </summary>
 public sealed class Mapper<TSource, TDest> : IMapper

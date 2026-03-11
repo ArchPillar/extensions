@@ -115,4 +115,128 @@ public class ProjectionTests
         Assert.Equal("Hank", results[0].CustomerName);
         Assert.True(results[0].IsOwner);
     }
+
+    // -----------------------------------------------------------------------
+    // IEnumerable.Project extension
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void ProjectEnumerable_MapsAllElements()
+    {
+        var orders = new[]
+        {
+            new Order { Id = 1, Status = OrderStatus.Pending, Customer = new Customer { Name = "A", Email = "" }, Lines = [] },
+            new Order { Id = 2, Status = OrderStatus.Shipped, Customer = new Customer { Name = "B", Email = "" }, Lines = [] },
+        };
+
+        var results = orders.AsEnumerable().Project(_mappers.Order).ToList();
+
+        Assert.Equal(2, results.Count);
+        Assert.Equal(1, results[0].Id);
+        Assert.Equal(2, results[1].Id);
+    }
+
+    [Fact]
+    public void ProjectEnumerable_WithOptions_AppliesVariableBindings()
+    {
+        var orders = new[]
+        {
+            new Order { Id = 1, Status = OrderStatus.Pending, OwnerId = 99, Customer = new Customer { Name = "X", Email = "" }, Lines = [] },
+        };
+
+        var results = orders.AsEnumerable()
+            .Project(_mappers.Order, o => o.Set(_mappers.CurrentUserId, 99))
+            .ToList();
+
+        Assert.True(results[0].IsOwner);
+    }
+
+    // -----------------------------------------------------------------------
+    // Include cascading into nested mappers
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void Project_WithNestedInclude_CascadesToChildMapper()
+    {
+        var orders = new[]
+        {
+            new Order
+            {
+                Id       = 1,
+                Status   = OrderStatus.Pending,
+                Customer = new Customer { Name = "", Email = "" },
+                Lines    =
+                [
+                    new OrderLine
+                    {
+                        Id           = 10,
+                        ProductName  = "Widget",
+                        Quantity     = 2,
+                        UnitPrice    = 9.99m,
+                        SupplierName = "Acme",
+                    },
+                ],
+            },
+        }.AsQueryable();
+
+        // Include the optional SupplierName on the nested OrderLineDto
+        var results = orders
+            .Project(_mappers.Order, o => o
+                .Include(m => m.Lines, line => line
+                    .Include(l => l.SupplierName)))
+            .ToList();
+
+        Assert.Equal("Acme", results[0].Lines[0].SupplierName);
+    }
+
+    [Fact]
+    public void Project_WithStringPathInclude_CascadesToChildMapper()
+    {
+        var orders = new[]
+        {
+            new Order
+            {
+                Id       = 1,
+                Status   = OrderStatus.Pending,
+                Customer = new Customer { Name = "", Email = "" },
+                Lines    =
+                [
+                    new OrderLine
+                    {
+                        Id           = 10,
+                        ProductName  = "Widget",
+                        Quantity     = 2,
+                        UnitPrice    = 9.99m,
+                        SupplierName = "Supplier1",
+                    },
+                ],
+            },
+        }.AsQueryable();
+
+        var results = orders
+            .Project(_mappers.Order, o => o.Include("Lines.SupplierName"))
+            .ToList();
+
+        Assert.Equal("Supplier1", results[0].Lines[0].SupplierName);
+    }
+
+    [Fact]
+    public void Project_WithoutInclude_OptionalPropertyIsDefault()
+    {
+        var orders = new[]
+        {
+            new Order
+            {
+                Id       = 1,
+                Status   = OrderStatus.Pending,
+                Customer = new Customer { Name = "Jane", Email = "" },
+                Lines    = [],
+            },
+        }.AsQueryable();
+
+        // No includes — optional CustomerName should be null
+        var results = orders.Project(_mappers.Order).ToList();
+
+        Assert.Null(results[0].CustomerName);
+    }
 }

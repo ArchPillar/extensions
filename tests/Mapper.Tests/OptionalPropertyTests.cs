@@ -59,6 +59,57 @@ public class OptionalPropertyTests
     }
 
     // -----------------------------------------------------------------------
+    // Optional nested scalar mapper — null guard
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void Map_OptionalNestedScalarMapper_NullSource_DefaultsToNull()
+    {
+        // OrderLine.Product is an optional nested scalar mapper.
+        // When Product is null, the null guard should return default instead of NRE.
+        var order = new Order
+        {
+            Id       = 1,
+            Status   = OrderStatus.Pending,
+            Customer = new Customer { Name = "", Email = "" },
+            Lines    = [new OrderLine { Id = 1, ProductName = "A", Quantity = 1, UnitPrice = 1m, Product = null }],
+        };
+
+        var dto = _mappers.Order.Map(order);
+
+        Assert.Null(dto!.Lines[0].Product);
+    }
+
+    [Fact]
+    public void Map_OptionalNestedScalarMapper_NonNullSource_MapsCorrectly()
+    {
+        var order = new Order
+        {
+            Id       = 1,
+            Status   = OrderStatus.Pending,
+            Customer = new Customer { Name = "", Email = "" },
+            Lines    =
+            [
+                new OrderLine
+                {
+                    Id = 1, ProductName = "Widget", Quantity = 1, UnitPrice = 10m,
+                    Product = new Product
+                    {
+                        Id = 5, Name = "Widget", ListPrice = 10m, Status = ProductStatus.Active,
+                        Category = new Category { Id = 1, Name = "Gadgets" },
+                    },
+                },
+            ],
+        };
+
+        var dto = _mappers.Order.Map(order);
+
+        Assert.NotNull(dto!.Lines[0].Product);
+        Assert.Equal("Widget", dto.Lines[0].Product!.Name);
+        Assert.Equal("Gadgets", dto.Lines[0].Product.CategoryName);
+    }
+
+    // -----------------------------------------------------------------------
     // LINQ projection — includes still required (controls what gets queried)
     // -----------------------------------------------------------------------
 
