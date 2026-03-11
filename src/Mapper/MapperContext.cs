@@ -19,7 +19,7 @@ namespace ArchPillar.Mapper;
 ///
 ///     public Mapper&lt;Order, OrderDto&gt; Order { get; }
 ///
-///     public AppMappers() : base(o => o.EagerBuild = false)
+///     public AppMappers()
 ///     {
 ///         Order = CreateMapper&lt;Order, OrderDto&gt;(src => new OrderDto
 ///         {
@@ -45,44 +45,6 @@ namespace ArchPillar.Mapper;
 /// </summary>
 public abstract class MapperContext
 {
-    /// <summary>
-    /// The options this context was configured with.
-    /// </summary>
-    protected MapperContextOptions Options { get; private set; }
-
-    /// <summary>
-    /// Initializes the context with default options (lazy build).
-    /// </summary>
-    protected MapperContext()
-        : this(_ => { })
-    { }
-
-    /// <summary>
-    /// Initializes the context with a configuration delegate.
-    /// <code>
-    /// public AppMappers() : base(o => o.EagerBuild = true) { ... }
-    /// </code>
-    /// </summary>
-    protected MapperContext(Action<MapperContextOptions> configure)
-    {
-        var options = new MapperContextOptions();
-        configure(options);
-        Options = options;
-    }
-
-    /// <summary>
-    /// Initializes the context with a pre-built options instance,
-    /// suitable for injection from a DI container.
-    /// <code>
-    /// services.AddSingleton(new MapperContextOptions { EagerBuild = true });
-    /// services.AddSingleton&lt;AppMappers&gt;();
-    /// </code>
-    /// </summary>
-    protected MapperContext(MapperContextOptions options)
-    {
-        Options = options;
-    }
-
     // -------------------------------------------------------------------------
     // Factory methods
     // -------------------------------------------------------------------------
@@ -133,8 +95,8 @@ public abstract class MapperContext
     /// <summary>
     /// Forces expression assembly and delegate compilation for every
     /// <see cref="Mapper{TSource,TDest}"/> property declared on this context.
-    /// Call this at the end of a subclass constructor when
-    /// <see cref="MapperContextOptions.EagerBuild"/> is <see langword="true"/>.
+    /// Call this at the end of a subclass constructor to surface mapping errors
+    /// at startup and eliminate cold-start latency on first use.
     /// </summary>
     protected void EagerBuildAll()
     {
@@ -146,7 +108,7 @@ public abstract class MapperContext
                 continue;
 
             if (property.GetValue(this) is IMapper mapper)
-                mapper.GetBaseExpression();
+                mapper.GetExpression(IncludeSet.Empty, new Dictionary<object, object?>(), nullSafeOptionals: false);
         }
     }
 }

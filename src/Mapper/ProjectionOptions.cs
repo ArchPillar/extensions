@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using ArchPillar.Mapper.Internal;
 
 namespace ArchPillar.Mapper;
 
@@ -12,11 +13,11 @@ namespace ArchPillar.Mapper;
 /// <typeparam name="TDest">The destination type whose optional properties and variables are being configured.</typeparam>
 public sealed class ProjectionOptions<TDest>
 {
-    private readonly List<IncludeEntry>           _includes         = [];
-    private readonly Dictionary<object, object?>  _variableBindings = [];
+    private readonly List<IncludeSet.IncludeEntry>  _includes         = [];
+    private readonly Dictionary<object, object?>    _variableBindings = [];
 
-    internal IReadOnlyList<IncludeEntry>          Includes          => _includes;
-    internal IReadOnlyDictionary<object, object?> VariableBindings  => _variableBindings;
+    internal IReadOnlyList<IncludeSet.IncludeEntry> Includes         => _includes;
+    internal IReadOnlyDictionary<object, object?>   VariableBindings => _variableBindings;
 
     /// <summary>
     /// Requests an optional scalar property declared with
@@ -25,7 +26,7 @@ public sealed class ProjectionOptions<TDest>
     public ProjectionOptions<TDest> Include<TValue>(
         Expression<Func<TDest, TValue>> optionalProp)
     {
-        _includes.Add(new ScalarInclude(ExtractMemberName(optionalProp)));
+        _includes.Add(new IncludeSet.ScalarInclude(ExtractMemberName(optionalProp)));
         return this;
     }
 
@@ -38,12 +39,9 @@ public sealed class ProjectionOptions<TDest>
         Action<ProjectionOptions<TElement>> elementOptions)
     {
         var memberName = ExtractMemberName(collectionProp);
-        _includes.Add(new CollectionInclude(memberName, () =>
-        {
-            var nested = new ProjectionOptions<TElement>();
-            elementOptions(nested);
-            return nested;
-        }));
+        var nested = new ProjectionOptions<TElement>();
+        elementOptions(nested);
+        _includes.Add(new IncludeSet.NestedInclude(memberName, nested.Includes));
         return this;
     }
 
@@ -53,7 +51,7 @@ public sealed class ProjectionOptions<TDest>
     /// </summary>
     public ProjectionOptions<TDest> Include(string path)
     {
-        _includes.Add(new StringPathInclude(path));
+        _includes.Add(new IncludeSet.StringPathInclude(path));
         return this;
     }
 
@@ -74,32 +72,5 @@ public sealed class ProjectionOptions<TDest>
         throw new ArgumentException(
             $"Expression must be a simple property access, but got: {expression.Body.NodeType}.",
             nameof(expression));
-    }
-
-    // -------------------------------------------------------------------------
-    // Internal include-entry types
-    // -------------------------------------------------------------------------
-
-    internal abstract class IncludeEntry { }
-
-    internal sealed class ScalarInclude(string memberName) : IncludeEntry
-    {
-        public string MemberName { get; } = memberName;
-    }
-
-    internal sealed class StringPathInclude(string path) : IncludeEntry
-    {
-        public string Path { get; } = path;
-    }
-
-    /// <summary>
-    /// A collection property include with a factory that creates and configures
-    /// a nested <c>ProjectionOptions&lt;TElement&gt;</c> on demand.
-    /// </summary>
-    internal sealed class CollectionInclude(string memberName, Func<object> nestedOptionsFactory)
-        : IncludeEntry
-    {
-        public string       MemberName            { get; } = memberName;
-        public Func<object> NestedOptionsFactory  { get; } = nestedOptionsFactory;
     }
 }

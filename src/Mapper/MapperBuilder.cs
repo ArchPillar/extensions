@@ -68,34 +68,9 @@ public sealed class MapperBuilder<TSource, TDest>
     /// </summary>
     public Mapper<TSource, TDest> Build()
     {
-        var settableProperties = typeof(TDest)
-            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .Where(p => p.CanWrite)
-            .ToList();
-
-        // Collect all covered property names.
-        var coveredNames = new HashSet<string>(StringComparer.Ordinal);
-
-        if (_memberInitExpression?.Body is MemberInitExpression memberInit)
-            foreach (var binding in memberInit.Bindings)
-                coveredNames.Add(binding.Member.Name);
-
-        foreach (var mapping in _mappings)
-            coveredNames.Add(mapping.Destination.Name);
-
-        var uncovered = settableProperties
-            .Where(p => !coveredNames.Contains(p.Name))
-            .Select(p => p.Name)
-            .ToList();
-
-        if (uncovered.Count > 0)
-            throw new InvalidOperationException(
-                $"The following properties of {typeof(TDest).Name} are not mapped: " +
-                string.Join(", ", uncovered));
-
-        // Normalize: extract bindings from the member-init expression, then append
-        // the explicit fluent-call entries (Ignored entries are dropped here).
-        var allMappings = new List<PropertyMapping>();
+        // Build a dictionary of all mappings keyed by destination name.
+        // Member-init bindings go first, then fluent calls overwrite naturally (last wins).
+        var rawMappings = new Dictionary<string, PropertyMapping>(StringComparer.Ordinal);
 
         if (_memberInitExpression?.Body is MemberInitExpression init)
         {
@@ -105,22 +80,68 @@ public sealed class MapperBuilder<TSource, TDest>
                 if (binding is MemberAssignment assignment)
                 {
                     var lambda = Expression.Lambda(assignment.Expression, sourceParam);
-                    allMappings.Add(new PropertyMapping(binding.Member, lambda, MappingKind.Required));
+                    rawMappings[binding.Member.Name] = new PropertyMapping(binding.Member, lambda, MappingKind.Required);
                 }
             }
         }
 
         foreach (var mapping in _mappings)
-            if (mapping.Kind != MappingKind.Ignored)
-                allMappings.Add(mapping);
+        {
+            rawMappings[mapping.Destination.Name] = mapping;
+        }
 
-        // Inline any nested mapper and enum mapper calls in each source expression.
-        var inliner = new NestedMapperInliner();
-        var inlinedMappings = allMappings
-            .Select(m => m with { Source = (LambdaExpression)inliner.Visit(m.Source!) })
-            .ToList();
+        // Validate that every settable destination property is accounted for.
+        var nullabilityCtx = new NullabilityInfoContext();
+        List<string> uncovered =
+        [
+            .. from p in typeof(TDest).GetProperties(BindingFlags.Public | BindingFlags.Instance)
+               where p.CanWrite && RequiresCoverage(p, nullabilityCtx)
+               where !rawMappings.ContainsKey(p.Name)
+               select p.Name
+        ];
 
-        return new Mapper<TSource, TDest>(inlinedMappings);
+        if (uncovered.Count > 0)
+        {
+            throw new InvalidOperationException(
+                $"The following properties of {typeof(TDest).Name} are not mapped: " +
+                string.Join(", ", uncovered));
+        }
+
+        // Remove ignored entries — they served their purpose for the coverage check.
+        foreach (var key in rawMappings.Where(kv => kv.Value.Kind == MappingKind.Ignored).Select(kv => kv.Key).ToList())
+        {
+            rawMappings.Remove(key);
+        }
+
+        // For each raw mapping, detect nested Mapper<,> references (for cascade support).
+        // Source expressions are stored raw (un-inlined); inlining is deferred to first
+        // use so that nested mappers do not need to exist at build time.
+        List<PropertyMapping> allMappings =
+        [
+            .. rawMappings.Values.Select(m =>
+            {
+                var detector = new NestedMapperDetector();
+                detector.Detect(m.Source!.Body);
+
+                if (!detector.Found)
+                {
+                    return m;
+                }
+
+                // Wrap the source-access expression in a lambda with the same parameter
+                // as the mapping's Source lambda so BuildExpression can substitute it.
+                var sourceAccess = Expression.Lambda(detector.SourceAccess!, m.Source.Parameters[0]);
+
+                return m with
+                {
+                    NestedMapperAccessor = detector.NestedMapperAccessor,
+                    NestedSourceAccess   = sourceAccess,
+                    IsCollection         = detector.IsCollection,
+                };
+            })
+        ];
+
+        return new Mapper<TSource, TDest>(allMappings);
     }
 
     /// <summary>
@@ -133,11 +154,38 @@ public sealed class MapperBuilder<TSource, TDest>
     private static MemberInfo ExtractMember<TValue>(Expression<Func<TDest, TValue>> expression)
     {
         if (expression.Body is MemberExpression member)
+        {
             return member.Member;
+        }
 
         throw new ArgumentException(
             $"Expression must be a simple property access (e.g. dest => dest.PropertyName), " +
             $"but got: {expression.Body.NodeType}.",
             nameof(expression));
+    }
+
+    /// <summary>
+    /// Returns <see langword="true"/> when the property must be explicitly covered by
+    /// a Map / Optional / Ignore call. Nullable non-required reference-type properties
+    /// (and nullable value types) are auto-ignored — they receive their null default
+    /// when left unmapped.
+    /// </summary>
+    private static bool RequiresCoverage(PropertyInfo p, NullabilityInfoContext ctx)
+    {
+        // Non-nullable value type (int, decimal, …) → always required
+        if (p.PropertyType.IsValueType && Nullable.GetUnderlyingType(p.PropertyType) == null)
+        {
+            return true;
+        }
+
+        // Nullable value type (int?, decimal?, …) → auto-ignored
+        if (p.PropertyType.IsValueType)
+        {
+            return false;
+        }
+
+        // Reference type: required only when NRT annotation says non-nullable
+        var info = ctx.Create(p);
+        return info.WriteState != NullabilityState.Nullable;
     }
 }

@@ -142,25 +142,25 @@ file class MinimalMapperContext : MapperContext
         .Build();
 
     public Mapper<OrderLine, OrderLineDto> BuildFromPartialMemberInit() =>
-        CreateMapper<OrderLine, OrderLineDto>(s => new OrderLineDto
-        {
-            ProductName = s.ProductName,
-            Quantity = s.Quantity,
-            UnitPrice = s.UnitPrice,
-        })
-        .Build();
+        // Only covers ProductName and Quantity via fluent Map — UnitPrice is missing,
+        // so Build() must throw.  (Using fluent style rather than member-init because
+        // the C# compiler's `required` check would reject the incomplete initializer.)
+        CreateMapper<OrderLine, OrderLineDto>()
+            .Map(d => d.ProductName, s => s.ProductName)
+            .Map(d => d.Quantity,    s => s.Quantity)
+            .Build();
 }
 
 file class BrokenEagerMappers : MapperContext
 {
     public Mapper<OrderLine, OrderLineDto> Line { get; }
 
-    public BrokenEagerMappers() : base(o => o.EagerBuild = true)
+    public BrokenEagerMappers()
     {
-        // Incomplete mapping — UnitPrice not covered
+        // Incomplete mapping — UnitPrice not covered.
+        // The implicit conversion to Mapper<,> triggers Build(), which throws.
         Line = CreateMapper<OrderLine, OrderLineDto>()
             .Map(d => d.ProductName, s => s.ProductName)
             .Map(d => d.Quantity,    s => s.Quantity);
-        // EagerBuild = true means the context validates/compiles during construction
     }
 }

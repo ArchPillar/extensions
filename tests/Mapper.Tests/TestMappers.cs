@@ -35,9 +35,7 @@ public class TestMappers : MapperContext
     // Level 1: User (optional: Orders)
     public Mapper<User, UserDto> User { get; }
 
-    public TestMappers() : this(_ => { }) { }
-
-    public TestMappers(Action<MapperContextOptions> configure) : base(configure)
+    public TestMappers()
     {
         OrderStatusMapper = CreateEnumMapper<OrderStatus, OrderStatusDto>(MapOrderStatus);
         UserRoleMapper    = CreateEnumMapper<UserRole, UserRoleDto>(MapUserRole);
@@ -121,5 +119,51 @@ public class TestMappers : MapperContext
 /// </summary>
 public class EagerTestMappers : TestMappers
 {
-    public EagerTestMappers() : base(o => o.EagerBuild = true) { }
+    public EagerTestMappers() { EagerBuildAll(); }
+}
+
+/// <summary>
+/// Declares Order BEFORE OrderLine — the reverse of dependency order.
+/// Verifies that deferred nested-mapper resolution allows any declaration order.
+/// </summary>
+public class ReverseOrderMappers : MapperContext
+{
+    public EnumMapper<OrderStatus, OrderStatusDto> OrderStatusMapper { get; }
+    public Variable<int> CurrentUserId { get; } = CreateVariable<int>();
+
+    // Order is declared FIRST, but references OrderLine which is declared AFTER.
+    // The properties are null at construction time but resolved lazily on first use.
+    public Mapper<Order, OrderDto>         Order     { get; private set; } = null!;
+    public Mapper<OrderLine, OrderLineDto> OrderLine { get; private set; } = null!;
+
+    public ReverseOrderMappers()
+    {
+        OrderStatusMapper = CreateEnumMapper<OrderStatus, OrderStatusDto>(s => s switch
+        {
+            OrderStatus.Pending   => OrderStatusDto.Pending,
+            OrderStatus.Shipped   => OrderStatusDto.Shipped,
+            OrderStatus.Cancelled => OrderStatusDto.Cancelled,
+            _                     => throw new ArgumentOutOfRangeException(nameof(s), s, null),
+        });
+
+        // Order references OrderLine.Project() — but OrderLine is not assigned yet!
+        Order = CreateMapper<Order, OrderDto>(src => new OrderDto
+        {
+            Id       = src.Id,
+            PlacedAt = src.CreatedAt,
+            Status   = OrderStatusMapper.Map(src.Status),
+            IsOwner  = src.OwnerId == CurrentUserId,
+            Lines    = src.Lines.Project(OrderLine).ToList(),
+        })
+        .Optional(dest => dest.CustomerName, src => src.Customer.Name);
+
+        // OrderLine is assigned AFTER Order.
+        OrderLine = CreateMapper<OrderLine, OrderLineDto>(src => new OrderLineDto
+        {
+            ProductName = src.ProductName,
+            Quantity    = src.Quantity,
+            UnitPrice   = src.UnitPrice,
+        })
+        .Optional(dest => dest.SupplierName, src => src.SupplierName);
+    }
 }

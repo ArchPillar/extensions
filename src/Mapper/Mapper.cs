@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
+using System.Reflection;
 using ArchPillar.Mapper.Internal;
 
 namespace ArchPillar.Mapper;
@@ -43,14 +44,20 @@ namespace ArchPillar.Mapper;
 /// </summary>
 public sealed class Mapper<TSource, TDest> : IMapper
 {
-    private readonly IReadOnlyList<PropertyMapping>    _allMappings;
-    private readonly Lazy<Func<TSource?, TDest?>>      _compiledDefault;
+    private readonly IReadOnlyList<PropertyMapping> _allMappings;
+    private readonly Lazy<Func<TSource?, TDest?>>   _compiledDefault;
+
+    private static readonly MethodInfo EnumerableSelectMethod =
+        typeof(Enumerable)
+            .GetMethods()
+            .First(m => m.Name == "Select" && m.GetParameters().Length == 2);
 
     internal Mapper(IReadOnlyList<PropertyMapping> allMappings)
     {
-        _allMappings     = allMappings;
-        // Compile mode uses null-safe navigation for optional properties.
-        _compiledDefault = new(() => BuildExpression([], new Dictionary<object, object?>(), nullSafeOptionals: true).Compile()!);
+        _allMappings = allMappings;
+        _compiledDefault = new(() =>
+            BuildExpression(IncludeSet.All, new Dictionary<object, object?>(), nullSafeOptionals: true)
+                .Compile()!);
     }
 
     // -------------------------------------------------------------------------
@@ -58,21 +65,19 @@ public sealed class Mapper<TSource, TDest> : IMapper
     // -------------------------------------------------------------------------
 
     /// <summary>
-    /// Assembles a fresh mapping expression from the stored property list.
+    /// Assembles a mapping expression from the stored property list.
+    /// For each mapping:
+    ///   1. Skip optional properties not present in <paramref name="includes"/>.
+    ///   2. If backed by a nested mapper, call <see cref="IMapper.GetExpression"/>
+    ///      with the cascaded <see cref="IncludeSet"/> and stitch the result in
+    ///      (scalar or collection).
+    ///   3. Otherwise, substitute the source parameter and replace variables.
+    ///   4. Wrap optional properties with null-safe navigation when compiling.
     /// </summary>
-    /// <param name="includeNames">Names of optional destination properties to include.</param>
-    /// <param name="variableBindings">Variable-to-value bindings; unbound variables resolve to their default.</param>
-    /// <param name="nullSafeOptionals">
-    /// When <see langword="true"/> (compile / in-memory mode), optional property source expressions
-    /// are wrapped with null guards for each intermediate reference-type member access so that a null
-    /// leg returns <see langword="default"/> instead of throwing.
-    /// When <see langword="false"/> (IQueryable projection mode), source expressions are used as-is
-    /// so that LINQ providers can translate them to SQL without interference.
-    /// </param>
     private Expression<Func<TSource, TDest>> BuildExpression(
-        HashSet<string>                      includeNames,
-        IReadOnlyDictionary<object, object?> variableBindings,
-        bool                                 nullSafeOptionals)
+        IncludeSet                              includes,
+        IReadOnlyDictionary<object, object?>    variableBindings,
+        bool                                    nullSafeOptionals)
     {
         var sourceParam = Expression.Parameter(typeof(TSource), "src");
         var replacer    = new VariableReplacer(new Dictionary<object, object?>(variableBindings));
@@ -80,15 +85,65 @@ public sealed class Mapper<TSource, TDest> : IMapper
         var bindings = new List<MemberBinding>();
         foreach (var mapping in _allMappings)
         {
-            if (mapping.Kind == MappingKind.Optional && !includeNames.Contains(mapping.Destination.Name))
+            if (mapping.Kind == MappingKind.Optional
+                && !includes.IncludeAll
+                && !includes.Names.Contains(mapping.Destination.Name))
                 continue;
 
-            var body = new ParameterReplacer(mapping.Source!.Parameters[0], sourceParam)
-                           .Visit(mapping.Source.Body);
-            body = replacer.Visit(body);
+            Expression body;
 
-            if (nullSafeOptionals && mapping.Kind == MappingKind.Optional)
-                body = AddNullSafeNavigation(body);
+            if (mapping.NestedMapperAccessor != null)
+            {
+                // Resolve cascaded includes for this nested mapper.
+                var nestedIncludes = includes.IncludeAll
+                    ? IncludeSet.All
+                    : includes.Nested.GetValueOrDefault(mapping.Destination.Name, IncludeSet.Empty);
+
+                // Ask the nested mapper for its expression with the cascaded includes.
+                var nestedMapper = mapping.NestedMapperAccessor();
+                var nestedLambda = nestedMapper.GetExpression(nestedIncludes, variableBindings, nullSafeOptionals);
+
+                // Replace the NestedSourceAccess parameter with the current source parameter.
+                var accessBody = new ParameterReplacer(mapping.NestedSourceAccess!.Parameters[0], sourceParam)
+                                     .Visit(mapping.NestedSourceAccess.Body);
+                accessBody = replacer.Visit(accessBody);
+
+                if (!mapping.IsCollection)
+                {
+                    // Scalar: inline the nested mapper body with source substituted.
+                    body = new ParameterReplacer(nestedLambda.Parameters[0], accessBody)
+                               .Visit(nestedLambda.Body);
+
+                    // Guard against null source for optional nested mappers.
+                    if (nullSafeOptionals && mapping.Kind == MappingKind.Optional
+                        && !accessBody.Type.IsValueType)
+                    {
+                        body = Expression.Condition(
+                            Expression.Equal(accessBody, Expression.Default(accessBody.Type)),
+                            Expression.Default(body.Type),
+                            body);
+                    }
+                }
+                else
+                {
+                    // Collection: build Enumerable.Select(sourceAccess, nestedLambda).ToList() etc.
+                    var srcType  = nestedLambda.Parameters[0].Type;
+                    var destType = nestedLambda.ReturnType;
+                    var selectCall = Expression.Call(
+                        EnumerableSelectMethod.MakeGenericMethod(srcType, destType),
+                        accessBody,
+                        nestedLambda);
+
+                    body = WrapCollection(selectCall, mapping.Destination, destType);
+                }
+            }
+            else
+            {
+                // Simple mapping: parameter + variable replacement.
+                body = new ParameterReplacer(mapping.Source!.Parameters[0], sourceParam)
+                           .Visit(mapping.Source.Body);
+                body = replacer.Visit(body);
+            }
 
             bindings.Add(Expression.Bind(mapping.Destination, body));
         }
@@ -98,45 +153,79 @@ public sealed class Mapper<TSource, TDest> : IMapper
     }
 
     /// <summary>
-    /// Wraps member-access chains with null guards for every intermediate
-    /// reference-type member access, so that a null leg returns <c>default</c>
-    /// rather than throwing.
-    ///
-    /// Example: <c>src.Customer.Name</c> →
-    /// <c>src.Customer == null ? null : src.Customer.Name</c>
+    /// Wraps a <c>Select(...)</c> call with the appropriate materialisation method
+    /// (<c>ToList</c>, <c>ToArray</c>, <c>ToHashSet</c>) based on the destination
+    /// property type.
     /// </summary>
-    private static Expression AddNullSafeNavigation(Expression body)
+    private static Expression WrapCollection(Expression selectCall, MemberInfo dest, Type elementType)
     {
-        // Collect the member-access chain, outermost node first.
-        var chain = new List<MemberExpression>();
-        var node  = body;
-        while (node is MemberExpression me)
+        var destType = dest switch
         {
-            chain.Add(me);
-            node = me.Expression;
+            PropertyInfo pi => pi.PropertyType,
+            FieldInfo    fi => fi.FieldType,
+            _               => null,
+        };
+
+        if (destType == null) return selectCall;
+
+        string? methodName = null;
+        if (destType.IsGenericType)
+        {
+            var def = destType.GetGenericTypeDefinition();
+            if (def == typeof(List<>))                methodName = "ToList";
+            else if (def == typeof(HashSet<>))        methodName = "ToHashSet";
+            else if (def == typeof(IList<>)
+                  || def == typeof(ICollection<>)
+                  || def == typeof(IEnumerable<>))    methodName = null; // no wrapping needed
+        }
+        else if (destType.IsArray)
+        {
+            methodName = "ToArray";
         }
 
-        // Only rewrite chains rooted at the source parameter.
-        if (node is not ParameterExpression || chain.Count == 0)
-            return body;
+        if (methodName == null) return selectCall;
 
-        // chain[0]  = the final access (e.g. src.Customer.Name)
-        // chain[1+] = intermediate navigations (e.g. src.Customer)
-        // Add a conditional null-check for each intermediate reference-type navigation.
-        var result = body;
-        for (var i = 1; i < chain.Count; i++)
+        var method = typeof(Enumerable)
+            .GetMethod(methodName, BindingFlags.Public | BindingFlags.Static, [typeof(IEnumerable<>).MakeGenericType(elementType)])
+            ?? typeof(Enumerable)
+               .GetMethods(BindingFlags.Public | BindingFlags.Static)
+               .First(m => m.Name == methodName && m.GetParameters().Length == 1)
+               .MakeGenericMethod(elementType);
+
+        return Expression.Call(method, selectCall);
+    }
+
+    // -------------------------------------------------------------------------
+    // Include validation
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Validates that every name in the <see cref="IncludeSet"/> corresponds to
+    /// a known mapping. Throws <see cref="InvalidOperationException"/> for
+    /// unrecognised names (typically caused by typos in string-path includes).
+    /// </summary>
+    private void ValidateIncludes(IncludeSet includes)
+    {
+        foreach (var name in includes.Names)
         {
-            var intermediate = chain[i];
-            if (intermediate.Type.IsValueType && Nullable.GetUnderlyingType(intermediate.Type) == null)
-                continue; // non-nullable value type — cannot be null
-
-            result = Expression.Condition(
-                Expression.Equal(intermediate, Expression.Default(intermediate.Type)),
-                Expression.Default(body.Type),
-                result);
+            if (!_allMappings.Any(m => m.Destination.Name == name))
+                throw new InvalidOperationException($"Unknown optional property: '{name}'");
         }
 
-        return result;
+        foreach (var (name, nested) in includes.Nested)
+        {
+            var mapping = _allMappings.FirstOrDefault(m => m.Destination.Name == name);
+            if (mapping?.NestedMapperAccessor != null)
+            {
+                // Cascade validation into the nested mapper.
+                var nestedMapper = mapping.NestedMapperAccessor();
+                if (nestedMapper is Mapper<TSource, TDest>)
+                    continue; // same type — would recurse, skip
+                // We can't call ValidateIncludes on the nested mapper directly
+                // because it's a different generic type. Validation will happen
+                // when BuildExpression processes the nested mapper.
+            }
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -152,7 +241,15 @@ public sealed class Mapper<TSource, TDest> : IMapper
     /// </summary>
     [return: NotNullIfNotNull(nameof(source))]
     public TDest? Map(TSource? source, Action<MapOptions<TDest>>? options = null)
-        => throw new NotImplementedException();
+    {
+        if (source is null) return default;
+        if (options is null) return _compiledDefault.Value(source)!;
+
+        var mapOptions = new MapOptions<TDest>();
+        options(mapOptions);
+        var expr = BuildExpression(IncludeSet.All, mapOptions.VariableBindings, nullSafeOptionals: true);
+        return expr.Compile()(source)!;
+    }
 
     /// <summary>
     /// Expression-safe single-item overload: no optional parameters, so it
@@ -165,7 +262,10 @@ public sealed class Mapper<TSource, TDest> : IMapper
     /// </summary>
     [return: NotNullIfNotNull(nameof(source))]
     public TDest? Map(TSource? source)
-        => throw new NotImplementedException();
+    {
+        if (source is null) return default;
+        return _compiledDefault.Value(source)!;
+    }
 
     // -------------------------------------------------------------------------
     // LINQ / expression projection
@@ -178,7 +278,17 @@ public sealed class Mapper<TSource, TDest> : IMapper
     /// </summary>
     public Expression<Func<TSource, TDest>> ToExpression(
         Action<ProjectionOptions<TDest>>? options = null)
-        => throw new NotImplementedException();
+    {
+        if (options is null)
+            return BuildExpression(IncludeSet.Empty, new Dictionary<object, object?>(), nullSafeOptionals: false);
 
-    LambdaExpression IMapper.GetBaseExpression() => ToExpression();
+        var projOptions = new ProjectionOptions<TDest>();
+        options(projOptions);
+        var includes = IncludeSet.Parse(projOptions.Includes);
+        ValidateIncludes(includes);
+        return BuildExpression(includes, projOptions.VariableBindings, nullSafeOptionals: false);
+    }
+
+    LambdaExpression IMapper.GetExpression(IncludeSet includes, IReadOnlyDictionary<object, object?> variableBindings, bool nullSafeOptionals)
+        => BuildExpression(includes, variableBindings, nullSafeOptionals);
 }

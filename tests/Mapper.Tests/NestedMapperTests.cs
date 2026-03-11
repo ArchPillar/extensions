@@ -44,11 +44,11 @@ public class NestedMapperTests
     }
 
     // -----------------------------------------------------------------------
-    // Nested mapper optional properties are independent of parent's
+    // Nested mapper optional properties are always included for in-memory mapping
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void Map_NestedOptionalNotRequested_NullInNestedDto()
+    public void Map_NestedOptionalProperty_AlwaysPopulated()
     {
         var order = new Order
         {
@@ -58,11 +58,10 @@ public class NestedMapperTests
             Lines    = [new OrderLine { Id = 1, ProductName = "A", Quantity = 1, UnitPrice = 1m, SupplierName = "SupX" }],
         };
 
-        // Include top-level optional but NOT the nested one
-        var dto = _mappers.Order.Map(order, o => o.Include(m => m.CustomerName));
+        var dto = _mappers.Order.Map(order);
 
         Assert.Equal("Bob", dto!.CustomerName);
-        Assert.Null(dto.Lines[0].SupplierName);   // not requested
+        Assert.Equal("SupX", dto.Lines[0].SupplierName);
     }
 
     // -----------------------------------------------------------------------
@@ -114,6 +113,59 @@ public class NestedMapperTests
         Assert.Equal(2,    results[0].Lines.Count);
         Assert.Equal("P1", results[0].Lines[0].ProductName);
         Assert.Equal("P2", results[0].Lines[1].ProductName);
+    }
+
+    // -----------------------------------------------------------------------
+    // Declaration order does not matter — nested mappers are resolved lazily
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void Map_WithReverseDeclaredMappers_WorksCorrectly()
+    {
+        // ReverseOrderMappers declares Order BEFORE OrderLine — the opposite
+        // of dependency order.  This verifies that nested mapper inlining is
+        // deferred until first use rather than evaluated at build time.
+        var mappers = new ReverseOrderMappers();
+
+        var order = new Order
+        {
+            Id       = 1,
+            Status   = OrderStatus.Pending,
+            Customer = new Customer { Name = "Alice", Email = "" },
+            Lines    =
+            [
+                new OrderLine { Id = 1, ProductName = "Alpha", Quantity = 2, UnitPrice = 5.00m },
+                new OrderLine { Id = 2, ProductName = "Beta",  Quantity = 1, UnitPrice = 15.00m },
+            ],
+        };
+
+        var dto = mappers.Order.Map(order);
+
+        Assert.Equal(2,       dto!.Lines.Count);
+        Assert.Equal("Alpha", dto.Lines[0].ProductName);
+        Assert.Equal("Beta",  dto.Lines[1].ProductName);
+    }
+
+    [Fact]
+    public void Project_WithReverseDeclaredMappers_WorksCorrectly()
+    {
+        var mappers = new ReverseOrderMappers();
+
+        var orders = new[]
+        {
+            new Order
+            {
+                Id       = 1,
+                Status   = OrderStatus.Pending,
+                Customer = new Customer { Name = "Carol", Email = "" },
+                Lines    = [new OrderLine { Id = 1, ProductName = "P1", Quantity = 3, UnitPrice = 7m }],
+            },
+        }.AsQueryable();
+
+        var results = orders.Project(mappers.Order).ToList();
+
+        Assert.Single(results);
+        Assert.Equal("P1", results[0].Lines[0].ProductName);
     }
 
     [Fact]

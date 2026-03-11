@@ -87,6 +87,56 @@ public class VariableTests
     }
 
     // -----------------------------------------------------------------------
+    // Variable propagation into nested mappers
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void Map_VariablePropagatedToNestedMapper()
+    {
+        // User.Orders is optional — always included for in-memory mapping.
+        // The variable binding must propagate from the User Map call into the nested Order mapper.
+        var user = new User
+        {
+            Id = 1, FirstName = "Alice", LastName = "Smith", Email = "a@b.com",
+            Role = UserRole.Member, Address = new Address { Street = "1st", City = "NY", Country = "US" },
+            Orders =
+            [
+                new Order { Id = 10, Status = OrderStatus.Pending, OwnerId = 42, Customer = new Customer { Name = "", Email = "" }, Lines = [] },
+            ],
+        };
+
+        var dto = _mappers.User.Map(user, o => o
+            .Set(_mappers.CurrentUserId, 42));
+
+        Assert.True(dto!.Orders![0].IsOwner);
+    }
+
+    [Fact]
+    public void Project_VariablePropagatedToNestedMapper_ViaInclude()
+    {
+        var users = new[]
+        {
+            new User
+            {
+                Id = 1, FirstName = "Bob", LastName = "Jones", Email = "b@b.com",
+                Role = UserRole.Admin, Address = new Address { Street = "2nd", City = "LA", Country = "US" },
+                Orders =
+                [
+                    new Order { Id = 20, Status = OrderStatus.Shipped, OwnerId = 7, Customer = new Customer { Name = "", Email = "" }, Lines = [] },
+                ],
+            },
+        }.AsQueryable();
+
+        var results = users
+            .Project(_mappers.User, o => o
+                .Include(u => u.Orders)
+                .Set(_mappers.CurrentUserId, 7))
+            .ToList();
+
+        Assert.True(results[0].Orders![0].IsOwner);
+    }
+
+    // -----------------------------------------------------------------------
     // Variable identity — only the exact instance used at definition time works
     // -----------------------------------------------------------------------
 

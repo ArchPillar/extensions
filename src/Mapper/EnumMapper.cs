@@ -23,7 +23,7 @@ namespace ArchPillar.Mapper;
 /// <typeparam name="TSource">The source enum type.</typeparam>
 /// <typeparam name="TDest">The destination enum type.</typeparam>
 public sealed class EnumMapper<TSource, TDest>(Func<TSource, TDest> mappingMethod)
-    : IEnumMapper
+    : IMapper
     where TSource : struct, Enum
     where TDest   : struct, Enum
 {
@@ -43,7 +43,8 @@ public sealed class EnumMapper<TSource, TDest>(Func<TSource, TDest> mappingMetho
     public Expression<Func<TSource, TDest>> ToExpression()
         => _expression.Value;
 
-    LambdaExpression IEnumMapper.GetExpression() => ToExpression();
+    LambdaExpression IMapper.GetExpression(IncludeSet includes, IReadOnlyDictionary<object, object?> variableBindings, bool nullSafeOptionals)
+        => ToExpression();
 
     private static Expression<Func<TSource, TDest>> BuildExpression(Func<TSource, TDest> method)
     {

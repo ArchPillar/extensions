@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet test --no-restore)",
+      "Bash(dotnet build)",
+      "Bash(dotnet test --no-build)",
+      "Bash(dotnet test --filter \"FullyQualifiedName!~BuilderValidation\")",
+      "Bash(dotnet test)",
+      "Bash(dotnet build src/Mapper)",
+      "Bash(dotnet build --nologo -v q)",
+      "Bash(dotnet test --nologo -v q)",
+      "Bash(dotnet test --nologo -v q --filter \"Map_OptionalProperty_AlwaysPopulated\")",
+      "Bash(dotnet test --nologo --filter \"Map_OptionalProperty_AlwaysPopulated\" --logger \"console;verbosity=detailed\")"
+    ]
+  }
+}

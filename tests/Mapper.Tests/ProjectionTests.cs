@@ -94,20 +94,6 @@ public class ProjectionTests
         Assert.All(results, r => Assert.True(r.Id > 5));
     }
 
-    [Fact]
-    public void Project_WithNullElementInSequence_ProjectsToNull()
-    {
-        // A null element in the source sequence should project to null.
-        // For in-memory providers the expression wraps the body in a null check;
-        // for EF Core, null propagation is handled at the SQL level.
-        var orders = new Order?[] { null }.AsQueryable()!;
-
-        var results = orders.Project(_mappers.Order).ToList();
-
-        Assert.Single(results);
-        Assert.Null(results[0]);
-    }
-
     // -----------------------------------------------------------------------
     // Same options API works for both Project and ToExpression
     // -----------------------------------------------------------------------

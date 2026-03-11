@@ -1,3 +1,5 @@
+using System.Linq.Expressions;
+
 namespace ArchPillar.Mapper;
 
 /// <summary>
@@ -27,10 +29,12 @@ public static class MapperExtensions
     /// </code>
     /// </summary>
     public static IQueryable<TDest> Project<TSource, TDest>(
-        this IQueryable<TSource?> query,
+        this IQueryable<TSource> query,
         Mapper<TSource, TDest> mapper,
         Action<ProjectionOptions<TDest>>? options = null)
-        => throw new NotImplementedException();
+    {
+        return query.Select(mapper.ToExpression(options));
+    }
 
     // -------------------------------------------------------------------------
     // IEnumerable<T> — in-memory projection and expression-tree inlining
@@ -57,7 +61,10 @@ public static class MapperExtensions
     public static IEnumerable<TDest> Project<TSource, TDest>(
         this IEnumerable<TSource> source,
         Mapper<TSource, TDest> mapper)
-        => throw new NotImplementedException();
+    {
+        var compiled = mapper.ToExpression().Compile();
+        return source.Select(s => compiled(s)!);
+    }
 
     /// <summary>
     /// Projects each element of a sequence using the mapper, with optional-property
@@ -68,5 +75,7 @@ public static class MapperExtensions
         this IEnumerable<TSource> source,
         Mapper<TSource, TDest> mapper,
         Action<MapOptions<TDest>> options)
-        => throw new NotImplementedException();
+    {
+        return source.Select(s => mapper.Map(s, options)!);
+    }
 }
