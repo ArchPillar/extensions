@@ -82,7 +82,7 @@ public sealed class WebShopMappers : MapperContext
         {
             Id          = src.Id,
             FullName    = src.FirstName + " " + src.LastName,
-            Email       = src.User.Email!,
+            Email       = src.User.Email,
             PhoneNumber = src.PhoneNumber,
             TotalOrders = src.Orders.Count(),
             TotalSpent  = src.Orders.Sum(o => o.Lines.Sum(l => l.Quantity * l.UnitPrice)),
@@ -92,11 +92,11 @@ public sealed class WebShopMappers : MapperContext
         User = CreateMapper<WebShopUser, UserProjection>(src => new UserProjection
         {
             Id        = src.Id,
-            Email     = src.Email!,
+            Email     = src.Email,
             Role      = src.Role,
             CreatedAt = src.CreatedAt,
         })
-        .Optional(p => p.Profile, src => Customer.Map(src.Customer!))
+        .Optional(p => p.Profile, src => Customer.Map(src.Customer))
         .Build();
 
         EagerBuildAll();

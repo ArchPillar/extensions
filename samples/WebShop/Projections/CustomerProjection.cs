@@ -12,7 +12,7 @@ public sealed class CustomerProjection
     public required string FullName { get; set; }
 
     /// <summary>Email flattened from the <c>User</c> navigation property.</summary>
-    public required string Email { get; set; }
+    public required string? Email { get; set; }
 
     public string? PhoneNumber { get; set; }
 
