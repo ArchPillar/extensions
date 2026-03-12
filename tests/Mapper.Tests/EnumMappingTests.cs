@@ -9,12 +9,12 @@ public class EnumMappingTests
     // -----------------------------------------------------------------------
 
     [Theory]
-    [InlineData(OrderStatus.Pending,   OrderStatusDto.Pending)]
-    [InlineData(OrderStatus.Shipped,   OrderStatusDto.Shipped)]
+    [InlineData(OrderStatus.Pending, OrderStatusDto.Pending)]
+    [InlineData(OrderStatus.Shipped, OrderStatusDto.Shipped)]
     [InlineData(OrderStatus.Cancelled, OrderStatusDto.Cancelled)]
     public void Map_AllEnumValues_MapsCorrectly(OrderStatus input, OrderStatusDto expected)
     {
-        var result = _mappers.OrderStatusMapper.Map(input);
+        OrderStatusDto result = _mappers.OrderStatusMapper.Map(input);
 
         Assert.Equal(expected, result);
     }
@@ -24,13 +24,13 @@ public class EnumMappingTests
     // -----------------------------------------------------------------------
 
     [Theory]
-    [InlineData(OrderStatus.Pending,   OrderStatusDto.Pending)]
-    [InlineData(OrderStatus.Shipped,   OrderStatusDto.Shipped)]
+    [InlineData(OrderStatus.Pending, OrderStatusDto.Pending)]
+    [InlineData(OrderStatus.Shipped, OrderStatusDto.Shipped)]
     [InlineData(OrderStatus.Cancelled, OrderStatusDto.Cancelled)]
     public void ToExpression_CompiledDelegate_MapsCorrectly(OrderStatus input, OrderStatusDto expected)
     {
         var expr = _mappers.OrderStatusMapper.ToExpression();
-        var func = expr.Compile();
+        Func<OrderStatus, OrderStatusDto> func = expr.Compile();
 
         Assert.Equal(expected, func(input));
     }
@@ -52,8 +52,8 @@ public class EnumMappingTests
     // -----------------------------------------------------------------------
 
     [Theory]
-    [InlineData(OrderStatus.Pending,   OrderStatusDto.Pending)]
-    [InlineData(OrderStatus.Shipped,   OrderStatusDto.Shipped)]
+    [InlineData(OrderStatus.Pending, OrderStatusDto.Pending)]
+    [InlineData(OrderStatus.Shipped, OrderStatusDto.Shipped)]
     [InlineData(OrderStatus.Cancelled, OrderStatusDto.Cancelled)]
     public void Map_EnumInlinedInParentMapper_MapsCorrectly(OrderStatus input, OrderStatusDto expected)
     {
@@ -61,14 +61,15 @@ public class EnumMappingTests
         {
             Id       = 1,
             Status   = input,
-            Customer = new Customer {
+            Customer = new Customer
+            {
                 Name = "Test",
                 Email = "test@test.com",
             },
             Lines    = [],
         };
 
-        var dto = _mappers.Order.Map(order);
+        OrderDto? dto = _mappers.Order.Map(order);
 
         Assert.Equal(expected, dto!.Status);
     }
@@ -78,15 +79,15 @@ public class EnumMappingTests
     // -----------------------------------------------------------------------
 
     [Theory]
-    [InlineData(OrderStatus.Pending,   OrderStatusDto.Pending)]
-    [InlineData(OrderStatus.Shipped,   OrderStatusDto.Shipped)]
+    [InlineData(OrderStatus.Pending, OrderStatusDto.Pending)]
+    [InlineData(OrderStatus.Shipped, OrderStatusDto.Shipped)]
     [InlineData(OrderStatus.Cancelled, OrderStatusDto.Cancelled)]
     public void Project_EnumInlinedInProjection_MapsCorrectly(OrderStatus input, OrderStatusDto expected)
     {
-        var orders = new[] { new Order { Id = 1, Status = input, Customer = new() { Name = "Test", Email = "test@test.com" }, Lines = [] } }
+        IQueryable<Order> orders = new[] { new Order { Id = 1, Status = input, Customer = new() { Name = "Test", Email = "test@test.com" }, Lines = [] } }
             .AsQueryable();
 
-        var result = orders.Project(_mappers.Order).Single();
+        OrderDto result = orders.Project(_mappers.Order).Single();
 
         Assert.Equal(expected, result.Status);
     }

@@ -27,7 +27,7 @@ internal sealed class IncludeSet
     public static IncludeSet Parse(IReadOnlyList<IncludeEntry> entries)
     {
         var result = new IncludeSet();
-        foreach (var entry in entries)
+        foreach (IncludeEntry entry in entries)
         {
             switch (entry)
             {
@@ -37,11 +37,15 @@ internal sealed class IncludeSet
 
                 case NestedInclude c:
                     result.Names.Add(c.MemberName);
-                    var child = Parse(c.NestedEntries);
-                    if (result.Nested.TryGetValue(c.MemberName, out var existing))
+                    IncludeSet child = Parse(c.NestedEntries);
+                    if (result.Nested.TryGetValue(c.MemberName, out IncludeSet? existing))
+                    {
                         existing.MergeFrom(child);
+                    }
                     else
+                    {
                         result.Nested[c.MemberName] = child;
+                    }
                     break;
 
                 case StringPathInclude { Path: var p }:
@@ -62,7 +66,9 @@ internal sealed class IncludeSet
     {
         var result = new IncludeSet();
         foreach (var path in paths)
+        {
             AddStringPath(result, path);
+        }
         return result;
     }
 
@@ -73,27 +79,33 @@ internal sealed class IncludeSet
     public void MergeFrom(IncludeSet other)
     {
         foreach (var name in other.Names)
-            Names.Add(name);
-
-        foreach (var (name, nested) in other.Nested)
         {
-            if (Nested.TryGetValue(name, out var existing))
-                existing.MergeFrom(nested);
+            Names.Add(name);
+        }
+
+        foreach (KeyValuePair<string, IncludeSet> kvp in other.Nested)
+        {
+            if (Nested.TryGetValue(kvp.Key, out IncludeSet? existing))
+            {
+                existing.MergeFrom(kvp.Value);
+            }
             else
-                Nested[name] = nested;
+            {
+                Nested[kvp.Key] = kvp.Value;
+            }
         }
     }
 
     private static void AddStringPath(IncludeSet set, string path)
     {
         var segments = path.Split('.');
-        var current = set;
+        IncludeSet current = set;
         for (var i = 0; i < segments.Length; i++)
         {
             current.Names.Add(segments[i]);
             if (i < segments.Length - 1)
             {
-                if (!current.Nested.TryGetValue(segments[i], out var child))
+                if (!current.Nested.TryGetValue(segments[i], out IncludeSet? child))
                 {
                     child = new IncludeSet();
                     current.Nested[segments[i]] = child;

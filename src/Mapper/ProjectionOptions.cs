@@ -5,7 +5,7 @@ namespace ArchPillar.Mapper;
 
 /// <summary>
 /// Configures a LINQ projection produced by
-/// <see cref="MapperQueryableExtensions.Project{TSource,TDest}"/> or
+/// <see cref="MapperExtensions.Project{TSource,TDest}(IQueryable{TSource},Mapper{TSource,TDest},Action{ProjectionOptions{TDest}})"/> or
 /// <see cref="Mapper{TSource,TDest}.ToExpression"/>.
 /// Extends <see cref="MapOptions{TDest}"/> with the ability to bind
 /// <see cref="Variable{T}"/> values.
@@ -68,7 +68,9 @@ public sealed class ProjectionOptions<TDest>
     private static string ExtractMemberName<TValue>(Expression<Func<TDest, TValue>> expression)
     {
         if (expression.Body is MemberExpression member)
+        {
             return member.Member.Name;
+        }
         throw new ArgumentException(
             $"Expression must be a simple property access, but got: {expression.Body.NodeType}.",
             nameof(expression));

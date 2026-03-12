@@ -23,7 +23,12 @@
       "Bash(dotnet run -c Release --project benchmarks/Mapper.Benchmarks -- --filter \"*Nested10*\" --job Dry)",
       "Bash(dotnet run -c Release --project benchmarks/Mapper.Benchmarks -- --filter \"*List*\" --filter \"*Array*\" --filter \"*Baseline*\")",
       "Bash(dotnet run -c Release --project benchmarks/Mapper.Benchmarks -- --filter \"*Collection*\" --filter \"*Baseline*\")",
-      "Bash(dotnet run -c Release --project benchmarks/Mapper.Benchmarks -- --filter \"*Baseline*\")"
+      "Bash(dotnet run -c Release --project benchmarks/Mapper.Benchmarks -- --filter \"*Baseline*\")",
+      "Bash(find /d/source/github/tibold/mapper -type f -name *.csproj -o -name *.sln -o -name *.props -o -name .editorconfig -o -name Directory.Build.props)",
+      "Bash(xargs wc:*)",
+      "Bash(dotnet test:*)",
+      "Bash(dotnet build:*)",
+      "Bash(dotnet format:*)"
     ]
   }
 }

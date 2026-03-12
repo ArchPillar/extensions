@@ -10,24 +10,28 @@ namespace ArchPillar.Mapper;
 /// <typeparamref name="TDest"/>. Instances are created via
 /// <see cref="MapperContext.CreateMapper{TSource,TDest}"/> and should be held
 /// as properties on a <see cref="MapperContext"/> subclass.
-///
+/// <para>
 /// The same configuration drives both in-memory object mapping (compiled
 /// delegate) and LINQ expression projection (expression tree).
-///
+/// </para>
+/// <para>
 /// <b>Nesting inside parent mapper expressions:</b>
-///
+/// </para>
+/// <para>
 /// For a single nested object, call <see cref="Map(TSource)"/> (the
 /// expression-safe, no-options overload) — the expression visitor detects
-/// the call and inline this mapper's expression tree into the parent:
+/// the call and inlines this mapper's expression tree into the parent:
+/// </para>
 /// <code>
 /// Order = CreateMapper&lt;Order, OrderDto&gt;(src => new OrderDto
 /// {
 ///     Customer = CustomerMapper.Map(src.Customer),
 /// });
 /// </code>
-///
+/// <para>
 /// For nested collections, use the <c>IEnumerable&lt;T&gt;.Project(mapper)</c>
 /// extension — also detected and inlined by the visitor:
+/// </para>
 /// <code>
 /// Order = CreateMapper&lt;Order, OrderDto&gt;(src => new OrderDto
 /// {
@@ -35,10 +39,11 @@ namespace ArchPillar.Mapper;
 ///     Tags  = src.Tags.Project(TagMapper).ToHashSet(),
 /// });
 /// </code>
-///
+/// <para>
 /// For dictionaries, use <c>ToDictionary</c> with an inline construction
 /// expression (nested mapper inlining is not supported inside
 /// <c>ToDictionary</c> lambdas):
+/// </para>
 /// <code>
 ///     LookupById = src.Items.ToDictionary(i => i.Id, i => new ItemDto { Name = i.Name }),
 /// </code>
@@ -80,32 +85,34 @@ public sealed class Mapper<TSource, TDest> : IMapper
         IReadOnlyDictionary<object, object?>    variableBindings,
         bool                                    nullSafeOptionals)
     {
-        var sourceParam = Expression.Parameter(typeof(TSource), "src");
+        ParameterExpression sourceParam = Expression.Parameter(typeof(TSource), "src");
         var replacer    = new VariableReplacer(new Dictionary<object, object?>(variableBindings));
 
         var bindings = new List<MemberBinding>();
-        foreach (var mapping in _allMappings)
+        foreach (PropertyMapping mapping in _allMappings)
         {
             if (mapping.Kind == MappingKind.Optional
                 && !includes.IncludeAll
                 && !includes.Names.Contains(mapping.Destination.Name))
+            {
                 continue;
+            }
 
             Expression body;
 
             if (mapping.NestedMapperAccessor != null)
             {
                 // Resolve cascaded includes for this nested mapper.
-                var nestedIncludes = includes.IncludeAll
+                IncludeSet nestedIncludes = includes.IncludeAll
                     ? IncludeSet.All
                     : includes.Nested.GetValueOrDefault(mapping.Destination.Name, IncludeSet.Empty);
 
                 // Ask the nested mapper for its expression with the cascaded includes.
-                var nestedMapper = mapping.NestedMapperAccessor();
-                var nestedLambda = nestedMapper.GetExpression(nestedIncludes, variableBindings, nullSafeOptionals);
+                IMapper nestedMapper = mapping.NestedMapperAccessor();
+                LambdaExpression nestedLambda = nestedMapper.GetExpression(nestedIncludes, variableBindings, nullSafeOptionals);
 
                 // Replace the NestedSourceAccess parameter with the current source parameter.
-                var accessBody = new ParameterReplacer(mapping.NestedSourceAccess!.Parameters[0], sourceParam)
+                Expression? accessBody = new ParameterReplacer(mapping.NestedSourceAccess!.Parameters[0], sourceParam)
                                      .Visit(mapping.NestedSourceAccess.Body);
                 accessBody = replacer.Visit(accessBody);
 
@@ -128,9 +135,9 @@ public sealed class Mapper<TSource, TDest> : IMapper
                 else
                 {
                     // Collection: build Enumerable.Select(sourceAccess, nestedLambda).ToList() etc.
-                    var srcType  = nestedLambda.Parameters[0].Type;
-                    var destType = nestedLambda.ReturnType;
-                    var selectCall = Expression.Call(
+                    Type srcType  = nestedLambda.Parameters[0].Type;
+                    Type destType = nestedLambda.ReturnType;
+                    MethodCallExpression selectCall = Expression.Call(
                         EnumerableSelectMethod.MakeGenericMethod(srcType, destType),
                         accessBody,
                         nestedLambda);
@@ -149,7 +156,7 @@ public sealed class Mapper<TSource, TDest> : IMapper
             bindings.Add(Expression.Bind(mapping.Destination, body));
         }
 
-        var memberInit = Expression.MemberInit(Expression.New(typeof(TDest)), bindings);
+        MemberInitExpression memberInit = Expression.MemberInit(Expression.New(typeof(TDest)), bindings);
         return Expression.Lambda<Func<TSource, TDest>>(memberInit, sourceParam);
     }
 
@@ -160,33 +167,48 @@ public sealed class Mapper<TSource, TDest> : IMapper
     /// </summary>
     private static Expression WrapCollection(Expression selectCall, MemberInfo dest, Type elementType)
     {
-        var destType = dest switch
+        Type? destType = dest switch
         {
             PropertyInfo pi => pi.PropertyType,
             FieldInfo    fi => fi.FieldType,
             _               => null,
         };
 
-        if (destType == null) return selectCall;
+        if (destType == null)
+        {
+            return selectCall;
+        }
 
         string? methodName = null;
         if (destType.IsGenericType)
         {
-            var def = destType.GetGenericTypeDefinition();
-            if (def == typeof(List<>))                methodName = "ToList";
-            else if (def == typeof(HashSet<>))        methodName = "ToHashSet";
+            Type def = destType.GetGenericTypeDefinition();
+            if (def == typeof(List<>))
+            {
+                methodName = "ToList";
+            }
+            else if (def == typeof(HashSet<>))
+            {
+                methodName = "ToHashSet";
+            }
             else if (def == typeof(IList<>)
                   || def == typeof(ICollection<>)
-                  || def == typeof(IEnumerable<>))    methodName = null; // no wrapping needed
+                  || def == typeof(IEnumerable<>))
+            {
+                methodName = null;
+            }
         }
         else if (destType.IsArray)
         {
             methodName = "ToArray";
         }
 
-        if (methodName == null) return selectCall;
+        if (methodName == null)
+        {
+            return selectCall;
+        }
 
-        var method = typeof(Enumerable)
+        MethodInfo method = typeof(Enumerable)
             .GetMethod(methodName, BindingFlags.Public | BindingFlags.Static, [typeof(IEnumerable<>).MakeGenericType(elementType)])
             ?? typeof(Enumerable)
                .GetMethods(BindingFlags.Public | BindingFlags.Static)
@@ -210,21 +232,16 @@ public sealed class Mapper<TSource, TDest> : IMapper
         foreach (var name in includes.Names)
         {
             if (!_allMappings.Any(m => m.Destination.Name == name))
+            {
                 throw new InvalidOperationException($"Unknown optional property: '{name}'");
+            }
         }
 
-        foreach (var (name, nested) in includes.Nested)
+        foreach (var name in includes.Nested.Keys)
         {
-            var mapping = _allMappings.FirstOrDefault(m => m.Destination.Name == name);
-            if (mapping?.NestedMapperAccessor != null)
+            if (!_allMappings.Any(m => m.Destination.Name == name))
             {
-                // Cascade validation into the nested mapper.
-                var nestedMapper = mapping.NestedMapperAccessor();
-                if (nestedMapper is Mapper<TSource, TDest>)
-                    continue; // same type — would recurse, skip
-                // We can't call ValidateIncludes on the nested mapper directly
-                // because it's a different generic type. Validation will happen
-                // when BuildExpression processes the nested mapper.
+                throw new InvalidOperationException($"Unknown optional property: '{name}'");
             }
         }
     }
@@ -237,18 +254,26 @@ public sealed class Mapper<TSource, TDest> : IMapper
     /// Maps a single source instance to a new destination instance.
     /// Returns <see langword="null"/> when <paramref name="source"/> is
     /// <see langword="null"/>.
-    ///
+    /// <para>
     /// Use this overload at call sites outside expression trees.
+    /// </para>
     /// </summary>
     [return: NotNullIfNotNull(nameof(source))]
     public TDest? Map(TSource? source, Action<MapOptions<TDest>>? options = null)
     {
-        if (source is null) return default;
-        if (options is null) return _compiledDefault.Value(source)!;
+        if (source is null)
+        {
+            return default;
+        }
+
+        if (options is null)
+        {
+            return _compiledDefault.Value(source)!;
+        }
 
         var mapOptions = new MapOptions<TDest>();
         options(mapOptions);
-        var expr = BuildExpression(IncludeSet.All, mapOptions.VariableBindings, nullSafeOptionals: true);
+        Expression<Func<TSource, TDest>> expr = BuildExpression(IncludeSet.All, mapOptions.VariableBindings, nullSafeOptionals: true);
         return expr.Compile()(source)!;
     }
 
@@ -257,14 +282,19 @@ public sealed class Mapper<TSource, TDest> : IMapper
     /// can appear inside parent mapper member-init expressions and inside
     /// lambdas passed to <c>ToDictionary</c>, <c>Where</c>, etc.
     /// The expression visitor inlines this mapper's expression at build time.
-    ///
+    /// <para>
     /// Accepts a nullable source; returns <see langword="null"/> when
     /// <paramref name="source"/> is <see langword="null"/>.
+    /// </para>
     /// </summary>
     [return: NotNullIfNotNull(nameof(source))]
     public TDest? Map(TSource? source)
     {
-        if (source is null) return default;
+        if (source is null)
+        {
+            return default;
+        }
+
         return _compiledDefault.Value(source)!;
     }
 
@@ -281,7 +311,9 @@ public sealed class Mapper<TSource, TDest> : IMapper
         Action<ProjectionOptions<TDest>>? options = null)
     {
         if (options is null)
+        {
             return BuildExpression(IncludeSet.Empty, new Dictionary<object, object?>(), nullSafeOptionals: false);
+        }
 
         var projOptions = new ProjectionOptions<TDest>();
         options(projOptions);

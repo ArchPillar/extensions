@@ -1,5 +1,3 @@
-using System.Linq.Expressions;
-
 namespace ArchPillar.Mapper.Tests;
 
 public class ProjectionTests
@@ -24,16 +22,16 @@ public class ProjectionTests
         var order = new Order
         {
             Id        = 7,
-            CreatedAt = new DateTime(2025, 6, 1),
+            CreatedAt = new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc),
             Status    = OrderStatus.Pending,
             Customer  = new Customer { Name = "Frank", Email = "" },
             Lines     = [],
         };
 
-        var dto = _mappers.Order.ToExpression().Compile()(order);
+        OrderDto dto = _mappers.Order.ToExpression().Compile()(order);
 
         Assert.Equal(7, dto.Id);
-        Assert.Equal(new DateTime(2025, 6, 1), dto.PlacedAt);
+        Assert.Equal(new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc), dto.PlacedAt);
     }
 
     [Fact]
@@ -47,7 +45,7 @@ public class ProjectionTests
             Lines    = [],
         };
 
-        var dto = _mappers.Order
+        OrderDto dto = _mappers.Order
             .ToExpression(o => o.Include(m => m.CustomerName))
             .Compile()(order);
 
@@ -61,10 +59,10 @@ public class ProjectionTests
     [Fact]
     public void Project_ReturnsProjectedQueryable()
     {
-        var orders = new[]
+        IQueryable<Order> orders = new[]
         {
-            new Order { Id = 1, CreatedAt = new DateTime(2025, 1, 1), Status = OrderStatus.Pending, Customer = new Customer { Name = "", Email = "" }, Lines = [] },
-            new Order { Id = 2, CreatedAt = new DateTime(2025, 3, 1), Status = OrderStatus.Shipped, Customer = new Customer { Name = "", Email = "" }, Lines = [] },
+            new Order { Id = 1, CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc), Status = OrderStatus.Pending, Customer = new Customer { Name = "", Email = "" }, Lines = [] },
+            new Order { Id = 2, CreatedAt = new DateTime(2025, 3, 1, 0, 0, 0, DateTimeKind.Utc), Status = OrderStatus.Shipped, Customer = new Customer { Name = "", Email = "" }, Lines = [] },
         }.AsQueryable();
 
         var results = orders.Project(_mappers.Order).ToList();
@@ -81,7 +79,7 @@ public class ProjectionTests
     {
         // Project must return IQueryable<TDest>, not IEnumerable — further
         // Where/OrderBy/Take must compose without materialising early.
-        var orders = Enumerable.Range(1, 10)
+        IQueryable<Order> orders = Enumerable.Range(1, 10)
             .Select(i => new Order { Id = i, Status = OrderStatus.Pending, Customer = new Customer { Name = "", Email = "" }, Lines = [] })
             .AsQueryable();
 
@@ -101,7 +99,7 @@ public class ProjectionTests
     [Fact]
     public void Project_WithIncludeAndSet_AppliesBoth()
     {
-        var orders = new[]
+        IQueryable<Order> orders = new[]
         {
             new Order { Id = 1, Status = OrderStatus.Pending, OwnerId = 42, Customer = new Customer { Name = "Hank", Email = "" }, Lines = [] },
         }.AsQueryable();
@@ -123,7 +121,7 @@ public class ProjectionTests
     [Fact]
     public void ProjectEnumerable_MapsAllElements()
     {
-        var orders = new[]
+        Order[] orders = new[]
         {
             new Order { Id = 1, Status = OrderStatus.Pending, Customer = new Customer { Name = "A", Email = "" }, Lines = [] },
             new Order { Id = 2, Status = OrderStatus.Shipped, Customer = new Customer { Name = "B", Email = "" }, Lines = [] },
@@ -139,7 +137,7 @@ public class ProjectionTests
     [Fact]
     public void ProjectEnumerable_WithOptions_AppliesVariableBindings()
     {
-        var orders = new[]
+        Order[] orders = new[]
         {
             new Order { Id = 1, Status = OrderStatus.Pending, OwnerId = 99, Customer = new Customer { Name = "X", Email = "" }, Lines = [] },
         };
@@ -158,7 +156,7 @@ public class ProjectionTests
     [Fact]
     public void Project_WithNestedInclude_CascadesToChildMapper()
     {
-        var orders = new[]
+        IQueryable<Order> orders = new[]
         {
             new Order
             {
@@ -192,7 +190,7 @@ public class ProjectionTests
     [Fact]
     public void Project_WithStringPathInclude_CascadesToChildMapper()
     {
-        var orders = new[]
+        IQueryable<Order> orders = new[]
         {
             new Order
             {
@@ -223,7 +221,7 @@ public class ProjectionTests
     [Fact]
     public void Project_WithoutInclude_OptionalPropertyIsDefault()
     {
-        var orders = new[]
+        IQueryable<Order> orders = new[]
         {
             new Order
             {

@@ -13,7 +13,7 @@ public class CollectionWrappingTests
         var mappers = new CollectionMapperContext();
         var src = new CollectionSource { Items = [new Item { Name = "A" }, new Item { Name = "B" }] };
 
-        var dto = mappers.ToListMapper.Map(src);
+        ListDest? dto = mappers.ToListMapper.Map(src);
 
         Assert.IsType<List<ItemDto>>(dto!.Items);
         Assert.Equal(2, dto.Items.Count);
@@ -26,7 +26,7 @@ public class CollectionWrappingTests
         var mappers = new CollectionMapperContext();
         var src = new CollectionSource { Items = [new Item { Name = "X" }, new Item { Name = "Y" }] };
 
-        var dto = mappers.ToArrayMapper.Map(src);
+        ArrayDest? dto = mappers.ToArrayMapper.Map(src);
 
         Assert.IsType<ItemDto[]>(dto!.Items);
         Assert.Equal(2, dto.Items.Length);
@@ -39,7 +39,7 @@ public class CollectionWrappingTests
         var mappers = new CollectionMapperContext();
         var src = new CollectionSource { Items = [new Item { Name = "P" }, new Item { Name = "Q" }] };
 
-        var dto = mappers.ToHashSetMapper.Map(src);
+        HashSetDest? dto = mappers.ToHashSetMapper.Map(src);
 
         Assert.IsType<HashSet<ItemDto>>(dto!.Items);
         Assert.Equal(2, dto.Items.Count);
@@ -49,7 +49,7 @@ public class CollectionWrappingTests
     public void Project_CollectionToList_ProducesListResult()
     {
         var mappers = new CollectionMapperContext();
-        var sources = new[] { new CollectionSource { Items = [new Item { Name = "A" }] } }.AsQueryable();
+        IQueryable<CollectionSource> sources = new[] { new CollectionSource { Items = [new Item { Name = "A" }] } }.AsQueryable();
 
         var results = sources.Select(mappers.ToListMapper.ToExpression()).ToList();
 
@@ -61,7 +61,7 @@ public class CollectionWrappingTests
     public void Project_CollectionToArray_ProducesArrayResult()
     {
         var mappers = new CollectionMapperContext();
-        var sources = new[] { new CollectionSource { Items = [new Item { Name = "A" }] } }.AsQueryable();
+        IQueryable<CollectionSource> sources = new[] { new CollectionSource { Items = [new Item { Name = "A" }] } }.AsQueryable();
 
         var results = sources.Select(mappers.ToArrayMapper.ToExpression()).ToList();
 
@@ -73,7 +73,7 @@ public class CollectionWrappingTests
     public void Project_CollectionToHashSet_ProducesHashSetResult()
     {
         var mappers = new CollectionMapperContext();
-        var sources = new[] { new CollectionSource { Items = [new Item { Name = "A" }] } }.AsQueryable();
+        IQueryable<CollectionSource> sources = new[] { new CollectionSource { Items = [new Item { Name = "A" }] } }.AsQueryable();
 
         var results = sources.Select(mappers.ToHashSetMapper.ToExpression()).ToList();
 

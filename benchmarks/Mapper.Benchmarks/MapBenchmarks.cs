@@ -1,5 +1,4 @@
 using BenchmarkDotNet.Attributes;
-using ArchPillar.Mapper;
 
 namespace ArchPillar.Mapper.Benchmarks;
 
@@ -174,7 +173,7 @@ public class BenchmarkMappers : MapperContext
     public BenchmarkMappers()
     {
         // --- Scalar ---
-        Empty = CreateMapper<EmptySource, EmptyDest>(s => new EmptyDest());
+        Empty = CreateMapper<EmptySource, EmptyDest>(_ => new EmptyDest());
 
         SingleProp = CreateMapper<SinglePropSource, SinglePropDest>(s => new SinglePropDest
         {
@@ -193,7 +192,7 @@ public class BenchmarkMappers : MapperContext
         });
 
         // --- Collections ---
-        EmptyItem = CreateMapper<EmptySource, EmptyDest>(s => new EmptyDest());
+        EmptyItem = CreateMapper<EmptySource, EmptyDest>(_ => new EmptyDest());
 
         ListCollection = CreateMapper<ListCollectionSource, ListCollectionDest>(s => new ListCollectionDest
         {
@@ -221,7 +220,7 @@ public class BenchmarkMappers : MapperContext
         });
 
         // --- Nested empty ---
-        NestedEmptyChild = CreateMapper<NestedEmptyChild, NestedEmptyChildDto>(s => new NestedEmptyChildDto());
+        NestedEmptyChild = CreateMapper<NestedEmptyChild, NestedEmptyChildDto>(_ => new NestedEmptyChildDto());
 
         NestedEmpty = CreateMapper<NestedEmptySource, NestedEmptyDest>(s => new NestedEmptyDest
         {

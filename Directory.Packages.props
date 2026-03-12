@@ -1,0 +1,32 @@
+<Project>
+    <PropertyGroup>
+        <!-- Enable central package management, https://learn.microsoft.com/en-us/nuget/consume-packages/Central-Package-Management -->
+        <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+        <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="9.0.14" />
+    </ItemGroup>
+    <ItemGroup>
+        <!--Brixter private packages-->
+        <PackageVersion Include="Brixter.Extensions.AspNetCore.OpenApi" Version="0.4.6" />
+    </ItemGroup>
+    <ItemGroup>
+        <!-- Analyzers -->
+        <PackageVersion Include="Roslynator.Analyzers" Version="4.15.0" />
+        <PackageVersion Include="Roslynator.Formatting.Analyzers" Version="4.15.0" />
+        <PackageVersion Include="SecurityCodeScan.VS2019" Version="5.6.7" />
+        <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.20.0.135146" />
+    </ItemGroup>
+    <ItemGroup>
+        <!-- Testing -->
+        <PackageVersion Include="coverlet.collector" Version="8.0.0" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.14" />
+        <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
+        <PackageVersion Include="xunit" Version="2.9.3" />
+        <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+        <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
+        <PackageVersion Include="BenchmarkDotNet.Annotations" Version="0.15.8" />
+        <!-- End of Testing -->
+    </ItemGroup>
+</Project>

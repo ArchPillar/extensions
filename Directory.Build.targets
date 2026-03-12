@@ -1,0 +1,32 @@
+<Project>
+    <PropertyGroup>
+        <EnforceCodeStyleInBuild>True</EnforceCodeStyleInBuild>
+        <RunAnalyzersDuringBuild Condition="'$(RunAnalyzersDuringBuild)' == '' AND '$(Configuration)' != 'Release' AND '$(BuildingInsideVisualStudio)' == 'true'">false</RunAnalyzersDuringBuild>
+        <RunCodeAnalysis Condition="'$(RunCodeAnalysis)' == '' AND '$(_IsPublishing)' == 'true'">false</RunCodeAnalysis>
+        <RunCodeAnalysis Condition="'$(RunCodeAnalysis)' == '' AND '$(WatcherBuild)' == 'true'">false</RunCodeAnalysis>
+        <ReportAnalyzer Condition="'$(Configuration)' != 'Release'">false</ReportAnalyzer>
+    </PropertyGroup>
+
+    <!--Code analyzers-->
+    <ItemGroup Condition="'$(RunCodeAnalysis)' != 'false'">
+        <!-- This is now built-in. Left here for the note only -->
+        <!-- <PackageReference Include="SecurityCodeScan.VS2019">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+        </PackageReference> -->
+        <PackageReference Include="Roslynator.Analyzers">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Roslynator.Formatting.Analyzers">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="SonarAnalyzer.CSharp">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
+        </PackageReference>
+        <!--Consider using StyleCop in the future. They have good docs.-->
+        <!--<PackageReference Include="StyleCop.Analyzers" Version="1.1.118" PrivateAssets="All" />-->
+    </ItemGroup>
+</Project>

@@ -13,7 +13,7 @@ public class BuilderDeduplicationTests
         var context = new DeduplicationContext();
         var src = new DeduplicationSource { FirstName = "Alice", LastName = "Smith" };
 
-        var dto = context.Mapper.Map(src);
+        DeduplicationDest? dto = context.Mapper.Map(src);
 
         // The fluent .Map() overrides the member-init for FullName
         Assert.Equal("Smith, Alice", dto!.FullName);
@@ -25,7 +25,7 @@ public class BuilderDeduplicationTests
         var context = new DeduplicationContext();
         var src = new DeduplicationSource { FirstName = "Alice", LastName = "Smith" };
 
-        var dto = context.DoubleOverrideMapper.Map(src);
+        DeduplicationDest? dto = context.DoubleOverrideMapper.Map(src);
 
         // Second .Map() overrides the first
         Assert.Equal("ALICE", dto!.FullName);
@@ -37,7 +37,7 @@ public class BuilderDeduplicationTests
         // A nullable value-type property (int?) should not require explicit mapping
         var context = new NullableValueTypeContext();
 
-        var exception = Record.Exception(() => context.Build());
+        Exception? exception = Record.Exception(() => context.Build());
         Assert.Null(exception);
     }
 
@@ -47,7 +47,7 @@ public class BuilderDeduplicationTests
         var context = new NullableValueTypeContext();
         var src = new NullableSource { Name = "Test" };
 
-        var dto = context.Build().Map(src);
+        NullableDest? dto = context.Build().Map(src);
 
         Assert.Equal("Test", dto!.Name);
         Assert.Null(dto.Score);
@@ -61,7 +61,7 @@ public class BuilderDeduplicationTests
 file class DeduplicationSource
 {
     public required string FirstName { get; set; }
-    public required string LastName  { get; set; }
+    public required string LastName { get; set; }
 }
 
 file class DeduplicationDest
@@ -99,8 +99,8 @@ file class NullableSource
 
 file class NullableDest
 {
-    public required string Name  { get; set; }
-    public int?            Score { get; set; }
+    public required string Name { get; set; }
+    public int? Score { get; set; }
 }
 
 file class NullableValueTypeContext : MapperContext

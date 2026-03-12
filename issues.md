@@ -1,18 +1,6 @@
 # Potential Issues
 
-## 1. ~~NestedMapperDetector / NestedMapperInliner rely on mapper instances existing at Build() time~~ SOLVED
-
-`NestedMapperDetector` now compiles a deferred `Func<IMapper>` accessor instead of eagerly extracting the mapper instance. `NestedMapperInliner` was deleted entirely — nested mappers are resolved via `IMapper.GetExpression` at expression-build time, not at builder-build time. Declaration order no longer matters (verified by `ReverseOrderMappers` tests).
-
----
-
-## 2. ~~Variable bindings are not propagated to nested mappers during cascaded optional includes~~ SOLVED
-
-`IMapper.GetExpression` now accepts `IReadOnlyDictionary<object, object?> variableBindings` and `BuildExpression` forwards the parent's variable bindings to nested mappers. Variables like `CurrentUserId` now resolve correctly at any nesting depth (verified by `Map_VariablePropagatedToNestedMapper_ViaInclude` and `Project_VariablePropagatedToNestedMapper_ViaInclude` tests).
-
----
-
-## 3. Map/Project with options recompiles the expression on every call — no caching
+## 1. Map/Project with options recompiles the expression on every call — no caching
 
 **Severity**: Performance — potentially significant in hot paths
 
@@ -24,49 +12,7 @@ Only the default (no-options) path benefits from the `Lazy<>` cache in `_compile
 
 ---
 
-## 4. ~~String path resolution only supports 2-level deep paths~~ SOLVED
-
-`ResolveStringPath` was deleted. String paths are now decomposed into a recursive `IncludeSet` tree by `IncludeSet.AddStringPath`, which naturally supports arbitrary depth. Each segment becomes a name at the corresponding level; intermediate segments create nested `IncludeSet` entries automatically.
-
----
-
-## 5. ~~EagerBuild option has no effect — `EagerBuildAll()` is never called automatically~~ SOLVED
-
-`MapperContextOptions` was removed. `EagerBuildAll()` remains as a protected method on `MapperContext` that subclasses call explicitly at the end of their constructor when eager compilation is desired (e.g. `public EagerTestMappers() { EagerBuildAll(); }`). No misleading flag, no magic.
-
----
-
-## 6. ~~Duplicate property mappings are not validated~~ SOLVED
-
-Duplicate destination properties are now deduplicated in `Build()` with last-wins semantics. This allows a fluent `.Map()` call to override a member-init binding for the same property, which is a useful pattern for partial overrides.
-
----
-
-## 7. ~~Duplicate code between NestedMapperDetector and NestedMapperInliner~~ SOLVED
-
-`NestedMapperInliner` was deleted entirely. Only `NestedMapperDetector` remains — it records metadata at build time, and `BuildExpression` handles inlining via `IMapper.GetExpression`. No duplicate code.
-
----
-
-## 8. ~~AddNullSafeNavigation only guards simple member-access chains~~ SOLVED
-
-`AddNullSafeNavigation` was removed entirely. Source expression chain nullability is the user's responsibility via compiler nullability annotations. The only null guard the library adds is for optional nested scalar mappers — when the source object itself (e.g. `src.Product`) is null, the expression returns `default` instead of throwing.
-
----
-
-## 9. ~~MapOptions and ProjectionOptions are nearly identical — code duplication~~ SOLVED
-
-`MapOptions` was stripped down to only variable bindings (`Set<T>`), since in-memory mapping always includes all optional properties with null-safe guards. `ProjectionOptions` retains `Include` + `Set<T>` for controlling which optionals are queried in LINQ projections. The two classes are now distinct in purpose and share no duplicated code.
-
----
-
-## 10. ~~IQueryable.Project null guard may interfere with real LINQ providers~~ SOLVED
-
-The top-level null guard was removed entirely. `Project` now passes the mapper's expression directly to `query.Select()` without any wrapping. Null handling is the caller's responsibility — consistent with how LINQ providers and EF Core work natively.
-
----
-
-## 11. Only one nested mapper call per property mapping
+## 2. Only one nested mapper call per property mapping
 
 **Severity**: Limitation — prevents complex mapping expressions
 
@@ -86,7 +32,7 @@ Both branches return the same `SummaryDto`, so this would be valid C# and transl
 
 ---
 
-## 12. Nested mapper calls inside `ToDictionary` lambdas are not supported
+## 3. Nested mapper calls inside `ToDictionary` lambdas are not supported
 
 **Severity**: Limitation — prevents using nested mappers for dictionary value projections
 
@@ -100,6 +46,14 @@ Items = src.Items.ToDictionary(i => i.Key, i => ItemMapper.Map(i)),
 Items = src.Items.ToDictionary(i => i.Key, i => new ItemDto { Name = i.Name }),
 ```
 
-This is a specific instance of issue 11: the detector assumes each property mapping contains at most one top-level nested mapper call, but `ToDictionary`'s value-selector lambda places the call in a nested context where it should be left alone.
+This is a specific instance of issue 2: the detector assumes each property mapping contains at most one top-level nested mapper call, but `ToDictionary`'s value-selector lambda places the call in a nested context where it should be left alone.
 
-**Resolution**: Would be solved by the `NestedMapperInliner` ExpressionVisitor approach described in issue 11 — an in-place visitor that replaces `Map()` calls wherever they appear (including inside `ToDictionary` lambdas) would handle this naturally.
+**Resolution**: Would be solved by the `NestedMapperInliner` ExpressionVisitor approach described in issue 2 — an in-place visitor that replaces `Map()` calls wherever they appear (including inside `ToDictionary` lambdas) would handle this naturally.
+
+---
+
+## 4. SPEC.md — ToDictionary with nested mapper shown as supported but not yet implemented
+
+**Severity**: Documentation — pending implementation
+
+The spec (lines 155–163) shows `ToDictionary(i => i.Id, i => ItemMapper.Map(i))` as a supported pattern. This does not work yet due to issue 3 (`NestedMapperDetector` intercepts the `Map()` call inside the lambda). The spec documents the intended behavior; the implementation needs to catch up via the `NestedMapperInliner` approach described in issue 2.

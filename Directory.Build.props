@@ -1,0 +1,41 @@
+<Project>
+
+    <PropertyGroup>
+        <!-- Default values -->
+        <TargetFramework>net9.0</TargetFramework>
+        <LangVersion>13.0</LangVersion>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <TreatWarningsAsErrors Condition="'$(Configuration)' == 'Release'AND '$(BuildingInsideVisualStudio)' != 'true'">true</TreatWarningsAsErrors>
+        <CodeAnalysisTreatWarningsAsErrors Condition="'$(Configuration)' == 'Release' AND '$(BuildingInsideVisualStudio)' != 'true'">true</CodeAnalysisTreatWarningsAsErrors>
+
+         <!--Nuget restore workaround-->
+
+        <!--Visual Studio Build acceleration feature-->
+        <!--It is able to skip building intermediate projects in reference chains. Maybe.-->
+        <AccelerateBuildsInVisualStudio>True</AccelerateBuildsInVisualStudio>
+        <ProduceReferenceAssembly>True</ProduceReferenceAssembly>
+
+        <Authors>Tibold Kandrai</Authors>
+        <Product>ArchPillar.Mapper</Product>
+        <Copyright>Copyright &#169; $([System.DateTime]::Now.ToString(`yyyy`)) Tibold Kandrai, All rights reserved</Copyright>
+        <!--<Version>0.14.0</Version>-->
+
+        <!--Keep the generated files (or not)-->
+        <EmitCompilerGeneratedFiles>False</EmitCompilerGeneratedFiles>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    </PropertyGroup>
+
+    <!--Code coverage tool configuration-->
+    <!--For this to work with the VS Plugin, copy this group into the test project-->
+    <PropertyGroup Label="FineCodeCoverage">
+        <CollectCoverage>true</CollectCoverage>
+        <IncludeTestAssembly>false</IncludeTestAssembly>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--Enable source link for open source libraries hosted in GitHub.-->
+        <!--<PackageReference Include="Microsoft.SourceLink.GitHub" />-->
+    </ItemGroup>
+
+</Project>

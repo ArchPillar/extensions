@@ -6,14 +6,14 @@ namespace ArchPillar.Mapper.Tests;
 /// Verifies that projection expressions are fully translatable by EF Core
 /// (no client-side evaluation). Uses an in-memory provider for isolation.
 /// </summary>
-public class EfCoreIntegrationTests : IDisposable
+public sealed class EfCoreIntegrationTests : IDisposable
 {
     private readonly TestDbContext _db;
     private readonly TestMappers   _mappers = new();
 
     public EfCoreIntegrationTests()
     {
-        var options = new DbContextOptionsBuilder<TestDbContext>()
+        DbContextOptions<TestDbContext> options = new DbContextOptionsBuilder<TestDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())   // unique DB per test
             .Options;
 
@@ -28,9 +28,9 @@ public class EfCoreIntegrationTests : IDisposable
     // -----------------------------------------------------------------------
 
     [Fact]
-    public async Task Project_BasicProperties_TranslatesToSql()
+    public async Task Project_BasicProperties_TranslatesToSqlAsync()
     {
-        var results = await _db.Orders
+        List<OrderDto> results = await _db.Orders
             .Project(_mappers.Order)
             .ToListAsync();
 
@@ -40,13 +40,13 @@ public class EfCoreIntegrationTests : IDisposable
     }
 
     [Fact]
-    public async Task Project_EnumMapping_TranslatesToSql()
+    public async Task Project_EnumMapping_TranslatesToSqlAsync()
     {
-        var results = await _db.Orders
+        List<OrderDto> results = await _db.Orders
             .Project(_mappers.Order)
             .ToListAsync();
 
-        var shipped = results.Single(r => r.Id == 2);
+        OrderDto shipped = results.Single(r => r.Id == 2);
         Assert.Equal(OrderStatusDto.Shipped, shipped.Status);
     }
 
@@ -55,14 +55,14 @@ public class EfCoreIntegrationTests : IDisposable
     // -----------------------------------------------------------------------
 
     [Fact]
-    public async Task Project_NestedCollection_InlinedExpression_TranslatesToSql()
+    public async Task Project_NestedCollection_InlinedExpression_TranslatesToSqlAsync()
     {
-        var results = await _db.Orders
+        List<OrderDto> results = await _db.Orders
             .Include(o => o.Lines)   // EF Core eager load — required for in-memory join
             .Project(_mappers.Order)
             .ToListAsync();
 
-        var orderOne = results.Single(r => r.Id == 1);
+        OrderDto orderOne = results.Single(r => r.Id == 1);
         Assert.Equal(2, orderOne.Lines.Count);
         Assert.Contains(orderOne.Lines, l => l.ProductName == "Widget");
     }
@@ -72,9 +72,9 @@ public class EfCoreIntegrationTests : IDisposable
     // -----------------------------------------------------------------------
 
     [Fact]
-    public async Task Project_WithOptionalIncluded_PopulatesProperty()
+    public async Task Project_WithOptionalIncluded_PopulatesPropertyAsync()
     {
-        var results = await _db.Orders
+        List<OrderDto> results = await _db.Orders
             .Include(o => o.Customer)
             .Project(_mappers.Order, o => o.Include(m => m.CustomerName))
             .ToListAsync();
@@ -84,9 +84,9 @@ public class EfCoreIntegrationTests : IDisposable
     }
 
     [Fact]
-    public async Task Project_WithoutOptional_PropertyIsNull()
+    public async Task Project_WithoutOptional_PropertyIsNullAsync()
     {
-        var results = await _db.Orders
+        List<OrderDto> results = await _db.Orders
             .Project(_mappers.Order)
             .ToListAsync();
 
@@ -98,9 +98,9 @@ public class EfCoreIntegrationTests : IDisposable
     // -----------------------------------------------------------------------
 
     [Fact]
-    public async Task Project_WithVariable_FiltersByOwner()
+    public async Task Project_WithVariable_FiltersByOwnerAsync()
     {
-        var results = await _db.Orders
+        List<OrderDto> results = await _db.Orders
             .Project(_mappers.Order, o => o.Set(_mappers.CurrentUserId, 10))
             .ToListAsync();
 
@@ -118,12 +118,12 @@ public class EfCoreIntegrationTests : IDisposable
         db.Orders.AddRange(
             new Order
             {
-                Id        = 1,
-                CreatedAt = new DateTime(2025, 1, 1),
-                Status    = OrderStatus.Pending,
-                OwnerId   = 10,
-                Customer  = new Customer { Name = "Alice", Email = "alice@example.com" },
-                Lines     =
+                Id = 1,
+                CreatedAt = new DateTime(2025, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+                Status = OrderStatus.Pending,
+                OwnerId = 10,
+                Customer = new Customer { Name = "Alice", Email = "alice@example.com" },
+                Lines =
                 [
                     new OrderLine { Id = 1, ProductName = "Widget", Quantity = 2, UnitPrice = 9.99m  },
                     new OrderLine { Id = 2, ProductName = "Gadget", Quantity = 1, UnitPrice = 49.99m },
@@ -131,12 +131,12 @@ public class EfCoreIntegrationTests : IDisposable
             },
             new Order
             {
-                Id        = 2,
-                CreatedAt = new DateTime(2025, 3, 15),
-                Status    = OrderStatus.Shipped,
-                OwnerId   = 20,
-                Customer  = new Customer { Name = "Bob", Email = "bob@example.com" },
-                Lines     = [],
+                Id = 2,
+                CreatedAt = new DateTime(2025, 3, 15, 0, 0, 0, DateTimeKind.Utc),
+                Status = OrderStatus.Shipped,
+                OwnerId = 20,
+                Customer = new Customer { Name = "Bob", Email = "bob@example.com" },
+                Lines = [],
             });
 
         db.SaveChanges();

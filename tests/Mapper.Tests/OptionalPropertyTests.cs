@@ -19,7 +19,7 @@ public class OptionalPropertyTests
             Lines    = [new OrderLine { Id = 1, ProductName = "A", Quantity = 1, UnitPrice = 1m, SupplierName = "Sup" }],
         };
 
-        var dto = _mappers.Order.Map(order);
+        OrderDto dto = _mappers.Order.Map(order);
 
         Assert.Equal("Alice", dto!.CustomerName);
         Assert.Equal("Sup", dto.Lines[0].SupplierName);
@@ -36,7 +36,7 @@ public class OptionalPropertyTests
             Lines    = [new OrderLine { Id = 1, ProductName = "A", Quantity = 1, UnitPrice = 1m }],
         };
 
-        var dto = _mappers.Order.Map(order);
+        OrderDto dto = _mappers.Order.Map(order);
 
         Assert.Null(dto!.CustomerName);
         Assert.Null(dto.Lines[0].SupplierName);
@@ -53,7 +53,7 @@ public class OptionalPropertyTests
             Lines    = [new OrderLine { Id = 1, ProductName = "A", Quantity = 1, UnitPrice = 1m, SupplierName = "SupCo" }],
         };
 
-        var dto = _mappers.Order.Map(order);
+        OrderDto dto = _mappers.Order.Map(order);
 
         Assert.Equal("SupCo", dto!.Lines[0].SupplierName);
     }
@@ -75,7 +75,7 @@ public class OptionalPropertyTests
             Lines    = [new OrderLine { Id = 1, ProductName = "A", Quantity = 1, UnitPrice = 1m, Product = null }],
         };
 
-        var dto = _mappers.Order.Map(order);
+        OrderDto dto = _mappers.Order.Map(order);
 
         Assert.Null(dto!.Lines[0].Product);
     }
@@ -102,11 +102,11 @@ public class OptionalPropertyTests
             ],
         };
 
-        var dto = _mappers.Order.Map(order);
+        OrderDto dto = _mappers.Order.Map(order);
 
         Assert.NotNull(dto!.Lines[0].Product);
         Assert.Equal("Widget", dto.Lines[0].Product!.Name);
-        Assert.Equal("Gadgets", dto.Lines[0].Product.CategoryName);
+        Assert.Equal("Gadgets", dto.Lines[0].Product!.CategoryName);
     }
 
     // -----------------------------------------------------------------------
@@ -116,7 +116,7 @@ public class OptionalPropertyTests
     [Fact]
     public void Project_WithoutInclude_OptionalPropertyIsNull()
     {
-        var orders = new[]
+        IQueryable<Order> orders = new[]
         {
             new Order { Id = 1, Status = OrderStatus.Pending, Customer = new Customer { Name = "Dave", Email = "" }, Lines = [] },
         }.AsQueryable();
@@ -129,7 +129,7 @@ public class OptionalPropertyTests
     [Fact]
     public void Project_IncludeOptional_WithLambda_PopulatesInProjection()
     {
-        var orders = new[]
+        IQueryable<Order> orders = new[]
         {
             new Order { Id = 1, Status = OrderStatus.Pending, Customer = new Customer { Name = "Dave", Email = "" }, Lines = [] },
         }.AsQueryable();
@@ -144,7 +144,7 @@ public class OptionalPropertyTests
     [Fact]
     public void Project_IncludeNestedOptional_WithStringPath_PopulatesInProjection()
     {
-        var orders = new[]
+        IQueryable<Order> orders = new[]
         {
             new Order
             {
@@ -165,7 +165,7 @@ public class OptionalPropertyTests
     [Fact]
     public void Project_UnknownStringPath_ThrowsInvalidOperationException()
     {
-        var orders = new[]
+        IQueryable<Order> orders = new[]
         {
             new Order { Id = 1, Status = OrderStatus.Pending, Customer = new Customer { Name = "", Email = "" }, Lines = [] },
         }.AsQueryable();

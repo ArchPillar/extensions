@@ -8,10 +8,10 @@ namespace ArchPillar.Mapper;
 /// Abstract base class that groups related mappers and variables into a
 /// single, injectable unit — analogous to how <c>DbContext</c> groups
 /// entity sets in EF Core.
-///
+/// <para>
 /// Subclass this and declare mappers and variables as public properties.
 /// Initialize them in the constructor using the protected factory methods.
-///
+/// </para>
 /// <code>
 /// public class AppMappers : MapperContext
 /// {
@@ -29,9 +29,10 @@ namespace ArchPillar.Mapper;
 ///     }
 /// }
 /// </code>
-///
+/// <para>
 /// Multiple <see cref="MapperContext"/> subclasses can be composed via
 /// constructor injection without any library involvement:
+/// </para>
 /// <code>
 /// public class AppMappers
 /// {
@@ -52,16 +53,18 @@ public abstract class MapperContext
     /// <summary>
     /// Creates a mapper builder for <typeparamref name="TSource"/> →
     /// <typeparamref name="TDest"/>.
-    ///
+    /// <para>
     /// Optionally supply a member-init expression that covers the straightforward
     /// properties. Additional <c>.Map()</c>, <c>.Optional()</c>, and
     /// <c>.Ignore()</c> calls can be chained to extend or complete coverage.
     /// The builder tracks which destination properties have been accounted for
     /// and throws at build time if any remain unhandled.
-    ///
+    /// </para>
+    /// <para>
     /// Assigning the builder to a <see cref="Mapper{TSource,TDest}"/> property
     /// triggers <see cref="MapperBuilder{TSource,TDest}.Build"/> implicitly via
     /// the conversion operator.
+    /// </para>
     /// </summary>
     protected static MapperBuilder<TSource, TDest> CreateMapper<TSource, TDest>(
         Expression<Func<TSource, TDest>>? memberInitExpression = null)
@@ -100,15 +103,19 @@ public abstract class MapperContext
     /// </summary>
     protected void EagerBuildAll()
     {
-        var mapperGenericType = typeof(Mapper<,>);
-        foreach (var property in GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        Type mapperGenericType = typeof(Mapper<,>);
+        foreach (PropertyInfo property in GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
-            var type = property.PropertyType;
+            Type type = property.PropertyType;
             if (!type.IsGenericType || type.GetGenericTypeDefinition() != mapperGenericType)
+            {
                 continue;
+            }
 
             if (property.GetValue(this) is IMapper mapper)
+            {
                 mapper.GetExpression(IncludeSet.Empty, new Dictionary<object, object?>(), nullSafeOptionals: false);
+            }
         }
     }
 }

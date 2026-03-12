@@ -6,13 +6,15 @@ namespace ArchPillar.Mapper;
 /// <summary>
 /// A mapping between two enum types, created via
 /// <see cref="MapperContext.CreateEnumMapper{TSource,TDest}"/>.
-///
+/// <para>
 /// The mapping is defined as a plain C# method (typically a switch expression).
 /// The library generates a LINQ-translatable conditional expression tree by
 /// calling the method for every possible <typeparamref name="TSource"/> value
 /// and recording the output.
-///
+/// </para>
+/// <para>
 /// Can be used standalone or inlined into a parent mapper's expression:
+/// </para>
 /// <code>
 /// Order = CreateMapper&lt;Order, OrderDto&gt;(src => new OrderDto
 /// {
@@ -48,22 +50,15 @@ public sealed class EnumMapper<TSource, TDest>(Func<TSource, TDest> mappingMetho
 
     private static Expression<Func<TSource, TDest>> BuildExpression(Func<TSource, TDest> method)
     {
-        var sourceParam = Expression.Parameter(typeof(TSource), "source");
+        ParameterExpression sourceParam = Expression.Parameter(typeof(TSource), "source");
+        TSource[] values = Enum.GetValues<TSource>();
 
-        // Build the throw branch for the unreachable else (invalid enum value at runtime)
-        var throwBranch = Expression.Throw(
-            Expression.New(
-                typeof(ArgumentOutOfRangeException).GetConstructor(
-                    [typeof(string), typeof(object), typeof(string)])!,
-                Expression.Constant("source"),
-                Expression.Convert(sourceParam, typeof(object)),
-                Expression.Constant(null, typeof(string))),
-            typeof(TDest));
-
-        // Build the conditional chain from last value to first so the
-        // first value ends up outermost: V1 ? D1 : V2 ? D2 : ... : throw
-        Expression body = throwBranch;
-        foreach (var value in Enum.GetValues<TSource>().Reverse())
+        // Use the last value's mapping as the default (else) branch.
+        // Every value is covered by the conditional chain, so the default
+        // is unreachable — but using a plain constant keeps the expression
+        // translatable by EF Core and other LINQ providers.
+        Expression body = Expression.Constant(default(TDest));
+        foreach (TSource value in values.Reverse())
         {
             body = Expression.Condition(
                 Expression.Equal(sourceParam, Expression.Constant(value)),

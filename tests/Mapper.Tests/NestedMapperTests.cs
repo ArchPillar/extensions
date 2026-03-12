@@ -23,13 +23,13 @@ public class NestedMapperTests
             ],
         };
 
-        var dto = _mappers.Order.Map(order);
+        OrderDto? dto = _mappers.Order.Map(order);
 
-        Assert.Equal(2,        dto!.Lines.Count);
-        Assert.Equal("Alpha",  dto.Lines[0].ProductName);
-        Assert.Equal(2,        dto.Lines[0].Quantity);
-        Assert.Equal(5.00m,    dto.Lines[0].UnitPrice);
-        Assert.Equal("Beta",   dto.Lines[1].ProductName);
+        Assert.Equal(2, dto!.Lines.Count);
+        Assert.Equal("Alpha", dto.Lines[0].ProductName);
+        Assert.Equal(2, dto.Lines[0].Quantity);
+        Assert.Equal(5.00m, dto.Lines[0].UnitPrice);
+        Assert.Equal("Beta", dto.Lines[1].ProductName);
     }
 
     [Fact]
@@ -37,7 +37,7 @@ public class NestedMapperTests
     {
         var order = new Order { Id = 1, Status = OrderStatus.Pending, Customer = new Customer { Name = "", Email = "" }, Lines = [] };
 
-        var dto = _mappers.Order.Map(order);
+        OrderDto? dto = _mappers.Order.Map(order);
 
         Assert.NotNull(dto!.Lines);
         Assert.Empty(dto.Lines);
@@ -58,7 +58,7 @@ public class NestedMapperTests
             Lines    = [new OrderLine { Id = 1, ProductName = "A", Quantity = 1, UnitPrice = 1m, SupplierName = "SupX" }],
         };
 
-        var dto = _mappers.Order.Map(order);
+        OrderDto? dto = _mappers.Order.Map(order);
 
         Assert.Equal("Bob", dto!.CustomerName);
         Assert.Equal("SupX", dto.Lines[0].SupplierName);
@@ -73,16 +73,19 @@ public class NestedMapperTests
     {
         var line = new OrderLine { Id = 1, ProductName = "Widget", Quantity = 4, UnitPrice = 3.50m };
 
-        var fromParent = _mappers.Order.Map(new Order
+        OrderLineDto fromParent = _mappers.Order.Map(new Order
         {
-            Id = 1, Status = OrderStatus.Pending, Customer = new Customer { Name = "", Email = "" }, Lines = [line],
+            Id = 1,
+            Status = OrderStatus.Pending,
+            Customer = new Customer { Name = "", Email = "" },
+            Lines = [line],
         })!.Lines[0];
 
-        var standalone = _mappers.OrderLine.Map(line);
+        OrderLineDto? standalone = _mappers.OrderLine.Map(line);
 
         Assert.Equal(standalone!.ProductName, fromParent.ProductName);
-        Assert.Equal(standalone.Quantity,     fromParent.Quantity);
-        Assert.Equal(standalone.UnitPrice,    fromParent.UnitPrice);
+        Assert.Equal(standalone.Quantity, fromParent.Quantity);
+        Assert.Equal(standalone.UnitPrice, fromParent.UnitPrice);
     }
 
     // -----------------------------------------------------------------------
@@ -92,7 +95,7 @@ public class NestedMapperTests
     [Fact]
     public void Project_WithNestedCollection_InlinesNestedExpression()
     {
-        var orders = new[]
+        IQueryable<Order> orders = new[]
         {
             new Order
             {
@@ -110,7 +113,7 @@ public class NestedMapperTests
         var results = orders.Project(_mappers.Order).ToList();
 
         Assert.Single(results);
-        Assert.Equal(2,    results[0].Lines.Count);
+        Assert.Equal(2, results[0].Lines.Count);
         Assert.Equal("P1", results[0].Lines[0].ProductName);
         Assert.Equal("P2", results[0].Lines[1].ProductName);
     }
@@ -139,11 +142,11 @@ public class NestedMapperTests
             ],
         };
 
-        var dto = mappers.Order.Map(order);
+        OrderDto dto = mappers.Order.Map(order);
 
-        Assert.Equal(2,       dto!.Lines.Count);
+        Assert.Equal(2, dto!.Lines.Count);
         Assert.Equal("Alpha", dto.Lines[0].ProductName);
-        Assert.Equal("Beta",  dto.Lines[1].ProductName);
+        Assert.Equal("Beta", dto.Lines[1].ProductName);
     }
 
     [Fact]
@@ -151,7 +154,7 @@ public class NestedMapperTests
     {
         var mappers = new ReverseOrderMappers();
 
-        var orders = new[]
+        IQueryable<Order> orders = new[]
         {
             new Order
             {
@@ -171,7 +174,7 @@ public class NestedMapperTests
     [Fact]
     public void Project_NestedOptionalIncluded_AppearsinProjection()
     {
-        var orders = new[]
+        IQueryable<Order> orders = new[]
         {
             new Order
             {

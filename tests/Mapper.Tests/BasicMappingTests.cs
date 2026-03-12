@@ -14,17 +14,17 @@ public class BasicMappingTests
         var order = new Order
         {
             Id        = 42,
-            CreatedAt = new DateTime(2025, 1, 15),
+            CreatedAt = new DateTime(2025, 1, 15, 0, 0, 0, DateTimeKind.Utc),
             Status    = OrderStatus.Shipped,
             OwnerId   = 7,
             Customer  = new Customer { Name = "Alice", Email = "alice@example.com" },
             Lines     = [],
         };
 
-        var dto = _mappers.Order.Map(order);
+        OrderDto dto = _mappers.Order.Map(order);
 
         Assert.Equal(42, dto!.Id);
-        Assert.Equal(new DateTime(2025, 1, 15), dto.PlacedAt);
+        Assert.Equal(new DateTime(2025, 1, 15, 0, 0, 0, DateTimeKind.Utc), dto.PlacedAt);
         Assert.Equal(OrderStatusDto.Shipped, dto.Status);
     }
 
@@ -43,12 +43,12 @@ public class BasicMappingTests
             ],
         };
 
-        var dto = _mappers.Order.Map(order);
+        OrderDto dto = _mappers.Order.Map(order);
 
         Assert.Equal(2, dto!.Lines.Count);
         Assert.Equal("Widget", dto.Lines[0].ProductName);
-        Assert.Equal(3,        dto.Lines[0].Quantity);
-        Assert.Equal(9.99m,    dto.Lines[0].UnitPrice);
+        Assert.Equal(3, dto.Lines[0].Quantity);
+        Assert.Equal(9.99m, dto.Lines[0].UnitPrice);
         Assert.Equal("Gadget", dto.Lines[1].ProductName);
     }
 
@@ -61,11 +61,11 @@ public class BasicMappingTests
     {
         var line = new OrderLine { Id = 1, ProductName = "Widget", Quantity = 5, UnitPrice = 2.50m };
 
-        var dto = _mappers.OrderLine.Map(line);
+        OrderLineDto dto = _mappers.OrderLine.Map(line);
 
         Assert.Equal("Widget", dto!.ProductName);
-        Assert.Equal(5,        dto.Quantity);
-        Assert.Equal(2.50m,    dto.UnitPrice);
+        Assert.Equal(5, dto.Quantity);
+        Assert.Equal(2.50m, dto.UnitPrice);
     }
 
     // -----------------------------------------------------------------------
@@ -97,7 +97,7 @@ public class BasicMappingTests
     [Fact]
     public void Map_NullSource_ReturnsNull()
     {
-        var result = _mappers.Order.Map((Order?)null);
+        OrderDto? result = _mappers.Order.Map((Order?)null);
 
         Assert.Null(result);
     }

@@ -74,7 +74,7 @@ Abstract base class that hosts mapper and variable properties.
 
 - Users subclass `MapperContext`
 - Mapper and variable properties are initialized in the constructor
-- Provides `CreateMapper<TSource, TDest>()` and `CreateVariable<T>()` factory methods
+- Provides `CreateMapper<TSource, TDest>()` and `CreateVariable<T>(name?, defaultValue?)` factory methods
 
 **Logical grouping via nesting**: `MapperContext` subclasses can be composed into larger contexts via constructor injection — no library support required. This is a plain C# pattern:
 
@@ -190,9 +190,9 @@ query.Project(mapper.Order, o => o
     .Include(m => m.CustomerName)
     .Include("Lines.SupplierName"));
 
-// Object mapping — same API
+// Object mapping — variables only (MapOptions has Set but not Include)
 mapper.Order.Map(order, o => o
-    .Include("Lines.SupplierName"));
+    .Set(mapper.CurrentUserId, userId));
 ```
 
 String paths are validated at call time against the mapper's declared optional properties; an unknown path throws an `InvalidOperationException` with the offending path in the message.
@@ -254,8 +254,10 @@ The generated expression is equivalent to:
 src => src.Status == OrderStatus.Pending   ? OrderStatusDto.Pending   :
        src.Status == OrderStatus.Shipped   ? OrderStatusDto.Shipped   :
        src.Status == OrderStatus.Cancelled ? OrderStatusDto.Cancelled :
-       throw ...
+       default(OrderStatusDto)
 ```
+
+The fallback uses `default(TDest)` instead of `throw` — all enum values are covered by the conditional chain, and `default` keeps the expression translatable by EF Core.
 
 `EnumMapper<TSource, TDest>` can be used standalone or inlined into a parent mapper just like a regular `Mapper<T,T>`.
 
@@ -271,55 +273,45 @@ For expression projection, no explicit null check is emitted into the expression
 
 ## API Surface
 
-### MapperContextOptions
-
-```csharp
-public sealed class MapperContextOptions
-{
-    // Default: false (lazy). Set true to compile all mappers at construction
-    // time — useful in benchmarks and scenarios where first-call latency matters.
-    public bool EagerBuild { get; set; } = false;
-}
-```
-
 ### MapperContext
 
 ```csharp
 public abstract class MapperContext
 {
-    protected MapperContext();                                      // lazy (default)
-    protected MapperContext(Action<MapperContextOptions> configure);
-    protected MapperContext(MapperContextOptions options);          // DI-friendly
-
-    protected MapperBuilder<TSource, TDest> CreateMapper<TSource, TDest>(
+    protected static MapperBuilder<TSource, TDest> CreateMapper<TSource, TDest>(
         Expression<Func<TSource, TDest>>? memberInitExpression = null);
 
-    protected EnumMapper<TSource, TDest> CreateEnumMapper<TSource, TDest>(
+    protected static EnumMapper<TSource, TDest> CreateEnumMapper<TSource, TDest>(
         Func<TSource, TDest> mappingMethod)
         where TSource : struct, Enum
         where TDest   : struct, Enum;
 
-    protected static Variable<T> CreateVariable<T>();
+    protected static Variable<T> CreateVariable<T>(string? name = null, T? defaultValue = default);
+
+    // Forces expression assembly and delegate compilation for every mapper
+    // on this context. Call at the end of a subclass constructor to surface
+    // errors at startup and eliminate cold-start latency.
+    protected void EagerBuildAll();
 }
 ```
 
 ### MapperBuilder&lt;TSource, TDest&gt;
 
 ```csharp
-public abstract class MapperBuilder<TSource, TDest>
+public sealed class MapperBuilder<TSource, TDest>
 {
-    public abstract MapperBuilder<TSource, TDest> Map<TValue>(
+    public MapperBuilder<TSource, TDest> Map<TValue>(
         Expression<Func<TDest, TValue>> dest,
         Expression<Func<TSource, TValue>> src);
 
-    public abstract MapperBuilder<TSource, TDest> Optional<TValue>(
+    public MapperBuilder<TSource, TDest> Optional<TValue>(
         Expression<Func<TDest, TValue>> dest,
         Expression<Func<TSource, TValue>> src);
 
-    public abstract MapperBuilder<TSource, TDest> Ignore<TValue>(
+    public MapperBuilder<TSource, TDest> Ignore<TValue>(
         Expression<Func<TDest, TValue>> dest);
 
-    public abstract Mapper<TSource, TDest> Build();
+    public Mapper<TSource, TDest> Build();
 
     public static implicit operator Mapper<TSource, TDest>(MapperBuilder<TSource, TDest> builder);
 }
@@ -394,14 +386,15 @@ Order = CreateMapper<Order, OrderDto>(src => new OrderDto
 ### MapOptions / ProjectionOptions
 
 ```csharp
-public class MapOptions<TDest>
+public sealed class MapOptions<TDest>
 {
-    public MapOptions<TDest> Include<TValue>(Expression<Func<TDest, TValue>> optionalProp);
+    public MapOptions<TDest> Set<T>(Variable<T> variable, T value);
 }
 
-public class ProjectionOptions<TDest>
+public sealed class ProjectionOptions<TDest>
 {
     public ProjectionOptions<TDest> Include<TValue>(Expression<Func<TDest, TValue>> optionalProp);
+    public ProjectionOptions<TDest> Include(string path);
     public ProjectionOptions<TDest> Set<T>(Variable<T> variable, T value);
 }
 ```

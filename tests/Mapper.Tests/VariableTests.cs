@@ -13,7 +13,7 @@ public class VariableTests
     {
         var order = new Order { Id = 1, Status = OrderStatus.Pending, OwnerId = 99, Customer = new Customer { Name = "", Email = "" }, Lines = [] };
 
-        var dto = _mappers.Order.Map(order, o => o.Set(_mappers.CurrentUserId, 99));
+        OrderDto dto = _mappers.Order.Map(order, o => o.Set(_mappers.CurrentUserId, 99));
 
         Assert.True(dto!.IsOwner);
     }
@@ -23,7 +23,7 @@ public class VariableTests
     {
         var order = new Order { Id = 1, Status = OrderStatus.Pending, OwnerId = 99, Customer = new Customer { Name = "", Email = "" }, Lines = [] };
 
-        var dto = _mappers.Order.Map(order, o => o.Set(_mappers.CurrentUserId, 1));
+        OrderDto dto = _mappers.Order.Map(order, o => o.Set(_mappers.CurrentUserId, 1));
 
         Assert.False(dto!.IsOwner);
     }
@@ -34,7 +34,7 @@ public class VariableTests
         // OwnerId = 99, variable not set => defaults to 0 => IsOwner = false
         var order = new Order { Id = 1, Status = OrderStatus.Pending, OwnerId = 99, Customer = new Customer { Name = "", Email = "" }, Lines = [] };
 
-        var dto = _mappers.Order.Map(order);
+        OrderDto dto = _mappers.Order.Map(order);
 
         Assert.False(dto!.IsOwner);
     }
@@ -45,7 +45,7 @@ public class VariableTests
         // OwnerId = 0, variable not set => default(int) = 0 => IsOwner = true
         var order = new Order { Id = 1, Status = OrderStatus.Pending, OwnerId = 0, Customer = new Customer { Name = "", Email = "" }, Lines = [] };
 
-        var dto = _mappers.Order.Map(order);
+        OrderDto dto = _mappers.Order.Map(order);
 
         Assert.True(dto!.IsOwner);
     }
@@ -57,7 +57,7 @@ public class VariableTests
     [Fact]
     public void Project_WithVariableSet_SubstitutesValueInExpression()
     {
-        var orders = new[]
+        IQueryable<Order> orders = new[]
         {
             new Order { Id = 1, Status = OrderStatus.Pending, OwnerId = 5,  Customer = new Customer { Name = "", Email = "" }, Lines = [] },
             new Order { Id = 2, Status = OrderStatus.Pending, OwnerId = 9,  Customer = new Customer { Name = "", Email = "" }, Lines = [] },
@@ -74,7 +74,7 @@ public class VariableTests
     [Fact]
     public void Project_WithVariableNotSet_UsesDefaultT()
     {
-        var orders = new[]
+        IQueryable<Order> orders = new[]
         {
             new Order { Id = 1, Status = OrderStatus.Pending, OwnerId = 0,  Customer = new Customer { Name = "", Email = "" }, Lines = [] },
             new Order { Id = 2, Status = OrderStatus.Pending, OwnerId = 5,  Customer = new Customer { Name = "", Email = "" }, Lines = [] },
@@ -97,15 +97,19 @@ public class VariableTests
         // The variable binding must propagate from the User Map call into the nested Order mapper.
         var user = new User
         {
-            Id = 1, FirstName = "Alice", LastName = "Smith", Email = "a@b.com",
-            Role = UserRole.Member, Address = new Address { Street = "1st", City = "NY", Country = "US" },
+            Id = 1,
+            FirstName = "Alice",
+            LastName = "Smith",
+            Email = "a@b.com",
+            Role = UserRole.Member,
+            Address = new Address { Street = "1st", City = "NY", Country = "US" },
             Orders =
             [
                 new Order { Id = 10, Status = OrderStatus.Pending, OwnerId = 42, Customer = new Customer { Name = "", Email = "" }, Lines = [] },
             ],
         };
 
-        var dto = _mappers.User.Map(user, o => o
+        UserDto dto = _mappers.User.Map(user, o => o
             .Set(_mappers.CurrentUserId, 42));
 
         Assert.True(dto!.Orders![0].IsOwner);
@@ -114,7 +118,7 @@ public class VariableTests
     [Fact]
     public void Project_VariablePropagatedToNestedMapper_ViaInclude()
     {
-        var users = new[]
+        IQueryable<User> users = new[]
         {
             new User
             {
@@ -149,7 +153,7 @@ public class VariableTests
         var order = new Order { Id = 1, Status = OrderStatus.Pending, OwnerId = 5, Customer = new Customer { Name = "", Email = "" }, Lines = [] };
 
         // Set the *other* context's variable, not _mappers.CurrentUserId
-        var dto = _mappers.Order.Map(order, o => o.Set(other.CurrentUserId, 5));
+        OrderDto dto = _mappers.Order.Map(order, o => o.Set(other.CurrentUserId, 5));
 
         // The unrelated variable has no effect; variable resolves to default (0 != 5)
         Assert.False(dto!.IsOwner);

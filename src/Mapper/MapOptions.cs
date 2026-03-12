@@ -1,7 +1,7 @@
 namespace ArchPillar.Mapper;
 
 /// <summary>
-/// Configures variable bindings for an in-memory <see cref="Mapper{TSource,TDest}.Map"/> call.
+/// Configures variable bindings for an in-memory <see cref="Mapper{TSource,TDest}.Map(TSource)"/> call.
 /// Optional properties are always included for in-memory mapping — null-safe
 /// navigation guards handle any null intermediates automatically.
 /// </summary>

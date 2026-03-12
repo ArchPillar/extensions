@@ -10,10 +10,11 @@ namespace ArchPillar.Mapper;
 /// <see cref="Map{TValue}"/>, <see cref="Optional{TValue}"/>, or
 /// <see cref="Ignore{TValue}"/>; any unaccounted property causes an
 /// <see cref="InvalidOperationException"/> when the mapper is built.
-///
+/// <para>
 /// Instances are obtained from <see cref="MapperContext.CreateMapper{TSource,TDest}"/>.
 /// Assigning the builder to a <see cref="Mapper{TSource,TDest}"/> property
 /// triggers <see cref="Build"/> implicitly via the conversion operator.
+/// </para>
 /// </summary>
 public sealed class MapperBuilder<TSource, TDest>
 {
@@ -21,7 +22,9 @@ public sealed class MapperBuilder<TSource, TDest>
     private readonly List<PropertyMapping>             _mappings = [];
 
     internal MapperBuilder(Expression<Func<TSource, TDest>>? memberInitExpression)
-        => _memberInitExpression = memberInitExpression;
+    {
+        _memberInitExpression = memberInitExpression;
+    }
 
     /// <summary>
     /// Maps a destination property from a source expression.
@@ -38,7 +41,7 @@ public sealed class MapperBuilder<TSource, TDest>
     /// <summary>
     /// Declares an opt-in property excluded from the default mapping.
     /// Must be explicitly requested at the call site via
-    /// <see cref="MapOptions{TDest}.Include{TValue}(Expression{Func{TDest,TValue}})"/>
+    /// <see cref="ProjectionOptions{TDest}.Include{TValue}(Expression{Func{TDest,TValue}})"/>
     /// or the string-path overload.
     /// </summary>
     public MapperBuilder<TSource, TDest> Optional<TValue>(
@@ -74,18 +77,18 @@ public sealed class MapperBuilder<TSource, TDest>
 
         if (_memberInitExpression?.Body is MemberInitExpression init)
         {
-            var sourceParam = _memberInitExpression.Parameters[0];
-            foreach (var binding in init.Bindings)
+            ParameterExpression sourceParam = _memberInitExpression.Parameters[0];
+            foreach (MemberBinding binding in init.Bindings)
             {
                 if (binding is MemberAssignment assignment)
                 {
-                    var lambda = Expression.Lambda(assignment.Expression, sourceParam);
+                    LambdaExpression lambda = Expression.Lambda(assignment.Expression, sourceParam);
                     rawMappings[binding.Member.Name] = new PropertyMapping(binding.Member, lambda, MappingKind.Required);
                 }
             }
         }
 
-        foreach (var mapping in _mappings)
+        foreach (PropertyMapping mapping in _mappings)
         {
             rawMappings[mapping.Destination.Name] = mapping;
         }
@@ -130,7 +133,7 @@ public sealed class MapperBuilder<TSource, TDest>
 
                 // Wrap the source-access expression in a lambda with the same parameter
                 // as the mapping's Source lambda so BuildExpression can substitute it.
-                var sourceAccess = Expression.Lambda(detector.SourceAccess!, m.Source.Parameters[0]);
+                LambdaExpression sourceAccess = Expression.Lambda(detector.SourceAccess!, m.Source.Parameters[0]);
 
                 return m with
                 {
@@ -185,7 +188,7 @@ public sealed class MapperBuilder<TSource, TDest>
         }
 
         // Reference type: required only when NRT annotation says non-nullable
-        var info = ctx.Create(p);
+        NullabilityInfo info = ctx.Create(p);
         return info.WriteState != NullabilityState.Nullable;
     }
 }

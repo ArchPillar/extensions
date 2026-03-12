@@ -9,14 +9,16 @@ namespace ArchPillar.Mapper.Internal;
 /// <c>MapperExtensions.Project(sourceExpr, mapper)</c> — and records
 /// a deferred accessor for the mapper instance plus the source-access
 /// sub-expression.
-///
+/// <para>
 /// The accessor is compiled from the expression tree so the mapper
 /// instance does not need to exist at detection time — only when the
 /// accessor is invoked (typically on first use of the parent mapper).
-///
+/// </para>
+/// <para>
 /// After <see cref="Detect"/> returns, inspect
 /// <see cref="NestedMapperAccessor"/>, <see cref="SourceAccess"/>,
 /// and <see cref="IsCollection"/>.
+/// </para>
 /// </summary>
 internal sealed class NestedMapperDetector : ExpressionVisitor
 {

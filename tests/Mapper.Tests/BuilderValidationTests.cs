@@ -17,7 +17,7 @@ public class BuilderValidationTests
         // This mapper only covers ProductName and Quantity — UnitPrice and SupplierName are missing
         var context = new MinimalMapperContext();
 
-        var ex = Assert.Throws<InvalidOperationException>(() => context.BuildIncomplete());
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => context.BuildIncomplete());
 
         // Exception must mention the unmapped property name so the developer can fix it
         Assert.Contains("UnitPrice", ex.Message);
@@ -28,7 +28,7 @@ public class BuilderValidationTests
     {
         var context = new MinimalMapperContext();
 
-        var exception = Record.Exception(() => context.BuildComplete());
+        Exception? exception = Record.Exception(() => context.BuildComplete());
         Assert.Null(exception);
     }
 
@@ -41,7 +41,7 @@ public class BuilderValidationTests
     {
         var context = new MinimalMapperContext();
 
-        var exception = Record.Exception(() => context.BuildWithIgnore());
+        Exception? exception = Record.Exception(() => context.BuildWithIgnore());
         Assert.Null(exception);
     }
 
@@ -54,7 +54,7 @@ public class BuilderValidationTests
     {
         var context = new MinimalMapperContext();
 
-        var exception = Record.Exception(() => context.BuildWithOptional());
+        Exception? exception = Record.Exception(() => context.BuildWithOptional());
         Assert.Null(exception);
     }
 
@@ -67,7 +67,7 @@ public class BuilderValidationTests
     {
         var context = new MinimalMapperContext();
 
-        var exception = Record.Exception(() => context.BuildFromMemberInit());
+        Exception? exception = Record.Exception(() => context.BuildFromMemberInit());
         Assert.Null(exception);
     }
 
@@ -76,7 +76,7 @@ public class BuilderValidationTests
     {
         var context = new MinimalMapperContext();
 
-        var ex = Assert.Throws<InvalidOperationException>(() =>
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() =>
             context.BuildFromPartialMemberInit());
 
         Assert.Contains("UnitPrice", ex.Message);
@@ -103,40 +103,40 @@ file class MinimalMapperContext : MapperContext
     public Mapper<OrderLine, OrderLineDto> BuildIncomplete() =>
         CreateMapper<OrderLine, OrderLineDto>()
             .Map(d => d.ProductName, s => s.ProductName)
-            .Map(d => d.Quantity,    s => s.Quantity)
+            .Map(d => d.Quantity, s => s.Quantity)
             // UnitPrice and SupplierName are not covered — Build() must throw
             .Build();
 
     public Mapper<OrderLine, OrderLineDto> BuildComplete() =>
         CreateMapper<OrderLine, OrderLineDto>()
-            .Map(d => d.ProductName,  s => s.ProductName)
-            .Map(d => d.Quantity,     s => s.Quantity)
-            .Map(d => d.UnitPrice,    s => s.UnitPrice)
+            .Map(d => d.ProductName, s => s.ProductName)
+            .Map(d => d.Quantity, s => s.Quantity)
+            .Map(d => d.UnitPrice, s => s.UnitPrice)
             .Map(d => d.SupplierName, s => s.SupplierName)
             .Build();
 
     public Mapper<OrderLine, OrderLineDto> BuildWithIgnore() =>
         CreateMapper<OrderLine, OrderLineDto>()
             .Map(d => d.ProductName, s => s.ProductName)
-            .Map(d => d.Quantity,    s => s.Quantity)
-            .Map(d => d.UnitPrice,   s => s.UnitPrice)
+            .Map(d => d.Quantity, s => s.Quantity)
+            .Map(d => d.UnitPrice, s => s.UnitPrice)
             .Ignore(d => d.SupplierName)
             .Build();
 
     public Mapper<OrderLine, OrderLineDto> BuildWithOptional() =>
         CreateMapper<OrderLine, OrderLineDto>()
             .Map(d => d.ProductName, s => s.ProductName)
-            .Map(d => d.Quantity,    s => s.Quantity)
-            .Map(d => d.UnitPrice,   s => s.UnitPrice)
+            .Map(d => d.Quantity, s => s.Quantity)
+            .Map(d => d.UnitPrice, s => s.UnitPrice)
             .Optional(d => d.SupplierName, s => s.SupplierName)
             .Build();
 
     public Mapper<OrderLine, OrderLineDto> BuildFromMemberInit() =>
         CreateMapper<OrderLine, OrderLineDto>(s => new OrderLineDto
         {
-            ProductName  = s.ProductName,
-            Quantity     = s.Quantity,
-            UnitPrice    = s.UnitPrice,
+            ProductName = s.ProductName,
+            Quantity = s.Quantity,
+            UnitPrice = s.UnitPrice,
             SupplierName = s.SupplierName,
         })
         .Build();
@@ -147,7 +147,7 @@ file class MinimalMapperContext : MapperContext
         // the C# compiler's `required` check would reject the incomplete initializer.)
         CreateMapper<OrderLine, OrderLineDto>()
             .Map(d => d.ProductName, s => s.ProductName)
-            .Map(d => d.Quantity,    s => s.Quantity)
+            .Map(d => d.Quantity, s => s.Quantity)
             .Build();
 }
 
@@ -161,6 +161,6 @@ file class BrokenEagerMappers : MapperContext
         // The implicit conversion to Mapper<,> triggers Build(), which throws.
         Line = CreateMapper<OrderLine, OrderLineDto>()
             .Map(d => d.ProductName, s => s.ProductName)
-            .Map(d => d.Quantity,    s => s.Quantity);
+            .Map(d => d.Quantity, s => s.Quantity);
     }
 }

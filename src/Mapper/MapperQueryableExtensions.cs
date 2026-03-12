@@ -1,5 +1,3 @@
-using System.Linq.Expressions;
-
 namespace ArchPillar.Mapper;
 
 /// <summary>
@@ -17,7 +15,6 @@ public static class MapperExtensions
     /// The mapper's expression tree (including inlined nested mappers,
     /// optional properties, and variable substitutions) is handed directly
     /// to the LINQ provider, enabling full server-side translation in EF Core.
-    ///
     /// <code>
     /// var dtos = await dbContext.Orders
     ///     .Where(o => o.IsActive)
@@ -45,11 +42,11 @@ public static class MapperExtensions
     /// Returns <see cref="IEnumerable{TDest}"/> so the caller can choose the
     /// target collection type (<c>.ToList()</c>, <c>.ToArray()</c>,
     /// <c>.ToHashSet()</c>, etc.).
-    ///
+    /// <para>
     /// This overload has no optional parameters and is safe to use inside
     /// parent mapper member-init expressions — the expression visitor detects
     /// the call and inlines the mapper's expression as a <c>Select</c>:
-    ///
+    /// </para>
     /// <code>
     /// Order = CreateMapper&lt;Order, OrderDto&gt;(src => new OrderDto
     /// {
@@ -62,7 +59,7 @@ public static class MapperExtensions
         this IEnumerable<TSource> source,
         Mapper<TSource, TDest> mapper)
     {
-        var compiled = mapper.ToExpression().Compile();
+        Func<TSource, TDest> compiled = mapper.ToExpression().Compile();
         return source.Select(s => compiled(s)!);
     }
 
