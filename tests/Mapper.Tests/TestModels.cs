@@ -124,3 +124,25 @@ public class ProductDto
 public enum OrderStatusDto { Pending, Shipped, Cancelled }
 public enum UserRoleDto { Guest, Member, Admin }
 public enum ProductStatusDto { Active, Discontinued }
+
+// ---------------------------------------------------------------------------
+// Models for NestedInlinerTests
+// ---------------------------------------------------------------------------
+
+// Issue 2: multiple mapper calls in one property expression (ternary)
+public class FlexSource { public required bool UseFirst { get; set; } public required PartSource First  { get; set; } public required PartSource Second { get; set; } }
+public class PartSource { public required string Text { get; set; } public string? Tag { get; set; } }
+public class FlexDest   { public required PartDest Part { get; set; } }
+public class PartDest   { public required string Label { get; set; } public string? Tag { get; set; } }
+
+// Issue: Map() calls inside an inline new {} object initializer (not a mapper target type)
+public class PackSource  { public required PartSource Primary { get; set; } public required PartSource Secondary { get; set; } }
+public class PackDest    { public required PartDest   Primary { get; set; } public required PartDest   Secondary { get; set; } }
+public class ShipmentSource { public required string Id { get; set; } public required PackSource Pack { get; set; } }
+public class ShipmentDest   { public required string Id { get; set; } public required PackDest   Pack { get; set; } }
+
+// Issue 3: nested mapper inside ToDictionary value selector
+public class Catalog       { public required List<CatalogItem> Items { get; set; } }
+public class CatalogItem   { public required string Key { get; set; } public required string Display { get; set; } }
+public class CatalogDto    { public required Dictionary<string, CatalogItemDto> Items { get; set; } }
+public class CatalogItemDto { public required string Label { get; set; } }

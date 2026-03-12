@@ -116,35 +116,10 @@ public sealed class MapperBuilder<TSource, TDest>
             rawMappings.Remove(key);
         }
 
-        // For each raw mapping, detect nested Mapper<,> references (for cascade support).
-        // Source expressions are stored raw (un-inlined); inlining is deferred to first
-        // use so that nested mappers do not need to exist at build time.
-        List<PropertyMapping> allMappings =
-        [
-            .. rawMappings.Values.Select(m =>
-            {
-                var detector = new NestedMapperDetector();
-                detector.Detect(m.Source!.Body);
-
-                if (!detector.Found)
-                {
-                    return m;
-                }
-
-                // Wrap the source-access expression in a lambda with the same parameter
-                // as the mapping's Source lambda so BuildExpression can substitute it.
-                LambdaExpression sourceAccess = Expression.Lambda(detector.SourceAccess!, m.Source.Parameters[0]);
-
-                return m with
-                {
-                    NestedMapperAccessor = detector.NestedMapperAccessor,
-                    NestedSourceAccess   = sourceAccess,
-                    IsCollection         = detector.IsCollection,
-                };
-            })
-        ];
-
-        return new Mapper<TSource, TDest>(allMappings);
+        // Source expressions are stored raw. Nested mapper calls (Map / Project) are
+        // inlined at expression-build time by NestedMapperInliner, so no detection
+        // pass is needed here and nested mappers do not need to exist at build time.
+        return new Mapper<TSource, TDest>([.. rawMappings.Values]);
     }
 
     /// <summary>

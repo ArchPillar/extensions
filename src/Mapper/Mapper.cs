@@ -1,6 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
-using System.Reflection;
 using ArchPillar.Mapper.Internal;
 
 namespace ArchPillar.Mapper;
@@ -40,24 +39,18 @@ namespace ArchPillar.Mapper;
 /// });
 /// </code>
 /// <para>
-/// For dictionaries, use <c>ToDictionary</c> with an inline construction
-/// expression (nested mapper inlining is not supported inside
-/// <c>ToDictionary</c> lambdas):
+/// For dictionaries, use <c>ToDictionary</c> with an inline mapper call —
+/// nested mapper inlining works inside <c>ToDictionary</c> value selectors:
 /// </para>
 /// <code>
-///     LookupById = src.Items.ToDictionary(i => i.Id, i => new ItemDto { Name = i.Name }),
+///     LookupById = src.Items.ToDictionary(i => i.Id, i => ItemMapper.Map(i)),
 /// </code>
 /// </summary>
 public sealed class Mapper<TSource, TDest> : IMapper
 {
-    private readonly IReadOnlyList<PropertyMapping>                                        _allMappings;
+    private readonly IReadOnlyList<PropertyMapping>                              _allMappings;
     private readonly Lazy<Func<TSource?, List<(object, object?)>?, TDest?>>  _compiled;
     private readonly Lazy<Action<TSource, TDest, List<(object, object?)>?>>  _compiledMapTo;
-
-    private static readonly MethodInfo EnumerableSelectMethod =
-        typeof(Enumerable)
-            .GetMethods()
-            .First(m => m.Name == "Select" && m.GetParameters().Length == 2);
 
     internal Mapper(IReadOnlyList<PropertyMapping> allMappings)
     {
@@ -74,16 +67,17 @@ public sealed class Mapper<TSource, TDest> : IMapper
     // -------------------------------------------------------------------------
 
     /// <summary>
-    /// Assembles a raw mapping expression from the stored property list with
-    /// no variable substitution applied. For each mapping:
+    /// Assembles a raw mapping expression from the stored property list.
+    /// For each mapping:
     ///   1. Skip optional properties not present in <paramref name="includes"/>.
-    ///   2. If backed by a nested mapper, call <see cref="IMapper.GetRawExpression"/>
-    ///      with the cascaded <see cref="IncludeSet"/> and stitch the result in
-    ///      (scalar or collection).
-    ///   3. Otherwise, substitute the source parameter only.
+    ///   2. Substitute the source parameter.
+    ///   3. Run <see cref="NestedMapperInliner"/> to replace every
+    ///      <c>Map()</c> / <c>Project()</c> call in-place with the nested
+    ///      mapper's inlined body, cascading <paramref name="includes"/> into
+    ///      child mappers for the corresponding destination property.
     /// Variable nodes remain as <c>Convert(Variable&lt;T&gt;)</c> in the returned
     /// expression so callers can apply <see cref="VariableReplacer"/> or
-    /// <c>VariableDictReplacer</c> in a single post-build pass.
+    /// <see cref="VariableDictReplacer"/> in a single post-build pass.
     /// </summary>
     private Expression<Func<TSource, TDest>> BuildExpression(IncludeSet includes)
     {
@@ -99,121 +93,20 @@ public sealed class Mapper<TSource, TDest> : IMapper
                 continue;
             }
 
-            Expression body;
+            Expression body = new ParameterReplacer(mapping.Source!.Parameters[0], sourceParam)
+                                  .Visit(mapping.Source.Body)!;
 
-            if (mapping.NestedMapperAccessor != null)
-            {
-                // Resolve cascaded includes for this nested mapper.
-                IncludeSet nestedIncludes = includes.IncludeAll
-                    ? IncludeSet.All
-                    : includes.Nested.GetValueOrDefault(mapping.Destination.Name, IncludeSet.Empty);
+            IncludeSet nestedIncludes = includes.IncludeAll
+                ? IncludeSet.All
+                : includes.Nested.GetValueOrDefault(mapping.Destination.Name, IncludeSet.Empty);
 
-                // Ask the nested mapper for its raw expression (no variable replacement yet).
-                IMapper nestedMapper = mapping.NestedMapperAccessor();
-                LambdaExpression nestedLambda = nestedMapper.GetRawExpression(nestedIncludes);
-
-                // Replace the NestedSourceAccess parameter with the current source parameter.
-                Expression accessBody = new ParameterReplacer(mapping.NestedSourceAccess!.Parameters[0], sourceParam)
-                                    .Visit(mapping.NestedSourceAccess.Body)!;
-
-                if (!mapping.IsCollection)
-                {
-                    // Scalar: inline the nested mapper body with source substituted.
-                    body = new ParameterReplacer(nestedLambda.Parameters[0], accessBody)
-                               .Visit(nestedLambda.Body);
-
-                    // Guard against null source for optional nested mappers.
-                    if (mapping.Kind == MappingKind.Optional && !accessBody.Type.IsValueType)
-                    {
-                        body = Expression.Condition(
-                            Expression.Equal(accessBody, Expression.Default(accessBody.Type)),
-                            Expression.Default(body.Type),
-                            body);
-                    }
-                }
-                else
-                {
-                    // Collection: build Enumerable.Select(sourceAccess, nestedLambda).ToList() etc.
-                    Type srcType  = nestedLambda.Parameters[0].Type;
-                    Type destType = nestedLambda.ReturnType;
-                    MethodCallExpression selectCall = Expression.Call(
-                        EnumerableSelectMethod.MakeGenericMethod(srcType, destType),
-                        accessBody,
-                        nestedLambda);
-
-                    body = WrapCollection(selectCall, mapping.Destination, destType);
-                }
-            }
-            else
-            {
-                // Simple mapping: parameter substitution only, no variable replacement.
-                body = new ParameterReplacer(mapping.Source!.Parameters[0], sourceParam)
-                           .Visit(mapping.Source.Body);
-            }
+            body = new NestedMapperInliner(nestedIncludes).Visit(body)!;
 
             bindings.Add(Expression.Bind(mapping.Destination, body));
         }
 
         return Expression.Lambda<Func<TSource, TDest>>(
             Expression.MemberInit(Expression.New(typeof(TDest)), bindings), sourceParam);
-    }
-
-    /// <summary>
-    /// Wraps a <c>Select(...)</c> call with the appropriate materialization method
-    /// (<c>ToList</c>, <c>ToArray</c>, <c>ToHashSet</c>) based on the destination
-    /// property type.
-    /// </summary>
-    private static Expression WrapCollection(Expression selectCall, MemberInfo dest, Type elementType)
-    {
-        Type? destType = dest switch
-        {
-            PropertyInfo pi => pi.PropertyType,
-            FieldInfo    fi => fi.FieldType,
-            _               => null,
-        };
-
-        if (destType == null)
-        {
-            return selectCall;
-        }
-
-        string? methodName = null;
-        if (destType.IsGenericType)
-        {
-            Type def = destType.GetGenericTypeDefinition();
-            if (def == typeof(List<>))
-            {
-                methodName = "ToList";
-            }
-            else if (def == typeof(HashSet<>))
-            {
-                methodName = "ToHashSet";
-            }
-            else if (def == typeof(IList<>)
-                  || def == typeof(ICollection<>)
-                  || def == typeof(IEnumerable<>))
-            {
-                methodName = null;
-            }
-        }
-        else if (destType.IsArray)
-        {
-            methodName = "ToArray";
-        }
-
-        if (methodName == null)
-        {
-            return selectCall;
-        }
-
-        MethodInfo method = typeof(Enumerable)
-            .GetMethod(methodName, BindingFlags.Public | BindingFlags.Static, [typeof(IEnumerable<>).MakeGenericType(elementType)])
-            ?? typeof(Enumerable)
-               .GetMethods(BindingFlags.Public | BindingFlags.Static)
-               .First(m => m.Name == methodName && m.GetParameters().Length == 1)
-               .MakeGenericMethod(elementType);
-
-        return Expression.Call(method, selectCall);
     }
 
     // -------------------------------------------------------------------------

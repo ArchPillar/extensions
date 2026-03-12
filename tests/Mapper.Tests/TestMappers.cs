@@ -169,3 +169,56 @@ public class ReverseOrderMappers : MapperContext
         .Optional(dest => dest.SupplierName, src => src.SupplierName);
     }
 }
+
+/// <summary>
+/// Mappers for <see cref="NestedInlinerTests"/>: exercises multiple nested
+/// mapper calls per property (issue 2) and <c>ToDictionary</c> with a
+/// nested mapper in the value selector (issue 3).
+/// </summary>
+public class InlinerTestMappers : MapperContext
+{
+    // Issue 2 — two Map() calls in one ternary expression
+    public Mapper<PartSource, PartDest> Part { get; }
+    public Mapper<FlexSource, FlexDest> Flex { get; }
+
+    // Issue 3 — Map() inside a ToDictionary value selector
+    public Mapper<CatalogItem, CatalogItemDto> CatalogItem { get; }
+    public Mapper<Catalog, CatalogDto>         Catalog     { get; }
+
+    // Map() calls inside an inline new {} initializer (PackDest is not a mapper target)
+    public Mapper<ShipmentSource, ShipmentDest> Shipment { get; }
+
+    public InlinerTestMappers()
+    {
+        Part = CreateMapper<PartSource, PartDest>(s => new PartDest
+        {
+            Label = s.Text,
+        })
+        .Optional(dest => dest.Tag, src => src.Tag);
+
+        Flex = CreateMapper<FlexSource, FlexDest>(s => new FlexDest
+        {
+            Part = s.UseFirst ? Part.Map(s.First) : Part.Map(s.Second),
+        });
+
+        CatalogItem = CreateMapper<CatalogItem, CatalogItemDto>(i => new CatalogItemDto
+        {
+            Label = i.Display,
+        });
+
+        Catalog = CreateMapper<Catalog, CatalogDto>(c => new CatalogDto
+        {
+            Items = c.Items.ToDictionary(i => i.Key, i => CatalogItem.Map(i)),
+        });
+
+        Shipment = CreateMapper<ShipmentSource, ShipmentDest>(s => new ShipmentDest
+        {
+            Id   = s.Id,
+            Pack = new PackDest
+            {
+                Primary   = Part.Map(s.Pack.Primary),
+                Secondary = Part.Map(s.Pack.Secondary),
+            },
+        });
+    }
+}
