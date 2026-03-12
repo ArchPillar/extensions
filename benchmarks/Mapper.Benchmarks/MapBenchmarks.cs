@@ -110,6 +110,9 @@ public class MapBenchmarks
     [Benchmark(Description = "Baseline: Select+ToArray (1 item)")]
     public EmptyDest[] Baseline_SelectToArray() => _arrayCollectionSource.Items.Select(_ => new EmptyDest()).ToArray();
 
+    [Benchmark(Description = "Baseline: Select+ToHashSet (1 item)")]
+    public HashSet<EmptyDest> Baseline_SelectToHashSet() => _hashSetCollectionSource.Items.Select(_ => new EmptyDest()).ToHashSet();
+
     [Benchmark(Description = "Baseline: new List (1 item)")]
     public List<EmptyDest> Baseline_NewList() => [new EmptyDest()];
 

@@ -62,7 +62,7 @@ public sealed class Mapper<TSource, TDest> : IMapper
     {
         _allMappings = allMappings;
         _compiledDefault = new(() =>
-            BuildExpression(IncludeSet.All, new Dictionary<object, object?>())
+            BuildExpression(IncludeSet.All, new Dictionary<object, object?>(), compileSelectors: true)
                 .Compile()!);
     }
 
@@ -82,7 +82,8 @@ public sealed class Mapper<TSource, TDest> : IMapper
     /// </summary>
     private Expression<Func<TSource, TDest>> BuildExpression(
         IncludeSet                              includes,
-        IReadOnlyDictionary<object, object?>    variableBindings)
+        IReadOnlyDictionary<object, object?>    variableBindings,
+        bool                                    compileSelectors = false)
     {
         ParameterExpression sourceParam = Expression.Parameter(typeof(TSource), "src");
         var replacer    = new VariableReplacer(new Dictionary<object, object?>(variableBindings));
@@ -155,7 +156,8 @@ public sealed class Mapper<TSource, TDest> : IMapper
         }
 
         MemberInitExpression memberInit = Expression.MemberInit(Expression.New(typeof(TDest)), bindings);
-        return Expression.Lambda<Func<TSource, TDest>>(memberInit, sourceParam);
+        Expression memberInitBody = compileSelectors ? new SelectorCompiler().Visit(memberInit) : memberInit;
+        return Expression.Lambda<Func<TSource, TDest>>(memberInitBody, sourceParam);
     }
 
     /// <summary>
@@ -271,7 +273,7 @@ public sealed class Mapper<TSource, TDest> : IMapper
 
         var mapOptions = new MapOptions<TDest>();
         options(mapOptions);
-        Expression<Func<TSource, TDest>> expr = BuildExpression(IncludeSet.All, mapOptions.VariableBindings);
+        Expression<Func<TSource, TDest>> expr = BuildExpression(IncludeSet.All, mapOptions.VariableBindings, compileSelectors: true);
         return expr.Compile()(source)!;
     }
 
@@ -323,5 +325,19 @@ public sealed class Mapper<TSource, TDest> : IMapper
     LambdaExpression IMapper.GetExpression(IncludeSet includes, IReadOnlyDictionary<object, object?> variableBindings)
     {
         return BuildExpression(includes, variableBindings);
+    }
+
+    /// <summary>
+    /// Replaces every nested <see cref="LambdaExpression"/> node in an expression
+    /// tree with a constant holding the pre-compiled delegate so that the outer
+    /// compiled delegate does not re-create inner delegate instances on every
+    /// invocation.
+    /// </summary>
+    private sealed class SelectorCompiler : ExpressionVisitor
+    {
+        protected override Expression VisitLambda<T>(Expression<T> node)
+        {
+            return Expression.Constant(node.Compile());
+        }
     }
 }
