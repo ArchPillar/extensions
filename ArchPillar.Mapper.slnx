@@ -1,4 +1,8 @@
 <Solution>
+  <Folder Name="/samples/" />
+  <Folder Name="/samples/WebShop/">
+    <Project Path="samples/WebShop/WebShop.csproj" />
+  </Folder>
   <Folder Name="/benchmarks/" />
   <Folder Name="/benchmarks/Mapper.Benchmarks/">
     <Project Path="benchmarks/Mapper.Benchmarks/ArchPillar.Mapper.Benchmarks.csproj" />

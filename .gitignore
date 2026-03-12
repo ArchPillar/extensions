@@ -53,3 +53,5 @@ CodeCoverage/
 TestResult.xml
 nunit-*.xml
 BenchmarkDotNet.Artifacts
+samples/WebShop/webshop.db
+samples/WebShop/webshop.db-*
