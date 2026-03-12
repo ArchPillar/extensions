@@ -59,8 +59,7 @@ public static class MapperExtensions
         this IEnumerable<TSource> source,
         Mapper<TSource, TDest> mapper)
     {
-        Func<TSource, TDest> compiled = mapper.ToExpression().Compile();
-        return source.Select(s => compiled(s)!);
+        return source.Select(s => mapper.Map(s)!);
     }
 
     /// <summary>

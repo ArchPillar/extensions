@@ -45,6 +45,11 @@ public sealed class EnumMapper<TSource, TDest>(Func<TSource, TDest> mappingMetho
     public Expression<Func<TSource, TDest>> ToExpression()
         => _expression.Value;
 
+    LambdaExpression IMapper.GetRawExpression(IncludeSet includes)
+    {
+        return ToExpression();
+    }
+
     LambdaExpression IMapper.GetExpression(IncludeSet includes, IReadOnlyDictionary<object, object?> variableBindings)
     {
         return ToExpression();

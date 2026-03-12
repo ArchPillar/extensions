@@ -10,6 +10,14 @@ namespace ArchPillar.Mapper.Internal;
 internal interface IMapper
 {
     /// <summary>
+    /// Returns the raw mapping expression with no variable replacement applied.
+    /// Variable nodes remain as <c>Convert(Variable&lt;T&gt;)</c> in the tree so
+    /// that a caller can substitute them using <see cref="VariableReplacer"/> or
+    /// <see cref="VariableDictReplacer"/> in a single post-build pass.
+    /// </summary>
+    LambdaExpression GetRawExpression(IncludeSet includes);
+
+    /// <summary>
     /// Returns a mapping expression with the specified optional includes and
     /// variable bindings applied. <paramref name="includes"/> is a recursive
     /// tree: top-level names select optional properties at this level; nested

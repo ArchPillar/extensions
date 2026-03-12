@@ -28,7 +28,8 @@
       "Bash(xargs wc:*)",
       "Bash(dotnet test:*)",
       "Bash(dotnet build:*)",
-      "Bash(dotnet format:*)"
+      "Bash(dotnet format:*)",
+      "Bash(grep -n -i \"variable\\\\|Variable\" tests/Mapper.Tests/*.cs)"
     ]
   }
 }

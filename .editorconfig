@@ -521,6 +521,10 @@ dotnet_diagnostic.RCS1015.severity = warning
 # RCS1018: Add accessibility modifiers.
 dotnet_diagnostic.RCS1018.severity = warning
 
+# RCS1021: Use expression-bodied lambda.
+# Conflicts with csharp_style_expression_bodied_lambdas = false — suppress the Roslynator rule.
+dotnet_diagnostic.RCS1021.severity = none
+
 # RCS1036: Remove redundant empty line. [Deprecated]
 dotnet_diagnostic.RCS1036.severity = none
 

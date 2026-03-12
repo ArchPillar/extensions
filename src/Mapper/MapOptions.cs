@@ -8,9 +8,7 @@ namespace ArchPillar.Mapper;
 /// <typeparam name="TDest">The destination type being mapped.</typeparam>
 public sealed class MapOptions<TDest>
 {
-    private readonly Dictionary<object, object?> _variableBindings = [];
-
-    internal IReadOnlyDictionary<object, object?> VariableBindings => _variableBindings;
+    internal List<(object Key, object? Value)> VariableBindings { get; } = [];
 
     /// <summary>
     /// Binds a <see cref="Variable{T}"/> to a concrete value for this in-memory mapping call.
@@ -18,7 +16,7 @@ public sealed class MapOptions<TDest>
     /// </summary>
     public MapOptions<TDest> Set<T>(Variable<T> variable, T value)
     {
-        _variableBindings[variable] = value;
+        VariableBindings.Add((variable, value));
         return this;
     }
 }

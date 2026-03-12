@@ -50,9 +50,9 @@ namespace ArchPillar.Mapper;
 /// </summary>
 public sealed class Mapper<TSource, TDest> : IMapper
 {
-    private readonly IReadOnlyList<PropertyMapping> _allMappings;
-    private readonly Lazy<Func<TSource?, TDest?>>   _compiledDefault;
-    private readonly Lazy<Action<TSource, TDest>>   _compiledDefaultMapTo;
+    private readonly IReadOnlyList<PropertyMapping>                                        _allMappings;
+    private readonly Lazy<Func<TSource?, List<(object, object?)>?, TDest?>>  _compiled;
+    private readonly Lazy<Action<TSource, TDest, List<(object, object?)>?>>  _compiledMapTo;
 
     private static readonly MethodInfo EnumerableSelectMethod =
         typeof(Enumerable)
@@ -62,11 +62,11 @@ public sealed class Mapper<TSource, TDest> : IMapper
     internal Mapper(IReadOnlyList<PropertyMapping> allMappings)
     {
         _allMappings = allMappings;
-        _compiledDefault = new(() =>
-            BuildExpression(IncludeSet.All, new Dictionary<object, object?>(), compileSelectors: true)
-                .Compile()!);
-        _compiledDefaultMapTo = new(() =>
-            BuildMapToAction(new Dictionary<object, object?>()));
+        _compiled = new(() =>
+        {
+            return BuildMapExpression().Compile()!;
+        });
+        _compiledMapTo = new(BuildMapToAction);
     }
 
     // -------------------------------------------------------------------------
@@ -74,22 +74,20 @@ public sealed class Mapper<TSource, TDest> : IMapper
     // -------------------------------------------------------------------------
 
     /// <summary>
-    /// Assembles a mapping expression from the stored property list.
-    /// For each mapping:
+    /// Assembles a raw mapping expression from the stored property list with
+    /// no variable substitution applied. For each mapping:
     ///   1. Skip optional properties not present in <paramref name="includes"/>.
-    ///   2. If backed by a nested mapper, call <see cref="IMapper.GetExpression"/>
+    ///   2. If backed by a nested mapper, call <see cref="IMapper.GetRawExpression"/>
     ///      with the cascaded <see cref="IncludeSet"/> and stitch the result in
     ///      (scalar or collection).
-    ///   3. Otherwise, substitute the source parameter and replace variables.
-    ///   4. Wrap optional properties with null-safe navigation when compiling.
+    ///   3. Otherwise, substitute the source parameter only.
+    /// Variable nodes remain as <c>Convert(Variable&lt;T&gt;)</c> in the returned
+    /// expression so callers can apply <see cref="VariableReplacer"/> or
+    /// <c>VariableDictReplacer</c> in a single post-build pass.
     /// </summary>
-    private Expression<Func<TSource, TDest>> BuildExpression(
-        IncludeSet                              includes,
-        IReadOnlyDictionary<object, object?>    variableBindings,
-        bool                                    compileSelectors = false)
+    private Expression<Func<TSource, TDest>> BuildExpression(IncludeSet includes)
     {
         ParameterExpression sourceParam = Expression.Parameter(typeof(TSource), "src");
-        var replacer    = new VariableReplacer(new Dictionary<object, object?>(variableBindings));
 
         var bindings = new List<MemberBinding>();
         foreach (PropertyMapping mapping in _allMappings)
@@ -110,14 +108,13 @@ public sealed class Mapper<TSource, TDest> : IMapper
                     ? IncludeSet.All
                     : includes.Nested.GetValueOrDefault(mapping.Destination.Name, IncludeSet.Empty);
 
-                // Ask the nested mapper for its expression with the cascaded includes.
+                // Ask the nested mapper for its raw expression (no variable replacement yet).
                 IMapper nestedMapper = mapping.NestedMapperAccessor();
-                LambdaExpression nestedLambda = nestedMapper.GetExpression(nestedIncludes, variableBindings);
+                LambdaExpression nestedLambda = nestedMapper.GetRawExpression(nestedIncludes);
 
                 // Replace the NestedSourceAccess parameter with the current source parameter.
-                Expression? accessBody = new ParameterReplacer(mapping.NestedSourceAccess!.Parameters[0], sourceParam)
-                                     .Visit(mapping.NestedSourceAccess.Body);
-                accessBody = replacer.Visit(accessBody);
+                Expression accessBody = new ParameterReplacer(mapping.NestedSourceAccess!.Parameters[0], sourceParam)
+                                    .Visit(mapping.NestedSourceAccess.Body)!;
 
                 if (!mapping.IsCollection)
                 {
@@ -149,22 +146,20 @@ public sealed class Mapper<TSource, TDest> : IMapper
             }
             else
             {
-                // Simple mapping: parameter + variable replacement.
+                // Simple mapping: parameter substitution only, no variable replacement.
                 body = new ParameterReplacer(mapping.Source!.Parameters[0], sourceParam)
                            .Visit(mapping.Source.Body);
-                body = replacer.Visit(body);
             }
 
             bindings.Add(Expression.Bind(mapping.Destination, body));
         }
 
-        MemberInitExpression memberInit = Expression.MemberInit(Expression.New(typeof(TDest)), bindings);
-        Expression memberInitBody = compileSelectors ? new SelectorCompiler().Visit(memberInit) : memberInit;
-        return Expression.Lambda<Func<TSource, TDest>>(memberInitBody, sourceParam);
+        return Expression.Lambda<Func<TSource, TDest>>(
+            Expression.MemberInit(Expression.New(typeof(TDest)), bindings), sourceParam);
     }
 
     /// <summary>
-    /// Wraps a <c>Select(...)</c> call with the appropriate materialisation method
+    /// Wraps a <c>Select(...)</c> call with the appropriate materialization method
     /// (<c>ToList</c>, <c>ToArray</c>, <c>ToHashSet</c>) based on the destination
     /// property type.
     /// </summary>
@@ -253,10 +248,29 @@ public sealed class Mapper<TSource, TDest> : IMapper
     // In-memory object mapping
     // -------------------------------------------------------------------------
 
-    private Action<TSource, TDest> BuildMapToAction(IReadOnlyDictionary<object, object?> variableBindings)
+    /// <summary>
+    /// Applies <see cref="VariableDictReplacer"/> and <see cref="SelectorCompiler"/>
+    /// as post-build passes over the raw expression, then wraps the result as a
+    /// two-parameter <c>(src, vars)</c> delegate. A single compiled instance handles
+    /// both the no-variables case (pass <see langword="null"/>) and any variable
+    /// binding without recompilation.
+    /// </summary>
+    private Expression<Func<TSource, List<(object, object?)>?, TDest>> BuildMapExpression()
     {
-        Expression<Func<TSource, TDest>> initExpr = BuildExpression(IncludeSet.All, variableBindings, compileSelectors: true);
-        var memberInit  = (MemberInitExpression)initExpr.Body;
+        ParameterExpression bindingsParam = Expression.Parameter(VariableDictReplacer.BindingsType, "vars");
+        Expression<Func<TSource, TDest>> raw = BuildExpression(IncludeSet.All);
+        Expression withLookups = new VariableDictReplacer(bindingsParam).Visit(raw)!;
+        Expression body = new SelectorCompiler(bindingsParam).Visit(((LambdaExpression)withLookups).Body);
+        return Expression.Lambda<Func<TSource, List<(object, object?)>?, TDest>>(
+            body, raw.Parameters[0], bindingsParam);
+    }
+
+    private Action<TSource, TDest, List<(object, object?)>?> BuildMapToAction()
+    {
+        Expression<Func<TSource, List<(object, object?)>?, TDest>> initExpr = BuildMapExpression();
+        ParameterExpression bindingsParam = initExpr.Parameters[1];
+
+        var memberInit = (MemberInitExpression)initExpr.Body;
         ParameterExpression destParam = Expression.Parameter(typeof(TDest), "dest");
         ParameterExpression srcParam  = initExpr.Parameters[0];
 
@@ -271,7 +285,8 @@ public sealed class Mapper<TSource, TDest> : IMapper
             .ToList();
 
         BlockExpression block = Expression.Block(typeof(void), assignments);
-        return Expression.Lambda<Action<TSource, TDest>>(block, srcParam, destParam).Compile();
+        return Expression.Lambda<Action<TSource, TDest, List<(object, object?)>?>>(
+            block, srcParam, destParam, bindingsParam).Compile();
     }
 
     /// <summary>
@@ -296,13 +311,13 @@ public sealed class Mapper<TSource, TDest> : IMapper
 
         if (options is null)
         {
-            _compiledDefaultMapTo.Value(source, destination);
+            _compiledMapTo.Value(source, destination, null);
             return;
         }
 
         var mapOptions = new MapOptions<TDest>();
         options(mapOptions);
-        BuildMapToAction(mapOptions.VariableBindings)(source, destination);
+        _compiledMapTo.Value(source, destination, mapOptions.VariableBindings);
     }
 
     /// <summary>
@@ -323,13 +338,12 @@ public sealed class Mapper<TSource, TDest> : IMapper
 
         if (options is null)
         {
-            return _compiledDefault.Value(source)!;
+            return _compiled.Value(source, null)!;
         }
 
         var mapOptions = new MapOptions<TDest>();
         options(mapOptions);
-        Expression<Func<TSource, TDest>> expr = BuildExpression(IncludeSet.All, mapOptions.VariableBindings, compileSelectors: true);
-        return expr.Compile()(source)!;
+        return _compiled.Value(source, mapOptions.VariableBindings)!;
     }
 
     /// <summary>
@@ -350,7 +364,7 @@ public sealed class Mapper<TSource, TDest> : IMapper
             return default;
         }
 
-        return _compiledDefault.Value(source)!;
+        return _compiled.Value(source, null)!;
     }
 
     // -------------------------------------------------------------------------
@@ -365,21 +379,33 @@ public sealed class Mapper<TSource, TDest> : IMapper
     public Expression<Func<TSource, TDest>> ToExpression(
         Action<ProjectionOptions<TDest>>? options = null)
     {
-        if (options is null)
+        IncludeSet                           includes         = IncludeSet.Empty;
+        IReadOnlyDictionary<object, object?> variableBindings = new Dictionary<object, object?>();
+
+        if (options != null)
         {
-            return BuildExpression(IncludeSet.Empty, new Dictionary<object, object?>());
+            var projOptions = new ProjectionOptions<TDest>();
+            options(projOptions);
+            includes         = IncludeSet.Parse(projOptions.Includes);
+            variableBindings = projOptions.VariableBindings;
+            ValidateIncludes(includes);
         }
 
-        var projOptions = new ProjectionOptions<TDest>();
-        options(projOptions);
-        var includes = IncludeSet.Parse(projOptions.Includes);
-        ValidateIncludes(includes);
-        return BuildExpression(includes, projOptions.VariableBindings);
+        return (Expression<Func<TSource, TDest>>)
+            new VariableReplacer(new Dictionary<object, object?>(variableBindings))
+                .Visit(BuildExpression(includes))!;
+    }
+
+    LambdaExpression IMapper.GetRawExpression(IncludeSet includes)
+    {
+        return BuildExpression(includes);
     }
 
     LambdaExpression IMapper.GetExpression(IncludeSet includes, IReadOnlyDictionary<object, object?> variableBindings)
     {
-        return BuildExpression(includes, variableBindings);
+        return (LambdaExpression)
+            new VariableReplacer(new Dictionary<object, object?>(variableBindings))
+                .Visit(BuildExpression(includes))!;
     }
 
     /// <summary>
@@ -387,12 +413,40 @@ public sealed class Mapper<TSource, TDest> : IMapper
     /// tree with a constant holding the pre-compiled delegate so that the outer
     /// compiled delegate does not re-create inner delegate instances on every
     /// invocation.
+    /// <para>
+    /// When <paramref name="dictParam"/> is supplied, lambdas that reference it as a
+    /// free variable are left as-is — they will close over it at runtime rather than
+    /// being pre-compiled to a stale constant.
+    /// </para>
     /// </summary>
-    private sealed class SelectorCompiler : ExpressionVisitor
+    private sealed class SelectorCompiler(ParameterExpression? dictParam = null) : ExpressionVisitor
     {
         protected override Expression VisitLambda<T>(Expression<T> node)
         {
+            if (dictParam != null && ReferencesDictParam(node.Body))
+            {
+                return base.VisitLambda(node);
+            }
+
             return Expression.Constant(node.Compile());
+        }
+
+        private bool ReferencesDictParam(Expression expr)
+        {
+            var finder = new DictParamFinder(dictParam!);
+            finder.Visit(expr);
+            return finder.Found;
+        }
+
+        private sealed class DictParamFinder(ParameterExpression target) : ExpressionVisitor
+        {
+            public bool Found { get; private set; }
+
+            protected override Expression VisitParameter(ParameterExpression node)
+            {
+                Found |= node == target;
+                return node;
+            }
         }
     }
 }

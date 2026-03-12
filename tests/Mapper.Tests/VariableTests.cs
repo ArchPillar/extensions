@@ -87,6 +87,58 @@ public class VariableTests
     }
 
     // -----------------------------------------------------------------------
+    // MapTo — variable binding
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void MapTo_WithVariable_VariablePropagatedToNestedMapper()
+    {
+        var user = new User
+        {
+            Id        = 1,
+            FirstName = "Alice",
+            LastName  = "Smith",
+            Email     = "a@b.com",
+            Role      = UserRole.Member,
+            Address   = new Address { Street = "1st", City = "NY", Country = "US" },
+            Orders    =
+            [
+                new Order { Id = 10, Status = OrderStatus.Pending, OwnerId = 42, Customer = new Customer { Name = "", Email = "" }, Lines = [] },
+            ],
+        };
+        var dest = new UserDto
+        {
+            Id       = 0,
+            FullName = "",
+            Email    = "",
+            Role     = UserRoleDto.Guest,
+            Address  = new AddressDto { Street = "", City = "", Country = "" },
+        };
+
+        _mappers.User.MapTo(user, dest, o => o.Set(_mappers.CurrentUserId, 42));
+
+        Assert.True(dest.Orders![0].IsOwner);
+    }
+
+    [Fact]
+    public void MapTo_SettingUnrelatedVariable_HasNoEffect()
+    {
+        var other = new TestMappers();
+        var order = new Order { Id = 1, Status = OrderStatus.Pending, OwnerId = 5, Customer = new Customer { Name = "", Email = "" }, Lines = [] };
+        var dest  = new OrderDto
+        {
+            Id       = 0,
+            PlacedAt = DateTime.MinValue,
+            Status   = OrderStatusDto.Pending,
+            IsOwner  = false,
+        };
+
+        _mappers.Order.MapTo(order, dest, o => o.Set(other.CurrentUserId, 5));
+
+        Assert.False(dest.IsOwner);
+    }
+
+    // -----------------------------------------------------------------------
     // Variable propagation into nested mappers
     // -----------------------------------------------------------------------
 

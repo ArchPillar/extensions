@@ -1,14 +1,8 @@
 # Potential Issues
 
-## 1. Map/Project with options recompiles the expression on every call — no caching
+## ~~1. `IEnumerable.Project` (no-options) recompiles the expression on every call~~ ✓ Fixed
 
-**Severity**: Performance — potentially significant in hot paths
-
-`Mapper.Map(source, options)` calls `BuildExpression(...).Compile()` on every invocation when `options != null`. Similarly, the `Project(IEnumerable, mapper)` extension calls `mapper.ToExpression().Compile()` every time. Expression compilation is expensive (reflection emit under the hood).
-
-Only the default (no-options) path benefits from the `Lazy<>` cache in `_compiledDefault`.
-
-**Idea**: For the `IEnumerable` extension, cache the compiled delegate in a `Lazy<>` on the mapper (it's the same expression as `_compiledDefault`). For the options path, consider a cache keyed on the set of include names + variable bindings. Even a small LRU or a `ConcurrentDictionary` with a composite key would help the common case where the same include set is used repeatedly.
+`Map(source, options)`, `MapTo(source, dest, options)`, and `IEnumerable.Project` all now delegate to the pre-compiled `_compiled`/`_compiledMapTo` `Lazy<>` delegates. No recompilation occurs on any path.
 
 ---
 

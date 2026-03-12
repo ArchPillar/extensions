@@ -21,11 +21,19 @@ public class MapBenchmarks
     private N5L1                       _nested5Source = null!;
     private N10L1                      _nested10Source = null!;
 
+    // Variable sources — pre-allocated so Arrange cost is excluded
+    private Var1Source  _var1Source  = null!;
+    private Var5Source  _var5Source  = null!;
+    private Var10Source _var10Source = null!;
+
     // MapTo destinations — pre-allocated existing instances
     private FivePropDest         _fivePropDest = null!;
     private TenPropDest          _tenPropDest = null!;
     private ListCollectionDest   _listCollectionDest = null!;
     private N5L1Dto              _nested5Dest = null!;
+    private Var1Dest             _var1Dest    = null!;
+    private Var5Dest             _var5Dest    = null!;
+    private Var10Dest            _var10Dest   = null!;
 
     [GlobalSetup]
     public void Setup()
@@ -77,6 +85,14 @@ public class MapBenchmarks
         _tenPropDest       = new TenPropDest  { P1 = "", P2 = "", P3 = "", P4 = "", P5 = "", P6 = 0, P7 = 0, P8 = 0, P9 = 0, P10 = 0 };
         _listCollectionDest = new ListCollectionDest { Items = [] };
         _nested5Dest       = new N5L1Dto { V = "", Child = new N5L2Dto { V = "", Child = new N5L3Dto { V = "", Child = new N5L4Dto { V = "", Child = new N5L5Dto { V = "" } } } } };
+
+        _var1Source  = new Var1Source  { P1 = 1 };
+        _var5Source  = new Var5Source  { P1 = 1, P2 = 2, P3 = 3, P4 = 4, P5 = 5 };
+        _var10Source = new Var10Source { P1 = 1, P2 = 2, P3 = 3, P4 = 4, P5 = 5, P6 = 6, P7 = 7, P8 = 8, P9 = 9, P10 = 10 };
+
+        _var1Dest  = new Var1Dest  { B1 = false };
+        _var5Dest  = new Var5Dest  { B1 = false, B2 = false, B3 = false, B4 = false, B5 = false };
+        _var10Dest = new Var10Dest { B1 = false, B2 = false, B3 = false, B4 = false, B5 = false, B6 = false, B7 = false, B8 = false, B9 = false, B10 = false };
     }
 
     // -------------------------------------------------------------------------
@@ -126,6 +142,52 @@ public class MapBenchmarks
 
     [Benchmark(Description = "Baseline: new List (1 item)")]
     public List<EmptyDest> Baseline_NewList() => [new EmptyDest()];
+
+    // -------------------------------------------------------------------------
+    // Variable benchmarks — Map with runtime variable bindings
+    // -------------------------------------------------------------------------
+
+    [Benchmark(Description = "Map: 1 variable")]
+    public Var1Dest Map_Var1()
+    {
+        return _mappers.Var1.Map(_var1Source, o => o.Set(_mappers.V1, 1));
+    }
+
+    [Benchmark(Description = "Map: 5 variables")]
+    public Var5Dest Map_Var5()
+    {
+        return _mappers.Var5.Map(_var5Source, o => o
+            .Set(_mappers.V1, 1).Set(_mappers.V2, 2).Set(_mappers.V3, 3).Set(_mappers.V4, 4).Set(_mappers.V5, 5));
+    }
+
+    [Benchmark(Description = "Map: 10 variables")]
+    public Var10Dest Map_Var10()
+    {
+        return _mappers.Var10.Map(_var10Source, o => o
+            .Set(_mappers.V1,  1).Set(_mappers.V2,  2).Set(_mappers.V3,  3).Set(_mappers.V4,  4).Set(_mappers.V5,  5)
+            .Set(_mappers.V6,  6).Set(_mappers.V7,  7).Set(_mappers.V8,  8).Set(_mappers.V9,  9).Set(_mappers.V10, 10));
+    }
+
+    [Benchmark(Description = "MapTo: 1 variable")]
+    public void MapTo_Var1()
+    {
+        _mappers.Var1.MapTo(_var1Source, _var1Dest, o => o.Set(_mappers.V1, 1));
+    }
+
+    [Benchmark(Description = "MapTo: 5 variables")]
+    public void MapTo_Var5()
+    {
+        _mappers.Var5.MapTo(_var5Source, _var5Dest, o => o
+            .Set(_mappers.V1, 1).Set(_mappers.V2, 2).Set(_mappers.V3, 3).Set(_mappers.V4, 4).Set(_mappers.V5, 5));
+    }
+
+    [Benchmark(Description = "MapTo: 10 variables")]
+    public void MapTo_Var10()
+    {
+        _mappers.Var10.MapTo(_var10Source, _var10Dest, o => o
+            .Set(_mappers.V1,  1).Set(_mappers.V2,  2).Set(_mappers.V3,  3).Set(_mappers.V4,  4).Set(_mappers.V5,  5)
+            .Set(_mappers.V6,  6).Set(_mappers.V7,  7).Set(_mappers.V8,  8).Set(_mappers.V9,  9).Set(_mappers.V10, 10));
+    }
 
     // -------------------------------------------------------------------------
     // MapTo benchmarks — map onto an existing object
@@ -187,6 +249,22 @@ public class BenchmarkMappers : MapperContext
     public Mapper<N5L3, N5L3Dto> N5L3 { get; }
     public Mapper<N5L2, N5L2Dto> N5L2 { get; }
     public Mapper<N5L1, N5L1Dto> Nested5 { get; }
+
+    // Variables
+    public Variable<int> V1  { get; } = CreateVariable<int>();
+    public Variable<int> V2  { get; } = CreateVariable<int>();
+    public Variable<int> V3  { get; } = CreateVariable<int>();
+    public Variable<int> V4  { get; } = CreateVariable<int>();
+    public Variable<int> V5  { get; } = CreateVariable<int>();
+    public Variable<int> V6  { get; } = CreateVariable<int>();
+    public Variable<int> V7  { get; } = CreateVariable<int>();
+    public Variable<int> V8  { get; } = CreateVariable<int>();
+    public Variable<int> V9  { get; } = CreateVariable<int>();
+    public Variable<int> V10 { get; } = CreateVariable<int>();
+
+    public Mapper<Var1Source,  Var1Dest>  Var1  { get; }
+    public Mapper<Var5Source,  Var5Dest>  Var5  { get; }
+    public Mapper<Var10Source, Var10Dest> Var10 { get; }
 
     // 10-level
     public Mapper<N10L10, N10L10Dto> N10L10 { get; }
@@ -275,6 +353,23 @@ public class BenchmarkMappers : MapperContext
         N10L3 = CreateMapper<N10L3, N10L3Dto>(s => new N10L3Dto { V = s.V, Child = N10L4.Map(s.Child) });
         N10L2 = CreateMapper<N10L2, N10L2Dto>(s => new N10L2Dto { V = s.V, Child = N10L3.Map(s.Child) });
         Nested10 = CreateMapper<N10L1, N10L1Dto>(s => new N10L1Dto { V = s.V, Child = N10L2.Map(s.Child) });
+
+        // --- Variables ---
+        Var1 = CreateMapper<Var1Source, Var1Dest>(s => new Var1Dest
+        {
+            B1 = s.P1 == V1,
+        });
+
+        Var5 = CreateMapper<Var5Source, Var5Dest>(s => new Var5Dest
+        {
+            B1 = s.P1 == V1, B2 = s.P2 == V2, B3 = s.P3 == V3, B4 = s.P4 == V4, B5 = s.P5 == V5,
+        });
+
+        Var10 = CreateMapper<Var10Source, Var10Dest>(s => new Var10Dest
+        {
+            B1  = s.P1  == V1,  B2  = s.P2  == V2,  B3  = s.P3  == V3,  B4  = s.P4  == V4,  B5  = s.P5  == V5,
+            B6  = s.P6  == V6,  B7  = s.P7  == V7,  B8  = s.P8  == V8,  B9  = s.P9  == V9,  B10 = s.P10 == V10,
+        });
 
         EagerBuildAll();
     }
@@ -408,3 +503,53 @@ public class N10L2Dto { public required string V { get; set; } public required N
 
 public class N10L1    { public required string V { get; set; } public required N10L2    Child { get; set; } }
 public class N10L1Dto { public required string V { get; set; } public required N10L2Dto Child { get; set; } }
+
+// --- Variable sources / destinations ---
+public class Var1Source  { public required int P1 { get; set; } }
+public class Var1Dest    { public required bool B1 { get; set; } }
+
+public class Var5Source
+{
+    public required int P1 { get; set; }
+    public required int P2 { get; set; }
+    public required int P3 { get; set; }
+    public required int P4 { get; set; }
+    public required int P5 { get; set; }
+}
+
+public class Var5Dest
+{
+    public required bool B1 { get; set; }
+    public required bool B2 { get; set; }
+    public required bool B3 { get; set; }
+    public required bool B4 { get; set; }
+    public required bool B5 { get; set; }
+}
+
+public class Var10Source
+{
+    public required int P1  { get; set; }
+    public required int P2  { get; set; }
+    public required int P3  { get; set; }
+    public required int P4  { get; set; }
+    public required int P5  { get; set; }
+    public required int P6  { get; set; }
+    public required int P7  { get; set; }
+    public required int P8  { get; set; }
+    public required int P9  { get; set; }
+    public required int P10 { get; set; }
+}
+
+public class Var10Dest
+{
+    public required bool B1  { get; set; }
+    public required bool B2  { get; set; }
+    public required bool B3  { get; set; }
+    public required bool B4  { get; set; }
+    public required bool B5  { get; set; }
+    public required bool B6  { get; set; }
+    public required bool B7  { get; set; }
+    public required bool B8  { get; set; }
+    public required bool B9  { get; set; }
+    public required bool B10 { get; set; }
+}
