@@ -269,6 +269,36 @@ For object mapping, the compiled delegate performs an upfront null check and ret
 
 For expression projection, no explicit null check is emitted into the expression tree — EF Core and other LINQ providers already handle null propagation correctly at the SQL level.
 
+### 9. MapTo — Mapping onto an Existing Object
+
+`MapTo` assigns mapped properties onto a **pre-existing** destination instance rather than creating a new one. This is useful for:
+
+- Patch / update flows where an entity is already tracked by EF Core
+- Updating an existing DTO or view-model in place
+- Scenarios where the caller owns the destination lifetime
+
+```csharp
+// Update an existing tracked entity from a command object
+mapper.Order.MapTo(command, existingOrder);
+
+// With a runtime variable
+mapper.Order.MapTo(command, existingOrder, o => o.Set(mapper.CurrentUserId, userId));
+```
+
+**Behavior**:
+
+- All required properties are always assigned — identical to the in-memory `Map` default.
+- Optional properties are **also assigned** (the same `IncludeAll` rule that governs in-memory `Map` applies).
+- Variables can be provided via `MapOptions`, same as `Map`.
+- Nested scalar properties are **replaced** with a newly mapped object; the existing nested object is not recursively merged.
+- Collection properties are **replaced** with a newly mapped collection.
+- If `source` is `null`, the call is a no-op — the destination is left unchanged.
+- `destination` must not be `null`; passing `null` throws `ArgumentNullException`.
+
+**In-memory only**: `MapTo` has no LINQ/EF Core equivalent. LINQ projections always produce new objects; merging into an existing tracked entity is a responsibility left to the application layer.
+
+**Implementation**: builds a compiled `Action<TSource, TDest>` using a `BlockExpression` of `Expression.Assign` calls — one per mapped property — rather than the `MemberInitExpression` used by `Map`.
+
 ---
 
 ## API Surface
@@ -328,6 +358,9 @@ public sealed class Mapper<TSource, TDest>
     // Expression-safe single-item overload — no optional params, usable inside
     // member-init expressions and ToDictionary lambdas
     TDest? Map(TSource source);
+
+    // Maps onto an existing destination; no-op if source is null (see §9)
+    void MapTo(TSource? source, TDest destination, Action<MapOptions<TDest>>? options = null);
 
     // Expression tree
     Expression<Func<TSource, TDest>> ToExpression(Action<ProjectionOptions<TDest>>? options = null);
@@ -495,6 +528,7 @@ Mapper/
 | **Ignore API** | Explicit — `.Ignore(dest => dest.Prop)` must be called for any destination property that is intentionally left unmapped. Silence is not acceptance. |
 | **Collection handling** | Transparent — `IEnumerable<T>`, `List<T>`, and `ICollection<T>` are all handled without extra configuration. |
 | **Optional on nested / collection types** | Supported via `ThenInclude`-style chaining (see §5). |
+| **MapTo / merge** | In-memory only — maps onto an existing destination via a compiled `Action<TSource, TDest>`. No LINQ equivalent; merging into tracked EF Core entities is an application-layer concern. Nested objects are replaced, not recursively merged. |
 | **Reverse mapping** | Deferred — only considered if it does not add meaningful complexity. Not a v1 requirement. |
 | **Source generators** | On the roadmap — a Roslyn source generator that emits mapping delegates at compile time for zero-allocation object mapping is a target for a future milestone. |
 | **Enum mapping** | Special-cased — defined as a plain method; the library generates a switch expression tree by enumerating all enum values (see §7). |

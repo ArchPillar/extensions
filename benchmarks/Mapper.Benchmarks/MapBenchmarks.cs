@@ -9,17 +9,23 @@ public class MapBenchmarks
     private BenchmarkMappers _mappers = null!;
 
     // Sources — pre-allocated so Arrange cost is excluded
-    private EmptySource               _emptySource = null!;
-    private SinglePropSource          _singlePropSource = null!;
-    private FivePropSource            _fivePropSource = null!;
-    private TenPropSource             _tenPropSource = null!;
-    private ListCollectionSource      _listCollectionSource = null!;
-    private ArrayCollectionSource     _arrayCollectionSource = null!;
-    private HashSetCollectionSource   _hashSetCollectionSource = null!;
+    private EmptySource                _emptySource = null!;
+    private SinglePropSource           _singlePropSource = null!;
+    private FivePropSource             _fivePropSource = null!;
+    private TenPropSource              _tenPropSource = null!;
+    private ListCollectionSource       _listCollectionSource = null!;
+    private ArrayCollectionSource      _arrayCollectionSource = null!;
+    private HashSetCollectionSource    _hashSetCollectionSource = null!;
     private DictionaryCollectionSource _dictionaryCollectionSource = null!;
-    private NestedEmptySource         _nestedEmptySource = null!;
-    private N5L1                      _nested5Source = null!;
-    private N10L1                     _nested10Source = null!;
+    private NestedEmptySource          _nestedEmptySource = null!;
+    private N5L1                       _nested5Source = null!;
+    private N10L1                      _nested10Source = null!;
+
+    // MapTo destinations — pre-allocated existing instances
+    private FivePropDest         _fivePropDest = null!;
+    private TenPropDest          _tenPropDest = null!;
+    private ListCollectionDest   _listCollectionDest = null!;
+    private N5L1Dto              _nested5Dest = null!;
 
     [GlobalSetup]
     public void Setup()
@@ -66,6 +72,11 @@ public class MapBenchmarks
         _nested5Source = new N5L1 { V = "1", Child = new N5L2 { V = "2", Child = new N5L3 { V = "3", Child = new N5L4 { V = "4", Child = new N5L5 { V = "5" } } } } };
 
         _nested10Source = new N10L1 { V = "1", Child = new N10L2 { V = "2", Child = new N10L3 { V = "3", Child = new N10L4 { V = "4", Child = new N10L5 { V = "5", Child = new N10L6 { V = "6", Child = new N10L7 { V = "7", Child = new N10L8 { V = "8", Child = new N10L9 { V = "9", Child = new N10L10 { V = "10" } } } } } } } } } };
+
+        _fivePropDest      = new FivePropDest { Name = "", Age = 0, Email = "", City = "", Active = false };
+        _tenPropDest       = new TenPropDest  { P1 = "", P2 = "", P3 = "", P4 = "", P5 = "", P6 = 0, P7 = 0, P8 = 0, P9 = 0, P10 = 0 };
+        _listCollectionDest = new ListCollectionDest { Items = [] };
+        _nested5Dest       = new N5L1Dto { V = "", Child = new N5L2Dto { V = "", Child = new N5L3Dto { V = "", Child = new N5L4Dto { V = "", Child = new N5L5Dto { V = "" } } } } };
     }
 
     // -------------------------------------------------------------------------
@@ -115,6 +126,22 @@ public class MapBenchmarks
 
     [Benchmark(Description = "Baseline: new List (1 item)")]
     public List<EmptyDest> Baseline_NewList() => [new EmptyDest()];
+
+    // -------------------------------------------------------------------------
+    // MapTo benchmarks — map onto an existing object
+    // -------------------------------------------------------------------------
+
+    [Benchmark(Description = "MapTo: 5 properties")]
+    public void MapTo_FiveProp() => _mappers.FiveProp.MapTo(_fivePropSource, _fivePropDest);
+
+    [Benchmark(Description = "MapTo: 10 properties")]
+    public void MapTo_TenProp() => _mappers.TenProp.MapTo(_tenPropSource, _tenPropDest);
+
+    [Benchmark(Description = "MapTo: List<T> (1 item)")]
+    public void MapTo_ListCollection() => _mappers.ListCollection.MapTo(_listCollectionSource, _listCollectionDest);
+
+    [Benchmark(Description = "MapTo: 5-level nesting")]
+    public void MapTo_Nested5() => _mappers.Nested5.MapTo(_nested5Source, _nested5Dest);
 
     // -------------------------------------------------------------------------
     // Nesting benchmarks

@@ -52,6 +52,7 @@ public sealed class Mapper<TSource, TDest> : IMapper
 {
     private readonly IReadOnlyList<PropertyMapping> _allMappings;
     private readonly Lazy<Func<TSource?, TDest?>>   _compiledDefault;
+    private readonly Lazy<Action<TSource, TDest>>   _compiledDefaultMapTo;
 
     private static readonly MethodInfo EnumerableSelectMethod =
         typeof(Enumerable)
@@ -64,6 +65,8 @@ public sealed class Mapper<TSource, TDest> : IMapper
         _compiledDefault = new(() =>
             BuildExpression(IncludeSet.All, new Dictionary<object, object?>(), compileSelectors: true)
                 .Compile()!);
+        _compiledDefaultMapTo = new(() =>
+            BuildMapToAction(new Dictionary<object, object?>()));
     }
 
     // -------------------------------------------------------------------------
@@ -249,6 +252,58 @@ public sealed class Mapper<TSource, TDest> : IMapper
     // -------------------------------------------------------------------------
     // In-memory object mapping
     // -------------------------------------------------------------------------
+
+    private Action<TSource, TDest> BuildMapToAction(IReadOnlyDictionary<object, object?> variableBindings)
+    {
+        Expression<Func<TSource, TDest>> initExpr = BuildExpression(IncludeSet.All, variableBindings, compileSelectors: true);
+        var memberInit  = (MemberInitExpression)initExpr.Body;
+        ParameterExpression destParam = Expression.Parameter(typeof(TDest), "dest");
+        ParameterExpression srcParam  = initExpr.Parameters[0];
+
+        var assignments = memberInit.Bindings
+            .Cast<MemberAssignment>()
+            .Select(b =>
+            {
+                return (Expression)Expression.Assign(
+                    Expression.MakeMemberAccess(destParam, b.Member),
+                    b.Expression);
+            })
+            .ToList();
+
+        BlockExpression block = Expression.Block(typeof(void), assignments);
+        return Expression.Lambda<Action<TSource, TDest>>(block, srcParam, destParam).Compile();
+    }
+
+    /// <summary>
+    /// Assigns all mapped properties from <paramref name="source"/> onto an
+    /// existing <paramref name="destination"/> instance.
+    /// <para>
+    /// If <paramref name="source"/> is <see langword="null"/> the call is a
+    /// no-op and <paramref name="destination"/> is left unchanged.
+    /// </para>
+    /// </summary>
+    /// <exception cref="ArgumentNullException">
+    /// Thrown when <paramref name="destination"/> is <see langword="null"/>.
+    /// </exception>
+    public void MapTo(TSource? source, TDest destination, Action<MapOptions<TDest>>? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(destination);
+
+        if (source is null)
+        {
+            return;
+        }
+
+        if (options is null)
+        {
+            _compiledDefaultMapTo.Value(source, destination);
+            return;
+        }
+
+        var mapOptions = new MapOptions<TDest>();
+        options(mapOptions);
+        BuildMapToAction(mapOptions.VariableBindings)(source, destination);
+    }
 
     /// <summary>
     /// Maps a single source instance to a new destination instance.
