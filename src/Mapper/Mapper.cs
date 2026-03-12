@@ -62,7 +62,7 @@ public sealed class Mapper<TSource, TDest> : IMapper
     {
         _allMappings = allMappings;
         _compiledDefault = new(() =>
-            BuildExpression(IncludeSet.All, new Dictionary<object, object?>(), nullSafeOptionals: true)
+            BuildExpression(IncludeSet.All, new Dictionary<object, object?>())
                 .Compile()!);
     }
 
@@ -82,8 +82,7 @@ public sealed class Mapper<TSource, TDest> : IMapper
     /// </summary>
     private Expression<Func<TSource, TDest>> BuildExpression(
         IncludeSet                              includes,
-        IReadOnlyDictionary<object, object?>    variableBindings,
-        bool                                    nullSafeOptionals)
+        IReadOnlyDictionary<object, object?>    variableBindings)
     {
         ParameterExpression sourceParam = Expression.Parameter(typeof(TSource), "src");
         var replacer    = new VariableReplacer(new Dictionary<object, object?>(variableBindings));
@@ -109,7 +108,7 @@ public sealed class Mapper<TSource, TDest> : IMapper
 
                 // Ask the nested mapper for its expression with the cascaded includes.
                 IMapper nestedMapper = mapping.NestedMapperAccessor();
-                LambdaExpression nestedLambda = nestedMapper.GetExpression(nestedIncludes, variableBindings, nullSafeOptionals);
+                LambdaExpression nestedLambda = nestedMapper.GetExpression(nestedIncludes, variableBindings);
 
                 // Replace the NestedSourceAccess parameter with the current source parameter.
                 Expression? accessBody = new ParameterReplacer(mapping.NestedSourceAccess!.Parameters[0], sourceParam)
@@ -123,8 +122,7 @@ public sealed class Mapper<TSource, TDest> : IMapper
                                .Visit(nestedLambda.Body);
 
                     // Guard against null source for optional nested mappers.
-                    if (nullSafeOptionals && mapping.Kind == MappingKind.Optional
-                        && !accessBody.Type.IsValueType)
+                    if (mapping.Kind == MappingKind.Optional && !accessBody.Type.IsValueType)
                     {
                         body = Expression.Condition(
                             Expression.Equal(accessBody, Expression.Default(accessBody.Type)),
@@ -273,7 +271,7 @@ public sealed class Mapper<TSource, TDest> : IMapper
 
         var mapOptions = new MapOptions<TDest>();
         options(mapOptions);
-        Expression<Func<TSource, TDest>> expr = BuildExpression(IncludeSet.All, mapOptions.VariableBindings, nullSafeOptionals: true);
+        Expression<Func<TSource, TDest>> expr = BuildExpression(IncludeSet.All, mapOptions.VariableBindings);
         return expr.Compile()(source)!;
     }
 
@@ -312,16 +310,18 @@ public sealed class Mapper<TSource, TDest> : IMapper
     {
         if (options is null)
         {
-            return BuildExpression(IncludeSet.Empty, new Dictionary<object, object?>(), nullSafeOptionals: false);
+            return BuildExpression(IncludeSet.Empty, new Dictionary<object, object?>());
         }
 
         var projOptions = new ProjectionOptions<TDest>();
         options(projOptions);
         var includes = IncludeSet.Parse(projOptions.Includes);
         ValidateIncludes(includes);
-        return BuildExpression(includes, projOptions.VariableBindings, nullSafeOptionals: false);
+        return BuildExpression(includes, projOptions.VariableBindings);
     }
 
-    LambdaExpression IMapper.GetExpression(IncludeSet includes, IReadOnlyDictionary<object, object?> variableBindings, bool nullSafeOptionals)
-        => BuildExpression(includes, variableBindings, nullSafeOptionals);
+    LambdaExpression IMapper.GetExpression(IncludeSet includes, IReadOnlyDictionary<object, object?> variableBindings)
+    {
+        return BuildExpression(includes, variableBindings);
+    }
 }

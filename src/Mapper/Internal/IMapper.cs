@@ -19,6 +19,5 @@ internal interface IMapper
     /// </summary>
     LambdaExpression GetExpression(
         IncludeSet                           includes,
-        IReadOnlyDictionary<object, object?> variableBindings,
-        bool                                 nullSafeOptionals);
+        IReadOnlyDictionary<object, object?> variableBindings);
 }
