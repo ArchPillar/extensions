@@ -32,6 +32,6 @@ public sealed class Variable<T>(string? name = null, T? defaultValue = default) 
     /// </summary>
     public static implicit operator T(Variable<T> variable)
         => throw new InvalidOperationException(
-            $"{nameof(Variable<T>)} must only be used inside mapping expressions. " +
+            $"{nameof(Variable<>)} must only be used inside mapping expressions. " +
             $"It cannot be invoked directly.");
 }

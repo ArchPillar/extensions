@@ -65,8 +65,9 @@ public sealed class EnumMapper<TSource, TDest>(Func<TSource, TDest> mappingMetho
         // is unreachable — but using a plain constant keeps the expression
         // translatable by EF Core and other LINQ providers.
         Expression body = Expression.Constant(default(TDest));
-        foreach (TSource value in values.Reverse())
+        for (var i = values.Length - 1; i >= 0; i--)
         {
+            TSource value = values[i];
             body = Expression.Condition(
                 Expression.Equal(sourceParam, Expression.Constant(value)),
                 Expression.Constant(method(value)),

@@ -34,7 +34,7 @@ Warnings are treated as errors in Release builds (outside Visual Studio). Always
 ## Code Style (enforced by .editorconfig)
 
 ### Language & Framework
-- .NET 8/9/10, C# 13 (`LangVersion 13.0`)
+- .NET 8/9/10, C# 14 (`LangVersion 14.0`)
 - `<Nullable>enable</Nullable>` — strict nullable reference types everywhere
 - `<ImplicitUsings>enable</ImplicitUsings>`
 - File-scoped namespaces: `namespace Foo;` (warning-level enforcement)
@@ -121,7 +121,7 @@ Key severity overrides are configured in `.editorconfig`. When an analyzer fires
 - Do not use reflection at runtime (only during initial expression compilation)
 - Do not add attributes for mapping configuration
 - Do not emit `throw` expressions inside expression trees (EF Core cannot translate them)
-- Do not add dependencies beyond `Microsoft.EntityFrameworkCore` (for `IQueryable` support)
+- Do not add external package dependencies — the library relies only on BCL types (`IQueryable`, `System.Linq.Expressions`)
 - Do not use `#pragma warning disable` — suppress warnings via `.editorconfig` scoped sections instead
 - Do not suppress analyzer warnings without discussing with the user first
 - Do not use `this.` qualifier on members

@@ -26,7 +26,7 @@ end_of_line = crlf
 indent_size = 4
 tab_width = 4
 
-[*.{csroj,props,targets}]
+[*.{csproj,props,targets}]
 indent_size = 4
 tab_width = 4
 

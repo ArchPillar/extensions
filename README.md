@@ -10,8 +10,8 @@ Explicit object-to-object DTO mapping and LINQ/EF Core expression projection. On
 
 ## Requirements
 
-- .NET 9 or 10
-- C# 13
+- .NET 8, 9, or 10
+- C# 14
 
 ## License
 

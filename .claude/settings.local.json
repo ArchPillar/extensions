@@ -46,7 +46,12 @@
       "Bash(mv SPEC.md docs/mapper/SPEC.md)",
       "Bash(mv KNOWN_ISSUES.md docs/mapper/KNOWN_ISSUES.md)",
       "Bash(dotnet --list-sdks)",
-      "Bash(dotnet clean:*)"
+      "Bash(dotnet clean:*)",
+      "Bash(grep -n \"private.*readonly\" w:/Projects/GitHub/tibold/mapper/src/Mapper/*.cs w:/Projects/GitHub/tibold/mapper/src/Mapper/Internal/*.cs)",
+      "Bash(grep -n \"get.*=>\" w:/Projects/GitHub/tibold/mapper/src/Mapper/*.cs w:/Projects/GitHub/tibold/mapper/src/Mapper/Internal/*.cs)",
+      "Bash(grep -n \"public.*{ .*get\" w:/Projects/GitHub/tibold/mapper/src/Mapper/*.cs w:/Projects/GitHub/tibold/mapper/src/Mapper/Internal/*.cs)",
+      "Bash(grep -n \"nameof\" w:/Projects/GitHub/tibold/mapper/src/Mapper/*.cs w:/Projects/GitHub/tibold/mapper/src/Mapper/Internal/*.cs)",
+      "Bash(dotnet list:*)"
     ]
   }
 }
