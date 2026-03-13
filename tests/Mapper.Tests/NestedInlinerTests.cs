@@ -222,4 +222,28 @@ public class NestedInlinerTests
         Assert.Equal("t1", results[0].Pack.Primary.Tag);
         Assert.Null(results[0].Pack.Secondary.Tag);
     }
+
+    // -----------------------------------------------------------------------
+    // Include validation through inline object initializers
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void Project_UnknownPropertyInInlineInitializer_ThrowsInvalidOperationException()
+    {
+        IQueryable<ShipmentSource> sources = new[]
+        {
+            new ShipmentSource
+            {
+                Id   = "S1",
+                Pack = new PackSource
+                {
+                    Primary   = new PartSource { Text = "alpha", Tag = "t1" },
+                    Secondary = new PartSource { Text = "beta",  Tag = "t2" },
+                },
+            },
+        }.AsQueryable();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            sources.Project(_mappers.Shipment, o => o.Include("Pack.Typo.Tag")).ToList());
+    }
 }

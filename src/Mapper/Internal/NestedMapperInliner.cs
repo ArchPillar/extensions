@@ -42,6 +42,8 @@ internal sealed class NestedMapperInliner(IncludeSet includes) : ExpressionVisit
     /// </summary>
     protected override Expression VisitMemberInit(MemberInitExpression node)
     {
+        ValidateInlineIncludes(node);
+
         var newExpr    = (NewExpression)Visit(node.NewExpression)!;
         var newBindings = new List<MemberBinding>(node.Bindings.Count);
 
@@ -63,6 +65,41 @@ internal sealed class NestedMapperInliner(IncludeSet includes) : ExpressionVisit
         }
 
         return node.Update(newExpr, newBindings);
+    }
+
+    /// <summary>
+    /// Validates that every name in the current <see cref="IncludeSet"/> corresponds
+    /// to a member binding in the inline <see cref="MemberInitExpression"/>. Throws
+    /// <see cref="InvalidOperationException"/> for unrecognised names, catching typos
+    /// in deep include paths that traverse inline object initializers.
+    /// </summary>
+    private void ValidateInlineIncludes(MemberInitExpression node)
+    {
+        if (includes.IncludeAll)
+        {
+            return;
+        }
+
+        var memberNames = new HashSet<string>(
+            node.Bindings
+                .OfType<MemberAssignment>()
+                .Select(b => b.Member.Name));
+
+        foreach (var name in includes.Names)
+        {
+            if (!memberNames.Contains(name))
+            {
+                throw new InvalidOperationException($"Unknown optional property: '{name}'");
+            }
+        }
+
+        foreach (var name in includes.Nested.Keys)
+        {
+            if (!memberNames.Contains(name))
+            {
+                throw new InvalidOperationException($"Unknown optional property: '{name}'");
+            }
+        }
     }
 
     protected override Expression VisitMethodCall(MethodCallExpression node)

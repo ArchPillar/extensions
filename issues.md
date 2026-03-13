@@ -1,10 +1,8 @@
 # Potential Issues
 
-## 1. `ValidateIncludes` does not recurse — deep path typos are silently ignored
+## 1. ~~`ValidateIncludes` does not recurse — deep path typos are silently ignored~~ SOLVED
 
-`Mapper.ValidateIncludes` only checks top-level names against the current mapper's properties. For `Include("Pack.Primary.Typo")`, `"Pack"` is validated but `"Primary"` and `"Typo"` inside the nested `IncludeSet` are never checked. Invalid deep paths have no effect and produce no error.
-
-Fix: recurse into `includes.Nested` values, passing the corresponding nested mapper's mappings at each level.
+`ValidateIncludes` is now called inside `BuildExpression`, so nested mappers validate their includes recursively. For inline `MemberInit` expressions (not backed by a nested mapper), `NestedMapperInliner.ValidateInlineIncludes` checks include names against the binding members. Deep path typos like `"Pack.Primary.Typo"` now throw `InvalidOperationException` at every level.
 
 ---
 

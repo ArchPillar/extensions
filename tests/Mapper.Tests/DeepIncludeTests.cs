@@ -156,4 +156,26 @@ public class DeepIncludeTests
         Assert.Equal("Dave",   dto.Orders![0].CustomerName);
         Assert.Equal("AcmeCo", dto.Orders![0].Lines[0].SupplierName);
     }
+
+    // -----------------------------------------------------------------------
+    // Deep include validation — typos in nested paths throw
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void Project_UnknownNestedStringPath_ThrowsInvalidOperationException()
+    {
+        IQueryable<User> users = new[] { MakeUser() }.AsQueryable();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            users.Project(_mappers.User, o => o.Include("Orders.Typo")).ToList());
+    }
+
+    [Fact]
+    public void Project_UnknownDeeplyNestedStringPath_ThrowsInvalidOperationException()
+    {
+        IQueryable<User> users = new[] { MakeUser() }.AsQueryable();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            users.Project(_mappers.User, o => o.Include("Orders.Lines.Typo")).ToList());
+    }
 }

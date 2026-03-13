@@ -81,6 +81,8 @@ public sealed class Mapper<TSource, TDest> : IMapper
     /// </summary>
     private Expression<Func<TSource, TDest>> BuildExpression(IncludeSet includes)
     {
+        ValidateIncludes(includes);
+
         ParameterExpression sourceParam = Expression.Parameter(typeof(TSource), "src");
 
         var bindings = new List<MemberBinding>();
@@ -281,7 +283,6 @@ public sealed class Mapper<TSource, TDest> : IMapper
             options(projOptions);
             includes         = IncludeSet.Parse(projOptions.Includes);
             variableBindings = projOptions.VariableBindings;
-            ValidateIncludes(includes);
         }
 
         return (Expression<Func<TSource, TDest>>)
