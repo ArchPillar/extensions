@@ -25,8 +25,10 @@ namespace ArchPillar.Mapper.Internal;
 /// inside <c>ToDictionary</c> value selectors, ternary expressions, and so on.
 /// </para>
 /// </summary>
-internal sealed class NestedMapperInliner(IncludeSet includes) : ExpressionVisitor
+internal sealed class NestedMapperInliner(IncludeSet includes, int depth = 0) : ExpressionVisitor
 {
+    internal const int MaxNestingDepth = 32;
+
     private static readonly MethodInfo EnumerableSelectMethod =
         typeof(Enumerable)
             .GetMethods()
@@ -55,7 +57,7 @@ internal sealed class NestedMapperInliner(IncludeSet includes) : ExpressionVisit
                 IncludeSet memberIncludes = includes.IncludeAll
                     ? IncludeSet.All
                     : includes.Nested.GetValueOrDefault(memberName, IncludeSet.Empty);
-                Expression visited = new NestedMapperInliner(memberIncludes).Visit(assignment.Expression)!;
+                Expression visited = new NestedMapperInliner(memberIncludes, depth).Visit(assignment.Expression)!;
                 newBindings.Add(Expression.Bind(assignment.Member, visited));
             }
             else
@@ -108,7 +110,7 @@ internal sealed class NestedMapperInliner(IncludeSet includes) : ExpressionVisit
         if (IsScalarMapCall(node))
         {
             IMapper nestedMapper = CompileMapperAccessor(node.Object!);
-            LambdaExpression nestedLambda = nestedMapper.GetRawExpression(includes);
+            LambdaExpression nestedLambda = nestedMapper.GetRawExpression(includes, depth + 1);
             Expression srcExpr = Visit(node.Arguments[0])!;
             Expression inlined = new ParameterReplacer(nestedLambda.Parameters[0], srcExpr)
                                      .Visit(nestedLambda.Body)!;
@@ -128,7 +130,7 @@ internal sealed class NestedMapperInliner(IncludeSet includes) : ExpressionVisit
         if (IsProjectCall(node))
         {
             IMapper nestedMapper = CompileMapperAccessor(node.Arguments[1]);
-            LambdaExpression nestedLambda = nestedMapper.GetRawExpression(includes);
+            LambdaExpression nestedLambda = nestedMapper.GetRawExpression(includes, depth + 1);
             Expression srcExpr = Visit(node.Arguments[0])!;
             Type srcType  = nestedLambda.Parameters[0].Type;
             Type destType = nestedLambda.ReturnType;

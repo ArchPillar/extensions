@@ -195,6 +195,33 @@ public class BuilderValidationTests
             () => context.BuildWithBuilderOverride());
         Assert.Null(exception);
     }
+
+    // -----------------------------------------------------------------------
+    // Circular mapper reference detection
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void Map_WithCircularMapperReference_ThrowsInvalidOperationException()
+    {
+        var context = new CircularMapperContext();
+        var source = new TreeNode { Name = "root" };
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+            () => context.TreeNode.Map(source));
+
+        Assert.Contains("nesting depth", ex.Message);
+    }
+
+    [Fact]
+    public void ToExpression_WithCircularMapperReference_ThrowsInvalidOperationException()
+    {
+        var context = new CircularMapperContext();
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+            () => context.TreeNode.ToExpression());
+
+        Assert.Contains("nesting depth", ex.Message);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -354,4 +381,17 @@ file class AllPropertiesDefaultContext : MapperContext
             .Map(d => d.UnitPrice, s => s.UnitPrice)
             // SupplierName is nullable — but context default is AllProperties, so it must be covered
             .Build();
+}
+
+file class CircularMapperContext : MapperContext
+{
+    public Mapper<TreeNode, TreeNodeDto> TreeNode { get; private set; } = null!;
+
+    public CircularMapperContext()
+    {
+        TreeNode = CreateMapper<TreeNode, TreeNodeDto>()
+            .Map(d => d.Name, s => s.Name)
+            .Map(d => d.Child, s => TreeNode.Map(s.Child))
+            .Build();
+    }
 }

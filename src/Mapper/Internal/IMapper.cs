@@ -14,8 +14,15 @@ internal interface IMapper
     /// Variable nodes remain as <c>Convert(Variable&lt;T&gt;)</c> in the tree so
     /// that a caller can substitute them using <see cref="VariableReplacer"/> or
     /// <see cref="VariableDictReplacer"/> in a single post-build pass.
+    /// <para>
+    /// The <paramref name="depth"/> parameter tracks the current nesting level
+    /// during recursive inlining. If it exceeds
+    /// <see cref="NestedMapperInliner.MaxNestingDepth"/>, the inliner throws
+    /// <see cref="InvalidOperationException"/> to prevent infinite recursion
+    /// from circular mapper references.
+    /// </para>
     /// </summary>
-    LambdaExpression GetRawExpression(IncludeSet includes);
+    LambdaExpression GetRawExpression(IncludeSet includes, int depth = 0);
 
     /// <summary>
     /// Forces expression assembly and delegate compilation with default

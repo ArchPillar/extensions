@@ -79,8 +79,15 @@ public sealed class Mapper<TSource, TDest> : IMapper
     /// expression so callers can apply <see cref="VariableReplacer"/> or
     /// <see cref="VariableDictReplacer"/> in a single post-build pass.
     /// </summary>
-    private Expression<Func<TSource, TDest>> BuildExpression(IncludeSet includes)
+    private Expression<Func<TSource, TDest>> BuildExpression(IncludeSet includes, int depth = 0)
     {
+        if (depth > NestedMapperInliner.MaxNestingDepth)
+        {
+            throw new InvalidOperationException(
+                $"Maximum mapper nesting depth ({NestedMapperInliner.MaxNestingDepth}) exceeded. " +
+                "This usually indicates a circular mapper reference.");
+        }
+
         ValidateIncludes(includes);
 
         ParameterExpression sourceParam = Expression.Parameter(typeof(TSource), "src");
@@ -102,7 +109,7 @@ public sealed class Mapper<TSource, TDest> : IMapper
                 ? IncludeSet.All
                 : includes.Nested.GetValueOrDefault(mapping.Destination.Name, IncludeSet.Empty);
 
-            body = new NestedMapperInliner(nestedIncludes).Visit(body)!;
+            body = new NestedMapperInliner(nestedIncludes, depth).Visit(body)!;
 
             bindings.Add(Expression.Bind(mapping.Destination, body));
         }
@@ -294,9 +301,9 @@ public sealed class Mapper<TSource, TDest> : IMapper
                 .Visit(BuildExpression(includes))!;
     }
 
-    LambdaExpression IMapper.GetRawExpression(IncludeSet includes)
+    LambdaExpression IMapper.GetRawExpression(IncludeSet includes, int depth)
     {
-        return BuildExpression(includes);
+        return BuildExpression(includes, depth);
     }
 
     void IMapper.Compile()

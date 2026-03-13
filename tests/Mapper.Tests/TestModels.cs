@@ -146,3 +146,7 @@ public class Catalog       { public required List<CatalogItem> Items { get; set;
 public class CatalogItem   { public required string Key { get; set; } public required string Display { get; set; } }
 public class CatalogDto    { public required Dictionary<string, CatalogItemDto> Items { get; set; } }
 public class CatalogItemDto { public required string Label { get; set; } }
+
+// Self-referencing types for circular reference detection
+public class TreeNode    { public required string Name { get; set; } public TreeNode? Child { get; set; } }
+public class TreeNodeDto { public required string Name { get; set; } public TreeNodeDto? Child { get; set; } }

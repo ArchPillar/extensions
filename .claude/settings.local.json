@@ -30,7 +30,9 @@
       "Bash(dotnet build:*)",
       "Bash(dotnet format:*)",
       "Bash(grep -n -i \"variable\\\\|Variable\" tests/Mapper.Tests/*.cs)",
-      "Bash(ls d:/source/github/tibold/mapper/src/Mapper/*.cs)"
+      "Bash(ls d:/source/github/tibold/mapper/src/Mapper/*.cs)",
+      "Bash(grep -n \"StackOverflow\\\\|circular\\\\|recursion\\\\|Recursion\" /d/source/github/tibold/mapper/tests/Mapper.Tests/*.cs)",
+      "Bash(grep -rn \"ValueType\\\\|struct\\\\|circular\\\\|Circular\" /d/source/github/tibold/mapper/tests/Mapper.Tests/*.cs)"
     ]
   }
 }
