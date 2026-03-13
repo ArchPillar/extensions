@@ -162,6 +162,10 @@ internal sealed class NestedMapperInliner(IncludeSet includes) : ExpressionVisit
         && (IsClosedGenericOf(node.Object.Type, typeof(Mapper<,>))
          || IsClosedGenericOf(node.Object.Type, typeof(EnumMapper<,>)));
 
+    // Only the 2-argument IEnumerable.Project(mapper) overload can be inlined.
+    // The 3-argument overload (mapper, options) carries runtime MapOptions
+    // (includes + variable bindings) that cannot be statically baked into an
+    // expression tree, so it is intentionally excluded here.
     private static bool IsProjectCall(MethodCallExpression node)
         => node.Object == null
         && node.Method.DeclaringType == typeof(MapperExtensions)

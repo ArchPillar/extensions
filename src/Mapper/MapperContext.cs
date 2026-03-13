@@ -135,7 +135,7 @@ public abstract class MapperContext
 
             if (property.GetValue(this) is IMapper mapper)
             {
-                mapper.GetExpression(IncludeSet.Empty, new Dictionary<object, object?>());
+                mapper.Compile();
             }
         }
     }

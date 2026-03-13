@@ -18,14 +18,10 @@ internal interface IMapper
     LambdaExpression GetRawExpression(IncludeSet includes);
 
     /// <summary>
-    /// Returns a mapping expression with the specified optional includes and
-    /// variable bindings applied. <paramref name="includes"/> is a recursive
-    /// tree: top-level names select optional properties at this level; nested
-    /// entries cascade into child mappers. Variable bindings are propagated so
-    /// that shared <see cref="Variable{T}"/> instances resolve consistently
-    /// across the entire mapper hierarchy.
+    /// Forces expression assembly and delegate compilation with default
+    /// (empty) includes and no variable bindings. Called by
+    /// <see cref="MapperContext.EagerBuildAll"/> to surface mapping errors
+    /// at startup and eliminate cold-start latency.
     /// </summary>
-    LambdaExpression GetExpression(
-        IncludeSet                           includes,
-        IReadOnlyDictionary<object, object?> variableBindings);
+    void Compile();
 }

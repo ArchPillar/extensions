@@ -50,9 +50,9 @@ public sealed class EnumMapper<TSource, TDest>(Func<TSource, TDest> mappingMetho
         return ToExpression();
     }
 
-    LambdaExpression IMapper.GetExpression(IncludeSet includes, IReadOnlyDictionary<object, object?> variableBindings)
+    void IMapper.Compile()
     {
-        return ToExpression();
+        _ = ToExpression();
     }
 
     private static Expression<Func<TSource, TDest>> BuildExpression(Func<TSource, TDest> method)

@@ -1,5 +1,4 @@
 using System.Linq.Expressions;
-using System.Reflection;
 
 namespace ArchPillar.Mapper.Internal;
 
@@ -19,9 +18,9 @@ internal sealed class VariableReplacer(Dictionary<object, object?> variableBindi
 {
     protected override Expression VisitUnary(UnaryExpression node)
     {
-        if (node.NodeType == ExpressionType.Convert && IsVariableType(node.Operand.Type))
+        if (node.NodeType == ExpressionType.Convert && VariableHelper.IsVariableType(node.Operand.Type))
         {
-            var variable = TryExtractVariable(node.Operand);
+            var variable = VariableHelper.TryExtractVariable(node.Operand);
             if (variable != null)
             {
                 Type valueType = node.Type;
@@ -38,33 +37,4 @@ internal sealed class VariableReplacer(Dictionary<object, object?> variableBindi
 
         return base.VisitUnary(node);
     }
-
-    /// <summary>
-    /// Extracts the <see cref="Variable{T}"/> instance from an operand expression.
-    /// Returns <c>null</c> when the pattern is not recognised.
-    /// </summary>
-    private static object? TryExtractVariable(Expression operand)
-    {
-        // Case 1 — the variable is captured as a direct constant.
-        if (operand is ConstantExpression constant)
-        {
-            return constant.Value;
-        }
-
-        // Case 2 — the variable is a property or field on a captured closure/context.
-        if (operand is MemberExpression { Expression: ConstantExpression target } member)
-        {
-            return member.Member switch
-            {
-                PropertyInfo property => property.GetValue(target.Value),
-                FieldInfo    field    => field.GetValue(target.Value),
-                _                    => null,
-            };
-        }
-
-        return null;
-    }
-
-    private static bool IsVariableType(Type type)
-        => type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Variable<>);
 }

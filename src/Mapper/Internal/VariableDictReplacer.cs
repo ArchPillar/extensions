@@ -46,9 +46,9 @@ internal sealed class VariableDictReplacer(ParameterExpression bindingsParam) : 
 
     protected override Expression VisitUnary(UnaryExpression node)
     {
-        if (node.NodeType == ExpressionType.Convert && IsVariableType(node.Operand.Type))
+        if (node.NodeType == ExpressionType.Convert && VariableHelper.IsVariableType(node.Operand.Type))
         {
-            var variable = TryExtractVariable(node.Operand);
+            var variable = VariableHelper.TryExtractVariable(node.Operand);
             if (variable != null)
             {
                 Type valueType = node.Type;
@@ -64,27 +64,4 @@ internal sealed class VariableDictReplacer(ParameterExpression bindingsParam) : 
 
         return base.VisitUnary(node);
     }
-
-    private static object? TryExtractVariable(Expression operand)
-    {
-        if (operand is ConstantExpression constant)
-        {
-            return constant.Value;
-        }
-
-        if (operand is MemberExpression { Expression: ConstantExpression target } member)
-        {
-            return member.Member switch
-            {
-                PropertyInfo property => property.GetValue(target.Value),
-                FieldInfo    field    => field.GetValue(target.Value),
-                _                    => null,
-            };
-        }
-
-        return null;
-    }
-
-    private static bool IsVariableType(Type type)
-        => type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Variable<>);
 }
