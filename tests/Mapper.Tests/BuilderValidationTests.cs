@@ -104,6 +104,97 @@ public class BuilderValidationTests
         // fail at EagerBuildAll time, not at first use.
         Assert.ThrowsAny<Exception>(() => new BrokenEnumEagerMappers());
     }
+
+    // -----------------------------------------------------------------------
+    // Coverage validation modes
+    // -----------------------------------------------------------------------
+
+    // -----------------------------------------------------------------------
+    // CoverageValidation.AllProperties
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void Build_AllProperties_AllCovered_DoesNotThrow()
+    {
+        var context = new CoverageValidationContext();
+
+        Exception? exception = Record.Exception(
+            () => context.BuildAllPropertiesFullCoverage());
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public void Build_AllProperties_UnmappedNullableProperty_ThrowsInvalidOperationException()
+    {
+        var context = new CoverageValidationContext();
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+            () => context.BuildAllPropertiesMissingNullable());
+
+        Assert.Contains("SupplierName", ex.Message);
+    }
+
+    // -----------------------------------------------------------------------
+    // CoverageValidation.NonNullableProperties
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void Build_NonNullableProperties_UnmappedNullableProperty_DoesNotThrow()
+    {
+        var context = new CoverageValidationContext();
+
+        Exception? exception = Record.Exception(
+            () => context.BuildNonNullableSkipsNullable());
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public void Build_NonNullableProperties_UnmappedNonNullableProperty_ThrowsInvalidOperationException()
+    {
+        var context = new CoverageValidationContext();
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+            () => context.BuildNonNullableMissingRequired());
+
+        Assert.Contains("UnitPrice", ex.Message);
+    }
+
+    // -----------------------------------------------------------------------
+    // CoverageValidation.None
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void Build_None_UnmappedRequiredProperty_DoesNotThrow()
+    {
+        var context = new CoverageValidationContext();
+
+        Exception? exception = Record.Exception(
+            () => context.BuildNoneSkipsAll());
+        Assert.Null(exception);
+    }
+
+    // -----------------------------------------------------------------------
+    // Context default + per-builder override
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void Build_ContextDefaultAllProperties_AppliedWithoutOverride()
+    {
+        var context = new AllPropertiesDefaultContext();
+
+        Assert.Throws<InvalidOperationException>(
+            () => context.BuildWithoutOverride());
+    }
+
+    [Fact]
+    public void Build_ContextDefaultAllProperties_OverriddenByBuilder()
+    {
+        var context = new AllPropertiesDefaultContext();
+
+        Exception? exception = Record.Exception(
+            () => context.BuildWithBuilderOverride());
+        Assert.Null(exception);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -193,4 +284,74 @@ file class BrokenEnumEagerMappers : MapperContext
 
         EagerBuildAll();
     }
+}
+
+file class CoverageValidationContext : MapperContext
+{
+    // AllProperties — positive: every property (including nullable) is covered
+    public Mapper<OrderLine, OrderLineDto> BuildAllPropertiesFullCoverage() =>
+        CreateMapper<OrderLine, OrderLineDto>()
+            .SetCoverageValidation(CoverageValidation.AllProperties)
+            .Map(d => d.ProductName, s => s.ProductName)
+            .Map(d => d.Quantity, s => s.Quantity)
+            .Map(d => d.UnitPrice, s => s.UnitPrice)
+            .Map(d => d.SupplierName, s => s.SupplierName)
+            .Ignore(d => d.Product)
+            .Build();
+
+    // AllProperties — negative: nullable SupplierName and Product not covered
+    public Mapper<OrderLine, OrderLineDto> BuildAllPropertiesMissingNullable() =>
+        CreateMapper<OrderLine, OrderLineDto>()
+            .SetCoverageValidation(CoverageValidation.AllProperties)
+            .Map(d => d.ProductName, s => s.ProductName)
+            .Map(d => d.Quantity, s => s.Quantity)
+            .Map(d => d.UnitPrice, s => s.UnitPrice)
+            .Build();
+
+    // NonNullableProperties — positive: nullable properties auto-ignored
+    public Mapper<OrderLine, OrderLineDto> BuildNonNullableSkipsNullable() =>
+        CreateMapper<OrderLine, OrderLineDto>()
+            .SetCoverageValidation(CoverageValidation.NonNullableProperties)
+            .Map(d => d.ProductName, s => s.ProductName)
+            .Map(d => d.Quantity, s => s.Quantity)
+            .Map(d => d.UnitPrice, s => s.UnitPrice)
+            .Build();
+
+    // NonNullableProperties — negative: non-nullable UnitPrice not covered
+    public Mapper<OrderLine, OrderLineDto> BuildNonNullableMissingRequired() =>
+        CreateMapper<OrderLine, OrderLineDto>()
+            .SetCoverageValidation(CoverageValidation.NonNullableProperties)
+            .Map(d => d.ProductName, s => s.ProductName)
+            .Map(d => d.Quantity, s => s.Quantity)
+            .Build();
+
+    // None — positive: nothing validated, missing non-nullable UnitPrice is fine
+    public Mapper<OrderLine, OrderLineDto> BuildNoneSkipsAll() =>
+        CreateMapper<OrderLine, OrderLineDto>()
+            .SetCoverageValidation(CoverageValidation.None)
+            .Map(d => d.ProductName, s => s.ProductName)
+            .Map(d => d.Quantity, s => s.Quantity)
+            .Build();
+}
+
+file class AllPropertiesDefaultContext : MapperContext
+{
+    protected override CoverageValidation DefaultCoverageValidation
+        => CoverageValidation.AllProperties;
+
+    public Mapper<OrderLine, OrderLineDto> BuildWithBuilderOverride() =>
+        CreateMapper<OrderLine, OrderLineDto>()
+            .SetCoverageValidation(CoverageValidation.None)
+            .Map(d => d.ProductName, s => s.ProductName)
+            .Map(d => d.Quantity, s => s.Quantity)
+            // Missing UnitPrice — but builder overrides to None
+            .Build();
+
+    public Mapper<OrderLine, OrderLineDto> BuildWithoutOverride() =>
+        CreateMapper<OrderLine, OrderLineDto>()
+            .Map(d => d.ProductName, s => s.ProductName)
+            .Map(d => d.Quantity, s => s.Quantity)
+            .Map(d => d.UnitPrice, s => s.UnitPrice)
+            // SupplierName is nullable — but context default is AllProperties, so it must be covered
+            .Build();
 }

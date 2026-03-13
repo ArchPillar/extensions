@@ -6,10 +6,12 @@ namespace ArchPillar.Mapper;
 
 /// <summary>
 /// Fluent builder for configuring a <see cref="Mapper{TSource,TDest}"/>.
-/// Every destination property must be covered by exactly one of
+/// By default, destination properties must be covered by
 /// <see cref="Map{TValue}"/>, <see cref="Optional{TValue}"/>, or
-/// <see cref="Ignore{TValue}"/>; any unaccounted property causes an
-/// <see cref="InvalidOperationException"/> when the mapper is built.
+/// <see cref="Ignore{TValue}"/> according to the active
+/// <see cref="CoverageValidation"/> mode. The mode is inherited from the
+/// <see cref="MapperContext"/> and can be overridden per-mapper via
+/// <see cref="SetCoverageValidation"/>.
 /// <para>
 /// Instances are obtained from <see cref="MapperContext.CreateMapper{TSource,TDest}"/>.
 /// Assigning the builder to a <see cref="Mapper{TSource,TDest}"/> property
@@ -20,10 +22,24 @@ public sealed class MapperBuilder<TSource, TDest>
 {
     private readonly Expression<Func<TSource, TDest>>? _memberInitExpression;
     private readonly List<PropertyMapping>             _mappings = [];
+    private CoverageValidation                         _coverageValidation;
 
-    internal MapperBuilder(Expression<Func<TSource, TDest>>? memberInitExpression)
+    internal MapperBuilder(
+        Expression<Func<TSource, TDest>>? memberInitExpression,
+        CoverageValidation coverageValidation = CoverageValidation.NonNullableProperties)
     {
         _memberInitExpression = memberInitExpression;
+        _coverageValidation   = coverageValidation;
+    }
+
+    /// <summary>
+    /// Overrides the <see cref="CoverageValidation"/> mode for this mapper,
+    /// replacing the default inherited from the <see cref="MapperContext"/>.
+    /// </summary>
+    public MapperBuilder<TSource, TDest> SetCoverageValidation(CoverageValidation mode)
+    {
+        _coverageValidation = mode;
+        return this;
     }
 
     /// <summary>
@@ -67,7 +83,8 @@ public sealed class MapperBuilder<TSource, TDest>
     /// <summary>
     /// Finalizes configuration and returns the built mapper.
     /// Throws <see cref="InvalidOperationException"/> if any destination
-    /// property is unaccounted for.
+    /// property is unaccounted for according to the active
+    /// <see cref="CoverageValidation"/> mode.
     /// </summary>
     public Mapper<TSource, TDest> Build()
     {
@@ -94,20 +111,23 @@ public sealed class MapperBuilder<TSource, TDest>
         }
 
         // Validate that every settable destination property is accounted for.
-        var nullabilityCtx = new NullabilityInfoContext();
-        List<string> uncovered =
-        [
-            .. from p in typeof(TDest).GetProperties(BindingFlags.Public | BindingFlags.Instance)
-               where p.CanWrite && RequiresCoverage(p, nullabilityCtx)
-               where !rawMappings.ContainsKey(p.Name)
-               select p.Name
-        ];
-
-        if (uncovered.Count > 0)
+        if (_coverageValidation != CoverageValidation.None)
         {
-            throw new InvalidOperationException(
-                $"The following properties of {typeof(TDest).Name} are not mapped: " +
-                string.Join(", ", uncovered));
+            var nullabilityCtx = new NullabilityInfoContext();
+            List<string> uncovered =
+            [
+                .. from p in typeof(TDest).GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                   where p.CanWrite && RequiresCoverage(p, nullabilityCtx, _coverageValidation)
+                   where !rawMappings.ContainsKey(p.Name)
+                   select p.Name
+            ];
+
+            if (uncovered.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    $"The following properties of {typeof(TDest).Name} are not mapped: " +
+                    string.Join(", ", uncovered));
+            }
         }
 
         // Remove ignored entries — they served their purpose for the coverage check.
@@ -144,13 +164,20 @@ public sealed class MapperBuilder<TSource, TDest>
 
     /// <summary>
     /// Returns <see langword="true"/> when the property must be explicitly covered by
-    /// a Map / Optional / Ignore call. Nullable non-required reference-type properties
-    /// (and nullable value types) are auto-ignored — they receive their null default
-    /// when left unmapped.
+    /// a Map / Optional / Ignore call, according to the specified
+    /// <paramref name="mode"/>.
     /// </summary>
-    private static bool RequiresCoverage(PropertyInfo p, NullabilityInfoContext ctx)
+    private static bool RequiresCoverage(
+        PropertyInfo p,
+        NullabilityInfoContext ctx,
+        CoverageValidation mode)
     {
-        // Non-nullable value type (int, decimal, …) → always required
+        if (mode == CoverageValidation.AllProperties)
+        {
+            return true;
+        }
+
+        // NonNullableProperties mode: non-nullable value type → always required
         if (p.PropertyType.IsValueType && Nullable.GetUnderlyingType(p.PropertyType) == null)
         {
             return true;

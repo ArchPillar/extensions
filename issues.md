@@ -24,11 +24,9 @@ The source expression (`srcExpr`) appears twice in the null-guarded conditional 
 
 ---
 
-## 5. Auto-ignore of nullable reference types can mask forgotten mappings
+## 5. ~~Auto-ignore of nullable reference types can mask forgotten mappings~~ SOLVED
 
-`MapperBuilder.RequiresCoverage` auto-ignores any nullable reference type property (`ComplexDto?`, `string?`, etc.). A developer who forgets to map a nullable navigation property gets no build-time error. The SPEC documents this as intentional, but it is the sharpest edge in the builder API.
-
-No fix planned — accepted design trade-off. Worth calling out explicitly in SPEC.md.
+Coverage validation is now configurable via the `CoverageValidation` enum (`AllProperties`, `NonNullableProperties`, `None`). The default (`NonNullableProperties`) preserves the original behavior. Override per-context via `DefaultCoverageValidation` or per-mapper via `SetCoverageValidation()`.
 
 ---
 

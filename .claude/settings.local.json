@@ -29,7 +29,8 @@
       "Bash(dotnet test:*)",
       "Bash(dotnet build:*)",
       "Bash(dotnet format:*)",
-      "Bash(grep -n -i \"variable\\\\|Variable\" tests/Mapper.Tests/*.cs)"
+      "Bash(grep -n -i \"variable\\\\|Variable\" tests/Mapper.Tests/*.cs)",
+      "Bash(ls d:/source/github/tibold/mapper/src/Mapper/*.cs)"
     ]
   }
 }

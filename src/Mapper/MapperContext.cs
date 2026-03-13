@@ -47,6 +47,19 @@ namespace ArchPillar.Mapper;
 public abstract class MapperContext
 {
     // -------------------------------------------------------------------------
+    // Coverage validation
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Gets the default <see cref="CoverageValidation"/> mode applied to all
+    /// mappers created by this context. Override in a subclass to change the
+    /// default for all mappers in the context. Individual mappers can further
+    /// override via <see cref="MapperBuilder{TSource,TDest}.SetCoverageValidation"/>.
+    /// </summary>
+    protected virtual CoverageValidation DefaultCoverageValidation
+        => CoverageValidation.NonNullableProperties;
+
+    // -------------------------------------------------------------------------
     // Factory methods
     // -------------------------------------------------------------------------
 
@@ -66,9 +79,9 @@ public abstract class MapperContext
     /// the conversion operator.
     /// </para>
     /// </summary>
-    protected static MapperBuilder<TSource, TDest> CreateMapper<TSource, TDest>(
+    protected MapperBuilder<TSource, TDest> CreateMapper<TSource, TDest>(
         Expression<Func<TSource, TDest>>? memberInitExpression = null)
-        => new(memberInitExpression);
+        => new(memberInitExpression, DefaultCoverageValidation);
 
     /// <summary>
     /// Creates an enum mapper from a plain mapping method.
