@@ -97,17 +97,25 @@ public abstract class MapperContext
 
     /// <summary>
     /// Forces expression assembly and delegate compilation for every
-    /// <see cref="Mapper{TSource,TDest}"/> property declared on this context.
+    /// <see cref="Mapper{TSource,TDest}"/> and <see cref="EnumMapper{TSource,TDest}"/>
+    /// property declared on this context.
     /// Call this at the end of a subclass constructor to surface mapping errors
     /// at startup and eliminate cold-start latency on first use.
     /// </summary>
     protected void EagerBuildAll()
     {
-        Type mapperGenericType = typeof(Mapper<,>);
+        Type mapperGenericType     = typeof(Mapper<,>);
+        Type enumMapperGenericType = typeof(EnumMapper<,>);
         foreach (PropertyInfo property in GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
             Type type = property.PropertyType;
-            if (!type.IsGenericType || type.GetGenericTypeDefinition() != mapperGenericType)
+            if (!type.IsGenericType)
+            {
+                continue;
+            }
+
+            Type genericDef = type.GetGenericTypeDefinition();
+            if (genericDef != mapperGenericType && genericDef != enumMapperGenericType)
             {
                 continue;
             }

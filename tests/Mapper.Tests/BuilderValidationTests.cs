@@ -92,6 +92,18 @@ public class BuilderValidationTests
         // Constructing with EagerBuild = true must throw for an incomplete mapper
         Assert.Throws<InvalidOperationException>(() => new BrokenEagerMappers());
     }
+
+    // -----------------------------------------------------------------------
+    // Eager build includes enum mappers
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void EagerBuild_WithBrokenEnumMapper_SurfacesErrorImmediately()
+    {
+        // An enum mapper whose mapping method throws for a valid value must
+        // fail at EagerBuildAll time, not at first use.
+        Assert.ThrowsAny<Exception>(() => new BrokenEnumEagerMappers());
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -162,5 +174,23 @@ file class BrokenEagerMappers : MapperContext
         Line = CreateMapper<OrderLine, OrderLineDto>()
             .Map(d => d.ProductName, s => s.ProductName)
             .Map(d => d.Quantity, s => s.Quantity);
+    }
+}
+
+file class BrokenEnumEagerMappers : MapperContext
+{
+    public EnumMapper<OrderStatus, OrderStatusDto> StatusMapper { get; }
+
+    public BrokenEnumEagerMappers()
+    {
+        // Mapping method throws for Cancelled — EagerBuildAll must surface this.
+        StatusMapper = CreateEnumMapper<OrderStatus, OrderStatusDto>(s => s switch
+        {
+            OrderStatus.Pending => OrderStatusDto.Pending,
+            OrderStatus.Shipped => OrderStatusDto.Shipped,
+            _ => throw new ArgumentOutOfRangeException(nameof(s)),
+        });
+
+        EagerBuildAll();
     }
 }

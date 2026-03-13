@@ -169,15 +169,19 @@ public sealed class Mapper<TSource, TDest> : IMapper
         ParameterExpression destParam = Expression.Parameter(typeof(TDest), "dest");
         ParameterExpression srcParam  = initExpr.Parameters[0];
 
-        var assignments = memberInit.Bindings
-            .Cast<MemberAssignment>()
-            .Select(b =>
+        var assignments = new List<Expression>(memberInit.Bindings.Count);
+        foreach (MemberBinding binding in memberInit.Bindings)
+        {
+            if (binding is not MemberAssignment assignment)
             {
-                return (Expression)Expression.Assign(
-                    Expression.MakeMemberAccess(destParam, b.Member),
-                    b.Expression);
-            })
-            .ToList();
+                throw new InvalidOperationException(
+                    $"MapTo requires MemberAssignment bindings but found {binding.BindingType} for '{binding.Member.Name}'.");
+            }
+
+            assignments.Add(Expression.Assign(
+                Expression.MakeMemberAccess(destParam, assignment.Member),
+                assignment.Expression));
+        }
 
         BlockExpression block = Expression.Block(typeof(void), assignments);
         return Expression.Lambda<Action<TSource, TDest, List<(object, object?)>?>>(

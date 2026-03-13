@@ -6,36 +6,21 @@
 
 ---
 
-## 2. `EagerBuildAll` skips `EnumMapper<,>` properties
+## 2. ~~`EagerBuildAll` skips `EnumMapper<,>` properties~~ SOLVED
 
-`MapperContext.EagerBuildAll` only searches for `Mapper<,>` properties. `EnumMapper<,>` instances are never eagerly compiled, so enum mapper errors only surface at first use rather than at startup.
-
-Fix: also enumerate `EnumMapper<,>` properties and call `ToExpression()` on each.
+`EagerBuildAll` now also enumerates `EnumMapper<,>` properties and compiles them eagerly. Errors in enum mapping methods (e.g. non-exhaustive switch expressions) are surfaced at construction time.
 
 ---
 
-## 3. Null guard in `NestedMapperInliner` double-evaluates `srcExpr`
+## 3. ~~Null guard in `NestedMapperInliner` double-evaluates `srcExpr`~~ NOT AN ISSUE
 
-When inlining a scalar `Map()` call on a reference-type source, the inliner wraps the result in a null check:
-
-```csharp
-Expression.Condition(
-    Expression.Equal(srcExpr, ...),  // evaluates srcExpr
-    ...,
-    inlined)                          // srcExpr also substituted inside inlined
-```
-
-`srcExpr` is substituted into `inlined` via `ParameterReplacer` AND appears again in the null-check condition, so a non-trivial source expression evaluates twice. Harmless for simple member accesses and for EF Core (SQL is idempotent), but a latent correctness issue for in-memory use with side-effecting expressions.
-
-Fix: introduce a temporary variable via `Expression.Block` / `Expression.Assign` to evaluate `srcExpr` once — though this would break EF Core translation. Acceptable as a known limitation; document it.
+The source expression (`srcExpr`) appears twice in the null-guarded conditional — once in the null check and once in the inlined body. In theory a side-effecting expression would evaluate twice, but in practice `srcExpr` is always a simple member access (e.g. `src.Customer`) written inside a mapper definition. The only "fix" (`Expression.Block` / `Expression.Assign`) would break EF Core translation, which is a primary goal. No action needed.
 
 ---
 
-## 4. `BuildMapToAction` — hidden `MemberAssignment` precondition
+## 4. ~~`BuildMapToAction` — hidden `MemberAssignment` precondition~~ SOLVED
 
-`Mapper.BuildMapToAction` casts all bindings to `MemberAssignment` unconditionally via `.Cast<MemberAssignment>()`. Currently safe because `BuildExpression` only ever produces `Expression.Bind(...)` bindings, but the assumption is undocumented. A future change to `BuildExpression` could produce `MemberListBinding` or `MemberMemberBinding` and cause a silent runtime failure.
-
-Fix: add a comment documenting the precondition, or use `OfType<MemberAssignment>()` with an explicit guard.
+`BuildMapToAction` now explicitly checks each binding and throws `InvalidOperationException` with a clear message if a non-`MemberAssignment` binding is encountered, instead of silently failing via `.Cast<MemberAssignment>()`.
 
 ---
 
