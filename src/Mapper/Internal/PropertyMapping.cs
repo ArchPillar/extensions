@@ -1,7 +1,7 @@
 using System.Linq.Expressions;
 using System.Reflection;
 
-namespace ArchPillar.Mapper.Internal;
+namespace ArchPillar.Extensions.Mapper.Internal;
 
 internal enum MappingKind { Required, Optional, Ignored }
 

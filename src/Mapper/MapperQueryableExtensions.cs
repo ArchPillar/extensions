@@ -1,4 +1,4 @@
-namespace ArchPillar.Mapper;
+namespace ArchPillar.Extensions.Mapper;
 
 /// <summary>
 /// LINQ extension methods for applying a <see cref="Mapper{TSource,TDest}"/>

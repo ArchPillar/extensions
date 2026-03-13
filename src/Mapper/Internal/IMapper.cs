@@ -1,6 +1,6 @@
 using System.Linq.Expressions;
 
-namespace ArchPillar.Mapper.Internal;
+namespace ArchPillar.Extensions.Mapper.Internal;
 
 /// <summary>
 /// Non-generic interface implemented by <see cref="Mapper{TSource,TDest}"/>

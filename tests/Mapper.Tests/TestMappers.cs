@@ -1,4 +1,4 @@
-namespace ArchPillar.Mapper.Tests;
+namespace ArchPillar.Extensions.Mapper.Tests;
 
 /// <summary>
 /// The canonical test mapper context used across all test files.

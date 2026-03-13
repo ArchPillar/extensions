@@ -1,4 +1,4 @@
-using ArchPillar.Mapper;
+using ArchPillar.Extensions.Mapper;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using WebShop.Data;

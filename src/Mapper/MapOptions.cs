@@ -1,4 +1,4 @@
-namespace ArchPillar.Mapper;
+namespace ArchPillar.Extensions.Mapper;
 
 /// <summary>
 /// Configures variable bindings for an in-memory <see cref="Mapper{TSource,TDest}.Map(TSource)"/> call.

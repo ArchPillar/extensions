@@ -1,4 +1,4 @@
-namespace ArchPillar.Mapper.Internal;
+namespace ArchPillar.Extensions.Mapper.Internal;
 
 /// <summary>
 /// Non-generic interface implemented by <see cref="Variable{T}"/> so that internal

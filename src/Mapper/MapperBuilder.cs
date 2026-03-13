@@ -1,8 +1,8 @@
 using System.Linq.Expressions;
 using System.Reflection;
-using ArchPillar.Mapper.Internal;
+using ArchPillar.Extensions.Mapper.Internal;
 
-namespace ArchPillar.Mapper;
+namespace ArchPillar.Extensions.Mapper;
 
 /// <summary>
 /// Fluent builder for configuring a <see cref="Mapper{TSource,TDest}"/>.

@@ -32,7 +32,21 @@
       "Bash(grep -n -i \"variable\\\\|Variable\" tests/Mapper.Tests/*.cs)",
       "Bash(ls d:/source/github/tibold/mapper/src/Mapper/*.cs)",
       "Bash(grep -n \"StackOverflow\\\\|circular\\\\|recursion\\\\|Recursion\" /d/source/github/tibold/mapper/tests/Mapper.Tests/*.cs)",
-      "Bash(grep -rn \"ValueType\\\\|struct\\\\|circular\\\\|Circular\" /d/source/github/tibold/mapper/tests/Mapper.Tests/*.cs)"
+      "Bash(grep -rn \"ValueType\\\\|struct\\\\|circular\\\\|Circular\" /d/source/github/tibold/mapper/tests/Mapper.Tests/*.cs)",
+      "Bash(dotnet pack:*)",
+      "Bash(\"w:/Projects/GitHub/tibold/mapper/.gitignore\")",
+      "Bash(xargs sed:*)",
+      "Bash(mv src/Mapper/ArchPillar.Mapper.csproj src/Mapper/ArchPillar.Extensions.Mapper.csproj)",
+      "Bash(mv tests/Mapper.Tests/ArchPillar.Mapper.Tests.csproj tests/Mapper.Tests/ArchPillar.Extensions.Mapper.Tests.csproj)",
+      "Bash(mv benchmarks/Mapper.Benchmarks/ArchPillar.Mapper.Benchmarks.csproj benchmarks/Mapper.Benchmarks/ArchPillar.Extensions.Mapper.Benchmarks.csproj)",
+      "Bash(mv ArchPillar.Mapper.slnx ArchPillar.Extensions.Mapper.slnx)",
+      "Bash(mv docs/getting-started.md docs/mapper/getting-started.md)",
+      "Bash(mv docs/features.md docs/mapper/features.md)",
+      "Bash(mv docs/recommendations.md docs/mapper/recommendations.md)",
+      "Bash(mv SPEC.md docs/mapper/SPEC.md)",
+      "Bash(mv KNOWN_ISSUES.md docs/mapper/KNOWN_ISSUES.md)",
+      "Bash(dotnet --list-sdks)",
+      "Bash(dotnet clean:*)"
     ]
   }
 }

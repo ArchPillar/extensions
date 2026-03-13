@@ -2,14 +2,14 @@
 
     <PropertyGroup>
         <!-- Default values -->
-        <TargetFramework>net9.0</TargetFramework>
-        <LangVersion>13.0</LangVersion>
+        <TargetFramework>net10.0</TargetFramework>
+        <LangVersion>14.0</LangVersion>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <TreatWarningsAsErrors Condition="'$(Configuration)' == 'Release'AND '$(BuildingInsideVisualStudio)' != 'true'">true</TreatWarningsAsErrors>
         <CodeAnalysisTreatWarningsAsErrors Condition="'$(Configuration)' == 'Release' AND '$(BuildingInsideVisualStudio)' != 'true'">true</CodeAnalysisTreatWarningsAsErrors>
 
-         <!--Nuget restore workaround-->
+        <!--Nuget restore workaround-->
 
         <!--Visual Studio Build acceleration feature-->
         <!--It is able to skip building intermediate projects in reference chains. Maybe.-->
@@ -17,9 +17,9 @@
         <ProduceReferenceAssembly>True</ProduceReferenceAssembly>
 
         <Authors>Tibold Kandrai</Authors>
-        <Product>ArchPillar.Mapper</Product>
+        <Product>ArchPillar.Extensions.Mapper</Product>
         <Copyright>Copyright &#169; $([System.DateTime]::Now.ToString(`yyyy`)) Tibold Kandrai, All rights reserved</Copyright>
-        <!--<Version>0.14.0</Version>-->
+        <Version>0.0.0-local</Version>
 
         <!--Keep the generated files (or not)-->
         <EmitCompilerGeneratedFiles>False</EmitCompilerGeneratedFiles>
@@ -32,10 +32,5 @@
         <CollectCoverage>true</CollectCoverage>
         <IncludeTestAssembly>false</IncludeTestAssembly>
     </PropertyGroup>
-
-    <ItemGroup>
-        <!--Enable source link for open source libraries hosted in GitHub.-->
-        <!--<PackageReference Include="Microsoft.SourceLink.GitHub" />-->
-    </ItemGroup>
 
 </Project>

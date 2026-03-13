@@ -5,14 +5,14 @@
   </Folder>
   <Folder Name="/benchmarks/" />
   <Folder Name="/benchmarks/Mapper.Benchmarks/">
-    <Project Path="benchmarks/Mapper.Benchmarks/ArchPillar.Mapper.Benchmarks.csproj" />
+    <Project Path="benchmarks/Mapper.Benchmarks/ArchPillar.Extensions.Mapper.Benchmarks.csproj" />
   </Folder>
   <Folder Name="/src/" />
   <Folder Name="/src/Mapper/">
-    <Project Path="src/Mapper/ArchPillar.Mapper.csproj" />
+    <Project Path="src/Mapper/ArchPillar.Extensions.Mapper.csproj" />
   </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/Mapper.Tests/">
-    <Project Path="tests/Mapper.Tests/ArchPillar.Mapper.Tests.csproj" />
+    <Project Path="tests/Mapper.Tests/ArchPillar.Extensions.Mapper.Tests.csproj" />
   </Folder>
 </Solution>

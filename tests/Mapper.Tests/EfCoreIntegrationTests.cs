@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 
-namespace ArchPillar.Mapper.Tests;
+namespace ArchPillar.Extensions.Mapper.Tests;
 
 /// <summary>
 /// Verifies that projection expressions are fully translatable by EF Core

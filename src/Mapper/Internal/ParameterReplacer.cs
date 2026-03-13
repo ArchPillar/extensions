@@ -1,6 +1,6 @@
 using System.Linq.Expressions;
 
-namespace ArchPillar.Mapper.Internal;
+namespace ArchPillar.Extensions.Mapper.Internal;
 
 /// <summary>
 /// An expression visitor that replaces every occurrence of a specific

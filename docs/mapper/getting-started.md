@@ -5,7 +5,7 @@
 Add the NuGet package to your project:
 
 ```bash
-dotnet add package ArchPillar.Mapper
+dotnet add package ArchPillar.Extensions.Mapper
 ```
 
 > Requires .NET 9 and C# 13.
@@ -15,7 +15,7 @@ dotnet add package ArchPillar.Mapper
 Create a context class that inherits from `MapperContext`. Declare mappers as public properties and initialize them in the constructor.
 
 ```csharp
-using ArchPillar.Mapper;
+using ArchPillar.Extensions.Mapper;
 
 // Source model
 public class Order
@@ -178,4 +178,4 @@ See [Features Guide — Coverage Validation](features.md#coverage-validation) fo
 
 - [Features Guide](features.md) — nested mappers, optionals, variables, enums, MapTo, and more
 - [Recommendations](recommendations.md) — patterns, pitfalls, and production guidance
-- [Specification](../SPEC.md) — full design philosophy and API surface
+- [Specification](SPEC.md) — full design philosophy and API surface

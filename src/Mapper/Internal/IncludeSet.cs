@@ -1,4 +1,4 @@
-namespace ArchPillar.Mapper.Internal;
+namespace ArchPillar.Extensions.Mapper.Internal;
 
 /// <summary>
 /// A recursive tree of optional-property include requests.

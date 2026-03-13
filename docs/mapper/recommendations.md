@@ -1,6 +1,6 @@
 # Recommendations
 
-Patterns, pitfalls, and production guidance for ArchPillar.Mapper.
+Patterns, pitfalls, and production guidance for ArchPillar.Extensions.Mapper.
 
 ## Register as Singleton
 

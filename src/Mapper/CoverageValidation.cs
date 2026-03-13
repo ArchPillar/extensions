@@ -1,4 +1,4 @@
-namespace ArchPillar.Mapper;
+namespace ArchPillar.Extensions.Mapper;
 
 /// <summary>
 /// Controls how strictly the mapper builder validates that every destination

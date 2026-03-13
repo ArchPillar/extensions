@@ -21,6 +21,10 @@
         <PackageVersion Include="Brixter.Extensions.AspNetCore.OpenApi" Version="0.4.6" />
     </ItemGroup>
     <ItemGroup>
+        <!-- Source Link -->
+        <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.102" />
+    </ItemGroup>
+    <ItemGroup>
         <!-- Analyzers -->
         <PackageVersion Include="Roslynator.Analyzers" Version="4.15.0" />
         <PackageVersion Include="Roslynator.Formatting.Analyzers" Version="4.15.0" />

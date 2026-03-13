@@ -1,4 +1,4 @@
-namespace ArchPillar.Mapper.Tests;
+namespace ArchPillar.Extensions.Mapper.Tests;
 
 // ---------------------------------------------------------------------------
 // Source models (domain / entity layer)

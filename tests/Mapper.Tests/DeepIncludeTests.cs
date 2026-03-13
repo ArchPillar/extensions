@@ -1,4 +1,4 @@
-namespace ArchPillar.Mapper.Tests;
+namespace ArchPillar.Extensions.Mapper.Tests;
 
 /// <summary>
 /// Verifies that optional-property includes cascade correctly through multiple

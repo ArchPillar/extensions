@@ -1,4 +1,4 @@
-namespace ArchPillar.Mapper.Tests;
+namespace ArchPillar.Extensions.Mapper.Tests;
 
 /// <summary>
 /// Verifies that the builder catches configuration mistakes at build time,

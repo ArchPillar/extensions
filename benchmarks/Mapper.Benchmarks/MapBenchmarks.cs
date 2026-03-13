@@ -1,6 +1,6 @@
 using BenchmarkDotNet.Attributes;
 
-namespace ArchPillar.Mapper.Benchmarks;
+namespace ArchPillar.Extensions.Mapper.Benchmarks;
 
 [MemoryDiagnoser]
 [ShortRunJob]

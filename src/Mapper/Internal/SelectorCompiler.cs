@@ -1,6 +1,6 @@
 using System.Linq.Expressions;
 
-namespace ArchPillar.Mapper.Internal;
+namespace ArchPillar.Extensions.Mapper.Internal;
 
 /// <summary>
 /// Replaces every nested <see cref="LambdaExpression"/> node in an expression

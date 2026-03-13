@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Mapper\ArchPillar.Mapper.csproj" />
+    <ProjectReference Include="..\..\src\Mapper\ArchPillar.Extensions.Mapper.csproj" />
   </ItemGroup>
 
   <ItemGroup>

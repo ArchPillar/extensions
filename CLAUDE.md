@@ -1,8 +1,10 @@
-# AI Agent Instructions — ArchPillar.Mapper
+# AI Agent Instructions — ArchPillar Extensions
 
 ## Project Overview
 
-A .NET C# library for object-to-object DTO mapping and LINQ/EF Core expression projection. Read `SPEC.md` for full design philosophy and API surface.
+A monorepo of standalone .NET libraries published under the `ArchPillar.Extensions` namespace. Currently contains:
+
+- **Mapper** (`src/Mapper/`) — object-to-object DTO mapping and LINQ/EF Core expression projection. Read `docs/mapper/SPEC.md` for full design philosophy and API surface.
 
 ## Build & Test Commands
 
@@ -32,7 +34,7 @@ Warnings are treated as errors in Release builds (outside Visual Studio). Always
 ## Code Style (enforced by .editorconfig)
 
 ### Language & Framework
-- .NET 9, C# 13 (`LangVersion 13.0`)
+- .NET 8/9/10, C# 13 (`LangVersion 13.0`)
 - `<Nullable>enable</Nullable>` — strict nullable reference types everywhere
 - `<ImplicitUsings>enable</ImplicitUsings>`
 - File-scoped namespaces: `namespace Foo;` (warning-level enforcement)

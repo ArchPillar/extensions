@@ -1,6 +1,6 @@
-using ArchPillar.Mapper.Internal;
+using ArchPillar.Extensions.Mapper.Internal;
 
-namespace ArchPillar.Mapper;
+namespace ArchPillar.Extensions.Mapper;
 
 /// <summary>
 /// A typed placeholder that can appear in mapping expressions and is substituted

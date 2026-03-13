@@ -13,7 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Mapper\ArchPillar.Mapper.csproj" />
+    <ProjectReference Include="..\..\src\Mapper\ArchPillar.Extensions.Mapper.csproj" />
   </ItemGroup>
 
 </Project>

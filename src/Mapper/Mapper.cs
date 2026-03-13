@@ -1,8 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
-using ArchPillar.Mapper.Internal;
+using ArchPillar.Extensions.Mapper.Internal;
 
-namespace ArchPillar.Mapper;
+namespace ArchPillar.Extensions.Mapper;
 
 /// <summary>
 /// A compiled, reusable mapping between <typeparamref name="TSource"/> and

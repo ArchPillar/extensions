@@ -97,7 +97,7 @@ builder.Services.AddOpenApi(options =>
         {
             Title       = "WebShop API",
             Version     = "v1",
-            Description = "Headless webshop sample — powered by ArchPillar.Mapper.",
+            Description = "Headless webshop sample — powered by ArchPillar.Extensions.Mapper.",
         };
 
         document.Components ??= new OpenApiComponents();

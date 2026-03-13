@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using ArchPillar.Mapper;
+using ArchPillar.Extensions.Mapper;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using OpenIddict.Abstractions;

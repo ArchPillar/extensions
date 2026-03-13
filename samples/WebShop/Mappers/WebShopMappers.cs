@@ -1,4 +1,4 @@
-using ArchPillar.Mapper;
+using ArchPillar.Extensions.Mapper;
 using WebShop.Models;
 using WebShop.Projections;
 
