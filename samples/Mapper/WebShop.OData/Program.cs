@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.OData;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OData.ModelBuilder;
-using Scalar.AspNetCore;
 using Spectre.Console;
 using WebShop.OData.Data;
 using WebShop.OData.Mappers;
@@ -41,10 +40,6 @@ builder.Services.AddControllers()
                .Expand();
     });
 
-// ── OpenAPI / Scalar ─────────────────────────────────────────────────────────
-
-builder.Services.AddOpenApi();
-
 // ── Application services ────────────────────────────────────────────────────
 
 builder.Services.AddSingleton<WebShopMappers>();
@@ -69,9 +64,6 @@ if (args.Contains("--seed"))
     await Seeder.SeedAsync(seedDb, seedLogger);
 }
 
-app.MapOpenApi();
-app.MapScalarApiReference(options => options.WithTitle("WebShop OData API"));
-
 app.UseHttpsRedirection();
 app.UseRouting();
 app.MapControllers();
@@ -84,15 +76,13 @@ app.Lifetime.ApplicationStarted.Register(() =>
     var uri         = new Uri(rawAddress);
     var baseAddress = $"{uri.Scheme}://localhost:{uri.Port}";
 
-    var scalarUrl  = $"{baseAddress}/scalar/v1";
-    var openApiUrl = $"{baseAddress}/openapi/v1.json";
-    var odataUrl   = $"{baseAddress}/odata";
+    var odataUrl    = $"{baseAddress}/odata";
+    var metadataUrl = $"{odataUrl}/$metadata";
 
     Grid grid = new Grid().AddColumn().AddColumn();
-    grid.AddRow(new Markup("[grey]Scalar UI[/]"),   new Text(scalarUrl,  new Style(Color.Aqua)));
-    grid.AddRow(new Markup("[grey]OpenAPI[/]"),      new Text(openApiUrl, new Style(Color.Aqua)));
-    grid.AddRow(new Markup("[grey]OData root[/]"),   new Text(odataUrl,   new Style(Color.Aqua)));
-    grid.AddRow(new Markup("[grey]Example[/]"),      new Text($"{odataUrl}/Products?$filter=Price gt 50&$orderby=Name&$top=10", new Style(Color.Grey)));
+    grid.AddRow(new Markup("[grey]OData root[/]"),     new Text(odataUrl,    new Style(Color.Aqua)));
+    grid.AddRow(new Markup("[grey]OData metadata[/]"), new Text(metadataUrl, new Style(Color.Aqua)));
+    grid.AddRow(new Markup("[grey]Example[/]"),         new Text($"{odataUrl}/Products?$filter=Price gt 50&$orderby=Name&$top=10", new Style(Color.Grey)));
 
     AnsiConsole.Write(new Panel(grid)
     {

@@ -15,7 +15,6 @@
         <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="9.0.14" />
         <PackageVersion Include="Scalar.AspNetCore" Version="2.6.0" />
         <PackageVersion Include="Spectre.Console" Version="0.50.0" />
-        <PackageVersion Include="Microsoft.AspNetCore.OData" Version="9.4.1" />
     </ItemGroup>
     <ItemGroup>
         <!--Brixter private packages-->
@@ -41,7 +40,6 @@
         <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
         <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
         <PackageVersion Include="BenchmarkDotNet.Annotations" Version="0.15.8" />
-        <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.14" />
         <!-- End of Testing -->
     </ItemGroup>
 </Project>
