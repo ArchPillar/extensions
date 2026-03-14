@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <PropertyGroup>
+        <!-- Override library defaults — this is an application, not a library -->
+        <!-- OData 9.x targets net8.0; this sample is a tech demo, not a framework recommendation -->
+        <TargetFramework>net8.0</TargetFramework>
+        <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+        <GenerateDocumentationFile>false</GenerateDocumentationFile>
+        <Nullable>enable</Nullable>
+        <NoWarn>$(NoWarn);IDE0005</NoWarn>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../../../src/Mapper/ArchPillar.Extensions.Mapper.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.AspNetCore.OData" Version="9.4.1" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.14" />
+        <PackageReference Include="Bogus" Version="35.6.1" />
+        <PackageReference Include="Spectre.Console" Version="0.50.0" />
+    </ItemGroup>
+
+</Project>
