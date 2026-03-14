@@ -16,23 +16,49 @@ A .NET library for explicit object-to-object DTO mapping and LINQ/EF Core expres
 // 1. Define your mapper context (like EF Core's DbContext)
 public class AppMappers : MapperContext
 {
-    public Mapper<Order, OrderDto> OrderToDto { get; set; } = null!;
+    public Mapper<Address, AddressDto> Address { get; }
+    public Mapper<OrderLine, OrderLineDto> OrderLine { get; }
+    public Mapper<Order, OrderDto> Order { get; }
 
-    protected override void OnBuildingMappers(MapperContextBuilder builder)
+    public AppMappers()
     {
-        builder.MapperFor(m => m.OrderToDto)
-            .MapTo(dest => dest.Id,         src => src.Id)
-            .MapTo(dest => dest.Total,      src => src.Total)
-            .MapTo(dest => dest.CustomerName, src => src.Customer.Name);
+        // Single-object mapper
+        Address = CreateMapper<Address, AddressDto>(src => new AddressDto
+        {
+            Street  = src.Street,
+            City    = src.City,
+            Country = src.Country,
+        });
+
+        // Child collection mapper
+        OrderLine = CreateMapper<OrderLine, OrderLineDto>(src => new OrderLineDto
+        {
+            ProductName = src.ProductName,
+            Quantity    = src.Quantity,
+            UnitPrice   = src.UnitPrice,
+        });
+
+        // Parent mapper — nests both:
+        //   Map()     for a single object (Address)
+        //   Project() for a collection    (OrderLine)
+        // Both are inlined automatically, fully translatable by EF Core
+        Order = CreateMapper<Order, OrderDto>(src => new OrderDto
+        {
+            Id           = src.Id,
+            CustomerName = src.Customer.Name,
+            Total        = src.Total,
+            Address      = Address.Map(src.ShippingAddress),
+            Lines        = src.Lines.Project(OrderLine).ToList(),
+        });
     }
 }
 
 // 2. Use it — in memory
 var mappers = new AppMappers();
-OrderDto dto = mappers.OrderToDto.Map(order);
+OrderDto dto = mappers.Order.Map(order);
 
-// 3. Use it — as IQueryable projection
-var dtos = dbContext.Orders.Select(mappers.OrderToDto).ToList();
+// 3. Use it — as IQueryable projection (single SQL query, no N+1)
+var dtos = dbContext.Orders.Project(mappers.Order).ToList();
 ```
 
 ## Documentation
