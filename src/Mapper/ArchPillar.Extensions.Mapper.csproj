@@ -10,8 +10,8 @@
     <Description>A .NET library for explicit object-to-object DTO mapping and LINQ/EF Core expression projection. Designed around simplicity, transparency, and traceability — no conventions, no magic.</Description>
     <PackageTags>mapper;mapping;dto;ef-core;linq;expression;projection</PackageTags>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <PackageProjectUrl>https://github.com/ArchPillar/mapper</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/ArchPillar/mapper</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/ArchPillar/extensions</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/ArchPillar/extensions</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>PACKAGE.md</PackageReadmeFile>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>

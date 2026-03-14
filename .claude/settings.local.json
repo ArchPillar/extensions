@@ -51,7 +51,8 @@
       "Bash(grep -n \"get.*=>\" w:/Projects/GitHub/tibold/mapper/src/Mapper/*.cs w:/Projects/GitHub/tibold/mapper/src/Mapper/Internal/*.cs)",
       "Bash(grep -n \"public.*{ .*get\" w:/Projects/GitHub/tibold/mapper/src/Mapper/*.cs w:/Projects/GitHub/tibold/mapper/src/Mapper/Internal/*.cs)",
       "Bash(grep -n \"nameof\" w:/Projects/GitHub/tibold/mapper/src/Mapper/*.cs w:/Projects/GitHub/tibold/mapper/src/Mapper/Internal/*.cs)",
-      "Bash(dotnet list:*)"
+      "Bash(dotnet list:*)",
+      "Bash(unzip -l nupkgs-test/ArchPillar.Extensions.Mapper.1.0.0-test.nupkg)"
     ]
   }
 }

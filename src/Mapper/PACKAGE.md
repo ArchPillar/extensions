@@ -63,4 +63,4 @@ var dtos = dbContext.Orders.Project(mappers.Order).ToList();
 
 ## Documentation
 
-Full documentation and examples are available at the [GitHub repository](https://github.com/ArchPillar/mapper).
+Full documentation and examples are available at the [GitHub repository](https://github.com/ArchPillar/extensions).
