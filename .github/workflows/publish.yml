@@ -29,7 +29,9 @@ jobs:
         run: dotnet test tests/Mapper.Tests -c Release --no-build --verbosity normal
 
       - name: Pack
-        run: dotnet pack src/Mapper/ArchPillar.Extensions.Mapper.csproj -c Release --no-build -o ./nupkgs -p:PackageVersion=${{ github.event.release.tag_name }}
+        run: dotnet pack src/Mapper/ArchPillar.Extensions.Mapper.csproj -c Release --no-build -o ./nupkgs -p:PackageVersion=${GITHUB_TAG#v}
+        env:
+          GITHUB_TAG: ${{ github.event.release.tag_name }}
 
       - name: Push to NuGet
         run: dotnet nuget push ./nupkgs/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
