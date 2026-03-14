@@ -1,0 +1,4 @@
+<Project>
+    <!-- Intentionally empty — prevents the root Directory.Build.targets from injecting
+         analyzer PackageReferences that require central package management. -->
+</Project>
