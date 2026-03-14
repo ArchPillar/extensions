@@ -1,7 +1,11 @@
 <Solution>
   <Folder Name="/samples/" />
-  <Folder Name="/samples/WebShop/">
-    <Project Path="samples/WebShop/WebShop.csproj" />
+  <Folder Name="/samples/Mapper/" />
+  <Folder Name="/samples/Mapper/WebShop/">
+    <Project Path="samples/Mapper/WebShop/WebShop.csproj" />
+  </Folder>
+  <Folder Name="/samples/Mapper/WebShop.OData/">
+    <Project Path="samples/Mapper/WebShop.OData/WebShop.OData.csproj" />
   </Folder>
   <Folder Name="/benchmarks/" />
   <Folder Name="/benchmarks/Mapper.Benchmarks/">
@@ -14,5 +18,8 @@
   <Folder Name="/tests/" />
   <Folder Name="/tests/Mapper.Tests/">
     <Project Path="tests/Mapper.Tests/ArchPillar.Extensions.Mapper.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Mapper.OData.Tests/">
+    <Project Path="tests/Mapper.OData.Tests/ArchPillar.Extensions.Mapper.OData.Tests.csproj" />
   </Folder>
 </Solution>
