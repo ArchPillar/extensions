@@ -81,7 +81,6 @@ public abstract class MapperContext
     /// </summary>
     protected MapperBuilder<TSource, TDest> CreateMapper<TSource, TDest>(
         Expression<Func<TSource, TDest>>? memberInitExpression = null)
-        where TDest : new()
         => new(memberInitExpression, DefaultCoverageValidation);
 
     /// <summary>

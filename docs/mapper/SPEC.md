@@ -96,7 +96,7 @@ The library imposes no constraint here — this is left entirely to the develope
 
 ### 2. Mapper&lt;TSource, TDest&gt;
 
-Represents a single mapping configuration. `TDest` must have a public parameterless constructor (`new()` constraint) — constructor-based mapping is not supported because EF Core cannot translate parameterized constructor calls in expression trees.
+Represents a single mapping configuration. `TDest` must have a public parameterless constructor — constructor-based mapping is not supported because EF Core cannot translate parameterized constructor calls in expression trees. This is validated at build time when `CreateMapper` is called.
 
 - Configured via a fluent builder
 - Produces both:
@@ -309,8 +309,7 @@ mapper.Order.MapTo(command, existingOrder, o => o.Set(mapper.CurrentUserId, user
 public abstract class MapperContext
 {
     protected static MapperBuilder<TSource, TDest> CreateMapper<TSource, TDest>(
-        Expression<Func<TSource, TDest>>? memberInitExpression = null)
-        where TDest : new();
+        Expression<Func<TSource, TDest>>? memberInitExpression = null);
 
     protected static EnumMapper<TSource, TDest> CreateEnumMapper<TSource, TDest>(
         Func<TSource, TDest> mappingMethod)
@@ -330,7 +329,6 @@ public abstract class MapperContext
 
 ```csharp
 public sealed class MapperBuilder<TSource, TDest>
-    where TDest : new()
 {
     public MapperBuilder<TSource, TDest> Map<TValue>(
         Expression<Func<TDest, TValue>> dest,
@@ -353,7 +351,6 @@ public sealed class MapperBuilder<TSource, TDest>
 
 ```csharp
 public sealed class Mapper<TSource, TDest>
-    where TDest : new()
 {
     // Call-site mapping (optional params allowed)
     TDest? Map(TSource? source, Action<MapOptions<TDest>>? options = null);
@@ -473,7 +470,7 @@ The pipeline applied before handing the expression to the LINQ provider:
 
 ## Error Handling & Validation
 
-- Destination types must have a public parameterless constructor — enforced by a `new()` generic constraint at compile time. Constructor-based mapping (e.g., `src => new TDest(src.Id, src.Name)`) is not supported because EF Core cannot translate parameterized constructor calls in expression trees. If a member-init expression uses a parameterized constructor, an `InvalidOperationException` is thrown at build time.
+- Destination types must have a public parameterless constructor — validated at build time when `CreateMapper` is called. Constructor-based mapping (e.g., `src => new TDest(src.Id, src.Name)`) is not supported because EF Core cannot translate parameterized constructor calls in expression trees. If the destination type lacks a parameterless constructor or the member-init expression uses a parameterized constructor, an `InvalidOperationException` is thrown.
 - Every destination property must appear in exactly one of: a member-init expression, a `.Map()` call, an `.Optional()` call, or an `.Ignore()` call. The API is designed so that **an unmapped destination property is not a reachable state** — the builder tracks coverage and throws at the point `.Build()` is called (implicit or explicit) if any property is unaccounted for.
 - Attempting to inline a nested mapper that has not been built yet throws a clear exception identifying the property.
 - Null safety: see §8.

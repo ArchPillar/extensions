@@ -47,7 +47,6 @@ namespace ArchPillar.Extensions.Mapper;
 /// </code>
 /// </summary>
 public sealed class Mapper<TSource, TDest> : IMapper
-    where TDest : new()
 {
     private readonly IReadOnlyList<PropertyMapping>                              _allMappings;
     private readonly Lazy<Func<TSource?, List<(object, object?)>?, TDest?>>  _compiled;

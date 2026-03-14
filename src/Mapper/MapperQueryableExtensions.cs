@@ -29,7 +29,6 @@ public static class MapperExtensions
         this IQueryable<TSource> query,
         Mapper<TSource, TDest> mapper,
         Action<ProjectionOptions<TDest>>? options = null)
-        where TDest : new()
     {
         return query.Select(mapper.ToExpression(options));
     }
@@ -59,7 +58,6 @@ public static class MapperExtensions
     public static IEnumerable<TDest> Project<TSource, TDest>(
         this IEnumerable<TSource> source,
         Mapper<TSource, TDest> mapper)
-        where TDest : new()
     {
         return source.Select(s => mapper.Map(s)!);
     }
@@ -73,7 +71,6 @@ public static class MapperExtensions
         this IEnumerable<TSource> source,
         Mapper<TSource, TDest> mapper,
         Action<MapOptions<TDest>> options)
-        where TDest : new()
     {
         return source.Select(s => mapper.Map(s, options)!);
     }

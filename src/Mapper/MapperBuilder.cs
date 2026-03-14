@@ -19,7 +19,6 @@ namespace ArchPillar.Extensions.Mapper;
 /// </para>
 /// </summary>
 public sealed class MapperBuilder<TSource, TDest>
-    where TDest : new()
 {
     private readonly Expression<Func<TSource, TDest>>? _memberInitExpression;
     private readonly List<PropertyMapping>             _mappings = [];
@@ -29,6 +28,7 @@ public sealed class MapperBuilder<TSource, TDest>
         Expression<Func<TSource, TDest>>? memberInitExpression,
         CoverageValidation coverageValidation = CoverageValidation.NonNullableProperties)
     {
+        ValidateParameterlessConstructor();
         ValidateMemberInitExpression(memberInitExpression);
 
         _memberInitExpression = memberInitExpression;
@@ -163,6 +163,16 @@ public sealed class MapperBuilder<TSource, TDest>
             $"Expression must be a simple property access (e.g. dest => dest.PropertyName), " +
             $"but got: {expression.Body.NodeType}.",
             nameof(expression));
+    }
+
+    private static void ValidateParameterlessConstructor()
+    {
+        if (typeof(TDest).GetConstructor(Type.EmptyTypes) == null)
+        {
+            throw new InvalidOperationException(
+                $"Destination type {typeof(TDest).Name} must have a public parameterless constructor. " +
+                "Constructor-based mapping is not supported.");
+        }
     }
 
     private static void ValidateMemberInitExpression(
