@@ -534,3 +534,4 @@ Mapper/
 | **Source generators** | On the roadmap — a Roslyn source generator that emits mapping delegates at compile time for zero-allocation object mapping is a target for a future milestone. |
 | **Enum mapping** | Special-cased — defined as a plain method; the library generates a switch expression tree by enumerating all enum values (see §7). |
 | **Null inputs** | All mappers return `null` for a null source. No configuration needed (see §8). |
+| **Constructor-based mapping** | Not supported — destination types must have a public parameterless constructor. The library's core guarantee is "one definition, two modes": the same mapper drives both in-memory mapping and LINQ/EF Core expression projection. Parameterized constructors cannot be translated by EF Core, so allowing them would create mappers that silently fail at query time. If a use case does not need expression projection, a plain constructor call is simpler and more explicit than a mapper. |
