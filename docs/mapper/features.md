@@ -2,7 +2,7 @@
 
 ## Mapping Styles
 
-Two styles are available and can be freely combined.
+Two styles are available and can be freely combined. Destination types must have a public parameterless constructor (`new()` constraint) — constructor-based mapping is not supported.
 
 ### Member-init expression
 
