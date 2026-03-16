@@ -151,6 +151,21 @@ public class CatalogItemDto { public required string Label { get; set; } }
 public class TreeNode    { public required string Name { get; set; } public TreeNode? Child { get; set; } }
 public class TreeNodeDto { public required string Name { get; set; } public TreeNodeDto? Child { get; set; } }
 
+// Destination with both parameterless and parameterized constructors
+public class DualConstructorDto
+{
+    public string Name { get; set; } = "";
+    public int Value { get; set; }
+
+    public DualConstructorDto() { }
+
+    public DualConstructorDto(string name, int value)
+    {
+        Name  = name;
+        Value = value;
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Models for ComposableMapperContextTests
 // Demonstrates splitting mappings across multiple MapperContext instances.

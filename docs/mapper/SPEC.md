@@ -190,7 +190,7 @@ services.AddSingleton<CompositeMappers>();
 
 ### 2. Mapper&lt;TSource, TDest&gt;
 
-Represents a single mapping configuration.
+Represents a single mapping configuration. `TDest` must have a public parameterless constructor — constructor-based mapping is not supported because EF Core cannot translate parameterized constructor calls in expression trees. This is validated at build time when `CreateMapper` is called.
 
 - Configured via a fluent builder
 - Produces both:
@@ -564,6 +564,7 @@ The pipeline applied before handing the expression to the LINQ provider:
 
 ## Error Handling & Validation
 
+- Destination types must have a public parameterless constructor — validated at build time when `CreateMapper` is called. Constructor-based mapping (e.g., `src => new TDest(src.Id, src.Name)`) is not supported because EF Core cannot translate parameterized constructor calls in expression trees. If the destination type lacks a parameterless constructor or the member-init expression uses a parameterized constructor, an `InvalidOperationException` is thrown.
 - Every destination property must appear in exactly one of: a member-init expression, a `.Map()` call, an `.Optional()` call, or an `.Ignore()` call. The API is designed so that **an unmapped destination property is not a reachable state** — the builder tracks coverage and throws at the point `.Build()` is called (implicit or explicit) if any property is unaccounted for.
 - Attempting to inline a nested mapper that has not been built yet throws a clear exception identifying the property.
 - Null safety: see §8.
@@ -627,3 +628,4 @@ Mapper/
 | **Source generators** | On the roadmap — a Roslyn source generator that emits mapping delegates at compile time for zero-allocation object mapping is a target for a future milestone. |
 | **Enum mapping** | Special-cased — defined as a plain method; the library generates a switch expression tree by enumerating all enum values (see §7). |
 | **Null inputs** | All mappers return `null` for a null source. No configuration needed (see §8). |
+| **Constructor-based mapping** | Not supported — destination types must have a public parameterless constructor. The library's core guarantee is "one definition, two modes": the same mapper drives both in-memory mapping and LINQ/EF Core expression projection. Parameterized constructors cannot be translated by EF Core, so allowing them would create mappers that silently fail at query time. If a use case does not need expression projection, a plain constructor call is simpler and more explicit than a mapper. |

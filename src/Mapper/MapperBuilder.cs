@@ -28,6 +28,9 @@ public sealed class MapperBuilder<TSource, TDest>
         Expression<Func<TSource, TDest>>? memberInitExpression,
         CoverageValidation coverageValidation = CoverageValidation.NonNullableProperties)
     {
+        ValidateParameterlessConstructor();
+        ValidateMemberInitExpression(memberInitExpression);
+
         _memberInitExpression = memberInitExpression;
         _coverageValidation   = coverageValidation;
     }
@@ -160,6 +163,46 @@ public sealed class MapperBuilder<TSource, TDest>
             $"Expression must be a simple property access (e.g. dest => dest.PropertyName), " +
             $"but got: {expression.Body.NodeType}.",
             nameof(expression));
+    }
+
+    private static void ValidateParameterlessConstructor()
+    {
+        if (typeof(TDest).GetConstructor(Type.EmptyTypes) == null)
+        {
+            throw new InvalidOperationException(
+                $"Destination type {typeof(TDest).Name} must have a public parameterless constructor. " +
+                "Constructor-based mapping is not supported.");
+        }
+    }
+
+    private static void ValidateMemberInitExpression(
+        Expression<Func<TSource, TDest>>? memberInitExpression)
+    {
+        if (memberInitExpression is null)
+        {
+            return;
+        }
+
+        switch (memberInitExpression.Body)
+        {
+            case MemberInitExpression:
+                return;
+
+            case NewExpression newExpr when newExpr.Arguments.Count > 0:
+                throw new InvalidOperationException(
+                    $"The member-init expression for {typeof(TDest).Name} uses a parameterized constructor. " +
+                    "Only object-initializer syntax (new TDest { Prop = value }) is supported. " +
+                    "Constructor-based mapping is not supported.");
+
+            case NewExpression:
+                // Parameterless new — valid but produces no mappings
+                return;
+
+            default:
+                throw new InvalidOperationException(
+                    $"The member-init expression for {typeof(TDest).Name} must use object-initializer syntax " +
+                    $"(new TDest {{ Prop = value }}), but got: {memberInitExpression.Body.NodeType}.");
+        }
     }
 
     /// <summary>
