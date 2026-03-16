@@ -161,21 +161,14 @@ public class AuthorMappers : MapperContext
 **Step 4 — Optional composite facade:**
 
 ```csharp
-public class CompositeMappers
+public class CompositeMappers(
+    PublisherMappers publishers,
+    BookMappers books,
+    AuthorMappers authors)
 {
-    public PublisherMappers Publishers { get; }
-    public BookMappers Books { get; }
-    public AuthorMappers Authors { get; }
-
-    public CompositeMappers(
-        PublisherMappers publishers,
-        BookMappers books,
-        AuthorMappers authors)
-    {
-        Publishers = publishers;
-        Books      = books;
-        Authors    = authors;
-    }
+    public PublisherMappers Publishers { get; } = publishers;
+    public BookMappers Books { get; } = books;
+    public AuthorMappers Authors { get; } = authors;
 }
 ```
 

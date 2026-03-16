@@ -239,18 +239,11 @@ public class AuthorMappers : MapperContext
 /// injectable facade. This is a plain C# class — not a <see cref="MapperContext"/>
 /// itself — that composes the individual contexts.
 /// </summary>
-public class CompositeMappers
+public class CompositeMappers(PublisherMappers publishers, BookMappers books, AuthorMappers authors)
 {
-    public PublisherMappers Publishers { get; }
-    public BookMappers Books { get; }
-    public AuthorMappers Authors { get; }
-
-    public CompositeMappers(PublisherMappers publishers, BookMappers books, AuthorMappers authors)
-    {
-        Publishers = publishers;
-        Books      = books;
-        Authors    = authors;
-    }
+    public PublisherMappers Publishers { get; } = publishers;
+    public BookMappers Books { get; } = books;
+    public AuthorMappers Authors { get; } = authors;
 }
 
 /// <summary>
