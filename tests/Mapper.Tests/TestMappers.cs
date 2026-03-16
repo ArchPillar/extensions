@@ -170,6 +170,82 @@ public class ReverseOrderMappers : MapperContext
     }
 }
 
+// ---------------------------------------------------------------------------
+// Composable MapperContext examples — cross-context dependency injection
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// Owns the Publisher mapping. Has no dependencies on other contexts.
+/// In a real application, this would be registered as a singleton in the DI container.
+/// </summary>
+public class PublisherMappers : MapperContext
+{
+    public Mapper<Publisher, PublisherDto> Publisher { get; }
+
+    public PublisherMappers()
+    {
+        Publisher = CreateMapper<Publisher, PublisherDto>(src => new PublisherDto
+        {
+            Id   = src.Id,
+            Name = src.Name,
+        })
+        .Optional(dest => dest.Country, src => src.Country);
+    }
+}
+
+/// <summary>
+/// Owns the Book mapping. Depends on <see cref="PublisherMappers"/> for the
+/// nested Publisher → PublisherDto mapping. Receives the dependency via
+/// constructor injection.
+/// </summary>
+public class BookMappers : MapperContext
+{
+    public Mapper<Book, BookDto> Book { get; }
+
+    public BookMappers(PublisherMappers publisherMappers)
+    {
+        Book = CreateMapper<Book, BookDto>(src => new BookDto
+        {
+            Id        = src.Id,
+            Title     = src.Title,
+            Price     = src.Price,
+            Publisher = publisherMappers.Publisher.Map(src.Publisher),
+        });
+    }
+}
+
+/// <summary>
+/// Owns the Author mapping. Depends on <see cref="BookMappers"/> for the
+/// nested Book → BookDto collection projection. Receives the dependency via
+/// constructor injection.
+/// </summary>
+public class AuthorMappers : MapperContext
+{
+    public Mapper<Author, AuthorDto> Author { get; }
+
+    public AuthorMappers(BookMappers bookMappers)
+    {
+        Author = CreateMapper<Author, AuthorDto>(src => new AuthorDto
+        {
+            Id   = src.Id,
+            Name = src.Name,
+        })
+        .Optional(dest => dest.Books, src => src.Books.Project(bookMappers.Book).ToList());
+    }
+}
+
+/// <summary>
+/// Aggregates multiple <see cref="MapperContext"/> subclasses into a single
+/// injectable facade. This is a plain C# class — not a <see cref="MapperContext"/>
+/// itself — that composes the individual contexts.
+/// </summary>
+public class CompositeMappers(PublisherMappers publishers, BookMappers books, AuthorMappers authors)
+{
+    public PublisherMappers Publishers { get; } = publishers;
+    public BookMappers Books { get; } = books;
+    public AuthorMappers Authors { get; } = authors;
+}
+
 /// <summary>
 /// Mappers for <see cref="NestedInlinerTests"/>: exercises multiple nested
 /// mapper calls per property (issue 2) and <c>ToDictionary</c> with a

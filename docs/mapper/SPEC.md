@@ -94,6 +94,100 @@ public class AppMappers
 
 The library imposes no constraint here — this is left entirely to the developer and their DI container.
 
+#### Composable MapperContexts via Dependency Injection
+
+In larger applications, a single `MapperContext` containing every mapper becomes unwieldy. Split mappings into multiple focused `MapperContext` subclasses and wire them together via constructor injection — exactly the same pattern used for any other service in a DI container.
+
+**Step 1 — Leaf context (no dependencies):**
+
+```csharp
+public class PublisherMappers : MapperContext
+{
+    public Mapper<Publisher, PublisherDto> Publisher { get; }
+
+    public PublisherMappers()
+    {
+        Publisher = CreateMapper<Publisher, PublisherDto>(src => new PublisherDto
+        {
+            Id   = src.Id,
+            Name = src.Name,
+        })
+        .Optional(dest => dest.Country, src => src.Country);
+    }
+}
+```
+
+**Step 2 — Dependent context (receives leaf via constructor):**
+
+```csharp
+public class BookMappers : MapperContext
+{
+    public Mapper<Book, BookDto> Book { get; }
+
+    public BookMappers(PublisherMappers publisherMappers)
+    {
+        Book = CreateMapper<Book, BookDto>(src => new BookDto
+        {
+            Id        = src.Id,
+            Title     = src.Title,
+            Price     = src.Price,
+            Publisher = publisherMappers.Publisher.Map(src.Publisher),
+        });
+    }
+}
+```
+
+The nested `publisherMappers.Publisher.Map(src.Publisher)` call works exactly like a mapper reference within the same context — the expression visitor inlines the nested expression tree at build time.
+
+**Step 3 — Deeper chain (three levels):**
+
+```csharp
+public class AuthorMappers : MapperContext
+{
+    public Mapper<Author, AuthorDto> Author { get; }
+
+    public AuthorMappers(BookMappers bookMappers)
+    {
+        Author = CreateMapper<Author, AuthorDto>(src => new AuthorDto
+        {
+            Id   = src.Id,
+            Name = src.Name,
+        })
+        .Optional(dest => dest.Books, src => src.Books.Project(bookMappers.Book).ToList());
+    }
+}
+```
+
+**Step 4 — Optional composite facade:**
+
+```csharp
+public class CompositeMappers(
+    PublisherMappers publishers,
+    BookMappers books,
+    AuthorMappers authors)
+{
+    public PublisherMappers Publishers { get; } = publishers;
+    public BookMappers Books { get; } = books;
+    public AuthorMappers Authors { get; } = authors;
+}
+```
+
+**DI registration (e.g., ASP.NET Core):**
+
+```csharp
+services.AddSingleton<PublisherMappers>();
+services.AddSingleton<BookMappers>();
+services.AddSingleton<AuthorMappers>();
+services.AddSingleton<CompositeMappers>();
+```
+
+**Key behaviours:**
+
+- Nested mapper inlining works identically across context boundaries — the expression visitor sees the same `Mapper<T,T>.Map()` / `.Project()` calls regardless of which context owns the mapper.
+- Optional properties on a nested mapper from another context propagate correctly via `.Include()` / `ThenInclude`-style chaining.
+- Multiple contexts can safely share the same leaf context instance (singleton).
+- Circular dependencies between contexts are not supported (and will cause a `StackOverflowException` or exceed the max nesting depth).
+
 ### 2. Mapper&lt;TSource, TDest&gt;
 
 Represents a single mapping configuration. `TDest` must have a public parameterless constructor — constructor-based mapping is not supported because EF Core cannot translate parameterized constructor calls in expression trees. This is validated at build time when `CreateMapper` is called.

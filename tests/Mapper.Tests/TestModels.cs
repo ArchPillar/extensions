@@ -165,3 +165,53 @@ public class DualConstructorDto
         Value = value;
     }
 }
+
+// ---------------------------------------------------------------------------
+// Models for ComposableMapperContextTests
+// Demonstrates splitting mappings across multiple MapperContext instances.
+// Domain: Author → Book → Publisher (cross-context references)
+// ---------------------------------------------------------------------------
+
+public class Author
+{
+    public required int Id { get; set; }
+    public required string Name { get; set; }
+    public List<Book> Books { get; set; } = [];
+}
+
+public class Book
+{
+    public required int Id { get; set; }
+    public required string Title { get; set; }
+    public required decimal Price { get; set; }
+    public required Publisher Publisher { get; set; }
+}
+
+public class Publisher
+{
+    public required int Id { get; set; }
+    public required string Name { get; set; }
+    public string? Country { get; set; }
+}
+
+public class AuthorDto
+{
+    public required int Id { get; set; }
+    public required string Name { get; set; }
+    public List<BookDto>? Books { get; set; }
+}
+
+public class BookDto
+{
+    public required int Id { get; set; }
+    public required string Title { get; set; }
+    public required decimal Price { get; set; }
+    public required PublisherDto Publisher { get; set; }
+}
+
+public class PublisherDto
+{
+    public required int Id { get; set; }
+    public required string Name { get; set; }
+    public string? Country { get; set; }
+}
