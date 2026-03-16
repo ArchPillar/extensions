@@ -178,9 +178,9 @@ public class ComposableMapperContextTests
 
         Assert.Single(results);
         Assert.NotNull(results[0].Books);
-        Assert.Single(results[0].Books);
+        Assert.Single(results[0].Books!);
         Assert.Equal("DDIA", results[0].Books![0].Title);
-        Assert.Equal("O'Reilly", results[0].Books[0].Publisher.Name);
+        Assert.Equal("O'Reilly", results[0].Books![0].Publisher.Name);
     }
 
     // -----------------------------------------------------------------------
@@ -203,7 +203,7 @@ public class ComposableMapperContextTests
 
         var results = books
             .Project(_bookMappers.Book, o => o
-                .Include(b => b.Publisher, p => p.Include(pub => pub.Country)))
+                .Include("Publisher.Country"))
             .ToList();
 
         Assert.Equal("USA", results[0].Publisher.Country);
