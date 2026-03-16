@@ -73,6 +73,7 @@ public AppMappers()
 
 Expressions must be translatable by the LINQ provider. Avoid:
 
+- **Constructor-based mapping** — destination types must have a parameterless constructor. Expressions like `src => new TDest(src.Id, src.Name)` are not supported because EF Core cannot translate parameterized constructor calls. Use object-initializer syntax instead: `src => new TDest { Id = src.Id, Name = src.Name }`. This restriction is intentional: the library guarantees that every mapper works in both in-memory and LINQ projection modes. Allowing constructor-based mapping would create mappers that silently fail at query time.
 - **Method calls** that EF Core can't translate (e.g., custom C# methods, `ToString()` on complex types)
 - **Delegate invocations** — use mapper references (`OrderLine.Map(...)`) instead of `Func<>` calls
 - **`throw` expressions** — EF Core cannot translate them; enum mappers use `default(TDest)` as the unreachable fallback for this reason

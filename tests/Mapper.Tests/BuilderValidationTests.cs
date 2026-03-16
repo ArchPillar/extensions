@@ -197,6 +197,22 @@ public class BuilderValidationTests
     }
 
     // -----------------------------------------------------------------------
+    // Constructor validation — parameterized constructor expression rejected
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void Build_WithParameterizedConstructorExpression_ThrowsInvalidOperationException()
+    {
+        var context = new ConstructorExpressionValidationContext();
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+            () => context.BuildWithConstructorArgs());
+
+        Assert.Contains("parameterized constructor", ex.Message);
+        Assert.Contains("DualConstructorDto", ex.Message);
+    }
+
+    // -----------------------------------------------------------------------
     // Circular mapper reference detection
     // -----------------------------------------------------------------------
 
@@ -380,6 +396,13 @@ file class AllPropertiesDefaultContext : MapperContext
             .Map(d => d.Quantity, s => s.Quantity)
             .Map(d => d.UnitPrice, s => s.UnitPrice)
             // SupplierName is nullable — but context default is AllProperties, so it must be covered
+            .Build();
+}
+
+file class ConstructorExpressionValidationContext : MapperContext
+{
+    public Mapper<OrderLine, DualConstructorDto> BuildWithConstructorArgs() =>
+        CreateMapper<OrderLine, DualConstructorDto>(s => new DualConstructorDto(s.ProductName, s.Quantity))
             .Build();
 }
 
