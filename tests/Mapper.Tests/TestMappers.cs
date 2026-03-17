@@ -246,6 +246,119 @@ public class CompositeMappers(PublisherMappers publishers, BookMappers books, Au
     public AuthorMappers Authors { get; } = authors;
 }
 
+// ---------------------------------------------------------------------------
+// Method-based mapper composition — mappers retrieved via method calls
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// Demonstrates mapper composition where nested mappers are retrieved via
+/// method calls (no arguments) instead of property access.
+/// </summary>
+public class MethodBasedBookMappers : MapperContext
+{
+    private readonly PublisherMappers _publisherMappers;
+
+    public Mapper<Book, BookDto> Book { get; }
+
+    public MethodBasedBookMappers(PublisherMappers publisherMappers)
+    {
+        _publisherMappers = publisherMappers;
+
+        Book = CreateMapper<Book, BookDto>(src => new BookDto
+        {
+            Id        = src.Id,
+            Title     = src.Title,
+            Price     = src.Price,
+            Publisher = GetPublisherMapper().Map(src.Publisher),
+        });
+    }
+
+    public Mapper<Publisher, PublisherDto> GetPublisherMapper()
+        => _publisherMappers.Publisher;
+}
+
+/// <summary>
+/// Demonstrates mapper composition where nested mappers are retrieved via
+/// method calls with constant arguments.
+/// </summary>
+public class ConstArgMethodBookMappers : MapperContext
+{
+    private readonly Dictionary<string, object> _mapperRegistry = new();
+
+    public Mapper<Book, BookDto> Book { get; }
+
+    public ConstArgMethodBookMappers(PublisherMappers publisherMappers)
+    {
+        _mapperRegistry["publisher"] = publisherMappers.Publisher;
+
+        Book = CreateMapper<Book, BookDto>(src => new BookDto
+        {
+            Id        = src.Id,
+            Title     = src.Title,
+            Price     = src.Price,
+            Publisher = GetMapper<Publisher, PublisherDto>("publisher").Map(src.Publisher),
+        });
+    }
+
+    public Mapper<TSource, TDest> GetMapper<TSource, TDest>(string name)
+        => (Mapper<TSource, TDest>)_mapperRegistry[name];
+}
+
+/// <summary>
+/// Eager-build variant of <see cref="MethodBasedBookMappers"/> — validates that
+/// <see cref="MapperContext.EagerBuildAll"/> discovers mappers returned by
+/// parameterless methods.
+/// </summary>
+public class EagerMethodBasedBookMappers : MapperContext
+{
+    private readonly PublisherMappers _publisherMappers;
+
+    public Mapper<Book, BookDto> Book { get; }
+
+    public EagerMethodBasedBookMappers(PublisherMappers publisherMappers)
+    {
+        _publisherMappers = publisherMappers;
+
+        Book = CreateMapper<Book, BookDto>(src => new BookDto
+        {
+            Id        = src.Id,
+            Title     = src.Title,
+            Price     = src.Price,
+            Publisher = GetPublisherMapper().Map(src.Publisher),
+        });
+
+        EagerBuildAll();
+    }
+
+    public Mapper<Publisher, PublisherDto> GetPublisherMapper()
+        => _publisherMappers.Publisher;
+}
+
+/// <summary>
+/// Demonstrates collection projection with mapper retrieved via method call.
+/// </summary>
+public class MethodBasedAuthorMappers : MapperContext
+{
+    private readonly BookMappers _bookMappers;
+
+    public Mapper<Author, AuthorDto> Author { get; }
+
+    public MethodBasedAuthorMappers(BookMappers bookMappers)
+    {
+        _bookMappers = bookMappers;
+
+        Author = CreateMapper<Author, AuthorDto>(src => new AuthorDto
+        {
+            Id   = src.Id,
+            Name = src.Name,
+        })
+        .Optional(dest => dest.Books, src => src.Books.Project(GetBookMapper()).ToList());
+    }
+
+    public Mapper<Book, BookDto> GetBookMapper()
+        => _bookMappers.Book;
+}
+
 /// <summary>
 /// Mappers for <see cref="NestedInlinerTests"/>: exercises multiple nested
 /// mapper calls per property (issue 2) and <c>ToDictionary</c> with a

@@ -45,6 +45,14 @@ namespace ArchPillar.Extensions.Mapper;
 /// <code>
 ///     LookupById = src.Items.ToDictionary(i => i.Id, i => ItemMapper.Map(i)),
 /// </code>
+/// <para>
+/// Nested mappers can also be obtained via method calls (no arguments or constant
+/// arguments only) — the expression visitor detects and inlines them automatically:
+/// </para>
+/// <code>
+///     Customer = GetCustomerMapper().Map(src.Customer),
+///     Product  = GetMapper&lt;Product, ProductDto&gt;("product").Map(src.Product),
+/// </code>
 /// </summary>
 public sealed class Mapper<TSource, TDest> : IMapper
 {

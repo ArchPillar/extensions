@@ -43,6 +43,23 @@ namespace ArchPillar.Extensions.Mapper;
 ///         => (Orders, Products) = (orders, products);
 /// }
 /// </code>
+/// <para>
+/// Nested mappers can also be retrieved via method calls — the expression visitor
+/// detects and inlines them automatically. Methods may take no arguments or only
+/// constant arguments:
+/// </para>
+/// <code>
+/// public class OrderMappers : MapperContext
+/// {
+///     public OrderMappers(CustomerMappers customers)
+///     {
+///         Order = CreateMapper&lt;Order, OrderDto&gt;(src => new OrderDto
+///         {
+///             Customer = customers.GetMapper().Map(src.Customer),
+///         });
+///     }
+/// }
+/// </code>
 /// </summary>
 public abstract class MapperContext
 {
@@ -111,7 +128,8 @@ public abstract class MapperContext
     /// <summary>
     /// Forces expression assembly and delegate compilation for every
     /// <see cref="Mapper{TSource,TDest}"/> and <see cref="EnumMapper{TSource,TDest}"/>
-    /// property declared on this context.
+    /// declared on this context — both properties and public parameterless methods
+    /// that return a mapper type.
     /// Call this at the end of a subclass constructor to surface mapping errors
     /// at startup and eliminate cold-start latency on first use.
     /// </summary>
@@ -119,24 +137,36 @@ public abstract class MapperContext
     {
         Type mapperGenericType     = typeof(Mapper<,>);
         Type enumMapperGenericType = typeof(EnumMapper<,>);
+
         foreach (PropertyInfo property in GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
-            Type type = property.PropertyType;
-            if (!type.IsGenericType)
-            {
-                continue;
-            }
-
-            Type genericDef = type.GetGenericTypeDefinition();
-            if (genericDef != mapperGenericType && genericDef != enumMapperGenericType)
-            {
-                continue;
-            }
-
-            if (property.GetValue(this) is IMapper mapper)
+            if (TryGetMapperFromType(property.PropertyType, mapperGenericType, enumMapperGenericType) &&
+                property.GetValue(this) is IMapper mapper)
             {
                 mapper.Compile();
             }
         }
+
+        foreach (MethodInfo method in GetType().GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly))
+        {
+            if (method.GetParameters().Length == 0 &&
+                !method.IsSpecialName &&
+                TryGetMapperFromType(method.ReturnType, mapperGenericType, enumMapperGenericType) &&
+                method.Invoke(this, null) is IMapper mapper)
+            {
+                mapper.Compile();
+            }
+        }
+    }
+
+    private static bool TryGetMapperFromType(Type type, Type mapperGenericType, Type enumMapperGenericType)
+    {
+        if (!type.IsGenericType)
+        {
+            return false;
+        }
+
+        Type genericDef = type.GetGenericTypeDefinition();
+        return genericDef == mapperGenericType || genericDef == enumMapperGenericType;
     }
 }
