@@ -43,6 +43,17 @@ public partial class AppMappers : MapperContext { ... }
 public class AppMappers : MapperContext { ... }
 ```
 
+### Mapper Identity: Property Name as Key
+
+Mappers have no built-in unique ID — two mappers can share the same `TSource`/`TDest` type pair with completely different mappings (e.g., `Mapper<Order, OrderDto> OrderSummary` and `Mapper<Order, OrderDto> OrderDetail`). The **property name on the MapperContext subclass** is the only stable, unique identifier.
+
+The generator uses property names to:
+- **Name generated methods**: `GeneratedMap_{PropertyName}()`, `GeneratedMapTo_{PropertyName}()`
+- **Wire delegates**: each property's `SetCompiledDelegates()` call references its own generated method
+- **Resolve nested mappers**: `Product.Map(src.Product)` in user code → `GeneratedMap_Product(src.Product, vars)` in generated code, matched by the property name `Product`
+
+This mirrors how users already reference mappers at runtime (`mapper.Order.Map(order)`) and is unambiguous within a single MapperContext subclass.
+
 ### What the Generator Emits
 
 For each `partial` MapperContext subclass, the generator analyzes the constructor to find `CreateMapper<TSource, TDest>(...)` calls with their member-init expressions, `.Map()`, `.Optional()`, `.Ignore()` chains, and `CreateEnumMapper<TSource, TDest>(...)` calls. It then emits:
