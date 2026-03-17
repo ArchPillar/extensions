@@ -1,10 +1,5 @@
 <Project>
-
-  <!-- Prevents the root Directory.Build.targets from injecting analyzer PackageReferences
-       into sample projects that opt out of central package management. -->
-
-  <PropertyGroup>
-    <GenerateDocumentationFile>false</GenerateDocumentationFile>
-  </PropertyGroup>
-
+    <!-- Intentionally empty — prevents the root Directory.Build.targets from injecting
+         analyzer PackageReferences into sample projects that opt out of central package
+         management and therefore cannot resolve those versions. -->
 </Project>
