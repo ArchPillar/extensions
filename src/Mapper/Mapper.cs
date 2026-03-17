@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using ArchPillar.Extensions.Mapper.Internal;
@@ -48,9 +49,9 @@ namespace ArchPillar.Extensions.Mapper;
 /// </summary>
 public sealed class Mapper<TSource, TDest> : IMapper
 {
-    private readonly IReadOnlyList<PropertyMapping>                              _allMappings;
-    private readonly Lazy<Func<TSource?, List<(object, object?)>?, TDest?>>  _compiled;
-    private readonly Lazy<Action<TSource, TDest, List<(object, object?)>?>>  _compiledMapTo;
+    private readonly IReadOnlyList<PropertyMapping>                             _allMappings;
+    private Lazy<Func<TSource?, List<(object, object?)>?, TDest?>>             _compiled;
+    private Lazy<Action<TSource, TDest, List<(object, object?)>?>>             _compiledMapTo;
 
     internal Mapper(IReadOnlyList<PropertyMapping> allMappings)
     {
@@ -60,6 +61,20 @@ public sealed class Mapper<TSource, TDest> : IMapper
             return BuildMapExpression().Compile()!;
         });
         _compiledMapTo = new(BuildMapToAction);
+    }
+
+    /// <summary>
+    /// Replaces the lazily-compiled delegates with pre-built implementations,
+    /// typically emitted by the AOT source generator. Once set, the mapper will
+    /// never invoke <c>Expression.Compile()</c> for in-memory mapping.
+    /// </summary>
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    public void SetCompiledDelegates(
+        Func<TSource?, List<(object, object?)>?, TDest?> mapFunc,
+        Action<TSource, TDest, List<(object, object?)>?> mapToAction)
+    {
+        _compiled      = new Lazy<Func<TSource?, List<(object, object?)>?, TDest?>>(() => mapFunc);
+        _compiledMapTo = new Lazy<Action<TSource, TDest, List<(object, object?)>?>>(() => mapToAction);
     }
 
     // -------------------------------------------------------------------------

@@ -23,6 +23,8 @@
     <ItemGroup>
         <!-- Source Link -->
         <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.102" />
+        <!-- Source Generators -->
+        <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.12.0" />
     </ItemGroup>
     <ItemGroup>
         <!-- Analyzers -->
