@@ -60,20 +60,18 @@ public sealed class EnumMapper<TSource, TDest>(Func<TSource, TDest> mappingMetho
         ParameterExpression sourceParam = Expression.Parameter(typeof(TSource), "source");
         TSource[] values = Enum.GetValues<TSource>();
 
-        // Cast enums to their underlying integer types so that LINQ providers
-        // (EF Core, etc.) can translate the conditional chain to SQL.
-        // Bare enum constants are not translatable by most providers.
+        // Cast the source enum to its underlying integer type so that LINQ
+        // providers (EF Core, etc.) can translate the equality checks to SQL.
+        // Bare enum comparisons are not translatable by most providers.
         Type sourceUnderlying = Enum.GetUnderlyingType(typeof(TSource));
-        Type destUnderlying   = Enum.GetUnderlyingType(typeof(TDest));
-
         Expression sourceAsInt = Expression.Convert(sourceParam, sourceUnderlying);
 
-        // Use the last value's mapping as the default (else) branch.
-        // Every value is covered by the conditional chain, so the default
-        // is unreachable — but using a plain constant keeps the expression
-        // translatable by EF Core and other LINQ providers.
-        Expression body = Expression.Constant(
-            Convert.ChangeType(default(TDest), destUnderlying), destUnderlying);
+        // Use default(TDest) as the unreachable fallback.  Every source value
+        // is covered by the conditional chain, so this branch is never reached.
+        // Destination constants are kept as enum-typed values so the conditional
+        // chain naturally produces TDest without an outer Convert — some SQL
+        // providers (e.g. Npgsql) cannot translate Convert(int, EnumType).
+        Expression body = Expression.Constant(default(TDest), typeof(TDest));
 
         for (var i = values.Length - 1; i >= 0; i--)
         {
@@ -82,13 +80,10 @@ public sealed class EnumMapper<TSource, TDest>(Func<TSource, TDest> mappingMetho
                 Expression.Equal(
                     sourceAsInt,
                     Expression.Constant(Convert.ChangeType(value, sourceUnderlying), sourceUnderlying)),
-                Expression.Constant(
-                    Convert.ChangeType(method(value), destUnderlying), destUnderlying),
+                Expression.Constant(method(value), typeof(TDest)),
                 body);
         }
 
-        // Convert the integer result back to the destination enum type.
-        return Expression.Lambda<Func<TSource, TDest>>(
-            Expression.Convert(body, typeof(TDest)), sourceParam);
+        return Expression.Lambda<Func<TSource, TDest>>(body, sourceParam);
     }
 }
