@@ -77,6 +77,19 @@ public abstract class MapperContext
         => CoverageValidation.NonNullableProperties;
 
     // -------------------------------------------------------------------------
+    // AOT source generator hook
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Called at the end of the constructor to allow the AOT source generator to
+    /// wire pre-compiled mapping delegates into the mapper instances. When the
+    /// subclass is declared <c>partial</c>, the generator emits an implementation
+    /// that calls <see cref="Mapper{TSource,TDest}.SetCompiledDelegates"/> for
+    /// each mapper property, eliminating the need for <c>Expression.Compile()</c>.
+    /// </summary>
+    protected virtual void OnAotInitialize() { }
+
+    // -------------------------------------------------------------------------
     // Factory methods
     // -------------------------------------------------------------------------
 

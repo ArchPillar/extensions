@@ -25,6 +25,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Mapper.Generators\ArchPillar.Extensions.Mapper.Generators.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="..\..\LICENSE" Pack="true" PackagePath="" />
     <None Include="PACKAGE.md" Pack="true" PackagePath="" />
   </ItemGroup>

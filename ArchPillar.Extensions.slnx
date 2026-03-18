@@ -7,6 +7,9 @@
   <Folder Name="/samples/Mapper/WebShop.OData/">
     <Project Path="samples/Mapper/WebShop.OData/WebShop.OData.csproj" />
   </Folder>
+  <Folder Name="/samples/Mapper/AotConsole/">
+    <Project Path="samples/Mapper/AotConsole/AotConsole.csproj" />
+  </Folder>
   <Folder Name="/benchmarks/" />
   <Folder Name="/benchmarks/Mapper.Benchmarks/">
     <Project Path="benchmarks/Mapper.Benchmarks/ArchPillar.Extensions.Mapper.Benchmarks.csproj" />
@@ -15,11 +18,17 @@
   <Folder Name="/src/Mapper/">
     <Project Path="src/Mapper/ArchPillar.Extensions.Mapper.csproj" />
   </Folder>
+  <Folder Name="/src/Mapper.Generators/">
+    <Project Path="src/Mapper.Generators/ArchPillar.Extensions.Mapper.Generators.csproj" />
+  </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/Mapper.Tests/">
     <Project Path="tests/Mapper.Tests/ArchPillar.Extensions.Mapper.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/Mapper.OData.Tests/">
     <Project Path="tests/Mapper.OData.Tests/ArchPillar.Extensions.Mapper.OData.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Mapper.Generators.Tests/">
+    <Project Path="tests/Mapper.Generators.Tests/ArchPillar.Extensions.Mapper.Generators.Tests.csproj" />
   </Folder>
 </Solution>
