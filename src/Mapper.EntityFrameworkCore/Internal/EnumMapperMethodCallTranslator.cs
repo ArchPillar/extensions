@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage;
 
-namespace ArchPillar.Extensions.Mapper.EntityFramework.Internal;
+namespace ArchPillar.Extensions.Mapper.EntityFrameworkCore.Internal;
 
 /// <summary>
 /// Translates <c>EnumMappingFunctions.MapEnum&lt;TSource, TDest&gt;(source)</c>

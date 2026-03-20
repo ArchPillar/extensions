@@ -1,8 +1,8 @@
-using ArchPillar.Extensions.Mapper.EntityFramework.Internal;
+using ArchPillar.Extensions.Mapper.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
-namespace ArchPillar.Extensions.Mapper.EntityFramework;
+namespace ArchPillar.Extensions.Mapper.EntityFrameworkCore;
 
 /// <summary>
 /// Extension methods for <see cref="DbContextOptionsBuilder"/> that register

@@ -1,4 +1,4 @@
-using ArchPillar.Extensions.Mapper.EntityFramework;
+using ArchPillar.Extensions.Mapper.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
 namespace ArchPillar.Extensions.Mapper.Tests;

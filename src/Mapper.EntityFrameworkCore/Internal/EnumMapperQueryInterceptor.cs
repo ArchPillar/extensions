@@ -2,7 +2,7 @@ using System.Linq.Expressions;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
-namespace ArchPillar.Extensions.Mapper.EntityFramework.Internal;
+namespace ArchPillar.Extensions.Mapper.EntityFrameworkCore.Internal;
 
 internal sealed class EnumMapperQueryInterceptor : IQueryExpressionInterceptor
 {

@@ -2,7 +2,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace ArchPillar.Extensions.Mapper.EntityFramework.Internal;
+namespace ArchPillar.Extensions.Mapper.EntityFrameworkCore.Internal;
 
 /// <summary>
 /// <see cref="IDbContextOptionsExtension"/> that registers the

@@ -15,8 +15,8 @@
   <Folder Name="/src/Mapper/">
     <Project Path="src/Mapper/ArchPillar.Extensions.Mapper.csproj" />
   </Folder>
-  <Folder Name="/src/Mapper.EntityFramework/">
-    <Project Path="src/Mapper.EntityFramework/ArchPillar.Extensions.Mapper.EntityFramework.csproj" />
+  <Folder Name="/src/Mapper.EntityFrameworkCore/">
+    <Project Path="src/Mapper.EntityFrameworkCore/ArchPillar.Extensions.Mapper.EntityFrameworkCore.csproj" />
   </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/Mapper.Tests/">

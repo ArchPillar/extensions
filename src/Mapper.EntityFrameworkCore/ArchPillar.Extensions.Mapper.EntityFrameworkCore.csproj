@@ -6,7 +6,7 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <PackageId>ArchPillar.Extensions.Mapper.EntityFramework</PackageId>
+    <PackageId>ArchPillar.Extensions.Mapper.EntityFrameworkCore</PackageId>
     <Description>EF Core integration for ArchPillar.Extensions.Mapper. Translates EnumMapper.Map() calls into flat SQL CASE expressions via a custom IMethodCallTranslator.</Description>
     <PackageTags>mapper;ef-core;enum;case;sql;translation</PackageTags>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>

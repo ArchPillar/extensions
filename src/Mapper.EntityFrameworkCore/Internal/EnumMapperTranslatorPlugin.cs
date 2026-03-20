@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Storage;
 
-namespace ArchPillar.Extensions.Mapper.EntityFramework.Internal;
+namespace ArchPillar.Extensions.Mapper.EntityFrameworkCore.Internal;
 
 internal sealed class EnumMapperTranslatorPlugin(
     EnumMappingStore store,

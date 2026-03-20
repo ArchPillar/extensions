@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using System.Reflection;
 
-namespace ArchPillar.Extensions.Mapper.EntityFramework.Internal;
+namespace ArchPillar.Extensions.Mapper.EntityFrameworkCore.Internal;
 
 internal sealed class EnumMappingStore
 {

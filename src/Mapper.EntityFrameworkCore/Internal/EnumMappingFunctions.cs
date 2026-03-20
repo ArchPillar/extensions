@@ -1,6 +1,6 @@
 using System.Reflection;
 
-namespace ArchPillar.Extensions.Mapper.EntityFramework.Internal;
+namespace ArchPillar.Extensions.Mapper.EntityFrameworkCore.Internal;
 
 /// <summary>
 /// Static marker method intercepted by the <see cref="EnumMapperMethodCallTranslator"/>.
