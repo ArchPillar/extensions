@@ -49,10 +49,13 @@ Warnings are treated as errors in Release builds (outside Visual Studio). Always
 - **Types / methods / properties / all other members**: `PascalCase`
 - **No abbreviations** — use full words (`sourceParam`, not `srcP`)
 
-### var Usage
-- Use `var` when the type is apparent from the right-hand side (error)
-- Use `var` for built-in types like `int`, `string` (warning)
-- Otherwise, use explicit types (warning)
+### var Usage (IDE0007 / IDE0008 — error severity)
+- **Default to `var` everywhere** — the analyzers enforce `var` at error level for apparent types AND built-in types (`int`, `string`, `bool`, `decimal`, etc.)
+- Use `var` when the type is apparent from the right-hand side: `var x = new Foo()`, `var y = GetFoo()`, `var mid = (lo + hi) / 2`
+- Use `var` for built-in types: `var count = 0;` not `int count = 0;`, `var name = "foo";` not `string name = "foo";`
+- Use explicit types when the type is NOT apparent and NOT a built-in (e.g. `IReadOnlyList<int> items = GetItems();` where the method returns `List<int>`)
+- **Method chains change the apparent type rule**: `var x = new Foo()` is apparent, but `var x = new Foo().Bar()` is NOT — the chained call obscures the final type. Use an explicit type: `SomeType x = new Foo().Bar();`
+- **In practice**: if in doubt, use `var`. The analyzer will catch the rare cases where an explicit type is preferred.
 
 ### Expression-Bodied Members
 - **Use** for: accessors, indexers, properties (warning)

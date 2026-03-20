@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using OpenIddict.Validation.AspNetCore;
 using Scalar.AspNetCore;
 using Spectre.Console;
@@ -100,8 +100,9 @@ builder.Services.AddOpenApi(options =>
             Description = "Headless webshop sample — powered by ArchPillar.Extensions.Mapper.",
         };
 
-        document.Components ??= new OpenApiComponents();
-        document.Components.SecuritySchemes["Bearer"] = new OpenApiSecurityScheme
+        var components = document.Components ??= new OpenApiComponents();
+        components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
+        components.SecuritySchemes["Bearer"] = new OpenApiSecurityScheme
         {
             Type         = SecuritySchemeType.Http,
             Scheme       = "bearer",

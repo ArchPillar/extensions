@@ -70,6 +70,46 @@ public enum OrderStatus { Pending, Shipped, Cancelled }
 public enum UserRole { Guest, Member, Admin }
 public enum ProductStatus { Active, Discontinued }
 
+/// <summary>
+/// Large enum (11 values) to exercise enum mapping with many members.
+/// Deeply nested conditional expression trees are not translatable by
+/// EF Core; the mapper must produce a flat switch expression instead.
+/// </summary>
+public enum PropertyType
+{
+    Invalid,
+    Other,
+    House,
+    RowHouse,
+    Apartment,
+    Recreational,
+    Cooperative,
+    Farm,
+    LandLeisure,
+    LandResidence,
+    HouseApartment,
+}
+
+/// <summary>
+/// DTO counterpart of <see cref="PropertyType"/>.
+/// Uses a different member order and omits some values to verify
+/// non-trivial enum mapping (not a simple cast).
+/// </summary>
+public enum PropertyTypeDto
+{
+    Other,
+    House,
+    RowHouse,
+    Apartment,
+    Recreational,
+    Cooperative,
+    Farm,
+    LandLeisure,
+    LandResidence,
+    HouseApartment,
+    Invalid,
+}
+
 // ---------------------------------------------------------------------------
 // Destination models (DTO / API layer)
 // ---------------------------------------------------------------------------
@@ -124,6 +164,26 @@ public class ProductDto
 public enum OrderStatusDto { Pending, Shipped, Cancelled }
 public enum UserRoleDto { Guest, Member, Admin }
 public enum ProductStatusDto { Active, Discontinued }
+
+/// <summary>
+/// Minimal entity for database-level enum mapping tests with a large enum.
+/// </summary>
+public class RealEstateProperty
+{
+    public required int Id { get; set; }
+    public required string Label { get; set; }
+    public required PropertyType Type { get; set; }
+}
+
+/// <summary>
+/// DTO projection target for <see cref="RealEstateProperty"/>.
+/// </summary>
+public class RealEstatePropertyDto
+{
+    public required int Id { get; set; }
+    public required string Label { get; set; }
+    public required PropertyTypeDto Type { get; set; }
+}
 
 // ---------------------------------------------------------------------------
 // Models for NestedInlinerTests

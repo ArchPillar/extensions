@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Mapper\ArchPillar.Extensions.Mapper.csproj" />
+    <ProjectReference Include="..\..\src\Mapper.EntityFrameworkCore\ArchPillar.Extensions.Mapper.EntityFrameworkCore.csproj" />
   </ItemGroup>
 
 </Project>

@@ -4,15 +4,53 @@
         <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
         <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
     </PropertyGroup>
-    <ItemGroup>
+
+    <!-- ================================================================== -->
+    <!-- Framework-specific: .NET 8                                         -->
+    <!-- ================================================================== -->
+    <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
+        <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="8.0.25" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="8.0.25" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.25" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.25" />
+        <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.25" />
+        <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="8.0.25" />
+        <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.10" />
+    </ItemGroup>
+
+    <!-- ================================================================== -->
+    <!-- Framework-specific: .NET 9                                         -->
+    <!-- ================================================================== -->
+    <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
         <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="9.0.14" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.14" />
         <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.14" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.14" />
         <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.14" />
+        <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="9.0.14" />
         <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+    </ItemGroup>
+
+    <!-- ================================================================== -->
+    <!-- Framework-specific: .NET 10                                        -->
+    <!-- ================================================================== -->
+    <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
+        <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.5" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.5" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.5" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.5" />
+        <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.5" />
+        <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
+        <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
+    </ItemGroup>
+
+    <!-- ================================================================== -->
+    <!-- Framework-agnostic                                                 -->
+    <!-- ================================================================== -->
+    <ItemGroup>
         <PackageVersion Include="OpenIddict.AspNetCore" Version="5.5.0" />
         <PackageVersion Include="OpenIddict.EntityFrameworkCore" Version="5.5.0" />
         <PackageVersion Include="Bogus" Version="35.6.1" />
-        <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="9.0.14" />
         <PackageVersion Include="Scalar.AspNetCore" Version="2.6.0" />
         <PackageVersion Include="Spectre.Console" Version="0.50.0" />
     </ItemGroup>
@@ -34,7 +72,6 @@
     <ItemGroup>
         <!-- Testing -->
         <PackageVersion Include="coverlet.collector" Version="8.0.0" />
-        <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.14" />
         <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.3.0" />
         <PackageVersion Include="xunit" Version="2.9.3" />
         <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />

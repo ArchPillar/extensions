@@ -82,6 +82,37 @@ public sealed class EnumMappingPostgresTests : IAsyncLifetime
     }
 
     // -----------------------------------------------------------------------
+    // Large enum (11 values) — verifies the switch expression translates
+    // -----------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(PropertyType.Invalid, PropertyTypeDto.Other)]
+    [InlineData(PropertyType.Other, PropertyTypeDto.Other)]
+    [InlineData(PropertyType.House, PropertyTypeDto.House)]
+    [InlineData(PropertyType.RowHouse, PropertyTypeDto.RowHouse)]
+    [InlineData(PropertyType.Apartment, PropertyTypeDto.Apartment)]
+    [InlineData(PropertyType.Recreational, PropertyTypeDto.Recreational)]
+    [InlineData(PropertyType.Cooperative, PropertyTypeDto.Cooperative)]
+    [InlineData(PropertyType.Farm, PropertyTypeDto.Farm)]
+    [InlineData(PropertyType.LandLeisure, PropertyTypeDto.LandLeisure)]
+    [InlineData(PropertyType.LandResidence, PropertyTypeDto.LandResidence)]
+    [InlineData(PropertyType.HouseApartment, PropertyTypeDto.HouseApartment)]
+    public async Task Project_LargeEnumMapper_TranslatesViaPostgresAsync(
+        PropertyType input, PropertyTypeDto expected)
+    {
+        RealEstateProperty seeded = await _db.Properties.SingleAsync(p => p.Type == input);
+        var expr = _mappers.PropertyTypeMapper.ToExpression();
+
+        PropertyTypeDto result = await _db.Properties
+            .Where(p => p.Id == seeded.Id)
+            .Select(p => p.Type)
+            .Select(expr)
+            .SingleAsync();
+
+        Assert.Equal(expected, result);
+    }
+
+    // -----------------------------------------------------------------------
     // Seed helpers
     // -----------------------------------------------------------------------
 
@@ -119,6 +150,17 @@ public sealed class EnumMappingPostgresTests : IAsyncLifetime
                 Customer = new Customer { Name = "Carol", Email = "carol@example.com" },
                 Lines = [],
             });
+
+        PropertyType[] allTypes = Enum.GetValues<PropertyType>();
+        for (var i = 0; i < allTypes.Length; i++)
+        {
+            db.Properties.Add(new RealEstateProperty
+            {
+                Id    = 100 + i,
+                Label = allTypes[i].ToString(),
+                Type  = allTypes[i],
+            });
+        }
     }
 }
 
@@ -129,6 +171,7 @@ public sealed class EnumMappingPostgresTests : IAsyncLifetime
 internal sealed class PostgresTestDbContext(DbContextOptions<PostgresTestDbContext> options) : DbContext(options)
 {
     public DbSet<Order> Orders => Set<Order>();
+    public DbSet<RealEstateProperty> Properties => Set<RealEstateProperty>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -141,5 +184,6 @@ internal sealed class PostgresTestDbContext(DbContextOptions<PostgresTestDbConte
 
         modelBuilder.Entity<OrderLine>(e => e.HasKey(l => l.Id));
         modelBuilder.Entity<Customer>(e => e.HasKey(c => c.Name));
+        modelBuilder.Entity<RealEstateProperty>(e => e.HasKey(p => p.Id));
     }
 }

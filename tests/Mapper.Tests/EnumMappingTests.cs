@@ -48,6 +48,50 @@ public class EnumMappingTests
     }
 
     // -----------------------------------------------------------------------
+    // Large enum (11 values) — the scenario that triggered the original bug
+    // -----------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(PropertyType.Invalid, PropertyTypeDto.Other)]
+    [InlineData(PropertyType.Other, PropertyTypeDto.Other)]
+    [InlineData(PropertyType.House, PropertyTypeDto.House)]
+    [InlineData(PropertyType.RowHouse, PropertyTypeDto.RowHouse)]
+    [InlineData(PropertyType.Apartment, PropertyTypeDto.Apartment)]
+    [InlineData(PropertyType.Recreational, PropertyTypeDto.Recreational)]
+    [InlineData(PropertyType.Cooperative, PropertyTypeDto.Cooperative)]
+    [InlineData(PropertyType.Farm, PropertyTypeDto.Farm)]
+    [InlineData(PropertyType.LandLeisure, PropertyTypeDto.LandLeisure)]
+    [InlineData(PropertyType.LandResidence, PropertyTypeDto.LandResidence)]
+    [InlineData(PropertyType.HouseApartment, PropertyTypeDto.HouseApartment)]
+    public void Map_LargeEnum_MapsCorrectly(PropertyType input, PropertyTypeDto expected)
+    {
+        PropertyTypeDto result = _mappers.PropertyTypeMapper.Map(input);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData(PropertyType.Invalid, PropertyTypeDto.Other)]
+    [InlineData(PropertyType.Other, PropertyTypeDto.Other)]
+    [InlineData(PropertyType.House, PropertyTypeDto.House)]
+    [InlineData(PropertyType.RowHouse, PropertyTypeDto.RowHouse)]
+    [InlineData(PropertyType.Apartment, PropertyTypeDto.Apartment)]
+    [InlineData(PropertyType.Recreational, PropertyTypeDto.Recreational)]
+    [InlineData(PropertyType.Cooperative, PropertyTypeDto.Cooperative)]
+    [InlineData(PropertyType.Farm, PropertyTypeDto.Farm)]
+    [InlineData(PropertyType.LandLeisure, PropertyTypeDto.LandLeisure)]
+    [InlineData(PropertyType.LandResidence, PropertyTypeDto.LandResidence)]
+    [InlineData(PropertyType.HouseApartment, PropertyTypeDto.HouseApartment)]
+    public void ToExpression_LargeEnum_CompiledDelegate_MapsCorrectly(
+        PropertyType input, PropertyTypeDto expected)
+    {
+        var expr = _mappers.PropertyTypeMapper.ToExpression();
+        Func<PropertyType, PropertyTypeDto> func = expr.Compile();
+
+        Assert.Equal(expected, func(input));
+    }
+
+    // -----------------------------------------------------------------------
     // Inlined into parent mapper — the Order mapper uses OrderStatus.Map(src.Status)
     // -----------------------------------------------------------------------
 
