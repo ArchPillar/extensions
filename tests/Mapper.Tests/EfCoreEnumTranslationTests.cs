@@ -17,11 +17,10 @@ public sealed class EfCoreEnumTranslationTests : IDisposable
 
     public EfCoreEnumTranslationTests()
     {
-        DbContextOptions<EnumTranslationDbContext> options =
-            new DbContextOptionsBuilder<EnumTranslationDbContext>()
-                .UseSqlite("DataSource=:memory:")
-                .UseArchPillarMapper()
-                .Options;
+        var builder = new DbContextOptionsBuilder<EnumTranslationDbContext>()
+            .UseSqlite("DataSource=:memory:");
+        builder.UseArchPillarMapper();
+        DbContextOptions<EnumTranslationDbContext> options = builder.Options;
 
         _db = new EnumTranslationDbContext(options);
         _db.Database.OpenConnection();
@@ -119,7 +118,7 @@ public sealed class EfCoreEnumTranslationTests : IDisposable
             });
 
         // Seed one property per type to verify the large-enum translation.
-        int id = 1;
+        var id = 1;
 
         foreach (PropertyType type in Enum.GetValues<PropertyType>())
         {
