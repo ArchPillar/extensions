@@ -132,7 +132,7 @@ public sealed class EnumMapper<TSource, TDest>(Func<TSource, TDest> mappingMetho
         }
 
         // Three or more entries — split at the midpoint.
-        int mid = (lo + hi) / 2;
+        var mid = (lo + hi) / 2;
 
         return Expression.Condition(
             Expression.LessThanOrEqual(
