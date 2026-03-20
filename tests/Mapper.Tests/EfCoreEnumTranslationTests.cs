@@ -17,7 +17,7 @@ public sealed class EfCoreEnumTranslationTests : IDisposable
 
     public EfCoreEnumTranslationTests()
     {
-        var builder = new DbContextOptionsBuilder<EnumTranslationDbContext>()
+        DbContextOptionsBuilder<EnumTranslationDbContext> builder = new DbContextOptionsBuilder<EnumTranslationDbContext>()
             .UseSqlite("DataSource=:memory:");
         builder.UseArchPillarMapper();
         DbContextOptions<EnumTranslationDbContext> options = builder.Options;
