@@ -21,6 +21,7 @@ public class TestMappers : MapperContext
     public EnumMapper<OrderStatus, OrderStatusDto> OrderStatusMapper { get; }
     public EnumMapper<UserRole, UserRoleDto> UserRoleMapper { get; }
     public EnumMapper<ProductStatus, ProductStatusDto> ProductStatusMapper { get; }
+    public EnumMapper<PropertyType, PropertyTypeDto> PropertyTypeMapper { get; }
 
     // Value-object / leaf mapper
     public Mapper<Address, AddressDto> Address { get; }
@@ -42,6 +43,7 @@ public class TestMappers : MapperContext
         OrderStatusMapper = CreateEnumMapper<OrderStatus, OrderStatusDto>(MapOrderStatus);
         UserRoleMapper = CreateEnumMapper<UserRole, UserRoleDto>(MapUserRole);
         ProductStatusMapper = CreateEnumMapper<ProductStatus, ProductStatusDto>(MapProductStatus);
+        PropertyTypeMapper = CreateEnumMapper<PropertyType, PropertyTypeDto>(MapPropertyType);
 
         Address = CreateMapper<Address, AddressDto>(src => new AddressDto
         {
@@ -112,6 +114,22 @@ public class TestMappers : MapperContext
         ProductStatus.Active => ProductStatusDto.Active,
         ProductStatus.Discontinued => ProductStatusDto.Discontinued,
         _ => throw new ArgumentOutOfRangeException(nameof(status), status, null),
+    };
+
+    private static PropertyTypeDto MapPropertyType(PropertyType type) => type switch
+    {
+        PropertyType.Invalid => PropertyTypeDto.Other,
+        PropertyType.Other => PropertyTypeDto.Other,
+        PropertyType.House => PropertyTypeDto.House,
+        PropertyType.RowHouse => PropertyTypeDto.RowHouse,
+        PropertyType.Apartment => PropertyTypeDto.Apartment,
+        PropertyType.Recreational => PropertyTypeDto.Recreational,
+        PropertyType.Cooperative => PropertyTypeDto.Cooperative,
+        PropertyType.Farm => PropertyTypeDto.Farm,
+        PropertyType.LandLeisure => PropertyTypeDto.LandLeisure,
+        PropertyType.LandResidence => PropertyTypeDto.LandResidence,
+        PropertyType.HouseApartment => PropertyTypeDto.HouseApartment,
+        _ => throw new ArgumentOutOfRangeException(nameof(type), type, null),
     };
 }
 

@@ -8,7 +8,7 @@ namespace ArchPillar.Extensions.Mapper;
 /// <see cref="MapperContext.CreateEnumMapper{TSource,TDest}"/>.
 /// <para>
 /// The mapping is defined as a plain C# method (typically a switch expression).
-/// The library generates a LINQ-translatable conditional expression tree by
+/// The library generates a LINQ-translatable switch expression tree by
 /// calling the method for every possible <typeparamref name="TSource"/> value
 /// and recording the output.
 /// </para>
@@ -39,8 +39,8 @@ public sealed class EnumMapper<TSource, TDest>(Func<TSource, TDest> mappingMetho
         => mappingMethod(source);
 
     /// <summary>
-    /// Returns the mapping as a LINQ expression tree (a chain of conditional
-    /// expressions covering every <typeparamref name="TSource"/> value).
+    /// Returns the mapping as a LINQ expression tree (a switch expression
+    /// covering every <typeparamref name="TSource"/> value).
     /// </summary>
     public Expression<Func<TSource, TDest>> ToExpression()
         => _expression.Value;
@@ -66,23 +66,29 @@ public sealed class EnumMapper<TSource, TDest>(Func<TSource, TDest> mappingMetho
         Type sourceUnderlying = Enum.GetUnderlyingType(typeof(TSource));
         Expression sourceAsInt = Expression.Convert(sourceParam, sourceUnderlying);
 
-        // Use default(TDest) as the unreachable fallback.  Every source value
-        // is covered by the conditional chain, so this branch is never reached.
-        // Destination constants are kept as enum-typed values so the conditional
-        // chain naturally produces TDest without an outer Convert — some SQL
-        // providers (e.g. Npgsql) cannot translate Convert(int, EnumType).
-        Expression body = Expression.Constant(default(TDest), typeof(TDest));
+        // Build a flat SwitchExpression instead of nested ConditionalExpressions.
+        // Nested conditionals become deeply nested SQL CASE WHEN … ELSE CASE WHEN …
+        // which EF Core / Npgsql cannot translate once the enum has many values.
+        // A SwitchExpression translates to a single flat SQL CASE expression.
+        // Destination constants are kept as enum-typed values so the switch body
+        // naturally produces TDest without an outer Convert — some SQL providers
+        // (e.g. Npgsql) cannot translate Convert(int, EnumType).
+        var cases = new SwitchCase[values.Length];
 
-        for (var i = values.Length - 1; i >= 0; i--)
+        for (var i = 0; i < values.Length; i++)
         {
             TSource value = values[i];
-            body = Expression.Condition(
-                Expression.Equal(
-                    sourceAsInt,
-                    Expression.Constant(Convert.ChangeType(value, sourceUnderlying), sourceUnderlying)),
+            cases[i] = Expression.SwitchCase(
                 Expression.Constant(method(value), typeof(TDest)),
-                body);
+                Expression.Constant(Convert.ChangeType(value, sourceUnderlying), sourceUnderlying));
         }
+
+        // default(TDest) is the unreachable fallback — every source value is
+        // covered by the switch cases, so this branch is never reached.
+        Expression body = Expression.Switch(
+            sourceAsInt,
+            Expression.Constant(default(TDest), typeof(TDest)),
+            cases);
 
         return Expression.Lambda<Func<TSource, TDest>>(body, sourceParam);
     }
