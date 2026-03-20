@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework />
+    <TargetFrameworks>net9.0;net10.0</TargetFrameworks>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>ArchPillar.Extensions.Mapper.EntityFramework</PackageId>
+    <Description>EF Core integration for ArchPillar.Extensions.Mapper. Translates EnumMapper.Map() calls into flat SQL CASE expressions via a custom IMethodCallTranslator.</Description>
+    <PackageTags>mapper;ef-core;enum;case;sql;translation</PackageTags>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageProjectUrl>https://github.com/ArchPillar/extensions</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/ArchPillar/extensions</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Mapper\ArchPillar.Extensions.Mapper.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+</Project>
