@@ -18,7 +18,7 @@ internal sealed class ArchPillarMapperOptionsExtension(EnumMappingStore store) :
     public void ApplyServices(IServiceCollection services)
     {
         services.AddSingleton(store);
-        services.AddSingleton<IMethodCallTranslatorPlugin, EnumMapperTranslatorPlugin>();
+        services.AddScoped<IMethodCallTranslatorPlugin, EnumMapperTranslatorPlugin>();
     }
 
     public void Validate(IDbContextOptions options)
