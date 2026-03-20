@@ -61,7 +61,7 @@ internal sealed class EnumMapperMethodCallTranslator(
         //   END
         var whenClauses = new List<CaseWhenClause>(mappings.Count);
 
-        foreach ((int sourceValue, int destValue) in mappings)
+        foreach (var (sourceValue, destValue) in mappings)
         {
             SqlExpression test = sqlExpressionFactory.Constant(
                 sourceValue, source.TypeMapping);

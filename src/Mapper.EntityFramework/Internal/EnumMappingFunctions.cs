@@ -15,7 +15,7 @@ internal static class EnumMappingFunctions
     /// and emits a flat <c>CaseExpression</c> with one <c>CaseWhenClause</c> per
     /// enum value.
     /// </summary>
-    internal static TDest MapEnum<TSource, TDest>(TSource source)
+    public static TDest MapEnum<TSource, TDest>(TSource source)
         where TSource : struct, Enum
         where TDest : struct, Enum
     {
@@ -32,5 +32,5 @@ internal static class EnumMappingFunctions
     /// </summary>
     internal static readonly MethodInfo MapEnumMethod =
         typeof(EnumMappingFunctions)
-            .GetMethod(nameof(MapEnum), BindingFlags.Static | BindingFlags.NonPublic)!;
+            .GetMethod(nameof(MapEnum), BindingFlags.Static | BindingFlags.Public)!;
 }

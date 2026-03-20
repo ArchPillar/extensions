@@ -22,16 +22,16 @@ internal sealed class EnumMappingStore
         where TSource : struct, Enum
         where TDest : struct, Enum
     {
-        var key = (typeof(TSource), typeof(TDest));
+        (Type, Type) key = (typeof(TSource), typeof(TDest));
 
         _mappings.GetOrAdd(key, _ =>
         {
-            TSource[] values = Enum.GetValues<TSource>();
+            var values = Enum.GetValues<TSource>();
             var pairs = new List<(int, int)>(values.Length);
 
-            foreach (TSource value in values)
+            foreach (var value in values)
             {
-                TDest mapped = enumMapper.Map(value);
+                var mapped = enumMapper.Map(value);
                 pairs.Add((Convert.ToInt32(value), Convert.ToInt32(mapped)));
             }
 
@@ -46,17 +46,17 @@ internal sealed class EnumMappingStore
     /// </summary>
     internal void RegisterDynamic(object enumMapper, Type sourceType, Type destType)
     {
-        var key = (sourceType, destType);
+        (Type, Type) key = (sourceType, destType);
 
         _mappings.GetOrAdd(key, _ =>
         {
-            Array values = Enum.GetValues(sourceType);
-            MethodInfo mapMethod = enumMapper.GetType().GetMethod("Map", [sourceType])!;
+            var values = Enum.GetValues(sourceType);
+            var mapMethod = enumMapper.GetType().GetMethod("Map", [sourceType])!;
             var pairs = new List<(int, int)>(values.Length);
 
-            foreach (object? value in values)
+            foreach (var value in values)
             {
-                object? mapped = mapMethod.Invoke(enumMapper, [value]);
+                var mapped = mapMethod.Invoke(enumMapper, [value]);
                 pairs.Add((Convert.ToInt32(value), Convert.ToInt32(mapped)));
             }
 

@@ -37,14 +37,14 @@ internal sealed class EnumMapperQueryInterceptor(EnumMappingStore store) : IQuer
                 && node.Arguments.Count == 1
                 && IsEnumMapperType(node.Method.DeclaringType))
             {
-                Type[] typeArgs = node.Method.DeclaringType!.GetGenericArguments();
-                Type sourceType = typeArgs[0];
-                Type destType = typeArgs[1];
+                var typeArgs = node.Method.DeclaringType!.GetGenericArguments();
+                var sourceType = typeArgs[0];
+                var destType = typeArgs[1];
 
                 // Extract the EnumMapper instance from the expression tree
                 // (it is a constant or a closure member-access chain) and
                 // register its mapping table in the store.
-                object mapperInstance = EvaluateExpression(node.Object);
+                var mapperInstance = EvaluateExpression(node.Object);
                 store.RegisterDynamic(mapperInstance, sourceType, destType);
 
                 // Replace with the static marker:
@@ -60,8 +60,7 @@ internal sealed class EnumMapperQueryInterceptor(EnumMappingStore store) : IQuer
 
         private static bool IsEnumMapperType(Type? type)
         {
-            return type is not null
-                && type.IsGenericType
+            return type?.IsGenericType == true
                 && type.GetGenericTypeDefinition() == typeof(EnumMapper<,>);
         }
 
