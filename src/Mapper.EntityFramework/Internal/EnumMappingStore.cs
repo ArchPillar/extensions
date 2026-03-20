@@ -26,12 +26,12 @@ internal sealed class EnumMappingStore
 
         _mappings.GetOrAdd(key, _ =>
         {
-            var values = Enum.GetValues<TSource>();
+            TSource[] values = Enum.GetValues<TSource>();
             var pairs = new List<(int, int)>(values.Length);
 
-            foreach (var value in values)
+            foreach (TSource value in values)
             {
-                var mapped = enumMapper.Map(value);
+                TDest mapped = enumMapper.Map(value);
                 pairs.Add((Convert.ToInt32(value), Convert.ToInt32(mapped)));
             }
 
@@ -50,8 +50,8 @@ internal sealed class EnumMappingStore
 
         _mappings.GetOrAdd(key, _ =>
         {
-            var values = Enum.GetValues(sourceType);
-            var mapMethod = enumMapper.GetType().GetMethod("Map", [sourceType])!;
+            Array values = Enum.GetValues(sourceType);
+            MethodInfo mapMethod = enumMapper.GetType().GetMethod("Map", [sourceType])!;
             var pairs = new List<(int, int)>(values.Length);
 
             foreach (var value in values)

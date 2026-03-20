@@ -37,9 +37,9 @@ internal sealed class EnumMapperQueryInterceptor(EnumMappingStore store) : IQuer
                 && node.Arguments.Count == 1
                 && IsEnumMapperType(node.Method.DeclaringType))
             {
-                var typeArgs = node.Method.DeclaringType!.GetGenericArguments();
-                var sourceType = typeArgs[0];
-                var destType = typeArgs[1];
+                Type[] typeArgs = node.Method.DeclaringType!.GetGenericArguments();
+                Type sourceType = typeArgs[0];
+                Type destType = typeArgs[1];
 
                 // Extract the EnumMapper instance from the expression tree
                 // (it is a constant or a closure member-access chain) and

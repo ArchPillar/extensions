@@ -100,8 +100,9 @@ builder.Services.AddOpenApi(options =>
             Description = "Headless webshop sample — powered by ArchPillar.Extensions.Mapper.",
         };
 
-        document.Components ??= new OpenApiComponents();
-        document.Components.SecuritySchemes["Bearer"] = new OpenApiSecurityScheme
+        var components = document.Components ??= new OpenApiComponents();
+        components.SecuritySchemes ??= new Dictionary<string, OpenApiSecurityScheme>();
+        components.SecuritySchemes["Bearer"] = new OpenApiSecurityScheme
         {
             Type         = SecuritySchemeType.Http,
             Scheme       = "bearer",
