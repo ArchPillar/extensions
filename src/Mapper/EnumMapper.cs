@@ -8,7 +8,7 @@ namespace ArchPillar.Extensions.Mapper;
 /// <see cref="MapperContext.CreateEnumMapper{TSource,TDest}"/>.
 /// <para>
 /// The mapping is defined as a plain C# method (typically a switch expression).
-/// The library generates a LINQ-translatable switch expression tree by
+/// The library generates a LINQ-translatable conditional expression tree by
 /// calling the method for every possible <typeparamref name="TSource"/> value
 /// and recording the output.
 /// </para>
@@ -39,7 +39,7 @@ public sealed class EnumMapper<TSource, TDest>(Func<TSource, TDest> mappingMetho
         => mappingMethod(source);
 
     /// <summary>
-    /// Returns the mapping as a LINQ expression tree (a switch expression
+    /// Returns the mapping as a LINQ expression tree (a conditional chain
     /// covering every <typeparamref name="TSource"/> value).
     /// </summary>
     public Expression<Func<TSource, TDest>> ToExpression()
@@ -64,31 +64,34 @@ public sealed class EnumMapper<TSource, TDest>(Func<TSource, TDest> mappingMetho
         // providers (EF Core, etc.) can translate the equality checks to SQL.
         // Bare enum comparisons are not translatable by most providers.
         Type sourceUnderlying = Enum.GetUnderlyingType(typeof(TSource));
+        Type destUnderlying = Enum.GetUnderlyingType(typeof(TDest));
         Expression sourceAsInt = Expression.Convert(sourceParam, sourceUnderlying);
 
-        // Build a flat SwitchExpression instead of nested ConditionalExpressions.
-        // Nested conditionals become deeply nested SQL CASE WHEN … ELSE CASE WHEN …
-        // which EF Core / Npgsql cannot translate once the enum has many values.
-        // A SwitchExpression translates to a single flat SQL CASE expression.
-        // Destination constants are kept as enum-typed values so the switch body
-        // naturally produces TDest without an outer Convert — some SQL providers
-        // (e.g. Npgsql) cannot translate Convert(int, EnumType).
-        var cases = new SwitchCase[values.Length];
+        // Build a conditional chain whose branches are plain integer constants
+        // (the underlying values of TDest), then wrap the whole chain in a
+        // single Convert to TDest.  Using the underlying integer type throughout
+        // the chain avoids enum-typed ConstantExpressions that some LINQ
+        // providers (EF Core + Npgsql, etc.) fail to translate when the number
+        // of enum members is large.
+        Expression body = Expression.Constant(
+            Convert.ChangeType(default(TDest), destUnderlying), destUnderlying);
 
-        for (var i = 0; i < values.Length; i++)
+        for (var i = values.Length - 1; i >= 0; i--)
         {
             TSource value = values[i];
-            cases[i] = Expression.SwitchCase(
-                Expression.Constant(method(value), typeof(TDest)),
-                Expression.Constant(Convert.ChangeType(value, sourceUnderlying), sourceUnderlying));
+            TDest mapped = method(value);
+            body = Expression.Condition(
+                Expression.Equal(
+                    sourceAsInt,
+                    Expression.Constant(Convert.ChangeType(value, sourceUnderlying), sourceUnderlying)),
+                Expression.Constant(Convert.ChangeType(mapped, destUnderlying), destUnderlying),
+                body);
         }
 
-        // default(TDest) is the unreachable fallback — every source value is
-        // covered by the switch cases, so this branch is never reached.
-        Expression body = Expression.Switch(
-            sourceAsInt,
-            Expression.Constant(default(TDest), typeof(TDest)),
-            cases);
+        // Single outer Convert from the underlying integer type to TDest.
+        // EF Core stores enums as their underlying integer type by default,
+        // so this translates to a no-op (or trivial implicit cast) in SQL.
+        body = Expression.Convert(body, typeof(TDest));
 
         return Expression.Lambda<Func<TSource, TDest>>(body, sourceParam);
     }
