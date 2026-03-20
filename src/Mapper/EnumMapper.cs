@@ -67,26 +67,29 @@ public sealed class EnumMapper<TSource, TDest>(Func<TSource, TDest> mappingMetho
         Type destUnderlying = Enum.GetUnderlyingType(typeof(TDest));
         Expression sourceAsInt = Expression.Convert(sourceParam, sourceUnderlying);
 
-        // Build a conditional chain whose branches are plain integer constants
-        // (the underlying values of TDest), then wrap the whole chain in a
-        // single Convert to TDest.  Using the underlying integer type throughout
-        // the chain avoids enum-typed ConstantExpressions that some LINQ
-        // providers (EF Core + Npgsql, etc.) fail to translate when the number
-        // of enum members is large.
-        Expression body = Expression.Constant(
-            Convert.ChangeType(default(TDest), destUnderlying), destUnderlying);
+        // Pre-compute the (sourceInt, destInt) pairs.  Both sides use their
+        // underlying integer types so the conditional tree contains only plain
+        // integer constants that every SQL provider can translate.
+        var entries = new (object sourceInt, object destInt)[values.Length];
 
-        for (var i = values.Length - 1; i >= 0; i--)
+        for (var i = 0; i < values.Length; i++)
         {
             TSource value = values[i];
-            TDest mapped = method(value);
-            body = Expression.Condition(
-                Expression.Equal(
-                    sourceAsInt,
-                    Expression.Constant(Convert.ChangeType(value, sourceUnderlying), sourceUnderlying)),
-                Expression.Constant(Convert.ChangeType(mapped, destUnderlying), destUnderlying),
-                body);
+            entries[i] = (
+                Convert.ChangeType(value, sourceUnderlying),
+                Convert.ChangeType(method(value), destUnderlying));
         }
+
+        // Build a balanced binary tree of ConditionalExpressions.  EF Core does
+        // NOT flatten nested ternaries into a single SQL CASE — each level
+        // becomes a separate CASE WHEN … ELSE (CASE WHEN …).  A linear chain
+        // of N conditionals produces N nested CASEs, which exceeds the 10-level
+        // nesting limit on SQL Server and fails translation on other providers
+        // once the enum has enough members.  A balanced tree keeps the depth at
+        // O(log₂ N) — e.g. ≈ 4 for 11 values, ≈ 7 for 100.
+        Expression body = BuildBalancedTree(
+            sourceAsInt, entries, 0, entries.Length - 1,
+            sourceUnderlying, destUnderlying);
 
         // Single outer Convert from the underlying integer type to TDest.
         // EF Core stores enums as their underlying integer type by default,
@@ -94,5 +97,48 @@ public sealed class EnumMapper<TSource, TDest>(Func<TSource, TDest> mappingMetho
         body = Expression.Convert(body, typeof(TDest));
 
         return Expression.Lambda<Func<TSource, TDest>>(body, sourceParam);
+    }
+
+    /// <summary>
+    /// Recursively builds a balanced binary search tree of
+    /// <see cref="ConditionalExpression"/> nodes over the given
+    /// <paramref name="entries"/> slice [<paramref name="lo"/> ..
+    /// <paramref name="hi"/>].  Intermediate nodes split on ≤ comparisons;
+    /// leaf nodes (1–2 entries) use direct equality checks.
+    /// </summary>
+    private static Expression BuildBalancedTree(
+        Expression sourceAsInt,
+        (object sourceInt, object destInt)[] entries,
+        int lo,
+        int hi,
+        Type sourceUnderlying,
+        Type destUnderlying)
+    {
+        if (lo == hi)
+        {
+            // Single entry — the binary search has narrowed to this value.
+            return Expression.Constant(entries[lo].destInt, destUnderlying);
+        }
+
+        if (lo + 1 == hi)
+        {
+            // Two entries — one equality check decides between them.
+            return Expression.Condition(
+                Expression.Equal(
+                    sourceAsInt,
+                    Expression.Constant(entries[lo].sourceInt, sourceUnderlying)),
+                Expression.Constant(entries[lo].destInt, destUnderlying),
+                Expression.Constant(entries[hi].destInt, destUnderlying));
+        }
+
+        // Three or more entries — split at the midpoint.
+        int mid = (lo + hi) / 2;
+
+        return Expression.Condition(
+            Expression.LessThanOrEqual(
+                sourceAsInt,
+                Expression.Constant(entries[mid].sourceInt, sourceUnderlying)),
+            BuildBalancedTree(sourceAsInt, entries, lo, mid, sourceUnderlying, destUnderlying),
+            BuildBalancedTree(sourceAsInt, entries, mid + 1, hi, sourceUnderlying, destUnderlying));
     }
 }
