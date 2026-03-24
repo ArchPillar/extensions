@@ -233,6 +233,53 @@ public sealed class EnumMappingPostgresTests : IAsyncLifetime
     }
 
     // -----------------------------------------------------------------------
+    // Enum List + AsSplitQuery — verifies enum array mapping translates
+    // when EF Core splits the unnest() expansion into a separate query
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task Project_EnumList_AsSplitQuery_TranslatesViaPostgresAsync()
+    {
+        List<PropertyListingDto> results = await _db.Listings
+            .AsSplitQuery()
+            .OrderBy(l => l.Id)
+            .Project(_mappers.PropertyListing)
+            .ToListAsync();
+
+        Assert.Equal(2, results.Count);
+
+        Assert.IsType<List<PropertyTypeDto>>(results[0].Types);
+        Assert.Equal(
+            new[] { PropertyTypeDto.House, PropertyTypeDto.Apartment, PropertyTypeDto.Farm },
+            results[0].Types);
+
+        Assert.Equal(
+            new[] { PropertyTypeDto.Other, PropertyTypeDto.Other, PropertyTypeDto.Cooperative },
+            results[1].Types);
+    }
+
+    [Fact]
+    public async Task Project_EnumArray_AsSplitQuery_TranslatesViaPostgresAsync()
+    {
+        List<PropertyListingArrayDto> results = await _db.ArrayListings
+            .AsSplitQuery()
+            .OrderBy(l => l.Id)
+            .Project(_mappers.PropertyListingArray)
+            .ToListAsync();
+
+        Assert.Equal(2, results.Count);
+
+        Assert.IsType<PropertyTypeDto[]>(results[0].Types);
+        Assert.Equal(
+            new[] { PropertyTypeDto.House, PropertyTypeDto.Apartment, PropertyTypeDto.Farm },
+            results[0].Types);
+
+        Assert.Equal(
+            new[] { PropertyTypeDto.Other, PropertyTypeDto.Other, PropertyTypeDto.Cooperative },
+            results[1].Types);
+    }
+
+    // -----------------------------------------------------------------------
     // Seed helpers
     // -----------------------------------------------------------------------
 
