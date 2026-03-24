@@ -181,11 +181,11 @@ public sealed class EnumMappingPostgresTests : IAsyncLifetime
     }
 
     // -----------------------------------------------------------------------
-    // Enum array — each element in a primitive collection is mapped
+    // Enum List — each element in a primitive collection is mapped via ToList
     // -----------------------------------------------------------------------
 
     [Fact]
-    public async Task Project_EnumArray_TranslatesViaPostgresAsync()
+    public async Task Project_EnumList_TranslatesViaPostgresAsync()
     {
         List<PropertyListingDto> results = await _db.Listings
             .OrderBy(l => l.Id)
@@ -195,6 +195,33 @@ public sealed class EnumMappingPostgresTests : IAsyncLifetime
         Assert.Equal(2, results.Count);
 
         // Listing 1: House, Apartment, Farm
+        Assert.IsType<List<PropertyTypeDto>>(results[0].Types);
+        Assert.Equal(
+            new[] { PropertyTypeDto.House, PropertyTypeDto.Apartment, PropertyTypeDto.Farm },
+            results[0].Types);
+
+        // Listing 2: Invalid and Other both map to PropertyTypeDto.Other
+        Assert.Equal(
+            new[] { PropertyTypeDto.Other, PropertyTypeDto.Other, PropertyTypeDto.Cooperative },
+            results[1].Types);
+    }
+
+    // -----------------------------------------------------------------------
+    // Enum Array — each element in a primitive collection is mapped via ToArray
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task Project_EnumArray_TranslatesViaPostgresAsync()
+    {
+        List<PropertyListingArrayDto> results = await _db.ArrayListings
+            .OrderBy(l => l.Id)
+            .Project(_mappers.PropertyListingArray)
+            .ToListAsync();
+
+        Assert.Equal(2, results.Count);
+
+        // Listing 1: House, Apartment, Farm
+        Assert.IsType<PropertyTypeDto[]>(results[0].Types);
         Assert.Equal(
             new[] { PropertyTypeDto.House, PropertyTypeDto.Apartment, PropertyTypeDto.Farm },
             results[0].Types);
@@ -268,6 +295,20 @@ public sealed class EnumMappingPostgresTests : IAsyncLifetime
                 Name  = "Edge cases",
                 Types = [PropertyType.Invalid, PropertyType.Other, PropertyType.Cooperative],
             });
+
+        db.ArrayListings.AddRange(
+            new PropertyListingArray
+            {
+                Id    = 300,
+                Name  = "Mixed residential (array)",
+                Types = [PropertyType.House, PropertyType.Apartment, PropertyType.Farm],
+            },
+            new PropertyListingArray
+            {
+                Id    = 301,
+                Name  = "Edge cases (array)",
+                Types = [PropertyType.Invalid, PropertyType.Other, PropertyType.Cooperative],
+            });
     }
 }
 
@@ -280,6 +321,7 @@ internal sealed class PostgresTestDbContext(DbContextOptions<PostgresTestDbConte
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<RealEstateProperty> Properties => Set<RealEstateProperty>();
     public DbSet<PropertyListing> Listings => Set<PropertyListing>();
+    public DbSet<PropertyListingArray> ArrayListings => Set<PropertyListingArray>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -294,5 +336,6 @@ internal sealed class PostgresTestDbContext(DbContextOptions<PostgresTestDbConte
         modelBuilder.Entity<Customer>(e => e.HasKey(c => c.Name));
         modelBuilder.Entity<RealEstateProperty>(e => e.HasKey(p => p.Id));
         modelBuilder.Entity<PropertyListing>(e => e.HasKey(l => l.Id));
+        modelBuilder.Entity<PropertyListingArray>(e => e.HasKey(l => l.Id));
     }
 }
