@@ -26,6 +26,9 @@ public class TestMappers : MapperContext
     // Enum array mapper — maps List<PropertyType> → List<PropertyTypeDto>
     public Mapper<PropertyListing, PropertyListingDto> PropertyListing { get; }
 
+    // Enum array mapper — maps PropertyType[] → PropertyTypeDto[]
+    public Mapper<PropertyListingArray, PropertyListingArrayDto> PropertyListingArray { get; }
+
     // Value-object / leaf mapper
     public Mapper<Address, AddressDto> Address { get; }
 
@@ -53,6 +56,13 @@ public class TestMappers : MapperContext
             Id    = src.Id,
             Name  = src.Name,
             Types = src.Types.Select(t => PropertyTypeMapper.Map(t)).ToList(),
+        });
+
+        PropertyListingArray = CreateMapper<PropertyListingArray, PropertyListingArrayDto>(src => new PropertyListingArrayDto
+        {
+            Id    = src.Id,
+            Name  = src.Name,
+            Types = src.Types.Select(t => PropertyTypeMapper.Map(t)).ToArray(),
         });
 
         Address = CreateMapper<Address, AddressDto>(src => new AddressDto
