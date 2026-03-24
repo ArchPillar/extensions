@@ -104,6 +104,39 @@ public sealed class EnumMappingSqliteTests : IDisposable
     }
 
     // -----------------------------------------------------------------------
+    // Enum array — client-side mapping of a primitive collection.
+    // SQLite does not support SQL APPLY, so server-side projection over
+    // primitive collections with Select() is not translatable.  The test
+    // fetches the raw entities and maps them in-memory to validate the
+    // expression tree is correct.  See EnumMappingPostgresTests for the
+    // full server-side translation test.
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task Map_EnumArray_MapsCorrectlyFromSqliteAsync()
+    {
+        List<PropertyListing> listings = await _db.Listings
+            .OrderBy(l => l.Id)
+            .ToListAsync();
+
+        var results = listings
+            .Select(l => _mappers.PropertyListing.Map(l)!)
+            .ToList();
+
+        Assert.Equal(2, results.Count);
+
+        // Listing 1: House, Apartment, Farm
+        Assert.Equal(
+            new[] { PropertyTypeDto.House, PropertyTypeDto.Apartment, PropertyTypeDto.Farm },
+            results[0].Types);
+
+        // Listing 2: Invalid and Other both map to PropertyTypeDto.Other
+        Assert.Equal(
+            new[] { PropertyTypeDto.Other, PropertyTypeDto.Other, PropertyTypeDto.Cooperative },
+            results[1].Types);
+    }
+
+    // -----------------------------------------------------------------------
     // Seed helpers
     // -----------------------------------------------------------------------
 
@@ -155,6 +188,20 @@ public sealed class EnumMappingSqliteTests : IDisposable
             });
         }
 
+        db.Listings.AddRange(
+            new PropertyListing
+            {
+                Id    = 200,
+                Name  = "Mixed residential",
+                Types = [PropertyType.House, PropertyType.Apartment, PropertyType.Farm],
+            },
+            new PropertyListing
+            {
+                Id    = 201,
+                Name  = "Edge cases",
+                Types = [PropertyType.Invalid, PropertyType.Other, PropertyType.Cooperative],
+            });
+
         db.SaveChanges();
     }
 }
@@ -167,6 +214,7 @@ internal sealed class SqliteTestDbContext(DbContextOptions<SqliteTestDbContext> 
 {
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<RealEstateProperty> Properties => Set<RealEstateProperty>();
+    public DbSet<PropertyListing> Listings => Set<PropertyListing>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -180,5 +228,6 @@ internal sealed class SqliteTestDbContext(DbContextOptions<SqliteTestDbContext> 
         modelBuilder.Entity<OrderLine>(e => e.HasKey(l => l.Id));
         modelBuilder.Entity<Customer>(e => e.HasKey(c => c.Name));
         modelBuilder.Entity<RealEstateProperty>(e => e.HasKey(p => p.Id));
+        modelBuilder.Entity<PropertyListing>(e => e.HasKey(l => l.Id));
     }
 }

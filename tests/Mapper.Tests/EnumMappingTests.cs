@@ -119,6 +119,62 @@ public class EnumMappingTests
     }
 
     // -----------------------------------------------------------------------
+    // Enum array — Select(t => EnumMapper.Map(t)) inside a parent mapper
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void Map_EnumArray_MapsAllElementsCorrectly()
+    {
+        var listing = new PropertyListing
+        {
+            Id    = 1,
+            Name  = "Test",
+            Types = [PropertyType.House, PropertyType.Invalid, PropertyType.Farm],
+        };
+
+        PropertyListingDto? result = _mappers.PropertyListing.Map(listing);
+
+        Assert.NotNull(result);
+        Assert.Equal(
+            new[] { PropertyTypeDto.House, PropertyTypeDto.Other, PropertyTypeDto.Farm },
+            result.Types);
+    }
+
+    [Fact]
+    public void ToExpression_EnumArray_InlinesEnumConditionals()
+    {
+        // Verify that the expression tree for PropertyListing mapper contains
+        // inlined enum conditionals (ConditionalExpression) rather than
+        // unresolved EnumMapper.Map() method calls.
+        var expr = _mappers.PropertyListing.ToExpression();
+        var exprString = expr.ToString();
+
+        // The expression should NOT contain "Map(" — the EnumMapper.Map() calls
+        // must be inlined into conditional chains by the NestedMapperInliner.
+        Assert.DoesNotContain(".Map(", exprString);
+    }
+
+    [Fact]
+    public void Project_EnumArray_InlinesEnumConditionalsInQueryable()
+    {
+        var listings = new[]
+        {
+            new PropertyListing
+            {
+                Id    = 1,
+                Name  = "Test",
+                Types = [PropertyType.House, PropertyType.Apartment],
+            },
+        }.AsQueryable();
+
+        var result = listings.Project(_mappers.PropertyListing).Single();
+
+        Assert.Equal(
+            new[] { PropertyTypeDto.House, PropertyTypeDto.Apartment },
+            result.Types);
+    }
+
+    // -----------------------------------------------------------------------
     // Expression inlined in LINQ projection
     // -----------------------------------------------------------------------
 
