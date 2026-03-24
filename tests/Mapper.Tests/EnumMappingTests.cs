@@ -157,17 +157,19 @@ public class EnumMappingTests
     [Fact]
     public void Project_EnumArray_InlinesEnumConditionalsInQueryable()
     {
-        var listings = new[]
-        {
+        PropertyListing[] listings =
+        [
             new PropertyListing
             {
                 Id    = 1,
                 Name  = "Test",
                 Types = [PropertyType.House, PropertyType.Apartment],
             },
-        }.AsQueryable();
+        ];
 
-        var result = listings.Project(_mappers.PropertyListing).Single();
+        IQueryable<PropertyListing> query = listings.AsQueryable();
+
+        PropertyListingDto result = query.Project(_mappers.PropertyListing).Single();
 
         Assert.Equal(
             new[] { PropertyTypeDto.House, PropertyTypeDto.Apartment },

@@ -1,30 +1,36 @@
 using DotNet.Testcontainers.Builders;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using Testcontainers.PostgreSql;
 
 namespace ArchPillar.Extensions.Mapper.Tests;
 
 /// <summary>
 /// Verifies that enum mapping expressions are translatable by the Npgsql
-/// (PostgreSQL) provider via Testcontainers. The in-memory and SQLite
-/// providers cannot catch all provider-specific translation failures.
+/// (PostgreSQL) provider. Tries Testcontainers first; falls back to a
+/// local PostgreSQL install when Docker is not available.
 /// </summary>
 public sealed class EnumMappingPostgresTests : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder()
-        .WithWaitStrategy(Wait.ForUnixContainer()
-            .UntilMessageIsLogged("database system is ready to accept connections"))
-        .Build();
+    private const string LocalConnectionTemplate =
+        "Host=localhost;Port=5432;Username=mapper_test;Password=mapper_test;Database=";
 
+    private PostgreSqlContainer? _postgres;
     private PostgresTestDbContext _db = null!;
     private readonly TestMappers _mappers = new();
 
     public async Task InitializeAsync()
     {
-        await _postgres.StartAsync();
+        var connectionString = await TryStartContainerAsync()
+                            ?? TryLocalPostgres()
+                            ?? throw new InvalidOperationException(
+                                   "No PostgreSQL instance available. " +
+                                   "Either start Docker or install PostgreSQL locally " +
+                                   "with user 'mapper_test' (password 'mapper_test') " +
+                                   "and CREATE DATABASE permissions.");
 
         DbContextOptions<PostgresTestDbContext> options = new DbContextOptionsBuilder<PostgresTestDbContext>()
-            .UseNpgsql(_postgres.GetConnectionString())
+            .UseNpgsql(connectionString)
             .Options;
 
         _db = new PostgresTestDbContext(options);
@@ -35,8 +41,70 @@ public sealed class EnumMappingPostgresTests : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
+        // Drop the database when running locally to avoid stale data across
+        // test runs.  Container databases are destroyed with the container.
+        if (_postgres is null)
+        {
+            await _db.Database.EnsureDeletedAsync();
+        }
+
         await _db.DisposeAsync();
-        await _postgres.DisposeAsync();
+
+        if (_postgres is not null)
+        {
+            await _postgres.DisposeAsync();
+        }
+    }
+
+    /// <summary>
+    /// Attempts to start a Testcontainers PostgreSQL container.
+    /// Returns the connection string on success, <see langword="null"/> if
+    /// Docker is unavailable.
+    /// </summary>
+    private async Task<string?> TryStartContainerAsync()
+    {
+        try
+        {
+            _postgres = new PostgreSqlBuilder()
+                .WithWaitStrategy(Wait.ForUnixContainer()
+                    .UntilMessageIsLogged("database system is ready to accept connections"))
+                .Build();
+
+            await _postgres.StartAsync();
+            return _postgres.GetConnectionString();
+        }
+        catch
+        {
+            _postgres = null;
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Attempts to connect to a local PostgreSQL instance using a unique
+    /// database name per test run to avoid conflicts with concurrent or
+    /// repeated runs.  Returns the connection string on success,
+    /// <see langword="null"/> if the server is unreachable.
+    /// </summary>
+    private static string? TryLocalPostgres()
+    {
+        var databaseName = $"mapper_tests_{Guid.NewGuid():N}";
+        const string adminConnectionString = LocalConnectionTemplate + "postgres";
+
+        try
+        {
+            using var adminConnection = new NpgsqlConnection(adminConnectionString);
+            adminConnection.Open();
+            using NpgsqlCommand cmd = adminConnection.CreateCommand();
+            cmd.CommandText = $"CREATE DATABASE \"{databaseName}\"";
+            cmd.ExecuteNonQuery();
+
+            return LocalConnectionTemplate + databaseName;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     // -----------------------------------------------------------------------
