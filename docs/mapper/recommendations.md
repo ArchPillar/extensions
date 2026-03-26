@@ -137,6 +137,48 @@ Order = CreateMapper<Order, OrderDto>()
     .Ignore(d => d.LegacyField);  // Clear intent: this property is not mapped
 ```
 
+## Use Inherit for Destination Type Hierarchies
+
+When mapping the same source to a base DTO and one or more derived DTOs, use `Inherit()` instead of duplicating property mappings:
+
+```csharp
+// Good — shared mappings are defined once
+Summary = CreateMapper<Document, DocumentSummaryDto>(src => new DocumentSummaryDto
+{
+    Id    = src.Id,
+    Title = src.Title,
+});
+
+Detail = Inherit(Summary).For<DocumentDetailDto>()
+    .Map(dest => dest.Content, src => src.Content);
+
+// Bad — duplicated mappings drift apart over time
+Detail = CreateMapper<Document, DocumentDetailDto>(src => new DocumentDetailDto
+{
+    Id      = src.Id,    // duplicated
+    Title   = src.Title, // duplicated
+    Content = src.Content,
+});
+```
+
+Inherited mappers support all the same features: optional properties, variables, nested mapper inlining, and `MapTo`.
+
+## Use Expression Transformers Sparingly
+
+Expression transformers are powerful but add complexity. Use them only when you need to fix EF Core translation issues that cannot be solved by adjusting the mapping expression itself:
+
+```csharp
+// Prefer: adjust the mapping expression directly
+Order = CreateMapper<Order, OrderDto>()
+    .Map(d => d.Amount, s => (decimal)s.Amount);
+
+// Use transformers when: the pattern appears across many mappers
+// or when a cross-cutting concern affects all expressions
+globalOptions.AddTransformer(new CastTransformer());
+```
+
+Register transformers at the narrowest scope possible — prefer per-mapper over per-context, and per-context over global.
+
 ## Avoid Circular Mapper References
 
 Self-referencing mappers (e.g., a `TreeNode` mapper that references itself) are detected at build time and throw `InvalidOperationException` with a clear message. If you have a recursive data structure, map it manually with a depth limit rather than through the mapper.

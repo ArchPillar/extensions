@@ -176,6 +176,6 @@ See [Features Guide — Coverage Validation](features.md#coverage-validation) fo
 
 ## Next Steps
 
-- [Features Guide](features.md) — nested mappers, optionals, variables, enums, MapTo, and more
+- [Features Guide](features.md) — nested mappers, optionals, variables, enums, MapTo, inheritance, expression transformers, and more
 - [Recommendations](recommendations.md) — patterns, pitfalls, and production guidance
 - [Specification](SPEC.md) — full design philosophy and API surface

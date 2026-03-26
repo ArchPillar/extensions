@@ -342,6 +342,109 @@ public class StrictMappers : MapperContext
 
 Individual mappers can still override via `.SetCoverageValidation()`.
 
+## Mapper Inheritance
+
+When mapping to a destination type hierarchy, use `Inherit()` to reuse the base mapper's property mappings instead of duplicating them.
+
+### Declaring a base mapper
+
+```csharp
+public class DocumentMappers : MapperContext
+{
+    public Mapper<Document, DocumentSummaryDto> Summary { get; }
+    public Mapper<Document, DocumentDetailDto> Detail { get; }
+    public Mapper<Document, DocumentStatsDto> Stats { get; }
+
+    public DocumentMappers()
+    {
+        Summary = CreateMapper<Document, DocumentSummaryDto>(src => new DocumentSummaryDto
+        {
+            Id     = src.Id,
+            Title  = src.Title,
+            Author = src.Author,
+        })
+        .Optional(dest => dest.Category, src => src.Category);
+
+        Detail = Inherit(Summary).For<DocumentDetailDto>()
+            .Map(dest => dest.Content,   src => src.Content)
+            .Map(dest => dest.CreatedAt, src => src.CreatedAt)
+            .Optional(dest => dest.ReviewerName, src => src.ReviewedBy.Name);
+
+        Stats = Inherit(Summary).For<DocumentStatsDto>()
+            .Map(dest => dest.ViewCount, src => src.ViewCount);
+    }
+}
+```
+
+`Detail` and `Stats` automatically inherit the `Id`, `Title`, `Author`, and `Category` mappings from `Summary`. Only the new properties need to be mapped.
+
+### Derived source types
+
+When both source and destination types are derived, use the two-type-parameter overload:
+
+```csharp
+TechnicalDetail = Inherit(Summary).For<TechnicalDocument, TechnicalDocumentDto>()
+    .Map(dest => dest.Content,   src => src.Content)
+    .Map(dest => dest.CreatedAt, src => src.CreatedAt)
+    .Map(dest => dest.Language,  src => src.Language);
+```
+
+### Behavior
+
+- All property mappings (required, optional, ignored) are inherited
+- Coverage validation runs against the full derived destination type
+- Optional properties propagate correctly — inherited optionals remain optional
+- `MapTo` works identically on inherited mappers
+- Nested mapper inlining and expression transformers work as expected
+
+## Expression Transformers
+
+Expression transformers rewrite mapper expression trees during compilation. This is useful for replacing patterns that EF Core cannot translate (e.g., custom implicit conversions, method calls) with translatable equivalents.
+
+### Implementing a transformer
+
+```csharp
+public class MethodCallTransformer : ExpressionVisitor, IExpressionTransformer
+{
+    public Expression Transform(Expression expression) => Visit(expression);
+
+    protected override Expression VisitMethodCall(MethodCallExpression node)
+    {
+        // Replace untranslatable method calls with EF Core-safe equivalents
+        return base.VisitMethodCall(node);
+    }
+}
+```
+
+### Registration levels
+
+Transformers run in order: **global → per-context → per-mapper**.
+
+```csharp
+// Global — applies to all contexts (register via DI)
+var globalOptions = new GlobalMapperOptions();
+globalOptions.AddTransformer(new CastTransformer());
+
+// Per-context — applies to all mappers in this context
+public class AppMappers : MapperContext
+{
+    public AppMappers(GlobalMapperOptions globalOptions) : base(globalOptions)
+    {
+        AddTransformer(new MyContextTransformer());
+    }
+}
+
+// Per-mapper — applies to a single mapper
+Order = CreateMapper<Order, OrderDto>(...)
+    .WithTransformers(new MyMapperTransformer());
+```
+
+### Constraints
+
+- Transformers must return an expression of the same type as their input
+- The expression body must remain a `MemberInitExpression`
+- Violations throw `InvalidOperationException` with a clear message identifying the offending transformer
+
 ## Composing Contexts
 
 Multiple `MapperContext` subclasses can be composed into a larger unit via plain constructor injection — no library support required:
