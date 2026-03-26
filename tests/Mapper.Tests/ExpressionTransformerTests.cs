@@ -7,11 +7,21 @@ namespace ArchPillar.Extensions.Mapper.Tests;
 // Test models — Money value object with implicit conversion
 // ---------------------------------------------------------------------------
 
-public record Money(decimal Amount, string Currency)
+public interface IAmount
+{
+    decimal Amount { get; }
+}
+
+public record Money(decimal Amount, string Currency) : IAmount
 {
     public static implicit operator decimal(Money money) => money.Amount;
 
     public bool IsPositive() => Amount > 0;
+}
+
+public record Fee(decimal Amount, string Description) : IAmount
+{
+    public static implicit operator decimal(Fee fee) => fee.Amount;
 }
 
 public class Invoice
@@ -39,6 +49,20 @@ public class PaymentDto
     public int Id { get; set; }
     public decimal Amount { get; set; }
     public bool IsPositive { get; set; }
+}
+
+public class MixedAmountSource
+{
+    public required int Id { get; set; }
+    public required Money Total { get; set; }
+    public required Fee ServiceFee { get; set; }
+}
+
+public class MixedAmountDto
+{
+    public int Id { get; set; }
+    public decimal Total { get; set; }
+    public decimal ServiceFee { get; set; }
 }
 
 public class Wrapper<T>
@@ -115,6 +139,18 @@ public sealed class StringSuffixTransformer(string suffix) : ExpressionVisitor, 
 // ---------------------------------------------------------------------------
 // Test transformers using abstract base classes
 // ---------------------------------------------------------------------------
+
+/// <summary>
+/// Replaces <c>(decimal)amount</c> with <c>amount.Amount</c> for any
+/// <see cref="IAmount"/> implementor, demonstrating interface-based matching.
+/// </summary>
+public sealed class AmountInterfaceCastTransformer : CastTransformer<IAmount, decimal>
+{
+    protected override Expression Replacement(Expression operand)
+    {
+        return Expression.Property(operand, nameof(IAmount.Amount));
+    }
+}
 
 /// <summary>
 /// Replaces <c>(decimal)money</c> with <c>money.Amount</c> using the
@@ -373,6 +409,25 @@ public class ExpressionTransformerTests
         Assert.Equal(8m, dto.Tax);
     }
 
+    [Fact]
+    public void Map_CastTransformerBase_MatchesViaInterface()
+    {
+        var mappers = new InterfaceCastTransformerMappers();
+
+        var source = new MixedAmountSource
+        {
+            Id         = 1,
+            Total      = new Money(100m, "USD"),
+            ServiceFee = new Fee(5m, "Processing"),
+        };
+
+        MixedAmountDto dto = mappers.Mixed.Map(source)!;
+
+        Assert.Equal(1, dto.Id);
+        Assert.Equal(100m, dto.Total);
+        Assert.Equal(5m, dto.ServiceFee);
+    }
+
     // -----------------------------------------------------------------------
     // MethodCallTransformer base class
     // -----------------------------------------------------------------------
@@ -548,6 +603,23 @@ public class CastTransformerBaseMappers : MapperContext
             Id    = src.Id,
             Total = (decimal)src.Total,
             Tax   = (decimal)src.Tax,
+        });
+    }
+}
+
+public class InterfaceCastTransformerMappers : MapperContext
+{
+    public Mapper<MixedAmountSource, MixedAmountDto> Mixed { get; }
+
+    public InterfaceCastTransformerMappers()
+    {
+        AddTransformer(new AmountInterfaceCastTransformer());
+
+        Mixed = CreateMapper<MixedAmountSource, MixedAmountDto>(src => new MixedAmountDto
+        {
+            Id         = src.Id,
+            Total      = (decimal)src.Total,
+            ServiceFee = (decimal)src.ServiceFee,
         });
     }
 }

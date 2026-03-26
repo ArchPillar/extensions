@@ -22,7 +22,11 @@ namespace ArchPillar.Extensions.Mapper;
 /// </code>
 /// </example>
 /// </summary>
-/// <typeparam name="TSource">The type being cast from (the operand type).</typeparam>
+/// <typeparam name="TSource">
+/// The type being cast from (the operand type). The match uses
+/// <see cref="Type.IsAssignableTo"/>, so specifying a base class or
+/// interface matches all derived/implementing types.
+/// </typeparam>
 /// <typeparam name="TTarget">The type being cast to (the conversion target).</typeparam>
 public abstract class CastTransformer<TSource, TTarget> : ExpressionVisitor, IExpressionTransformer
 {
@@ -38,7 +42,8 @@ public abstract class CastTransformer<TSource, TTarget> : ExpressionVisitor, IEx
     /// </summary>
     /// <param name="operand">
     /// The already-visited cast operand (the expression being cast from
-    /// <typeparamref name="TSource"/> to <typeparamref name="TTarget"/>).
+    /// a type assignable to <typeparamref name="TSource"/> to
+    /// <typeparamref name="TTarget"/>).
     /// </param>
     protected abstract Expression Replacement(Expression operand);
 
@@ -47,7 +52,7 @@ public abstract class CastTransformer<TSource, TTarget> : ExpressionVisitor, IEx
     {
         if (node.NodeType == ExpressionType.Convert
             && node.Type == typeof(TTarget)
-            && node.Operand.Type == typeof(TSource))
+            && node.Operand.Type.IsAssignableTo(typeof(TSource)))
         {
             return Replacement(Visit(node.Operand)!);
         }
