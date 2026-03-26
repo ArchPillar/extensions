@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using System.Reflection;
 
 namespace ArchPillar.Extensions.Mapper.Tests;
 
@@ -9,6 +10,8 @@ namespace ArchPillar.Extensions.Mapper.Tests;
 public record Money(decimal Amount, string Currency)
 {
     public static implicit operator decimal(Money money) => money.Amount;
+
+    public bool IsPositive() => Amount > 0;
 }
 
 public class Invoice
@@ -23,6 +26,19 @@ public class InvoiceDto
     public int Id { get; set; }
     public decimal Total { get; set; }
     public decimal Tax { get; set; }
+}
+
+public class Payment
+{
+    public required int Id { get; set; }
+    public required Money Amount { get; set; }
+}
+
+public class PaymentDto
+{
+    public int Id { get; set; }
+    public decimal Amount { get; set; }
+    public bool IsPositive { get; set; }
 }
 
 // ---------------------------------------------------------------------------
@@ -72,6 +88,40 @@ public sealed class StringSuffixTransformer(string suffix) : ExpressionVisitor, 
         }
 
         return base.VisitConstant(node);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Test transformers using abstract base classes
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// Replaces <c>(decimal)money</c> with <c>money.Amount</c> using the
+/// <see cref="CastTransformer{TSource,TTarget}"/> base class.
+/// </summary>
+public sealed class MoneyAmountCastTransformer : CastTransformer<Money, decimal>
+{
+    protected override Expression Replacement(Expression operand)
+    {
+        return Expression.Property(operand, nameof(Money.Amount));
+    }
+}
+
+/// <summary>
+/// Replaces <c>money.IsPositive()</c> with <c>money.Amount &gt; 0</c> using
+/// the <see cref="MethodCallTransformer"/> base class.
+/// </summary>
+public sealed class MoneyIsPositiveTransformer : MethodCallTransformer
+{
+    protected override MethodInfo Method { get; } =
+        typeof(Money).GetMethod(nameof(Money.IsPositive))!;
+
+    protected override Expression Replacement(
+        Expression? instance, IReadOnlyList<Expression> arguments)
+    {
+        return Expression.GreaterThan(
+            Expression.Property(instance!, nameof(Money.Amount)),
+            Expression.Constant(0m));
     }
 }
 
@@ -263,6 +313,68 @@ public class ExpressionTransformerTests
     }
 
     // -----------------------------------------------------------------------
+    // CastTransformer base class
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void Map_CastTransformerBase_ReplacesImplicitConversion()
+    {
+        var mappers = new CastTransformerBaseMappers();
+
+        var invoice = new Invoice
+        {
+            Id    = 5,
+            Total = new Money(42m, "NOK"),
+            Tax   = new Money(8m, "NOK"),
+        };
+
+        InvoiceDto dto = mappers.Invoice.Map(invoice)!;
+
+        Assert.Equal(5, dto.Id);
+        Assert.Equal(42m, dto.Total);
+        Assert.Equal(8m, dto.Tax);
+    }
+
+    // -----------------------------------------------------------------------
+    // MethodCallTransformer base class
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void Map_MethodCallTransformerBase_ReplacesMethodCall()
+    {
+        var mappers = new MethodCallTransformerBaseMappers();
+
+        var payment = new Payment
+        {
+            Id     = 1,
+            Amount = new Money(50m, "USD"),
+        };
+
+        PaymentDto dto = mappers.Payment.Map(payment)!;
+
+        Assert.Equal(1, dto.Id);
+        Assert.Equal(50m, dto.Amount);
+        Assert.True(dto.IsPositive);
+    }
+
+    [Fact]
+    public void Map_MethodCallTransformerBase_NegativeAmount()
+    {
+        var mappers = new MethodCallTransformerBaseMappers();
+
+        var payment = new Payment
+        {
+            Id     = 2,
+            Amount = new Money(-10m, "USD"),
+        };
+
+        PaymentDto dto = mappers.Payment.Map(payment)!;
+
+        Assert.Equal(-10m, dto.Amount);
+        Assert.False(dto.IsPositive);
+    }
+
+    // -----------------------------------------------------------------------
     // No transformers — existing behavior unaffected
     // -----------------------------------------------------------------------
 
@@ -365,6 +477,45 @@ public class PerMapperTransformerMappers : MapperContext
 }
 
 // ---------------------------------------------------------------------------
+// Mapper contexts for base class tests
+// ---------------------------------------------------------------------------
+
+public class CastTransformerBaseMappers : MapperContext
+{
+    public Mapper<Invoice, InvoiceDto> Invoice { get; }
+
+    public CastTransformerBaseMappers()
+    {
+        AddTransformer(new MoneyAmountCastTransformer());
+
+        Invoice = CreateMapper<Invoice, InvoiceDto>(src => new InvoiceDto
+        {
+            Id    = src.Id,
+            Total = (decimal)src.Total,
+            Tax   = (decimal)src.Tax,
+        });
+    }
+}
+
+public class MethodCallTransformerBaseMappers : MapperContext
+{
+    public Mapper<Payment, PaymentDto> Payment { get; }
+
+    public MethodCallTransformerBaseMappers()
+    {
+        AddTransformer(new MoneyAmountCastTransformer());
+        AddTransformer(new MoneyIsPositiveTransformer());
+
+        Payment = CreateMapper<Payment, PaymentDto>(src => new PaymentDto
+        {
+            Id         = src.Id,
+            Amount     = (decimal)src.Amount,
+            IsPositive = src.Amount.IsPositive(),
+        });
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Faulty transformers — for validation tests
 // ---------------------------------------------------------------------------
 
@@ -380,9 +531,6 @@ public sealed class BodyOnlyTransformer : IExpressionTransformer
     }
 }
 
-/// <summary>
-/// Returns <c>null</c> — simulates a broken transformer.
-/// </summary>
 /// <summary>
 /// Returns <c>null</c> — simulates a broken transformer.
 /// </summary>
