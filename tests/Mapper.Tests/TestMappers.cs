@@ -23,6 +23,12 @@ public class TestMappers : MapperContext
     public EnumMapper<ProductStatus, ProductStatusDto> ProductStatusMapper { get; }
     public EnumMapper<PropertyType, PropertyTypeDto> PropertyTypeMapper { get; }
 
+    // Enum array mapper — maps List<PropertyType> → List<PropertyTypeDto>
+    public Mapper<PropertyListing, PropertyListingDto> PropertyListing { get; }
+
+    // Enum array mapper — maps PropertyType[] → PropertyTypeDto[]
+    public Mapper<PropertyListingArray, PropertyListingArrayDto> PropertyListingArray { get; }
+
     // Value-object / leaf mapper
     public Mapper<Address, AddressDto> Address { get; }
 
@@ -44,6 +50,20 @@ public class TestMappers : MapperContext
         UserRoleMapper = CreateEnumMapper<UserRole, UserRoleDto>(MapUserRole);
         ProductStatusMapper = CreateEnumMapper<ProductStatus, ProductStatusDto>(MapProductStatus);
         PropertyTypeMapper = CreateEnumMapper<PropertyType, PropertyTypeDto>(MapPropertyType);
+
+        PropertyListing = CreateMapper<PropertyListing, PropertyListingDto>(src => new PropertyListingDto
+        {
+            Id    = src.Id,
+            Name  = src.Name,
+            Types = src.Types.Select(t => PropertyTypeMapper.Map(t)).ToList(),
+        });
+
+        PropertyListingArray = CreateMapper<PropertyListingArray, PropertyListingArrayDto>(src => new PropertyListingArrayDto
+        {
+            Id    = src.Id,
+            Name  = src.Name,
+            Types = src.Types.Select(t => PropertyTypeMapper.Map(t)).ToArray(),
+        });
 
         Address = CreateMapper<Address, AddressDto>(src => new AddressDto
         {

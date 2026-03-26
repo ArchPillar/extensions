@@ -119,6 +119,116 @@ public class EnumMappingTests
     }
 
     // -----------------------------------------------------------------------
+    // Enum List — Select(t => EnumMapper.Map(t)).ToList() inside a parent mapper
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void Map_EnumList_MapsAllElementsCorrectly()
+    {
+        var listing = new PropertyListing
+        {
+            Id    = 1,
+            Name  = "Test",
+            Types = [PropertyType.House, PropertyType.Invalid, PropertyType.Farm],
+        };
+
+        PropertyListingDto? result = _mappers.PropertyListing.Map(listing);
+
+        Assert.NotNull(result);
+        Assert.IsType<List<PropertyTypeDto>>(result.Types);
+        Assert.Equal(
+            new[] { PropertyTypeDto.House, PropertyTypeDto.Other, PropertyTypeDto.Farm },
+            result.Types);
+    }
+
+    [Fact]
+    public void ToExpression_EnumList_InlinesEnumConditionals()
+    {
+        var expr = _mappers.PropertyListing.ToExpression();
+        var exprString = expr.ToString();
+
+        Assert.DoesNotContain(".Map(", exprString);
+    }
+
+    [Fact]
+    public void Project_EnumList_InlinesEnumConditionalsInQueryable()
+    {
+        PropertyListing[] listings =
+        [
+            new PropertyListing
+            {
+                Id    = 1,
+                Name  = "Test",
+                Types = [PropertyType.House, PropertyType.Apartment],
+            },
+        ];
+
+        IQueryable<PropertyListing> query = listings.AsQueryable();
+
+        PropertyListingDto result = query.Project(_mappers.PropertyListing).Single();
+
+        Assert.IsType<List<PropertyTypeDto>>(result.Types);
+        Assert.Equal(
+            new[] { PropertyTypeDto.House, PropertyTypeDto.Apartment },
+            result.Types);
+    }
+
+    // -----------------------------------------------------------------------
+    // Enum Array — Select(t => EnumMapper.Map(t)).ToArray() inside a parent mapper
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void Map_EnumArray_MapsAllElementsCorrectly()
+    {
+        var listing = new PropertyListingArray
+        {
+            Id    = 1,
+            Name  = "Test",
+            Types = [PropertyType.House, PropertyType.Invalid, PropertyType.Farm],
+        };
+
+        PropertyListingArrayDto? result = _mappers.PropertyListingArray.Map(listing);
+
+        Assert.NotNull(result);
+        Assert.IsType<PropertyTypeDto[]>(result.Types);
+        Assert.Equal(
+            new[] { PropertyTypeDto.House, PropertyTypeDto.Other, PropertyTypeDto.Farm },
+            result.Types);
+    }
+
+    [Fact]
+    public void ToExpression_EnumArray_InlinesEnumConditionals()
+    {
+        var expr = _mappers.PropertyListingArray.ToExpression();
+        var exprString = expr.ToString();
+
+        Assert.DoesNotContain(".Map(", exprString);
+    }
+
+    [Fact]
+    public void Project_EnumArray_InlinesEnumConditionalsInQueryable()
+    {
+        PropertyListingArray[] listings =
+        [
+            new PropertyListingArray
+            {
+                Id    = 1,
+                Name  = "Test",
+                Types = [PropertyType.House, PropertyType.Apartment],
+            },
+        ];
+
+        IQueryable<PropertyListingArray> query = listings.AsQueryable();
+
+        PropertyListingArrayDto result = query.Project(_mappers.PropertyListingArray).Single();
+
+        Assert.IsType<PropertyTypeDto[]>(result.Types);
+        Assert.Equal(
+            new[] { PropertyTypeDto.House, PropertyTypeDto.Apartment },
+            result.Types);
+    }
+
+    // -----------------------------------------------------------------------
     // Expression inlined in LINQ projection
     // -----------------------------------------------------------------------
 

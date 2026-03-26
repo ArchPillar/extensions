@@ -185,6 +185,50 @@ public class RealEstatePropertyDto
     public required PropertyTypeDto Type { get; set; }
 }
 
+/// <summary>
+/// Entity with an array of enum values — used to test enum array mapping
+/// where each element is translated from one enum type to another.
+/// </summary>
+public class PropertyListing
+{
+    public required int Id { get; set; }
+    public required string Name { get; set; }
+    public required List<PropertyType> Types { get; set; }
+}
+
+/// <summary>
+/// DTO projection target for <see cref="PropertyListing"/>.
+/// Each <see cref="PropertyType"/> element is mapped to <see cref="PropertyTypeDto"/>.
+/// </summary>
+public class PropertyListingDto
+{
+    public required int Id { get; set; }
+    public required string Name { get; set; }
+    public required List<PropertyTypeDto> Types { get; set; }
+}
+
+/// <summary>
+/// Entity with an array of enum values — used to test enum array mapping
+/// where the destination uses <c>PropertyTypeDto[]</c> instead of <c>List</c>.
+/// </summary>
+public class PropertyListingArray
+{
+    public required int Id { get; set; }
+    public required string Name { get; set; }
+    public required PropertyType[] Types { get; set; }
+}
+
+/// <summary>
+/// DTO projection target for <see cref="PropertyListingArray"/>.
+/// Each <see cref="PropertyType"/> element is mapped to <see cref="PropertyTypeDto"/>.
+/// </summary>
+public class PropertyListingArrayDto
+{
+    public required int Id { get; set; }
+    public required string Name { get; set; }
+    public required PropertyTypeDto[] Types { get; set; }
+}
+
 // ---------------------------------------------------------------------------
 // Models for NestedInlinerTests
 // ---------------------------------------------------------------------------
