@@ -466,6 +466,34 @@ public class InheritanceMappers : MapperContext
 }
 
 /// <summary>
+/// Demonstrates mapper inheritance with both source and destination derived types.
+/// TechnicalDocument extends Document, TechnicalDocumentDto extends DocumentDetailDto.
+/// </summary>
+public class DerivedSourceMappers : MapperContext
+{
+    public Mapper<Document, DocumentSummaryDto>               Summary   { get; }
+    public Mapper<Document, DocumentDetailDto>                Detail    { get; }
+    public Mapper<TechnicalDocument, TechnicalDocumentDto>    Technical { get; }
+
+    public DerivedSourceMappers()
+    {
+        Summary = CreateMapper<Document, DocumentSummaryDto>(src => new DocumentSummaryDto
+        {
+            Id     = src.Id,
+            Title  = src.Title,
+            Author = src.Author,
+        });
+
+        Detail = Inherit(Summary).For<DocumentDetailDto>()
+            .Map(dest => dest.Content, src => src.Content)
+            .Map(dest => dest.CreatedAt, src => src.CreatedAt);
+
+        Technical = Inherit(Detail).For<TechnicalDocument, TechnicalDocumentDto>()
+            .Map(dest => dest.Language, src => src.Language);
+    }
+}
+
+/// <summary>
 /// Eager-build variant of <see cref="InheritanceMappers"/> — validates that
 /// inherited mappers compile successfully at startup.
 /// </summary>

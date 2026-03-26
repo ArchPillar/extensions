@@ -43,4 +43,25 @@ public sealed class InheritedMapperBuilder<TSource, TBase>
             _globalTransformers,
             _contextTransformers);
     }
+
+    /// <summary>
+    /// Creates a <see cref="MapperBuilder{TDerivedSource,TDest}"/> for a
+    /// derived source type <typeparamref name="TDerivedSource"/> and derived
+    /// destination type <typeparamref name="TDest"/>, pre-populated with
+    /// all property mappings from the base mapper. The inherited source
+    /// expressions remain valid because <typeparamref name="TDerivedSource"/>
+    /// inherits all members from <typeparamref name="TSource"/>. Chain
+    /// additional <c>.Map()</c> calls to map properties introduced by either
+    /// derived type.
+    /// </summary>
+    public MapperBuilder<TDerivedSource, TDest> For<TDerivedSource, TDest>()
+        where TDerivedSource : TSource
+        where TDest          : TBase
+    {
+        return new MapperBuilder<TDerivedSource, TDest>(
+            _baseMappings,
+            _coverageValidation,
+            _globalTransformers,
+            _contextTransformers);
+    }
 }

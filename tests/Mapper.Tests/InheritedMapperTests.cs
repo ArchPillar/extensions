@@ -164,6 +164,99 @@ public class InheritedMapperTests
     }
 
     // -----------------------------------------------------------------------
+    // Derived source + derived destination via For<TSource, TDest>()
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void Map_DerivedSource_MapsInheritedAndDerivedProperties()
+    {
+        var mappers = new DerivedSourceMappers();
+        var doc = new TechnicalDocument
+        {
+            Id         = 1,
+            Title      = "C# in Depth",
+            Content    = "Generics, LINQ, async",
+            Author     = "Jon Skeet",
+            CreatedAt  = new DateTime(2025, 3, 1, 0, 0, 0, DateTimeKind.Utc),
+            ViewCount  = 999,
+            Language   = "C#",
+            ReviewedBy = new Customer { Name = "Reviewer", Email = "r@example.com" },
+        };
+
+        TechnicalDocumentDto dto = mappers.Technical.Map(doc)!;
+
+        // Inherited from Summary (grandparent)
+        Assert.Equal(1, dto.Id);
+        Assert.Equal("C# in Depth", dto.Title);
+        Assert.Equal("Jon Skeet", dto.Author);
+
+        // Inherited from Detail (parent)
+        Assert.Equal("Generics, LINQ, async", dto.Content);
+        Assert.Equal(new DateTime(2025, 3, 1, 0, 0, 0, DateTimeKind.Utc), dto.CreatedAt);
+
+        // Mapped on derived source
+        Assert.Equal("C#", dto.Language);
+    }
+
+    [Fact]
+    public void Projection_DerivedSource_Works()
+    {
+        var mappers = new DerivedSourceMappers();
+        var doc = new TechnicalDocument
+        {
+            Id         = 1,
+            Title      = "Rust Book",
+            Content    = "Ownership and borrowing",
+            Author     = "Community",
+            CreatedAt  = new DateTime(2025, 4, 1, 0, 0, 0, DateTimeKind.Utc),
+            ViewCount  = 500,
+            Language   = "Rust",
+            ReviewedBy = new Customer { Name = "Rev", Email = "rev@example.com" },
+        };
+
+        var expression = mappers.Technical.ToExpression();
+        TechnicalDocumentDto dto = expression.Compile()(doc);
+
+        Assert.Equal("Rust Book", dto.Title);
+        Assert.Equal("Ownership and borrowing", dto.Content);
+        Assert.Equal("Rust", dto.Language);
+    }
+
+    [Fact]
+    public void MapTo_DerivedSource_AssignsAllProperties()
+    {
+        var mappers = new DerivedSourceMappers();
+        var doc = new TechnicalDocument
+        {
+            Id         = 5,
+            Title      = "Go Handbook",
+            Content    = "Goroutines",
+            Author     = "Go Team",
+            CreatedAt  = new DateTime(2025, 5, 1, 0, 0, 0, DateTimeKind.Utc),
+            ViewCount  = 200,
+            Language   = "Go",
+            ReviewedBy = new Customer { Name = "X", Email = "x@example.com" },
+        };
+
+        var dto = new TechnicalDocumentDto
+        {
+            Id        = 0,
+            Title     = "",
+            Author    = "",
+            Content   = "",
+            CreatedAt = default,
+            Language  = "",
+        };
+
+        mappers.Technical.MapTo(doc, dto);
+
+        Assert.Equal(5, dto.Id);
+        Assert.Equal("Go Handbook", dto.Title);
+        Assert.Equal("Goroutines", dto.Content);
+        Assert.Equal("Go", dto.Language);
+    }
+
+    // -----------------------------------------------------------------------
     // Fluent overrides on inherited builder (last wins)
     // -----------------------------------------------------------------------
 

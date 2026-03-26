@@ -223,6 +223,16 @@ public class DocumentStatsDto : DocumentSummaryDto
     public required int ViewCount { get; set; }
 }
 
+public class TechnicalDocument : Document
+{
+    public required string Language { get; set; }
+}
+
+public class TechnicalDocumentDto : DocumentDetailDto
+{
+    public required string Language { get; set; }
+}
+
 // ---------------------------------------------------------------------------
 // Models for NestedInlinerTests
 // ---------------------------------------------------------------------------
