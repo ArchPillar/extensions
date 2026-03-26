@@ -323,6 +323,24 @@ public class ExpressionTransformerTests
         Assert.Contains("NullTransformer", ex.Message);
         Assert.Contains("null", ex.Message);
     }
+
+    [Fact]
+    public void Map_TransformerDestroysBody_ThrowsWithMemberInitMessage()
+    {
+        var mappers = new MethodCallBodyTransformerMappers();
+
+        var invoice = new Invoice
+        {
+            Id    = 1,
+            Total = new Money(10m, "USD"),
+            Tax   = new Money(1m, "USD"),
+        };
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => mappers.Invoice.Map(invoice));
+
+        Assert.Contains("MethodCallBodyTransformer", ex.Message);
+        Assert.Contains("MemberInit", ex.Message);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -365,11 +383,30 @@ public sealed class BodyOnlyTransformer : IExpressionTransformer
 /// <summary>
 /// Returns <c>null</c> — simulates a broken transformer.
 /// </summary>
+/// <summary>
+/// Returns <c>null</c> — simulates a broken transformer.
+/// </summary>
 public sealed class NullTransformer : IExpressionTransformer
 {
     public Expression Transform(Expression expression)
     {
         return null!;
+    }
+}
+
+/// <summary>
+/// Replaces the <see cref="MemberInitExpression"/> body with a method call,
+/// destroying the required structure — simulates a transformer that wraps
+/// or replaces the body incorrectly.
+/// </summary>
+public sealed class MethodCallBodyTransformer : IExpressionTransformer
+{
+    public Expression Transform(Expression expression)
+    {
+        var lambda = (LambdaExpression)expression;
+        Expression body = Expression.Call(
+            typeof(Activator), nameof(Activator.CreateInstance), [lambda.Body.Type]);
+        return Expression.Lambda(body, lambda.Parameters);
     }
 }
 
@@ -397,6 +434,23 @@ public class NullTransformerMappers : MapperContext
     public NullTransformerMappers()
     {
         AddTransformer(new NullTransformer());
+
+        Invoice = CreateMapper<Invoice, InvoiceDto>(src => new InvoiceDto
+        {
+            Id    = src.Id,
+            Total = (decimal)src.Total,
+            Tax   = (decimal)src.Tax,
+        });
+    }
+}
+
+public class MethodCallBodyTransformerMappers : MapperContext
+{
+    public Mapper<Invoice, InvoiceDto> Invoice { get; }
+
+    public MethodCallBodyTransformerMappers()
+    {
+        AddTransformer(new MethodCallBodyTransformer());
 
         Invoice = CreateMapper<Invoice, InvoiceDto>(src => new InvoiceDto
         {
