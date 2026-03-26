@@ -56,16 +56,22 @@ namespace ArchPillar.Extensions.Mapper;
 /// </summary>
 public sealed class Mapper<TSource, TDest> : IMapper
 {
-    private readonly IReadOnlyList<PropertyMapping>                              _allMappings;
     private readonly IReadOnlyList<IExpressionTransformer>                       _transformers;
     private readonly Lazy<Func<TSource?, List<(object, object?)>?, TDest?>>  _compiled;
     private readonly Lazy<Action<TSource, TDest, List<(object, object?)>?>>  _compiledMapTo;
+
+    /// <summary>
+    /// Exposes the property mappings so that
+    /// <see cref="MapperContext.Inherit{TSource,TBase}"/> can copy them into
+    /// an inherited builder targeting a derived destination type.
+    /// </summary>
+    internal IReadOnlyList<PropertyMapping> Mappings { get; }
 
     internal Mapper(
         IReadOnlyList<PropertyMapping> allMappings,
         IReadOnlyList<IExpressionTransformer>? transformers = null)
     {
-        _allMappings = allMappings;
+        Mappings = allMappings;
         _transformers = transformers ?? [];
         _compiled = new(() =>
         {
@@ -105,7 +111,7 @@ public sealed class Mapper<TSource, TDest> : IMapper
         ParameterExpression sourceParam = Expression.Parameter(typeof(TSource), "src");
 
         var bindings = new List<MemberBinding>();
-        foreach (PropertyMapping mapping in _allMappings)
+        foreach (PropertyMapping mapping in Mappings)
         {
             if (mapping.Kind == MappingKind.Optional
                 && !includes.IncludeAll
@@ -171,7 +177,7 @@ public sealed class Mapper<TSource, TDest> : IMapper
     {
         foreach (var name in includes.Names)
         {
-            if (!_allMappings.Any(m => m.Destination.Name == name))
+            if (!Mappings.Any(m => m.Destination.Name == name))
             {
                 throw new InvalidOperationException($"Unknown optional property: '{name}'");
             }
@@ -179,7 +185,7 @@ public sealed class Mapper<TSource, TDest> : IMapper
 
         foreach (var name in includes.Nested.Keys)
         {
-            if (!_allMappings.Any(m => m.Destination.Name == name))
+            if (!Mappings.Any(m => m.Destination.Name == name))
             {
                 throw new InvalidOperationException($"Unknown optional property: '{name}'");
             }

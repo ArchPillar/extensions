@@ -186,6 +186,44 @@ public class RealEstatePropertyDto
 }
 
 // ---------------------------------------------------------------------------
+// Models for InheritedMapperTests — destination type hierarchy
+// Source: Document → base DTO: DocumentSummaryDto
+//                 → derived: DocumentDetailDto, DocumentStatsDto
+// ---------------------------------------------------------------------------
+
+public class Document
+{
+    public required int Id { get; set; }
+    public required string Title { get; set; }
+    public required string Content { get; set; }
+    public required string Author { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public string? Category { get; set; }
+    public int ViewCount { get; set; }
+    public required Customer ReviewedBy { get; set; }
+}
+
+public class DocumentSummaryDto
+{
+    public required int Id { get; set; }
+    public required string Title { get; set; }
+    public required string Author { get; set; }
+    public string? Category { get; set; }
+}
+
+public class DocumentDetailDto : DocumentSummaryDto
+{
+    public required string Content { get; set; }
+    public required DateTime CreatedAt { get; set; }
+    public string? ReviewerName { get; set; }
+}
+
+public class DocumentStatsDto : DocumentSummaryDto
+{
+    public required int ViewCount { get; set; }
+}
+
+// ---------------------------------------------------------------------------
 // Models for NestedInlinerTests
 // ---------------------------------------------------------------------------
 
