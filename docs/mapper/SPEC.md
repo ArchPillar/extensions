@@ -363,7 +363,99 @@ For object mapping, the compiled delegate performs an upfront null check and ret
 
 For expression projection, no explicit null check is emitted into the expression tree — EF Core and other LINQ providers already handle null propagation correctly at the SQL level.
 
-### 9. MapTo — Mapping onto an Existing Object
+### 9. Mapper Inheritance
+
+When mapping a single source type to a destination type hierarchy (e.g., `DocumentSummaryDto` → `DocumentDetailDto`), use `Inherit()` to reuse the base mapper's property mappings in derived mappers. This avoids duplicating shared mapping logic.
+
+```csharp
+public class DocumentMappers : MapperContext
+{
+    public Mapper<Document, DocumentSummaryDto> Summary { get; }
+    public Mapper<Document, DocumentDetailDto> Detail { get; }
+
+    public DocumentMappers()
+    {
+        Summary = CreateMapper<Document, DocumentSummaryDto>(src => new DocumentSummaryDto
+        {
+            Id     = src.Id,
+            Title  = src.Title,
+            Author = src.Author,
+        })
+        .Optional(dest => dest.Category, src => src.Category);
+
+        // Inherits Id, Title, Author, and Category from Summary
+        Detail = Inherit(Summary).For<DocumentDetailDto>()
+            .Map(dest => dest.Content,   src => src.Content)
+            .Map(dest => dest.CreatedAt, src => src.CreatedAt)
+            .Optional(dest => dest.ReviewerName, src => src.ReviewedBy.Name);
+    }
+}
+```
+
+**How it works**:
+
+- `Inherit(baseMapper)` returns an `InheritedMapperBuilder` pre-populated with the base mapper's property mappings (required, optional, and ignored).
+- `.For<TDest>()` specifies the derived destination type. `TDest` must extend `TBase`.
+- Chain additional `.Map()`, `.Optional()`, or `.Ignore()` calls to cover properties introduced by the derived type.
+- Coverage validation runs against the full derived destination type — inherited properties are already accounted for.
+
+**Derived source types**: use `.For<TDerivedSource, TDest>()` when both source and destination types are derived:
+
+```csharp
+// TechnicalDocument extends Document, TechnicalDocumentDto extends DocumentDetailDto
+TechnicalDetail = Inherit(Summary).For<TechnicalDocument, TechnicalDocumentDto>()
+    .Map(dest => dest.Content,   src => src.Content)
+    .Map(dest => dest.CreatedAt, src => src.CreatedAt)
+    .Map(dest => dest.Language,  src => src.Language);
+```
+
+Inherited source expressions remain valid because `TDerivedSource` inherits all members from `TSource`.
+
+### 10. Expression Transformers
+
+Expression transformers allow rewriting mapper expression trees during compilation — useful for replacing patterns that EF Core cannot translate (e.g., custom implicit conversions) with translatable equivalents.
+
+Transformers implement `IExpressionTransformer` and run after nested mapper inlining but before variable substitution, in the order: **global → per-context → per-mapper**.
+
+```csharp
+public class CastTransformer : ExpressionVisitor, IExpressionTransformer
+{
+    public Expression Transform(Expression expression) => Visit(expression);
+
+    protected override Expression VisitUnary(UnaryExpression node)
+    {
+        // Replace implicit conversions with explicit casts, etc.
+        return base.VisitUnary(node);
+    }
+}
+```
+
+**Three registration levels:**
+
+```csharp
+// Global — shared across all contexts via DI
+var globalOptions = new GlobalMapperOptions();
+globalOptions.AddTransformer(new CastTransformer());
+services.AddSingleton(globalOptions);
+
+// Per-context — in the MapperContext constructor
+public class AppMappers : MapperContext
+{
+    public AppMappers(GlobalMapperOptions globalOptions) : base(globalOptions)
+    {
+        AddTransformer(new MyContextTransformer());
+        // ...
+    }
+}
+
+// Per-mapper — on the builder
+Order = CreateMapper<Order, OrderDto>(...)
+    .WithTransformers(new MyMapperTransformer());
+```
+
+Transformers must preserve the `MemberInit` structure of the expression body and return an expression of the same type. Violations throw `InvalidOperationException` with a clear message.
+
+### 11. MapTo — Mapping onto an Existing Object
 
 `MapTo` assigns mapped properties onto a **pre-existing** destination instance rather than creating a new one. This is useful for:
 
@@ -402,8 +494,17 @@ mapper.Order.MapTo(command, existingOrder, o => o.Set(mapper.CurrentUserId, user
 ```csharp
 public abstract class MapperContext
 {
+    protected MapperContext();
+    protected MapperContext(GlobalMapperOptions? globalOptions);
+
+    protected virtual CoverageValidation DefaultCoverageValidation
+        => CoverageValidation.NonNullableProperties;
+
     protected static MapperBuilder<TSource, TDest> CreateMapper<TSource, TDest>(
         Expression<Func<TSource, TDest>>? memberInitExpression = null);
+
+    protected InheritedMapperBuilder<TSource, TBase> Inherit<TSource, TBase>(
+        Mapper<TSource, TBase> baseMapper);
 
     protected static EnumMapper<TSource, TDest> CreateEnumMapper<TSource, TDest>(
         Func<TSource, TDest> mappingMethod)
@@ -412,10 +513,27 @@ public abstract class MapperContext
 
     protected static Variable<T> CreateVariable<T>(string? name = null, T? defaultValue = default);
 
+    protected void AddTransformer(IExpressionTransformer transformer);
+
     // Forces expression assembly and delegate compilation for every mapper
     // on this context. Call at the end of a subclass constructor to surface
     // errors at startup and eliminate cold-start latency.
     protected void EagerBuildAll();
+}
+```
+
+### InheritedMapperBuilder&lt;TSource, TBase&gt;
+
+```csharp
+public sealed class InheritedMapperBuilder<TSource, TBase>
+{
+    // Derived destination type only (TDest must extend TBase)
+    public MapperBuilder<TSource, TDest> For<TDest>() where TDest : TBase;
+
+    // Both derived source and destination types
+    public MapperBuilder<TDerivedSource, TDest> For<TDerivedSource, TDest>()
+        where TDerivedSource : TSource
+        where TDest          : TBase;
 }
 ```
 
@@ -434,6 +552,10 @@ public sealed class MapperBuilder<TSource, TDest>
 
     public MapperBuilder<TSource, TDest> Ignore<TValue>(
         Expression<Func<TDest, TValue>> dest);
+
+    public MapperBuilder<TSource, TDest> SetCoverageValidation(CoverageValidation mode);
+
+    public MapperBuilder<TSource, TDest> WithTransformers(params IExpressionTransformer[] transformers);
 
     public Mapper<TSource, TDest> Build();
 
@@ -536,6 +658,25 @@ public sealed class Variable<T>
 }
 ```
 
+### IExpressionTransformer
+
+```csharp
+public interface IExpressionTransformer
+{
+    Expression Transform(Expression expression);
+}
+```
+
+### GlobalMapperOptions
+
+```csharp
+public sealed class GlobalMapperOptions
+{
+    public IReadOnlyList<IExpressionTransformer> Transformers { get; }
+    public GlobalMapperOptions AddTransformer(IExpressionTransformer transformer);
+}
+```
+
 The implicit operator allows `Variable<int>` to appear directly in expression bodies (e.g., `src.OwnerId == CurrentUserId`) without casting. The `ExpressionVisitor` replaces occurrences of the variable's node with a `ConstantExpression` at call time.
 
 ---
@@ -558,7 +699,8 @@ The pipeline applied before handing the expression to the LINQ provider:
 
 1. **Nested mapper inlining** — `ExpressionVisitor` finds `Mapper<T,T>.Map()` calls and replaces them with the nested mapper's full expression tree (parameter-substituted).
 2. **Optional property injection** — requested optional `MemberBinding`s are appended to the `MemberInitExpression`.
-3. **Variable substitution** — `Variable<T>` nodes are replaced with `ConstantExpression` for the provided value, or `Expression.Default(typeof(T))` if not set.
+3. **Expression transformers** — global, per-context, and per-mapper `IExpressionTransformer` instances rewrite the expression tree (e.g., replacing implicit conversions with EF Core-translatable equivalents).
+4. **Variable substitution** — `Variable<T>` nodes are replaced with `ConstantExpression` for the provided value, or `Expression.Default(typeof(T))` if not set.
 
 ---
 
@@ -629,3 +771,5 @@ Mapper/
 | **Enum mapping** | Special-cased — defined as a plain method; the library generates a switch expression tree by enumerating all enum values (see §7). |
 | **Null inputs** | All mappers return `null` for a null source. No configuration needed (see §8). |
 | **Constructor-based mapping** | Not supported — destination types must have a public parameterless constructor. The library's core guarantee is "one definition, two modes": the same mapper drives both in-memory mapping and LINQ/EF Core expression projection. Parameterized constructors cannot be translated by EF Core, so allowing them would create mappers that silently fail at query time. If a use case does not need expression projection, a plain constructor call is simpler and more explicit than a mapper. |
+| **Mapper inheritance** | Supported via `Inherit(baseMapper).For<TDerived>()` — copies base property mappings into a derived builder. Keeps DRY without hidden coupling; the inherited mappings are visible in the base mapper's definition. |
+| **Expression transformers** | Three-level pipeline (global → per-context → per-mapper) for rewriting expression trees during compilation. Runs after inlining, before variable substitution. Must preserve `MemberInit` structure. |
