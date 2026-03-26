@@ -80,23 +80,50 @@ public sealed class EnumMapper<TSource, TDest>(Func<TSource, TDest> mappingMetho
                 Convert.ChangeType(method(value), destUnderlying));
         }
 
-        // Build a balanced binary tree of ConditionalExpressions.  EF Core does
-        // NOT flatten nested ternaries into a single SQL CASE — each level
-        // becomes a separate CASE WHEN … ELSE (CASE WHEN …).  A linear chain
-        // of N conditionals produces N nested CASEs, which exceeds the 10-level
-        // nesting limit on SQL Server and fails translation on other providers
-        // once the enum has enough members.  A balanced tree keeps the depth at
-        // O(log₂ N) — e.g. ≈ 4 for 11 values, ≈ 7 for 100.
-        Expression body = BuildBalancedTree(
-            sourceAsInt, entries, 0, entries.Length - 1,
-            sourceUnderlying, destUnderlying);
+        // Fast path: when the underlying types match and every source value
+        // maps to the same integer on the destination side, a simple cast is
+        // sufficient.  EF Core stores enums as their underlying integer type,
+        // so (TDest)(int)source is a no-op in SQL.
+        Expression body;
 
-        // Single outer Convert from the underlying integer type to TDest.
-        // EF Core stores enums as their underlying integer type by default,
-        // so this translates to a no-op (or trivial implicit cast) in SQL.
-        body = Expression.Convert(body, typeof(TDest));
+        if (sourceUnderlying == destUnderlying && AllValuesMatch(entries))
+        {
+            body = Expression.Convert(sourceAsInt, typeof(TDest));
+        }
+        else
+        {
+            // Build a balanced binary tree of ConditionalExpressions.  EF Core
+            // does NOT flatten nested ternaries into a single SQL CASE — each
+            // level becomes a separate CASE WHEN … ELSE (CASE WHEN …).  A
+            // linear chain of N conditionals produces N nested CASEs, which
+            // exceeds the 10-level nesting limit on SQL Server and fails
+            // translation on other providers once the enum has enough members.
+            // A balanced tree keeps the depth at O(log₂ N) — e.g. ≈ 4 for 11
+            // values, ≈ 7 for 100.
+            body = BuildBalancedTree(
+                sourceAsInt, entries, 0, entries.Length - 1,
+                sourceUnderlying, destUnderlying);
+
+            // Single outer Convert from the underlying integer type to TDest.
+            // EF Core stores enums as their underlying integer type by default,
+            // so this translates to a no-op (or trivial implicit cast) in SQL.
+            body = Expression.Convert(body, typeof(TDest));
+        }
 
         return Expression.Lambda<Func<TSource, TDest>>(body, sourceParam);
+    }
+
+    private static bool AllValuesMatch((object sourceInt, object destInt)[] entries)
+    {
+        for (var i = 0; i < entries.Length; i++)
+        {
+            if (!entries[i].sourceInt.Equals(entries[i].destInt))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>
