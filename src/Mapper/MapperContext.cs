@@ -63,6 +63,29 @@ namespace ArchPillar.Extensions.Mapper;
 /// </summary>
 public abstract class MapperContext
 {
+    private readonly IReadOnlyList<IExpressionTransformer> _globalTransformers;
+    private readonly List<IExpressionTransformer>          _contextTransformers = [];
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MapperContext"/> class
+    /// without global options.
+    /// </summary>
+    protected MapperContext()
+        : this(null)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="MapperContext"/> class
+    /// with optional global mapper options. Pass a shared
+    /// <see cref="GlobalMapperOptions"/> instance (typically registered as a
+    /// DI singleton) to apply global transformers to all mappers in this context.
+    /// </summary>
+    protected MapperContext(GlobalMapperOptions? globalOptions)
+    {
+        _globalTransformers = globalOptions?.Transformers ?? [];
+    }
+
     // -------------------------------------------------------------------------
     // Coverage validation
     // -------------------------------------------------------------------------
@@ -75,6 +98,22 @@ public abstract class MapperContext
     /// </summary>
     protected virtual CoverageValidation DefaultCoverageValidation
         => CoverageValidation.NonNullableProperties;
+
+    // -------------------------------------------------------------------------
+    // Expression transformers
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Registers a per-context expression transformer that will run on every
+    /// mapper expression tree created by this context, after any global
+    /// transformers but before per-mapper transformers.
+    /// Call this in the subclass constructor before creating mappers.
+    /// </summary>
+    protected void AddTransformer(IExpressionTransformer transformer)
+    {
+        ArgumentNullException.ThrowIfNull(transformer);
+        _contextTransformers.Add(transformer);
+    }
 
     // -------------------------------------------------------------------------
     // Factory methods
@@ -98,7 +137,7 @@ public abstract class MapperContext
     /// </summary>
     protected MapperBuilder<TSource, TDest> CreateMapper<TSource, TDest>(
         Expression<Func<TSource, TDest>>? memberInitExpression = null)
-        => new(memberInitExpression, DefaultCoverageValidation);
+        => new(memberInitExpression, DefaultCoverageValidation, _globalTransformers, _contextTransformers);
 
     /// <summary>
     /// Creates an enum mapper from a plain mapping method.

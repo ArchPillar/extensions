@@ -20,19 +20,36 @@ namespace ArchPillar.Extensions.Mapper;
 /// </summary>
 public sealed class MapperBuilder<TSource, TDest>
 {
-    private readonly Expression<Func<TSource, TDest>>? _memberInitExpression;
-    private readonly List<PropertyMapping>             _mappings = [];
-    private CoverageValidation                         _coverageValidation;
+    private readonly Expression<Func<TSource, TDest>>?    _memberInitExpression;
+    private readonly List<PropertyMapping>                _mappings = [];
+    private readonly IReadOnlyList<IExpressionTransformer> _globalTransformers;
+    private readonly IReadOnlyList<IExpressionTransformer> _contextTransformers;
+    private readonly List<IExpressionTransformer>          _mapperTransformers = [];
+    private CoverageValidation                             _coverageValidation;
 
     internal MapperBuilder(
         Expression<Func<TSource, TDest>>? memberInitExpression,
-        CoverageValidation coverageValidation = CoverageValidation.NonNullableProperties)
+        CoverageValidation coverageValidation = CoverageValidation.NonNullableProperties,
+        IReadOnlyList<IExpressionTransformer>? globalTransformers = null,
+        IReadOnlyList<IExpressionTransformer>? contextTransformers = null)
     {
         ValidateParameterlessConstructor();
         ValidateMemberInitExpression(memberInitExpression);
 
         _memberInitExpression = memberInitExpression;
         _coverageValidation   = coverageValidation;
+        _globalTransformers   = globalTransformers ?? [];
+        _contextTransformers  = contextTransformers ?? [];
+    }
+
+    /// <summary>
+    /// Registers one or more per-mapper expression transformers that run after
+    /// global and per-context transformers during expression compilation.
+    /// </summary>
+    public MapperBuilder<TSource, TDest> WithTransformers(params IExpressionTransformer[] transformers)
+    {
+        _mapperTransformers.AddRange(transformers);
+        return this;
     }
 
     /// <summary>
@@ -142,7 +159,11 @@ public sealed class MapperBuilder<TSource, TDest>
         // Source expressions are stored raw. Nested mapper calls (Map / Project) are
         // inlined at expression-build time by NestedMapperInliner, so no detection
         // pass is needed here and nested mappers do not need to exist at build time.
-        return new Mapper<TSource, TDest>([.. rawMappings.Values]);
+
+        // Combine transformers: global → per-context → per-mapper
+        List<IExpressionTransformer> allTransformers = [.. _globalTransformers, .. _contextTransformers, .. _mapperTransformers];
+
+        return new Mapper<TSource, TDest>([.. rawMappings.Values], allTransformers);
     }
 
     /// <summary>
