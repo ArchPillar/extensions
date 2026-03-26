@@ -132,7 +132,27 @@ public sealed class Mapper<TSource, TDest> : IMapper
         // Run custom expression transformers: global → per-context → per-mapper
         foreach (IExpressionTransformer transformer in _transformers)
         {
-            expression = (Expression<Func<TSource, TDest>>)transformer.Transform(expression);
+            Expression result = transformer.Transform(expression);
+            var transformerName = transformer.GetType().Name;
+
+            if (result is not Expression<Func<TSource, TDest>> typed)
+            {
+                throw new InvalidOperationException(
+                    $"Expression transformer '{transformerName}' returned " +
+                    $"{(result is null ? "null" : $"an expression of type '{result.GetType().Name}'")} " +
+                    $"instead of Expression<Func<{typeof(TSource).Name}, {typeof(TDest).Name}>>. " +
+                    "Transformers must return an expression of the same type as their input.");
+            }
+
+            if (typed.Body is not MemberInitExpression)
+            {
+                throw new InvalidOperationException(
+                    $"Expression transformer '{transformerName}' returned a lambda whose body is " +
+                    $"'{typed.Body.NodeType}' instead of 'MemberInit'. " +
+                    "Transformers must preserve the MemberInit structure of the expression body.");
+            }
+
+            expression = typed;
         }
 
         return expression;
