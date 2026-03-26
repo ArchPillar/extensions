@@ -283,6 +283,46 @@ public class ExpressionTransformerTests
 
         Assert.Equal(10, dto.Id);
     }
+
+    // -----------------------------------------------------------------------
+    // Transformer returns wrong type — clear error
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void Map_TransformerReturnsNonLambda_ThrowsWithTransformerName()
+    {
+        var mappers = new BodyOnlyTransformerMappers();
+
+        var invoice = new Invoice
+        {
+            Id    = 1,
+            Total = new Money(10m, "USD"),
+            Tax   = new Money(1m, "USD"),
+        };
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => mappers.Invoice.Map(invoice));
+
+        Assert.Contains("BodyOnlyTransformer", ex.Message);
+        Assert.Contains("Expression<Func<Invoice, InvoiceDto>>", ex.Message);
+    }
+
+    [Fact]
+    public void Map_TransformerReturnsNull_ThrowsWithTransformerName()
+    {
+        var mappers = new NullTransformerMappers();
+
+        var invoice = new Invoice
+        {
+            Id    = 1,
+            Total = new Money(10m, "USD"),
+            Tax   = new Money(1m, "USD"),
+        };
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(() => mappers.Invoice.Map(invoice));
+
+        Assert.Contains("NullTransformer", ex.Message);
+        Assert.Contains("null", ex.Message);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -303,5 +343,66 @@ public class PerMapperTransformerMappers : MapperContext
             Tax   = (decimal)src.Tax,
         })
         .WithTransformers(new MoneyToAmountTransformer());
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Faulty transformers — for validation tests
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// Returns just the lambda body (a <see cref="MemberInitExpression"/>)
+/// instead of the full lambda — simulates a common implementation mistake.
+/// </summary>
+public sealed class BodyOnlyTransformer : IExpressionTransformer
+{
+    public Expression Transform(Expression expression)
+    {
+        return ((LambdaExpression)expression).Body;
+    }
+}
+
+/// <summary>
+/// Returns <c>null</c> — simulates a broken transformer.
+/// </summary>
+public sealed class NullTransformer : IExpressionTransformer
+{
+    public Expression Transform(Expression expression)
+    {
+        return null!;
+    }
+}
+
+public class BodyOnlyTransformerMappers : MapperContext
+{
+    public Mapper<Invoice, InvoiceDto> Invoice { get; }
+
+    public BodyOnlyTransformerMappers()
+    {
+        AddTransformer(new BodyOnlyTransformer());
+
+        Invoice = CreateMapper<Invoice, InvoiceDto>(src => new InvoiceDto
+        {
+            Id    = src.Id,
+            Total = (decimal)src.Total,
+            Tax   = (decimal)src.Tax,
+        });
+    }
+}
+
+public class NullTransformerMappers : MapperContext
+{
+    public Mapper<Invoice, InvoiceDto> Invoice { get; }
+
+    public NullTransformerMappers()
+    {
+        AddTransformer(new NullTransformer());
+
+        Invoice = CreateMapper<Invoice, InvoiceDto>(src => new InvoiceDto
+        {
+            Id    = src.Id,
+            Total = (decimal)src.Total,
+            Tax   = (decimal)src.Tax,
+        });
     }
 }
