@@ -77,12 +77,49 @@ public abstract class MethodCallTransformer : ExpressionVisitor, IExpressionTran
             return true;
         }
 
+        // Match generic method instantiations (e.g. Foo.Bar<int>()) against
+        // the open generic definition (Foo.Bar<T>()).
         if (candidate.IsGenericMethod && target.IsGenericMethodDefinition)
         {
             return candidate.GetGenericMethodDefinition() == target;
         }
 
+        // Match methods inherited from a generic base class. When the declaring
+        // type is a closed generic (e.g. ValueObject<Money>), the MethodInfo
+        // differs from the one obtained via the open generic definition
+        // (ValueObject<>). Walk up through GetBaseDefinition and compare
+        // metadata tokens on the generic type definition to find a match.
+        if (target.DeclaringType is { IsGenericTypeDefinition: true })
+        {
+            return IsBaseDefinitionMatch(candidate, target);
+        }
+
         return false;
+    }
+
+    private static bool IsBaseDefinitionMatch(MethodInfo candidate, MethodInfo target)
+    {
+        MethodInfo current = candidate;
+
+        while (true)
+        {
+            if (current.DeclaringType is { IsGenericType: true }
+                && current.DeclaringType.GetGenericTypeDefinition() == target.DeclaringType
+                && current.MetadataToken == target.MetadataToken
+                && current.Module == target.Module)
+            {
+                return true;
+            }
+
+            MethodInfo baseDefinition = current.GetBaseDefinition();
+
+            if (baseDefinition == current)
+            {
+                return false;
+            }
+
+            current = baseDefinition;
+        }
     }
 
     private IReadOnlyList<Expression> VisitArguments(

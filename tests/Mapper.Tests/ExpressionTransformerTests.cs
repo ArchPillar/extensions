@@ -41,6 +41,27 @@ public class PaymentDto
     public bool IsPositive { get; set; }
 }
 
+public class Wrapper<T>
+{
+    public required T Value { get; set; }
+
+    public T Unwrap() => Value;
+}
+
+public class WrappedDecimal : Wrapper<decimal>;
+
+public class UnwrapSource
+{
+    public required int Id { get; set; }
+    public required WrappedDecimal Price { get; set; }
+}
+
+public class UnwrapDest
+{
+    public int Id { get; set; }
+    public decimal Price { get; set; }
+}
+
 // ---------------------------------------------------------------------------
 // Test transformers
 // ---------------------------------------------------------------------------
@@ -104,6 +125,23 @@ public sealed class MoneyAmountCastTransformer : CastTransformer<Money, decimal>
     protected override Expression Replacement(Expression operand)
     {
         return Expression.Property(operand, nameof(Money.Amount));
+    }
+}
+
+/// <summary>
+/// Replaces <c>wrapper.Unwrap()</c> with <c>wrapper.Value</c> using the
+/// <see cref="MethodCallTransformer"/> base class, targeting a method
+/// defined on a generic base class (<see cref="Wrapper{T}"/>).
+/// </summary>
+public sealed class UnwrapTransformer : MethodCallTransformer
+{
+    protected override MethodInfo Method { get; } =
+        typeof(Wrapper<>).GetMethod(nameof(Wrapper<object>.Unwrap))!;
+
+    protected override Expression Replacement(
+        Expression? instance, IReadOnlyList<Expression> arguments)
+    {
+        return Expression.Property(instance!, nameof(Wrapper<object>.Value));
     }
 }
 
@@ -374,6 +412,23 @@ public class ExpressionTransformerTests
         Assert.False(dto.IsPositive);
     }
 
+    [Fact]
+    public void Map_MethodCallTransformerBase_MatchesGenericBaseClassMethod()
+    {
+        var mappers = new GenericBaseMethodMappers();
+
+        var source = new UnwrapSource
+        {
+            Id    = 1,
+            Price = new WrappedDecimal { Value = 42.5m },
+        };
+
+        UnwrapDest dto = mappers.Unwrap.Map(source)!;
+
+        Assert.Equal(1, dto.Id);
+        Assert.Equal(42.5m, dto.Price);
+    }
+
     // -----------------------------------------------------------------------
     // No transformers — existing behavior unaffected
     // -----------------------------------------------------------------------
@@ -511,6 +566,22 @@ public class MethodCallTransformerBaseMappers : MapperContext
             Id         = src.Id,
             Amount     = (decimal)src.Amount,
             IsPositive = src.Amount.IsPositive(),
+        });
+    }
+}
+
+public class GenericBaseMethodMappers : MapperContext
+{
+    public Mapper<UnwrapSource, UnwrapDest> Unwrap { get; }
+
+    public GenericBaseMethodMappers()
+    {
+        AddTransformer(new UnwrapTransformer());
+
+        Unwrap = CreateMapper<UnwrapSource, UnwrapDest>(src => new UnwrapDest
+        {
+            Id    = src.Id,
+            Price = src.Price.Unwrap(),
         });
     }
 }
