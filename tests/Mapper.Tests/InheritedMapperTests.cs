@@ -25,7 +25,7 @@ public class InheritedMapperTests
     [Fact]
     public void Map_BaseSummary_MapsBaseProperties()
     {
-        var doc = CreateDocument();
+        Document doc = CreateDocument();
 
         DocumentSummaryDto dto = _mappers.Summary.Map(doc)!;
 
@@ -41,7 +41,7 @@ public class InheritedMapperTests
     [Fact]
     public void Map_InheritedDetail_MapsInheritedProperties()
     {
-        var doc = CreateDocument();
+        Document doc = CreateDocument();
 
         DocumentDetailDto dto = _mappers.Detail.Map(doc)!;
 
@@ -53,7 +53,7 @@ public class InheritedMapperTests
     [Fact]
     public void Map_InheritedDetail_MapsDerivedProperties()
     {
-        var doc = CreateDocument();
+        Document doc = CreateDocument();
 
         DocumentDetailDto dto = _mappers.Detail.Map(doc)!;
 
@@ -68,7 +68,7 @@ public class InheritedMapperTests
     [Fact]
     public void Map_InheritedStats_MapsInheritedAndDerivedProperties()
     {
-        var doc = CreateDocument();
+        Document doc = CreateDocument();
 
         DocumentStatsDto dto = _mappers.Stats.Map(doc)!;
 
@@ -96,7 +96,7 @@ public class InheritedMapperTests
     [Fact]
     public void Map_InheritedDetail_IncludesInheritedOptionalInMemory()
     {
-        var doc = CreateDocument();
+        Document doc = CreateDocument();
 
         DocumentDetailDto dto = _mappers.Detail.Map(doc)!;
 
@@ -106,7 +106,7 @@ public class InheritedMapperTests
     [Fact]
     public void Projection_InheritedDetail_ExcludesOptionalByDefault()
     {
-        var doc = CreateDocument();
+        Document doc = CreateDocument();
 
         var expression = _mappers.Detail.ToExpression();
         DocumentDetailDto dto = expression.Compile()(doc);
@@ -118,7 +118,7 @@ public class InheritedMapperTests
     [Fact]
     public void Projection_InheritedDetail_IncludesInheritedOptionalWhenRequested()
     {
-        var doc = CreateDocument();
+        Document doc = CreateDocument();
 
         var expression = _mappers.Detail.ToExpression(o => o.Include(d => d.Category));
         DocumentDetailDto dto = expression.Compile()(doc);
@@ -129,7 +129,7 @@ public class InheritedMapperTests
     [Fact]
     public void Projection_InheritedDetail_IncludesDerivedOptionalWhenRequested()
     {
-        var doc = CreateDocument();
+        Document doc = CreateDocument();
 
         var expression = _mappers.Detail.ToExpression(o => o.Include(d => d.ReviewerName));
         DocumentDetailDto dto = expression.Compile()(doc);
@@ -144,7 +144,7 @@ public class InheritedMapperTests
     [Fact]
     public void MapTo_InheritedDetail_AssignsAllProperties()
     {
-        var doc = CreateDocument();
+        Document doc = CreateDocument();
         var dto = new DocumentDetailDto
         {
             Id        = 0,
@@ -264,7 +264,7 @@ public class InheritedMapperTests
     public void Map_InheritedBuilder_CanOverrideBaseMapping()
     {
         var mappers = new OverrideInheritanceMappers();
-        var doc = CreateDocument();
+        Document doc = CreateDocument();
 
         DocumentDetailDto dto = mappers.Detail.Map(doc)!;
 
@@ -290,7 +290,7 @@ public class InheritedMapperTests
     [Fact]
     public void Build_InheritedMapper_ThrowsWhenDerivedPropertyNotMapped()
     {
-        var exception = Assert.Throws<InvalidOperationException>(() => new MissingPropertyMappers());
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => new MissingPropertyMappers());
 
         Assert.Contains("ViewCount", exception.Message);
     }
@@ -326,7 +326,7 @@ public sealed class InheritedMapperEfCoreTests : IDisposable
             .ToListAsync();
 
         Assert.Equal(2, results.Count);
-        var first = results.Single(d => d.Id == 1);
+        DocumentDetailDto first = results.Single(d => d.Id == 1);
         Assert.Equal("Design Patterns", first.Title);
         Assert.Equal("GoF", first.Author);
         Assert.Equal("Full content", first.Content);
@@ -341,7 +341,7 @@ public sealed class InheritedMapperEfCoreTests : IDisposable
             .ToListAsync();
 
         Assert.Equal(2, results.Count);
-        var first = results.Single(d => d.Id == 1);
+        DocumentStatsDto first = results.Single(d => d.Id == 1);
         Assert.Equal("Design Patterns", first.Title);
         Assert.Equal(100, first.ViewCount);
     }
@@ -354,7 +354,7 @@ public sealed class InheritedMapperEfCoreTests : IDisposable
             .Project(_mappers.Detail, o => o.Include(d => d.ReviewerName))
             .ToListAsync();
 
-        var first = results.Single(d => d.Id == 1);
+        DocumentDetailDto first = results.Single(d => d.Id == 1);
         Assert.Equal("Alice", first.ReviewerName);
     }
 
