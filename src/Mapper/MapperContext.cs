@@ -120,6 +120,33 @@ public abstract class MapperContext
     // -------------------------------------------------------------------------
 
     /// <summary>
+    /// Returns an intermediate builder that inherits all property mappings
+    /// from an existing <see cref="Mapper{TSource,TBase}"/>. Call
+    /// <see cref="InheritedMapperBuilder{TSource,TBase}.For{TDest}"/> on
+    /// the result to specify the derived destination type and obtain a
+    /// <see cref="MapperBuilder{TSource,TDest}"/> pre-populated with the
+    /// base mappings.
+    /// <para>
+    /// Use this to map the same source type to a type hierarchy:
+    /// </para>
+    /// <code>
+    /// // Base mapping: Order → OrderSummaryDto
+    /// OrderSummary = CreateMapper&lt;Order, OrderSummaryDto&gt;(src => new OrderSummaryDto
+    /// {
+    ///     Id   = src.Id,
+    ///     Date = src.CreatedAt,
+    /// });
+    ///
+    /// // Derived mapping: Order → OrderDetailDto (inherits OrderSummaryDto)
+    /// OrderDetail = Inherit(OrderSummary).For&lt;OrderDetailDto&gt;()
+    ///     .Map(dest => dest.Lines, src => src.Lines.Project(OrderLine).ToList());
+    /// </code>
+    /// </summary>
+    protected InheritedMapperBuilder<TSource, TBase> Inherit<TSource, TBase>(
+        Mapper<TSource, TBase> baseMapper)
+        => new(baseMapper.Mappings, DefaultCoverageValidation, _globalTransformers, _contextTransformers);
+
+    /// <summary>
     /// Creates a mapper builder for <typeparamref name="TSource"/> →
     /// <typeparamref name="TDest"/>.
     /// <para>

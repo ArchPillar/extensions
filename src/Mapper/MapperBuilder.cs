@@ -43,6 +43,26 @@ public sealed class MapperBuilder<TSource, TDest>
     }
 
     /// <summary>
+    /// Creates a builder pre-populated with inherited property mappings from a
+    /// base mapper. Used by <see cref="InheritedMapperBuilder{TSource,TBase}.For{TDest}"/>
+    /// to support mapper inheritance.
+    /// </summary>
+    internal MapperBuilder(
+        IReadOnlyList<PropertyMapping> inheritedMappings,
+        CoverageValidation coverageValidation,
+        IReadOnlyList<IExpressionTransformer>? globalTransformers,
+        IReadOnlyList<IExpressionTransformer>? contextTransformers)
+    {
+        ValidateParameterlessConstructor();
+
+        _memberInitExpression = null;
+        _mappings.AddRange(inheritedMappings);
+        _coverageValidation  = coverageValidation;
+        _globalTransformers  = globalTransformers ?? [];
+        _contextTransformers = contextTransformers ?? [];
+    }
+
+    /// <summary>
     /// Registers one or more per-mapper expression transformers that run after
     /// global and per-context transformers during expression compilation.
     /// </summary>
