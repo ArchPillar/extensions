@@ -57,12 +57,16 @@ namespace ArchPillar.Extensions.Mapper;
 public sealed class Mapper<TSource, TDest> : IMapper
 {
     private readonly IReadOnlyList<PropertyMapping>                              _allMappings;
+    private readonly IReadOnlyList<IExpressionTransformer>                       _transformers;
     private readonly Lazy<Func<TSource?, List<(object, object?)>?, TDest?>>  _compiled;
     private readonly Lazy<Action<TSource, TDest, List<(object, object?)>?>>  _compiledMapTo;
 
-    internal Mapper(IReadOnlyList<PropertyMapping> allMappings)
+    internal Mapper(
+        IReadOnlyList<PropertyMapping> allMappings,
+        IReadOnlyList<IExpressionTransformer>? transformers = null)
     {
         _allMappings = allMappings;
+        _transformers = transformers ?? [];
         _compiled = new(() =>
         {
             return BuildMapExpression().Compile()!;
@@ -122,8 +126,16 @@ public sealed class Mapper<TSource, TDest> : IMapper
             bindings.Add(Expression.Bind(mapping.Destination, body));
         }
 
-        return Expression.Lambda<Func<TSource, TDest>>(
+        var expression = Expression.Lambda<Func<TSource, TDest>>(
             Expression.MemberInit(Expression.New(typeof(TDest)), bindings), sourceParam);
+
+        // Run custom expression transformers: global → per-context → per-mapper
+        foreach (IExpressionTransformer transformer in _transformers)
+        {
+            expression = (Expression<Func<TSource, TDest>>)transformer.Transform(expression);
+        }
+
+        return expression;
     }
 
     // -------------------------------------------------------------------------
