@@ -94,6 +94,16 @@ public abstract class MethodCallTransformer : ExpressionVisitor, IExpressionTran
             return IsBaseDefinitionMatch(candidate, target);
         }
 
+        // Match methods defined on an interface. When the target MethodInfo
+        // comes from an interface type, the candidate will be the concrete
+        // implementation — resolve via the interface map.
+        if (target.DeclaringType is { IsInterface: true }
+            && candidate.DeclaringType is not null
+            && candidate.DeclaringType.IsAssignableTo(target.DeclaringType))
+        {
+            return IsInterfaceMatch(candidate, target);
+        }
+
         return false;
     }
 
@@ -120,6 +130,21 @@ public abstract class MethodCallTransformer : ExpressionVisitor, IExpressionTran
 
             current = baseDefinition;
         }
+    }
+
+    private static bool IsInterfaceMatch(MethodInfo candidate, MethodInfo target)
+    {
+        InterfaceMapping map = candidate.DeclaringType!.GetInterfaceMap(target.DeclaringType!);
+
+        for (var i = 0; i < map.InterfaceMethods.Length; i++)
+        {
+            if (map.InterfaceMethods[i] == target)
+            {
+                return map.TargetMethods[i] == candidate;
+            }
+        }
+
+        return false;
     }
 
     private IReadOnlyList<Expression> VisitArguments(
