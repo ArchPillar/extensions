@@ -69,6 +69,7 @@ Each test class gets an isolated database (created/dropped automatically).
 - Use `var` for built-in types: `var count = 0;` not `int count = 0;`, `var name = "foo";` not `string name = "foo";`
 - Use explicit types when the type is NOT apparent and NOT a built-in (e.g. `IReadOnlyList<int> items = GetItems();` where the method returns `List<int>`)
 - **Method chains change the apparent type rule**: `var x = new Foo()` is apparent, but `var x = new Foo().Bar()` is NOT — the chained call obscures the final type. Use an explicit type: `SomeType x = new Foo().Bar();`
+- **Common traps**: `expr.Compile()` → use `Func<X, Y> func = ...`; `Assert.Throws<T>()` → use `T ex = ...`; `type.GetProperty()` → use `PropertyInfo? prop = ...`
 - **In practice**: if in doubt, use `var`. The analyzer will catch the rare cases where an explicit type is preferred.
 
 ### Expression-Bodied Members
