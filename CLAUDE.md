@@ -14,7 +14,7 @@ dotnet test tests/Mapper.Tests                        # run tests
 dotnet run --project benchmarks/Mapper.Benchmarks -c Release  # run benchmarks
 ```
 
-Warnings are treated as errors in Release builds (outside Visual Studio). Always ensure code compiles warning-free.
+Warnings are treated as errors in Release builds (outside Visual Studio). Always ensure code compiles warning-free. Build warnings must be treated as errors and fixed immediately — do not leave warnings in the codebase.
 
 ## Architecture
 

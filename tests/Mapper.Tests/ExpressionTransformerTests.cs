@@ -24,6 +24,29 @@ public record Fee(decimal Amount, string Description) : IAmount
     public static implicit operator decimal(Fee fee) => fee.Amount;
 }
 
+public interface IPositiveCheck
+{
+    bool IsPositive();
+}
+
+public record Quantity(decimal Value) : IPositiveCheck
+{
+    public bool IsPositive() => Value > 0;
+}
+
+public class QuantitySource
+{
+    public required int Id { get; set; }
+    public required Quantity Amount { get; set; }
+}
+
+public class QuantityDto
+{
+    public int Id { get; set; }
+    public decimal Amount { get; set; }
+    public bool IsPositive { get; set; }
+}
+
 public class Invoice
 {
     public required int Id { get; set; }
@@ -195,6 +218,24 @@ public sealed class MoneyIsPositiveTransformer : MethodCallTransformer
     {
         return Expression.GreaterThan(
             Expression.Property(instance!, nameof(Money.Amount)),
+            Expression.Constant(0m));
+    }
+}
+
+/// <summary>
+/// Replaces <c>quantity.IsPositive()</c> with <c>quantity.Value &gt; 0</c>,
+/// targeting the method via the <see cref="IPositiveCheck"/> interface.
+/// </summary>
+public sealed class InterfaceIsPositiveTransformer : MethodCallTransformer
+{
+    protected override MethodInfo Method { get; } =
+        typeof(IPositiveCheck).GetMethod(nameof(IPositiveCheck.IsPositive))!;
+
+    protected override Expression Replacement(
+        Expression? instance, IReadOnlyList<Expression> arguments)
+    {
+        return Expression.GreaterThan(
+            Expression.Property(instance!, nameof(Quantity.Value)),
             Expression.Constant(0m));
     }
 }
@@ -484,6 +525,41 @@ public class ExpressionTransformerTests
         Assert.Equal(42.5m, dto.Price);
     }
 
+    [Fact]
+    public void Map_MethodCallTransformerBase_MatchesInterfaceMethod()
+    {
+        var mappers = new InterfaceMethodMappers();
+
+        var source = new QuantitySource
+        {
+            Id     = 1,
+            Amount = new Quantity(99m),
+        };
+
+        QuantityDto dto = mappers.Quantity.Map(source)!;
+
+        Assert.Equal(1, dto.Id);
+        Assert.Equal(99m, dto.Amount);
+        Assert.True(dto.IsPositive);
+    }
+
+    [Fact]
+    public void Map_MethodCallTransformerBase_InterfaceMethod_NegativeValue()
+    {
+        var mappers = new InterfaceMethodMappers();
+
+        var source = new QuantitySource
+        {
+            Id     = 2,
+            Amount = new Quantity(-5m),
+        };
+
+        QuantityDto dto = mappers.Quantity.Map(source)!;
+
+        Assert.Equal(-5m, dto.Amount);
+        Assert.False(dto.IsPositive);
+    }
+
     // -----------------------------------------------------------------------
     // No transformers — existing behavior unaffected
     // -----------------------------------------------------------------------
@@ -654,6 +730,23 @@ public class GenericBaseMethodMappers : MapperContext
         {
             Id    = src.Id,
             Price = src.Price.Unwrap(),
+        });
+    }
+}
+
+public class InterfaceMethodMappers : MapperContext
+{
+    public Mapper<QuantitySource, QuantityDto> Quantity { get; }
+
+    public InterfaceMethodMappers()
+    {
+        AddTransformer(new InterfaceIsPositiveTransformer());
+
+        Quantity = CreateMapper<QuantitySource, QuantityDto>(src => new QuantityDto
+        {
+            Id         = src.Id,
+            Amount     = src.Amount.Value,
+            IsPositive = src.Amount.IsPositive(),
         });
     }
 }
