@@ -1,31 +1,25 @@
 using System.Linq.Expressions;
-using DotNet.Testcontainers.Builders;
 using Microsoft.EntityFrameworkCore;
-using Testcontainers.PostgreSql;
 
 namespace ArchPillar.Extensions.Mapper.Tests;
 
 /// <summary>
 /// Verifies that enum mapping expressions are translatable by the Npgsql
-/// (PostgreSQL) provider via Testcontainers. The in-memory and SQLite
-/// providers cannot catch all provider-specific translation failures.
+/// (PostgreSQL) provider. Uses Testcontainers when Docker is available;
+/// falls back to host-local PostgreSQL when <c>CLAUDE_CLOUD=true</c>.
 /// </summary>
 public sealed class EnumMappingPostgresTests : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder()
-        .WithWaitStrategy(Wait.ForUnixContainer()
-            .UntilMessageIsLogged("database system is ready to accept connections"))
-        .Build();
-
+    private PostgresTestDatabase _postgres = null!;
     private PostgresTestDbContext _db = null!;
     private readonly TestMappers _mappers = new();
 
     public async Task InitializeAsync()
     {
-        await _postgres.StartAsync();
+        _postgres = await PostgresTestDatabase.CreateAsync();
 
         DbContextOptions<PostgresTestDbContext> options = new DbContextOptionsBuilder<PostgresTestDbContext>()
-            .UseNpgsql(_postgres.GetConnectionString())
+            .UseNpgsql(_postgres.ConnectionString)
             .Options;
 
         _db = new PostgresTestDbContext(options);
@@ -177,20 +171,16 @@ public sealed class EnumMappingPostgresTests : IAsyncLifetime
 
 public sealed class NullableEnumMappingPostgresTests : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder()
-        .WithWaitStrategy(Wait.ForUnixContainer()
-            .UntilMessageIsLogged("database system is ready to accept connections"))
-        .Build();
-
+    private PostgresTestDatabase _postgres = null!;
     private PostgresTestDbContext _db = null!;
     private readonly NullableEnumMappers _mappers = new();
 
     public async Task InitializeAsync()
     {
-        await _postgres.StartAsync();
+        _postgres = await PostgresTestDatabase.CreateAsync();
 
         DbContextOptions<PostgresTestDbContext> options = new DbContextOptionsBuilder<PostgresTestDbContext>()
-            .UseNpgsql(_postgres.GetConnectionString())
+            .UseNpgsql(_postgres.ConnectionString)
             .Options;
 
         _db = new PostgresTestDbContext(options);
