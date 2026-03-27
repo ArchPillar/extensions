@@ -355,6 +355,43 @@ The fallback uses `default(TDest)` instead of `throw` — all enum values are co
 
 `EnumMapper<TSource, TDest>` can be used standalone or inlined into a parent mapper just like a regular `Mapper<T,T>`.
 
+#### Nullable Enum Mapping
+
+When source or destination enum properties are nullable (`OrderStatus?`), `EnumMapper` provides additional overloads:
+
+| Call | Return | Behaviour |
+|------|--------|-----------|
+| `Map(TSource)` | `TDest` | Non-nullable to non-nullable (existing) |
+| `Map(TSource?)` | `TDest?` | Null in → null out |
+| `Map(TSource?, TDest default)` | `TDest` | Null in → default value out |
+
+All three overloads work standalone, inlined in parent mapper expressions, and in LINQ projection (EF Core translatable).
+
+**Nullable to nullable** — destination property is `TDest?`:
+
+```csharp
+Status = OrderStatusMapper.Map(src.NullableStatus),
+```
+
+**Nullable to non-nullable with default** — destination property is `TDest`:
+
+```csharp
+Status = OrderStatusMapper.Map(src.NullableStatus, OrderStatusDto.Pending),
+```
+
+**Non-nullable to nullable** — no special handling needed. Assigning `TDest` to a `TDest?` property uses C#'s implicit conversion:
+
+```csharp
+// src.Status is OrderStatus, dest.Status is OrderStatusDto?
+Status = OrderStatusMapper.Map(src.Status),
+```
+
+Standalone nullable expressions are available via `ToNullableExpression()`:
+
+```csharp
+Expression<Func<OrderStatus?, OrderStatusDto?>> expr = mapper.ToNullableExpression();
+```
+
 ### 8. Null Handling
 
 All mappers treat a null source as a null destination — no exceptions. This applies to both in-memory object mapping and LINQ expression projection.

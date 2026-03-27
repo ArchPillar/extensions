@@ -112,18 +112,48 @@ internal sealed class NestedMapperInliner(IncludeSet includes, int depth = 0) : 
             IMapper nestedMapper = CompileMapperAccessor(node.Object!);
             LambdaExpression nestedLambda = nestedMapper.GetRawExpression(includes, depth + 1);
             Expression srcExpr = Visit(node.Arguments[0])!;
-            Expression inlined = new ParameterReplacer(nestedLambda.Parameters[0], srcExpr)
-                                     .Visit(nestedLambda.Body)!;
+
+            // Nullable value type source (e.g. TSource?) — unwrap via .Value,
+            // inline the core expression, then wrap with a HasValue guard.
+            Type? nullableUnderlying = Nullable.GetUnderlyingType(srcExpr.Type);
+
+            if (nullableUnderlying != null && nullableUnderlying == nestedLambda.Parameters[0].Type)
+            {
+                Expression valueExpr = Expression.Property(srcExpr, "Value");
+                Expression inlined = new ParameterReplacer(nestedLambda.Parameters[0], valueExpr)
+                                         .Visit(nestedLambda.Body)!;
+
+                // 2-arg overload: Map(TSource?, TDest defaultValue) — use the
+                // second argument as the fallback when source is null.
+                if (node.Arguments.Count == 2)
+                {
+                    Expression defaultExpr = Visit(node.Arguments[1])!;
+                    return Expression.Condition(
+                        Expression.Property(srcExpr, "HasValue"),
+                        inlined,
+                        defaultExpr);
+                }
+
+                // 1-arg overload: Map(TSource?) → TDest? — null in, null out.
+                Type nullableReturnType = typeof(Nullable<>).MakeGenericType(inlined.Type);
+                return Expression.Condition(
+                    Expression.Property(srcExpr, "HasValue"),
+                    Expression.Convert(inlined, nullableReturnType),
+                    Expression.Default(nullableReturnType));
+            }
+
+            Expression inlinedBody = new ParameterReplacer(nestedLambda.Parameters[0], srcExpr)
+                                         .Visit(nestedLambda.Body)!;
 
             if (!srcExpr.Type.IsValueType)
             {
                 return Expression.Condition(
                     Expression.Equal(srcExpr, Expression.Default(srcExpr.Type)),
-                    Expression.Default(inlined.Type),
-                    inlined);
+                    Expression.Default(inlinedBody.Type),
+                    inlinedBody);
             }
 
-            return inlined;
+            return inlinedBody;
         }
 
         // srcColl.Project(mapper) — IEnumerable overload (no options)
@@ -160,7 +190,8 @@ internal sealed class NestedMapperInliner(IncludeSet includes, int depth = 0) : 
     private static bool IsScalarMapCall(MethodCallExpression node)
         => node.Object != null
         && node.Method.Name == "Map"
-        && node.Arguments.Count == 1
+        && node.Arguments.Count >= 1
+        && node.Arguments.Count <= 2
         && (IsClosedGenericOf(node.Object.Type, typeof(Mapper<,>))
          || IsClosedGenericOf(node.Object.Type, typeof(EnumMapper<,>)));
 

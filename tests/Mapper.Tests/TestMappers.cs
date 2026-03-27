@@ -143,6 +143,55 @@ public class EagerTestMappers : TestMappers
 }
 
 /// <summary>
+/// Mappers exercising the three nullable enum scenarios.
+/// </summary>
+public class NullableEnumMappers : MapperContext
+{
+    public EnumMapper<OrderStatus, OrderStatusDto> OrderStatusMapper { get; }
+
+    /// <summary>Nullable → nullable: <c>Map(TSource?)</c> → <c>TDest?</c>.</summary>
+    public Mapper<OrderWithNullableStatus, OrderDtoWithNullableStatus> NullableToNullable { get; }
+
+    /// <summary>Nullable → non-nullable with default: <c>Map(TSource?, TDest)</c> → <c>TDest</c>.</summary>
+    public Mapper<OrderWithNullableStatus, OrderDtoWithDefaultStatus> NullableToNonNullable { get; }
+
+    /// <summary>Non-nullable → nullable: implicit lift via C# assignment.</summary>
+    public Mapper<Order, OrderDtoWithNullableStatus> NonNullableToNullable { get; }
+
+    public NullableEnumMappers()
+    {
+        OrderStatusMapper = CreateEnumMapper<OrderStatus, OrderStatusDto>(status => status switch
+        {
+            OrderStatus.Pending => OrderStatusDto.Pending,
+            OrderStatus.Shipped => OrderStatusDto.Shipped,
+            OrderStatus.Cancelled => OrderStatusDto.Cancelled,
+            _ => throw new ArgumentOutOfRangeException(nameof(status), status, null),
+        });
+
+        NullableToNullable = CreateMapper<OrderWithNullableStatus, OrderDtoWithNullableStatus>(
+            src => new OrderDtoWithNullableStatus
+            {
+                Id     = src.Id,
+                Status = OrderStatusMapper.Map(src.Status),
+            });
+
+        NullableToNonNullable = CreateMapper<OrderWithNullableStatus, OrderDtoWithDefaultStatus>(
+            src => new OrderDtoWithDefaultStatus
+            {
+                Id     = src.Id,
+                Status = OrderStatusMapper.Map(src.Status, OrderStatusDto.Pending),
+            });
+
+        NonNullableToNullable = CreateMapper<Order, OrderDtoWithNullableStatus>(
+            src => new OrderDtoWithNullableStatus
+            {
+                Id     = src.Id,
+                Status = OrderStatusMapper.Map(src.Status),
+            });
+    }
+}
+
+/// <summary>
 /// Declares Order BEFORE OrderLine — the reverse of dependency order.
 /// Verifies that deferred nested-mapper resolution allows any declaration order.
 /// </summary>
