@@ -165,7 +165,7 @@ public class SymmetricEnumMappingTests
     public void ToExpression_Forward_CompiledDelegate_MapsCorrectly(OrderStatus input, OrderStatusDto expected)
     {
         var expr = _mappers.OrderStatusMapper.ToExpression();
-        var func = expr.Compile();
+        Func<OrderStatus, OrderStatusDto> func = expr.Compile();
 
         Assert.Equal(expected, func(input));
     }
@@ -401,7 +401,7 @@ public class SymmetricEnumMappingTests
     [Fact]
     public void CreateSymmetricEnumMapper_NonBijective_Throws()
     {
-        var exception = Assert.Throws<InvalidOperationException>(() =>
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
         {
             _ = new NonBijectiveMappers();
         });
