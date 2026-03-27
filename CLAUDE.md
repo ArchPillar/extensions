@@ -16,6 +16,7 @@ dotnet run --project benchmarks/Mapper.Benchmarks -c Release  # run benchmarks
 
 **CRITICAL: Zero warnings policy.** Warnings are treated as errors — in ALL builds, not just Release. Every `dotnet build` must produce **zero warnings and zero errors** before moving on. After writing or modifying any code, run `dotnet build` and fix every warning before proceeding. Common violations to watch for:
 - `IDE0007`: Use `var` instead of explicit type — applies to ALL built-in types (`int`, `string`, etc.) and apparent types
+- `IDE0008`: Use explicit type instead of `var` — when the type is NOT apparent from the right-hand side (e.g. method return types like `GetProperty()` returning `PropertyInfo?`)
 - `IDE0032`: Use auto property instead of backing field
 - Other analyzer rules in `.editorconfig` — read and follow them strictly
 
