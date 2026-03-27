@@ -76,6 +76,66 @@ public sealed class EfCoreEnumTranslationTests : IDisposable
     }
 
     // -----------------------------------------------------------------------
+    // Direct nullable Map() call — Map(TSource?) → TDest?
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task DirectMap_NullableToNullable_NonNull_TranslatesToSqlAsync()
+    {
+        List<OrderStatusDto?> results = await _db.NullableOrders
+            .Where(o => o.Status != null)
+            .Select(o => _mappers.OrderStatusMapper.Map(o.Status))
+            .ToListAsync();
+
+        Assert.Equal(3, results.Count);
+        Assert.Contains(OrderStatusDto.Pending, results);
+        Assert.Contains(OrderStatusDto.Shipped, results);
+        Assert.Contains(OrderStatusDto.Cancelled, results);
+    }
+
+    [Fact]
+    public async Task DirectMap_NullableToNullable_Null_TranslatesToSqlAsync()
+    {
+        List<OrderStatusDto?> results = await _db.NullableOrders
+            .Where(o => o.Status == null)
+            .Select(o => _mappers.OrderStatusMapper.Map(o.Status))
+            .ToListAsync();
+
+        Assert.Single(results);
+        Assert.Null(results[0]);
+    }
+
+    // -----------------------------------------------------------------------
+    // Direct nullable Map() call with default — Map(TSource?, TDest) → TDest
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task DirectMap_NullableWithDefault_NonNull_TranslatesToSqlAsync()
+    {
+        List<OrderStatusDto> results = await _db.NullableOrders
+            .Where(o => o.Status != null)
+            .Select(o => _mappers.OrderStatusMapper.Map(o.Status, OrderStatusDto.Pending))
+            .ToListAsync();
+
+        Assert.Equal(3, results.Count);
+        Assert.Contains(OrderStatusDto.Pending, results);
+        Assert.Contains(OrderStatusDto.Shipped, results);
+        Assert.Contains(OrderStatusDto.Cancelled, results);
+    }
+
+    [Fact]
+    public async Task DirectMap_NullableWithDefault_Null_TranslatesToSqlAsync()
+    {
+        List<OrderStatusDto> results = await _db.NullableOrders
+            .Where(o => o.Status == null)
+            .Select(o => _mappers.OrderStatusMapper.Map(o.Status, OrderStatusDto.Shipped))
+            .ToListAsync();
+
+        Assert.Single(results);
+        Assert.Equal(OrderStatusDto.Shipped, results[0]);
+    }
+
+    // -----------------------------------------------------------------------
     // Project() still works alongside UseArchPillarMapper
     // -----------------------------------------------------------------------
 
@@ -130,6 +190,12 @@ public sealed class EfCoreEnumTranslationTests : IDisposable
             });
         }
 
+        db.NullableOrders.AddRange(
+            new OrderWithNullableStatus { Id = 200, Status = OrderStatus.Pending },
+            new OrderWithNullableStatus { Id = 201, Status = OrderStatus.Shipped },
+            new OrderWithNullableStatus { Id = 202, Status = OrderStatus.Cancelled },
+            new OrderWithNullableStatus { Id = 203, Status = null });
+
         db.SaveChanges();
     }
 }
@@ -143,6 +209,7 @@ internal sealed class EnumTranslationDbContext(DbContextOptions<EnumTranslationD
 {
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<RealEstateProperty> Properties => Set<RealEstateProperty>();
+    public DbSet<OrderWithNullableStatus> NullableOrders => Set<OrderWithNullableStatus>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -160,5 +227,7 @@ internal sealed class EnumTranslationDbContext(DbContextOptions<EnumTranslationD
         {
             e.HasKey(p => p.Id);
         });
+
+        modelBuilder.Entity<OrderWithNullableStatus>(e => e.HasKey(o => o.Id));
     }
 }
