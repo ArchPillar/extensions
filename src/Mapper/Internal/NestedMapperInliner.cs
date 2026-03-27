@@ -106,11 +106,13 @@ internal sealed class NestedMapperInliner(IncludeSet includes, int depth = 0) : 
 
     protected override Expression VisitMethodCall(MethodCallExpression node)
     {
-        // Mapper<X,Y>.Map(srcExpr) or EnumMapper<X,Y>.Map(srcExpr)
-        if (IsScalarMapCall(node))
+        // Mapper<X,Y>.Map(srcExpr), EnumMapper<X,Y>.Map(srcExpr),
+        // SymmetricEnumMapper<X,Y>.Map(srcExpr) or .MapReverse(srcExpr)
+        if (IsScalarMapCall(node) || IsReverseMapCall(node))
         {
-            IMapper nestedMapper = CompileMapperAccessor(node.Object!);
-            LambdaExpression nestedLambda = nestedMapper.GetRawExpression(includes, depth + 1);
+            LambdaExpression nestedLambda = node.Method.Name == "MapReverse"
+                ? CompileReversibleMapperAccessor(node.Object!).GetReverseRawExpression(includes, depth + 1)
+                : CompileMapperAccessor(node.Object!).GetRawExpression(includes, depth + 1);
             Expression srcExpr = Visit(node.Arguments[0])!;
 
             // Nullable value type source (e.g. TSource?) — unwrap via .Value,
@@ -187,13 +189,32 @@ internal sealed class NestedMapperInliner(IncludeSet includes, int depth = 0) : 
         return lambda.Compile().Invoke();
     }
 
+    /// <summary>
+    /// Compiles the expression referencing the mapper instance into an
+    /// <see cref="IReversibleMapper"/> for <c>MapReverse()</c> inlining.
+    /// </summary>
+    private static IReversibleMapper CompileReversibleMapperAccessor(Expression expression)
+    {
+        var lambda = Expression.Lambda<Func<IReversibleMapper>>(
+            Expression.Convert(expression, typeof(IReversibleMapper)));
+        return lambda.Compile().Invoke();
+    }
+
     private static bool IsScalarMapCall(MethodCallExpression node)
         => node.Object != null
         && node.Method.Name == "Map"
         && node.Arguments.Count >= 1
         && node.Arguments.Count <= 2
         && (IsClosedGenericOf(node.Object.Type, typeof(Mapper<,>))
-         || IsClosedGenericOf(node.Object.Type, typeof(EnumMapper<,>)));
+         || IsClosedGenericOf(node.Object.Type, typeof(EnumMapper<,>))
+         || IsClosedGenericOf(node.Object.Type, typeof(SymmetricEnumMapper<,>)));
+
+    private static bool IsReverseMapCall(MethodCallExpression node)
+        => node.Object != null
+        && node.Method.Name == "MapReverse"
+        && node.Arguments.Count >= 1
+        && node.Arguments.Count <= 2
+        && IsClosedGenericOf(node.Object.Type, typeof(SymmetricEnumMapper<,>));
 
     // Only the 2-argument IEnumerable.Project(mapper) overload can be inlined.
     // The 3-argument overload (mapper, options) carries runtime MapOptions

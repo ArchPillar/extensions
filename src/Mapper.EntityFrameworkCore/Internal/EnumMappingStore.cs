@@ -16,15 +16,34 @@ internal sealed class EnumMappingStore
         {
             Type propertyType = property.PropertyType;
 
-            if (!propertyType.IsGenericType
-                || propertyType.GetGenericTypeDefinition() != typeof(EnumMapper<,>))
+            if (!propertyType.IsGenericType)
             {
                 continue;
             }
 
-            Type[] typeArgs = propertyType.GetGenericArguments();
-            var mapper = property.GetValue(context)!;
-            RegisterDynamic(mapper, typeArgs[0], typeArgs[1]);
+            Type genericDef = propertyType.GetGenericTypeDefinition();
+
+            if (genericDef == typeof(EnumMapper<,>))
+            {
+                Type[] typeArgs = propertyType.GetGenericArguments();
+                var mapper = property.GetValue(context)!;
+                RegisterDynamic(mapper, typeArgs[0], typeArgs[1]);
+            }
+            else if (genericDef == typeof(SymmetricEnumMapper<,>))
+            {
+                Type[] typeArgs = propertyType.GetGenericArguments();
+                var mapper = property.GetValue(context)!;
+
+                // Register forward direction via the Forward inner mapper.
+                var forwardProp = propertyType.GetProperty("Forward")!;
+                var forwardMapper = forwardProp.GetValue(mapper)!;
+                RegisterDynamic(forwardMapper, typeArgs[0], typeArgs[1]);
+
+                // Register reverse direction via the Reverse inner mapper.
+                var reverseProp = propertyType.GetProperty("Reverse")!;
+                var reverseMapper = reverseProp.GetValue(mapper)!;
+                RegisterDynamic(reverseMapper, typeArgs[1], typeArgs[0]);
+            }
         }
     }
 
