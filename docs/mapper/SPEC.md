@@ -453,6 +453,32 @@ Order = CreateMapper<Order, OrderDto>(...)
     .WithTransformers(new MyMapperTransformer());
 ```
 
+**Using `IOptions<GlobalMapperOptions>`:**
+
+The library has no dependency on `Microsoft.Extensions.Options`, but since
+`MapperContext` subclasses are user-defined, they can accept
+`IOptions<GlobalMapperOptions>` and unwrap the value before passing it to the
+base class:
+
+```csharp
+// Registration — in Program.cs / Startup
+services.Configure<GlobalMapperOptions>(o =>
+    o.AddTransformer(new CastTransformer()));
+services.AddSingleton<AppMappers>();
+
+// Context — accepts IOptions<> and unwraps
+public class AppMappers : MapperContext
+{
+    public AppMappers(IOptions<GlobalMapperOptions> options) : base(options.Value)
+    {
+        // ...
+    }
+}
+```
+
+This integrates with the standard ASP.NET Core configuration pipeline while
+keeping the core library dependency-free.
+
 Transformers must preserve the `MemberInit` structure of the expression body and return an expression of the same type. Violations throw `InvalidOperationException` with a clear message.
 
 ### 11. MapTo — Mapping onto an Existing Object
