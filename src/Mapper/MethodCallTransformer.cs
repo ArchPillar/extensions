@@ -98,8 +98,7 @@ public abstract class MethodCallTransformer : ExpressionVisitor, IExpressionTran
         // comes from an interface type, the candidate will be the concrete
         // implementation — resolve via the interface map.
         if (target.DeclaringType is { IsInterface: true }
-            && candidate.DeclaringType is not null
-            && candidate.DeclaringType.IsAssignableTo(target.DeclaringType))
+            && candidate.DeclaringType?.IsAssignableTo(target.DeclaringType) is true)
         {
             return IsInterfaceMatch(candidate, target);
         }
