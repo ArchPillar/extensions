@@ -35,12 +35,12 @@ internal sealed class EnumMappingStore
                 var mapper = property.GetValue(context)!;
 
                 // Register forward direction via the Forward inner mapper.
-                var forwardProp = propertyType.GetProperty("Forward")!;
+                PropertyInfo forwardProp = propertyType.GetProperty("Forward")!;
                 var forwardMapper = forwardProp.GetValue(mapper)!;
                 RegisterDynamic(forwardMapper, typeArgs[0], typeArgs[1]);
 
                 // Register reverse direction via the Reverse inner mapper.
-                var reverseProp = propertyType.GetProperty("Reverse")!;
+                PropertyInfo reverseProp = propertyType.GetProperty("Reverse")!;
                 var reverseMapper = reverseProp.GetValue(mapper)!;
                 RegisterDynamic(reverseMapper, typeArgs[1], typeArgs[0]);
             }
