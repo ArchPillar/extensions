@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using DotNet.Testcontainers.Builders;
 using Microsoft.EntityFrameworkCore;
 using Testcontainers.PostgreSql;
@@ -161,6 +162,132 @@ public sealed class EnumMappingPostgresTests : IAsyncLifetime
                 Type  = allTypes[i],
             });
         }
+
+        db.NullableOrders.AddRange(
+            new OrderWithNullableStatus { Id = 200, Status = OrderStatus.Pending },
+            new OrderWithNullableStatus { Id = 201, Status = OrderStatus.Shipped },
+            new OrderWithNullableStatus { Id = 202, Status = OrderStatus.Cancelled },
+            new OrderWithNullableStatus { Id = 203, Status = null });
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Nullable enum PostgreSQL translation tests
+// ---------------------------------------------------------------------------
+
+public sealed class NullableEnumMappingPostgresTests : IAsyncLifetime
+{
+    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder()
+        .WithWaitStrategy(Wait.ForUnixContainer()
+            .UntilMessageIsLogged("database system is ready to accept connections"))
+        .Build();
+
+    private PostgresTestDbContext _db = null!;
+    private readonly NullableEnumMappers _mappers = new();
+
+    public async Task InitializeAsync()
+    {
+        await _postgres.StartAsync();
+
+        DbContextOptions<PostgresTestDbContext> options = new DbContextOptionsBuilder<PostgresTestDbContext>()
+            .UseNpgsql(_postgres.GetConnectionString())
+            .Options;
+
+        _db = new PostgresTestDbContext(options);
+        await _db.Database.EnsureCreatedAsync();
+
+        _db.NullableOrders.AddRange(
+            new OrderWithNullableStatus { Id = 1, Status = OrderStatus.Pending },
+            new OrderWithNullableStatus { Id = 2, Status = OrderStatus.Shipped },
+            new OrderWithNullableStatus { Id = 3, Status = OrderStatus.Cancelled },
+            new OrderWithNullableStatus { Id = 4, Status = null });
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task DisposeAsync()
+    {
+        await _db.DisposeAsync();
+        await _postgres.DisposeAsync();
+    }
+
+    [Theory]
+    [InlineData(1, OrderStatusDto.Pending)]
+    [InlineData(2, OrderStatusDto.Shipped)]
+    [InlineData(3, OrderStatusDto.Cancelled)]
+    public async Task Project_NullableToNullable_NonNull_TranslatesViaPostgresAsync(
+        int id, OrderStatusDto expected)
+    {
+        OrderDtoWithNullableStatus result = await _db.NullableOrders
+            .Where(o => o.Id == id)
+            .Project(_mappers.NullableToNullable)
+            .SingleAsync();
+
+        Assert.Equal(expected, result.Status);
+    }
+
+    [Fact]
+    public async Task Project_NullableToNullable_Null_TranslatesViaPostgresAsync()
+    {
+        OrderDtoWithNullableStatus result = await _db.NullableOrders
+            .Where(o => o.Id == 4)
+            .Project(_mappers.NullableToNullable)
+            .SingleAsync();
+
+        Assert.Null(result.Status);
+    }
+
+    [Theory]
+    [InlineData(1, OrderStatusDto.Pending)]
+    [InlineData(2, OrderStatusDto.Shipped)]
+    [InlineData(3, OrderStatusDto.Cancelled)]
+    public async Task Project_NullableToNonNullable_NonNull_TranslatesViaPostgresAsync(
+        int id, OrderStatusDto expected)
+    {
+        OrderDtoWithDefaultStatus result = await _db.NullableOrders
+            .Where(o => o.Id == id)
+            .Project(_mappers.NullableToNonNullable)
+            .SingleAsync();
+
+        Assert.Equal(expected, result.Status);
+    }
+
+    [Fact]
+    public async Task Project_NullableToNonNullable_Null_TranslatesViaPostgresAsync()
+    {
+        OrderDtoWithDefaultStatus result = await _db.NullableOrders
+            .Where(o => o.Id == 4)
+            .Project(_mappers.NullableToNonNullable)
+            .SingleAsync();
+
+        Assert.Equal(OrderStatusDto.Pending, result.Status);
+    }
+
+    [Fact]
+    public async Task Select_ToNullableExpression_NonNull_TranslatesViaPostgresAsync()
+    {
+        Expression<Func<OrderStatus?, OrderStatusDto?>> expr = _mappers.OrderStatusMapper.ToNullableExpression();
+
+        OrderStatusDto? result = await _db.NullableOrders
+            .Where(o => o.Id == 1)
+            .Select(o => o.Status)
+            .Select(expr)
+            .SingleAsync();
+
+        Assert.Equal(OrderStatusDto.Pending, result);
+    }
+
+    [Fact]
+    public async Task Select_ToNullableExpression_Null_TranslatesViaPostgresAsync()
+    {
+        Expression<Func<OrderStatus?, OrderStatusDto?>> expr = _mappers.OrderStatusMapper.ToNullableExpression();
+
+        OrderStatusDto? result = await _db.NullableOrders
+            .Where(o => o.Id == 4)
+            .Select(o => o.Status)
+            .Select(expr)
+            .SingleAsync();
+
+        Assert.Null(result);
     }
 }
 
@@ -172,6 +299,7 @@ internal sealed class PostgresTestDbContext(DbContextOptions<PostgresTestDbConte
 {
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<RealEstateProperty> Properties => Set<RealEstateProperty>();
+    public DbSet<OrderWithNullableStatus> NullableOrders => Set<OrderWithNullableStatus>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -185,5 +313,6 @@ internal sealed class PostgresTestDbContext(DbContextOptions<PostgresTestDbConte
         modelBuilder.Entity<OrderLine>(e => e.HasKey(l => l.Id));
         modelBuilder.Entity<Customer>(e => e.HasKey(c => c.Name));
         modelBuilder.Entity<RealEstateProperty>(e => e.HasKey(p => p.Id));
+        modelBuilder.Entity<OrderWithNullableStatus>(e => e.HasKey(o => o.Id));
     }
 }
