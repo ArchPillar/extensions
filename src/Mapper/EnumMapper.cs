@@ -32,6 +32,9 @@ public sealed class EnumMapper<TSource, TDest>(Func<TSource, TDest> mappingMetho
     private readonly Lazy<Expression<Func<TSource, TDest>>> _expression =
         new(() => BuildExpression(mappingMethod));
 
+    private readonly Lazy<Expression<Func<TSource?, TDest?>>> _nullableExpression =
+        new(() => BuildNullableExpression(mappingMethod));
+
     /// <summary>
     /// Maps a single source enum value to the destination enum type.
     /// </summary>
@@ -39,11 +42,33 @@ public sealed class EnumMapper<TSource, TDest>(Func<TSource, TDest> mappingMetho
         => mappingMethod(source);
 
     /// <summary>
+    /// Maps a nullable source enum value. Returns <see langword="null"/> when
+    /// <paramref name="source"/> is <see langword="null"/>.
+    /// </summary>
+    public TDest? Map(TSource? source)
+        => source.HasValue ? mappingMethod(source.Value) : null;
+
+    /// <summary>
+    /// Maps a nullable source enum value. Returns <paramref name="defaultValue"/>
+    /// when <paramref name="source"/> is <see langword="null"/>.
+    /// </summary>
+    public TDest Map(TSource? source, TDest defaultValue)
+        => source.HasValue ? mappingMethod(source.Value) : defaultValue;
+
+    /// <summary>
     /// Returns the mapping as a LINQ expression tree (a conditional chain
     /// covering every <typeparamref name="TSource"/> value).
     /// </summary>
     public Expression<Func<TSource, TDest>> ToExpression()
         => _expression.Value;
+
+    /// <summary>
+    /// Returns the nullable-to-nullable mapping as a LINQ expression tree.
+    /// The expression returns <see langword="null"/> when the source is
+    /// <see langword="null"/>.
+    /// </summary>
+    public Expression<Func<TSource?, TDest?>> ToNullableExpression()
+        => _nullableExpression.Value;
 
     LambdaExpression IMapper.GetRawExpression(IncludeSet includes, int depth)
     {
@@ -111,6 +136,26 @@ public sealed class EnumMapper<TSource, TDest>(Func<TSource, TDest> mappingMetho
         }
 
         return Expression.Lambda<Func<TSource, TDest>>(body, sourceParam);
+    }
+
+    private static Expression<Func<TSource?, TDest?>> BuildNullableExpression(
+        Func<TSource, TDest> method)
+    {
+        Expression<Func<TSource, TDest>> coreExpression = BuildExpression(method);
+
+        ParameterExpression nullableParam = Expression.Parameter(typeof(TSource?), "source");
+        Expression hasValue = Expression.Property(nullableParam, "HasValue");
+        Expression value    = Expression.Property(nullableParam, "Value");
+
+        Expression body = new ParameterReplacer(coreExpression.Parameters[0], value)
+            .Visit(coreExpression.Body)!;
+
+        Expression result = Expression.Condition(
+            hasValue,
+            Expression.Convert(body, typeof(TDest?)),
+            Expression.Default(typeof(TDest?)));
+
+        return Expression.Lambda<Func<TSource?, TDest?>>(result, nullableParam);
     }
 
     private static bool AllValuesMatch((object sourceInt, object destInt)[] entries)

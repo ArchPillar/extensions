@@ -17,15 +17,36 @@ internal sealed class EnumMapperQueryInterceptor : IQueryExpressionInterceptor
         {
             if (node.Object is not null
                 && node.Method.Name == "Map"
-                && node.Arguments.Count == 1
+                && node.Arguments.Count >= 1
+                && node.Arguments.Count <= 2
                 && IsEnumMapperType(node.Method.DeclaringType))
             {
                 Type[] typeArgs = node.Method.DeclaringType!.GetGenericArguments();
+                Expression sourceArg = Visit(node.Arguments[0]);
 
-                MethodInfo closedMethod = EnumMappingFunctions.MapEnumMethod
+                // 2-arg overload: Map(TSource?, TDest defaultValue)
+                if (node.Arguments.Count == 2)
+                {
+                    MethodInfo closedMethod = EnumMappingFunctions.MapEnumNullableWithDefaultMethod
+                        .MakeGenericMethod(typeArgs[0], typeArgs[1]);
+
+                    return Expression.Call(closedMethod, sourceArg, Visit(node.Arguments[1]));
+                }
+
+                // 1-arg with nullable source: Map(TSource?) → TDest?
+                if (Nullable.GetUnderlyingType(sourceArg.Type) != null)
+                {
+                    MethodInfo closedMethod = EnumMappingFunctions.MapEnumNullableMethod
+                        .MakeGenericMethod(typeArgs[0], typeArgs[1]);
+
+                    return Expression.Call(closedMethod, sourceArg);
+                }
+
+                // 1-arg non-nullable: Map(TSource) → TDest (existing path)
+                MethodInfo nonNullableMethod = EnumMappingFunctions.MapEnumMethod
                     .MakeGenericMethod(typeArgs[0], typeArgs[1]);
 
-                return Expression.Call(closedMethod, Visit(node.Arguments[0]));
+                return Expression.Call(nonNullableMethod, sourceArg);
             }
 
             return base.VisitMethodCall(node);

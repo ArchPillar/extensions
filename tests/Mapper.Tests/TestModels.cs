@@ -186,6 +186,37 @@ public class RealEstatePropertyDto
 }
 
 // ---------------------------------------------------------------------------
+// Models for nullable enum mapping tests
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// Source entity with a nullable enum property.
+/// </summary>
+public class OrderWithNullableStatus
+{
+    public required int Id { get; set; }
+    public OrderStatus? Status { get; set; }
+}
+
+/// <summary>
+/// Destination DTO with a nullable enum property (nullable → nullable).
+/// </summary>
+public class OrderDtoWithNullableStatus
+{
+    public required int Id { get; set; }
+    public OrderStatusDto? Status { get; set; }
+}
+
+/// <summary>
+/// Destination DTO with a non-nullable enum property (nullable → non-nullable with default).
+/// </summary>
+public class OrderDtoWithDefaultStatus
+{
+    public required int Id { get; set; }
+    public required OrderStatusDto Status { get; set; }
+}
+
+// ---------------------------------------------------------------------------
 // Models for InheritedMapperTests — destination type hierarchy
 // Source: Document → base DTO: DocumentSummaryDto
 //                 → derived: DocumentDetailDto, DocumentStatsDto

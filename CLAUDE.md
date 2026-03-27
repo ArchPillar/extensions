@@ -10,11 +10,21 @@ A monorepo of standalone .NET libraries published under the `ArchPillar.Extensio
 
 ```bash
 dotnet build                                          # build all projects
-dotnet test tests/Mapper.Tests                        # run tests
+dotnet test tests/Mapper.Tests                        # run ALL tests (including PostgreSQL)
 dotnet run --project benchmarks/Mapper.Benchmarks -c Release  # run benchmarks
 ```
 
 Warnings are treated as errors in Release builds (outside Visual Studio). Always ensure code compiles warning-free. Build warnings must be treated as errors and fixed immediately — do not leave warnings in the codebase.
+
+### PostgreSQL Tests
+
+The test suite includes PostgreSQL integration tests that verify SQL translation against a real database. **Always run the full test suite** (`dotnet test tests/Mapper.Tests`) including PostgreSQL tests — do not skip or filter them out.
+
+PostgreSQL test infrastructure (`PostgresTestDatabase`):
+- **Docker available**: Uses Testcontainers to spin up an ephemeral PostgreSQL container
+- **Cloud environment** (`CLAUDE_CLOUD=true`): Falls back to the host-local PostgreSQL instance (`Host=localhost;Port=5432;Username=app;Password=postgres`) when Docker is unavailable. Start it with `pg_ctlcluster 16 main start` if needed.
+
+Each test class gets an isolated database (created/dropped automatically).
 
 ## Architecture
 

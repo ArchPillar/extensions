@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 
 namespace ArchPillar.Extensions.Mapper.Tests;
@@ -155,7 +156,140 @@ public sealed class EnumMappingSqliteTests : IDisposable
             });
         }
 
+        // Seed nullable enum rows: one per status value + one null row.
+        db.NullableOrders.AddRange(
+            new OrderWithNullableStatus { Id = 200, Status = OrderStatus.Pending },
+            new OrderWithNullableStatus { Id = 201, Status = OrderStatus.Shipped },
+            new OrderWithNullableStatus { Id = 202, Status = OrderStatus.Cancelled },
+            new OrderWithNullableStatus { Id = 203, Status = null });
+
         db.SaveChanges();
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Nullable enum SQLite translation tests
+// ---------------------------------------------------------------------------
+
+public sealed class NullableEnumMappingSqliteTests : IDisposable
+{
+    private readonly SqliteTestDbContext _db;
+    private readonly NullableEnumMappers _mappers = new();
+
+    public NullableEnumMappingSqliteTests()
+    {
+        DbContextOptions<SqliteTestDbContext> options = new DbContextOptionsBuilder<SqliteTestDbContext>()
+            .UseSqlite("DataSource=:memory:")
+            .Options;
+
+        _db = new SqliteTestDbContext(options);
+        _db.Database.OpenConnection();
+        _db.Database.EnsureCreated();
+
+        _db.NullableOrders.AddRange(
+            new OrderWithNullableStatus { Id = 1, Status = OrderStatus.Pending },
+            new OrderWithNullableStatus { Id = 2, Status = OrderStatus.Shipped },
+            new OrderWithNullableStatus { Id = 3, Status = OrderStatus.Cancelled },
+            new OrderWithNullableStatus { Id = 4, Status = null });
+        _db.SaveChanges();
+    }
+
+    public void Dispose()
+    {
+        _db.Database.CloseConnection();
+        _db.Dispose();
+    }
+
+    // -----------------------------------------------------------------------
+    // Nullable → Nullable via LINQ projection
+    // -----------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(1, OrderStatusDto.Pending)]
+    [InlineData(2, OrderStatusDto.Shipped)]
+    [InlineData(3, OrderStatusDto.Cancelled)]
+    public async Task Project_NullableToNullable_NonNull_TranslatesViaSqliteAsync(
+        int id, OrderStatusDto expected)
+    {
+        OrderDtoWithNullableStatus result = await _db.NullableOrders
+            .Where(o => o.Id == id)
+            .Project(_mappers.NullableToNullable)
+            .SingleAsync();
+
+        Assert.Equal(expected, result.Status);
+    }
+
+    [Fact]
+    public async Task Project_NullableToNullable_Null_TranslatesViaSqliteAsync()
+    {
+        OrderDtoWithNullableStatus result = await _db.NullableOrders
+            .Where(o => o.Id == 4)
+            .Project(_mappers.NullableToNullable)
+            .SingleAsync();
+
+        Assert.Null(result.Status);
+    }
+
+    // -----------------------------------------------------------------------
+    // Nullable → Non-nullable with default via LINQ projection
+    // -----------------------------------------------------------------------
+
+    [Theory]
+    [InlineData(1, OrderStatusDto.Pending)]
+    [InlineData(2, OrderStatusDto.Shipped)]
+    [InlineData(3, OrderStatusDto.Cancelled)]
+    public async Task Project_NullableToNonNullable_NonNull_TranslatesViaSqliteAsync(
+        int id, OrderStatusDto expected)
+    {
+        OrderDtoWithDefaultStatus result = await _db.NullableOrders
+            .Where(o => o.Id == id)
+            .Project(_mappers.NullableToNonNullable)
+            .SingleAsync();
+
+        Assert.Equal(expected, result.Status);
+    }
+
+    [Fact]
+    public async Task Project_NullableToNonNullable_Null_TranslatesViaSqliteAsync()
+    {
+        OrderDtoWithDefaultStatus result = await _db.NullableOrders
+            .Where(o => o.Id == 4)
+            .Project(_mappers.NullableToNonNullable)
+            .SingleAsync();
+
+        Assert.Equal(OrderStatusDto.Pending, result.Status);
+    }
+
+    // -----------------------------------------------------------------------
+    // Standalone ToNullableExpression — EF Core must translate the conditional
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task Select_ToNullableExpression_NonNull_TranslatesViaSqliteAsync()
+    {
+        Expression<Func<OrderStatus?, OrderStatusDto?>> expr = _mappers.OrderStatusMapper.ToNullableExpression();
+
+        OrderStatusDto? result = await _db.NullableOrders
+            .Where(o => o.Id == 1)
+            .Select(o => o.Status)
+            .Select(expr)
+            .SingleAsync();
+
+        Assert.Equal(OrderStatusDto.Pending, result);
+    }
+
+    [Fact]
+    public async Task Select_ToNullableExpression_Null_TranslatesViaSqliteAsync()
+    {
+        Expression<Func<OrderStatus?, OrderStatusDto?>> expr = _mappers.OrderStatusMapper.ToNullableExpression();
+
+        OrderStatusDto? result = await _db.NullableOrders
+            .Where(o => o.Id == 4)
+            .Select(o => o.Status)
+            .Select(expr)
+            .SingleAsync();
+
+        Assert.Null(result);
     }
 }
 
@@ -167,6 +301,7 @@ internal sealed class SqliteTestDbContext(DbContextOptions<SqliteTestDbContext> 
 {
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<RealEstateProperty> Properties => Set<RealEstateProperty>();
+    public DbSet<OrderWithNullableStatus> NullableOrders => Set<OrderWithNullableStatus>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -180,5 +315,6 @@ internal sealed class SqliteTestDbContext(DbContextOptions<SqliteTestDbContext> 
         modelBuilder.Entity<OrderLine>(e => e.HasKey(l => l.Id));
         modelBuilder.Entity<Customer>(e => e.HasKey(c => c.Name));
         modelBuilder.Entity<RealEstateProperty>(e => e.HasKey(p => p.Id));
+        modelBuilder.Entity<OrderWithNullableStatus>(e => e.HasKey(o => o.Id));
     }
 }

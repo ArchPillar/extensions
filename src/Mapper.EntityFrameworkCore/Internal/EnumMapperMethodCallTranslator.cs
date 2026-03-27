@@ -24,9 +24,15 @@ internal sealed class EnumMapperMethodCallTranslator(
         IReadOnlyList<SqlExpression> arguments,
         IDiagnosticsLogger<DbLoggerCategory.Query> logger)
     {
-        // Only handle our marker method.
-        if (method.DeclaringType != typeof(EnumMappingFunctions)
-            || method.Name != nameof(EnumMappingFunctions.MapEnum))
+        if (method.DeclaringType != typeof(EnumMappingFunctions))
+        {
+            return null;
+        }
+
+        var isNullable            = method.Name == nameof(EnumMappingFunctions.MapEnumNullable);
+        var isNullableWithDefault = method.Name == nameof(EnumMappingFunctions.MapEnumNullableWithDefault);
+
+        if (method.Name != nameof(EnumMappingFunctions.MapEnum) && !isNullable && !isNullableWithDefault)
         {
             return null;
         }
@@ -72,6 +78,25 @@ internal sealed class EnumMapperMethodCallTranslator(
             whenClauses.Add(new CaseWhenClause(test, result));
         }
 
-        return sqlExpressionFactory.Case(source, whenClauses, elseResult: null);
+        SqlExpression caseExpression = sqlExpressionFactory.Case(source, whenClauses, elseResult: null);
+
+        // Non-nullable: return the bare CASE expression.
+        if (!isNullable && !isNullableWithDefault)
+        {
+            return caseExpression;
+        }
+
+        // Nullable variants: wrap in CASE WHEN source IS NOT NULL THEN … ELSE … END
+        // For nullable-to-nullable, the ELSE is NULL (no else clause = implicit NULL).
+        // For nullable-with-default, the ELSE is the user-supplied default value.
+        SqlExpression? elseResult = isNullableWithDefault
+            ? arguments[1]
+            : null;
+
+        return sqlExpressionFactory.Case(
+            [new CaseWhenClause(
+                sqlExpressionFactory.IsNotNull(source),
+                caseExpression)],
+            elseResult);
     }
 }
