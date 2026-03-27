@@ -47,8 +47,7 @@ internal sealed class PostgresTestDatabase : IAsyncDisposable
             .Options;
 
         await using var adminDb = new PostgresTestDbContext(adminOptions);
-        await adminDb.Database.ExecuteSqlRawAsync(
-            $"CREATE DATABASE \"{_databaseName}\"");
+        await adminDb.Database.ExecuteSqlRawAsync(CreateDatabaseSql(_databaseName));
     }
 
     public async ValueTask DisposeAsync()
@@ -68,9 +67,18 @@ internal sealed class PostgresTestDatabase : IAsyncDisposable
                 .Options;
 
             await using var adminDb = new PostgresTestDbContext(adminOptions);
-            await adminDb.Database.ExecuteSqlRawAsync(
-                $"DROP DATABASE IF EXISTS \"{_databaseName}\" WITH (FORCE)");
+            await adminDb.Database.ExecuteSqlRawAsync(DropDatabaseSql(_databaseName));
         }
+    }
+
+    private static string CreateDatabaseSql(string name)
+    {
+        return $"CREATE DATABASE \"{name}\"";
+    }
+
+    private static string DropDatabaseSql(string name)
+    {
+        return $"DROP DATABASE IF EXISTS \"{name}\" WITH (FORCE)";
     }
 
     private static bool TryCreateContainer(out PostgreSqlContainer? container)
@@ -82,14 +90,8 @@ internal sealed class PostgresTestDatabase : IAsyncDisposable
                     .UntilMessageIsLogged("database system is ready to accept connections"))
                 .Build();
 
-            // Validate that Docker is reachable before returning the container.
-            // The Build() call above succeeds even if Docker is not available;
-            // the actual check happens on StartAsync(). However, on environments
-            // where CLAUDE_CLOUD is set we want to detect Docker absence early
-            // so the fallback can kick in without paying the StartAsync timeout.
             if (Environment.GetEnvironmentVariable("CLAUDE_CLOUD") == "true")
             {
-                // Attempt a quick Docker ping. If it throws, Docker is unavailable.
                 try
                 {
                     container.StartAsync().Wait(TimeSpan.FromSeconds(30));
