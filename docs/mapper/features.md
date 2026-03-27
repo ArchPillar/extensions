@@ -424,6 +424,7 @@ Transformers run in order: **global → per-context → per-mapper**.
 // Global — applies to all contexts (register via DI)
 var globalOptions = new GlobalMapperOptions();
 globalOptions.AddTransformer(new CastTransformer());
+services.AddSingleton(globalOptions);
 
 // Per-context — applies to all mappers in this context
 public class AppMappers : MapperContext
@@ -437,6 +438,24 @@ public class AppMappers : MapperContext
 // Per-mapper — applies to a single mapper
 Order = CreateMapper<Order, OrderDto>(...)
     .WithTransformers(new MyMapperTransformer());
+```
+
+Alternatively, use the standard `IOptions<T>` pattern. The library itself has no
+dependency on `Microsoft.Extensions.Options`, but your `MapperContext` subclass
+can accept `IOptions<GlobalMapperOptions>` and unwrap it:
+
+```csharp
+services.Configure<GlobalMapperOptions>(o =>
+    o.AddTransformer(new CastTransformer()));
+services.AddSingleton<AppMappers>();
+
+public class AppMappers : MapperContext
+{
+    public AppMappers(IOptions<GlobalMapperOptions> options) : base(options.Value)
+    {
+        AddTransformer(new MyContextTransformer());
+    }
+}
 ```
 
 ### Constraints
