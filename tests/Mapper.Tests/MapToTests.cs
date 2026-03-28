@@ -168,7 +168,78 @@ public class MapToTests
     }
 
     // -----------------------------------------------------------------------
-    // Collections — DeepWithIdentity
+    // Collections — Deep: null scenarios
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void MapTo_Deep_NullSourceCollection_ClearsDestination()
+    {
+        var mappers = new DeepCollectionMappers();
+        var order = new Order
+        {
+            Id       = 1,
+            Status   = OrderStatus.Pending,
+            Customer = new Customer { Name = "Bob", Email = "" },
+            Lines    = null!,
+        };
+        var originalLines = new List<OrderLineDto>
+        {
+            new() { ProductName = "Existing", Quantity = 1, UnitPrice = 1m },
+        };
+        var dest = new OrderDto
+        {
+            Id       = 0,
+            PlacedAt = DateTime.MinValue,
+            Status   = OrderStatusDto.Pending,
+            IsOwner  = false,
+            Lines    = originalLines,
+        };
+
+        mappers.Order.MapTo(order, dest);
+
+        Assert.Same(originalLines, dest.Lines);
+        Assert.Empty(dest.Lines);
+    }
+
+    // -----------------------------------------------------------------------
+    // Collections — DeepWithIdentity: null scenarios
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void MapTo_DeepWithIdentity_NullDestinationCollection_IsNoOp()
+    {
+        var mappers = new IdentityCollectionMappers();
+        var board = new TaskBoard
+        {
+            Id    = 1,
+            Items = [new TaskItem { Id = 10, Title = "New", Done = false }],
+        };
+        var dest = new TaskBoardDto { Id = 0, Items = null! };
+
+        mappers.TaskBoard.MapTo(board, dest);
+
+        Assert.Null(dest.Items);
+    }
+
+    [Fact]
+    public void MapTo_DeepWithIdentity_NullSourceCollection_ClearsDestination()
+    {
+        var mappers = new IdentityCollectionMappers();
+        var board = new TaskBoard { Id = 1, Items = null! };
+        var originalList = new List<TaskItemDto>
+        {
+            new() { Id = 10, Title = "Existing", Done = false },
+        };
+        var dest = new TaskBoardDto { Id = 0, Items = originalList };
+
+        mappers.TaskBoard.MapTo(board, dest);
+
+        Assert.Same(originalList, dest.Items);
+        Assert.Empty(dest.Items);
+    }
+
+    // -----------------------------------------------------------------------
+    // Collections — DeepWithIdentity: merge scenarios
     // -----------------------------------------------------------------------
 
     [Fact]

@@ -348,6 +348,9 @@ public sealed class Mapper<TSource, TDest> : IMapper
     /// <see cref="CollectionMapToMode.Deep"/>: preserves the destination
     /// collection instance by clearing and re-adding mapped items. Falls back
     /// to assignment when the destination collection is <see langword="null"/>.
+    /// The source expression is null-guarded so that a <see langword="null"/>
+    /// source collection results in the destination being cleared rather than
+    /// an <see cref="ArgumentNullException"/> from the LINQ chain.
     /// </summary>
     private static ConditionalExpression BuildDeepCollectionUpdate(
         MemberExpression destAccess, Expression sourceExpression, Type elementType)
@@ -356,10 +359,15 @@ public sealed class Mapper<TSource, TDest> : IMapper
         Type enumerableType = typeof(IEnumerable<>).MakeGenericType(elementType);
         MethodInfo replaceMethod = ReplaceContentsMethod.MakeGenericMethod(elementType);
 
+        // Guard the source expression: if the root collection is null, pass
+        // null to ReplaceContents (which clears the dest) instead of letting
+        // Select(null, ...).ToList() throw.
+        Expression guardedSource = GuardNullCollectionSource(sourceExpression);
+
         Expression replaceCall = Expression.Call(
             replaceMethod,
             Expression.Convert(destAccess, collectionType),
-            Expression.Convert(sourceExpression, enumerableType));
+            Expression.Convert(guardedSource, enumerableType));
 
         return Expression.IfThenElse(
             Expression.NotEqual(destAccess, Expression.Default(destAccess.Type)),
