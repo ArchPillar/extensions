@@ -210,6 +210,29 @@ public class CloneMapperTests
     }
 
     [Fact]
+    public void Clone_MapTo_Collection_ShallowCopiesReference()
+    {
+        var source = new Ticket
+        {
+            Id          = 1,
+            Title       = "Task",
+            Description = "Do something",
+            Tags        = ["alpha", "beta"],
+        };
+        var target = new Ticket
+        {
+            Id          = 0,
+            Title       = "Placeholder",
+            Description = "Old",
+            Tags        = ["old-tag"],
+        };
+
+        _mappers.Ticket.MapTo(source, target);
+
+        Assert.Same(source.Tags, target.Tags);
+    }
+
+    [Fact]
     public void Clone_ToExpression_ProducesValidExpression()
     {
         var expression = _mappers.Ticket.ToExpression();

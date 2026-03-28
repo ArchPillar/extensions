@@ -151,6 +151,36 @@ public class OrderLineDto
     public ProductDto? Product { get; set; }   // optional — full product detail
 }
 
+// ---------------------------------------------------------------------------
+// Models for MapTo collection mode tests (DeepWithIdentity)
+// ---------------------------------------------------------------------------
+
+public class TaskItem
+{
+    public required int Id { get; set; }
+    public required string Title { get; set; }
+    public bool Done { get; set; }
+}
+
+public class TaskItemDto
+{
+    public required int Id { get; set; }
+    public required string Title { get; set; }
+    public bool Done { get; set; }
+}
+
+public class TaskBoard
+{
+    public required int Id { get; set; }
+    public List<TaskItem> Items { get; set; } = [];
+}
+
+public class TaskBoardDto
+{
+    public required int Id { get; set; }
+    public List<TaskItemDto> Items { get; set; } = [];
+}
+
 public class ProductDto
 {
     public required int Id { get; set; }

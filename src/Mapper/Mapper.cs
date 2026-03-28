@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
+using System.Reflection;
 using ArchPillar.Extensions.Mapper.Internal;
 
 namespace ArchPillar.Extensions.Mapper;
@@ -271,6 +272,16 @@ public sealed class Mapper<TSource, TDest> : IMapper
             body, raw.Parameters[0], bindingsParam);
     }
 
+    private static readonly MethodInfo ReplaceContentsMethod =
+        typeof(CollectionUpdater).GetMethod(
+            nameof(CollectionUpdater.ReplaceContents),
+            BindingFlags.Static | BindingFlags.Public)!;
+
+    private static readonly MethodInfo MergeWithIdentityMethod =
+        typeof(CollectionUpdater).GetMethod(
+            nameof(CollectionUpdater.MergeWithIdentity),
+            BindingFlags.Static | BindingFlags.Public)!;
+
     private Action<TSource, TDest, List<(object, object?)>?> BuildMapToAction()
     {
         Expression<Func<TSource, List<(object, object?)>?, TDest>> initExpr = BuildMapExpression();
@@ -279,6 +290,9 @@ public sealed class Mapper<TSource, TDest> : IMapper
         var memberInit = (MemberInitExpression)initExpr.Body;
         ParameterExpression destParam = Expression.Parameter(typeof(TDest), "dest");
         ParameterExpression srcParam  = initExpr.Parameters[0];
+
+        // Index mappings by destination name for collection config lookup
+        var mappingsByDest = Mappings.ToDictionary(m => m.Destination.Name, StringComparer.Ordinal);
 
         var assignments = new List<Expression>(memberInit.Bindings.Count);
         foreach (MemberBinding binding in memberInit.Bindings)
@@ -289,14 +303,120 @@ public sealed class Mapper<TSource, TDest> : IMapper
                     $"MapTo requires MemberAssignment bindings but found {binding.BindingType} for '{binding.Member.Name}'.");
             }
 
-            assignments.Add(Expression.Assign(
-                Expression.MakeMemberAccess(destParam, assignment.Member),
-                assignment.Expression));
+            MemberExpression destAccess = Expression.MakeMemberAccess(destParam, assignment.Member);
+
+            CollectionMapToConfig? config = mappingsByDest.GetValueOrDefault(binding.Member.Name)?.CollectionConfig;
+            CollectionMapToMode mode = config?.Mode ?? CollectionMapToMode.Shallow;
+
+            switch (mode)
+            {
+                case CollectionMapToMode.Deep:
+                {
+                    Type? elementType = CollectionUpdater.GetCollectionElementType(destAccess.Type);
+                    if (elementType is not null)
+                    {
+                        assignments.Add(BuildDeepCollectionUpdate(destAccess, assignment.Expression, elementType));
+                    }
+                    else
+                    {
+                        assignments.Add(Expression.Assign(destAccess, assignment.Expression));
+                    }
+
+                    break;
+                }
+
+                case CollectionMapToMode.DeepWithIdentity:
+                {
+                    assignments.Add(BuildIdentityMerge(destAccess, srcParam, config!));
+                    break;
+                }
+
+                default:
+                {
+                    assignments.Add(Expression.Assign(destAccess, assignment.Expression));
+                    break;
+                }
+            }
         }
 
         BlockExpression block = Expression.Block(typeof(void), assignments);
         return Expression.Lambda<Action<TSource, TDest, List<(object, object?)>?>>(
             block, srcParam, destParam, bindingsParam).Compile();
+    }
+
+    /// <summary>
+    /// <see cref="CollectionMapToMode.Deep"/>: preserves the destination
+    /// collection instance by clearing and re-adding mapped items. Falls back
+    /// to assignment when the destination collection is <see langword="null"/>.
+    /// The source expression is null-guarded so that a <see langword="null"/>
+    /// source collection results in the destination being cleared rather than
+    /// an <see cref="ArgumentNullException"/> from the LINQ chain.
+    /// </summary>
+    private static ConditionalExpression BuildDeepCollectionUpdate(
+        MemberExpression destAccess, Expression sourceExpression, Type elementType)
+    {
+        Type collectionType = typeof(ICollection<>).MakeGenericType(elementType);
+        Type enumerableType = typeof(IEnumerable<>).MakeGenericType(elementType);
+        MethodInfo replaceMethod = ReplaceContentsMethod.MakeGenericMethod(elementType);
+
+        // Guard the source expression: if the root collection is null, pass
+        // null to ReplaceContents (which clears the dest) instead of letting
+        // Select(null, ...).ToList() throw.
+        Expression guardedSource = GuardNullCollectionSource(sourceExpression);
+
+        Expression replaceCall = Expression.Call(
+            replaceMethod,
+            Expression.Convert(destAccess, collectionType),
+            Expression.Convert(guardedSource, enumerableType));
+
+        return Expression.IfThenElse(
+            Expression.NotEqual(destAccess, Expression.Default(destAccess.Type)),
+            replaceCall,
+            Expression.Assign(destAccess, sourceExpression));
+    }
+
+    /// <summary>
+    /// <see cref="CollectionMapToMode.DeepWithIdentity"/>: generates a call to
+    /// <see cref="CollectionUpdater.MergeWithIdentity{TSourceItem,TDestItem,TKey}"/>
+    /// that matches source/destination elements by key, uses <c>MapTo</c> for
+    /// existing items, <c>Map</c> for new items, and removes unmatched items.
+    /// Skips the merge (no-op) when the destination collection is
+    /// <see langword="null"/>.
+    /// </summary>
+    private static Expression BuildIdentityMerge(
+        MemberExpression destAccess,
+        ParameterExpression srcParam,
+        CollectionMapToConfig config)
+    {
+        // Extract generic type arguments from the pre-built delegates
+        Type[] sourceKeyArgs = config.SourceKeySelector!.GetType().GetGenericArguments();
+        Type sourceItemType  = sourceKeyArgs[0];
+        Type keyType         = sourceKeyArgs[^1];
+        Type[] destKeyArgs   = config.DestKeySelector!.GetType().GetGenericArguments();
+        Type destItemType    = destKeyArgs[0];
+
+        // Substitute the source parameter into the source collection accessor
+        LambdaExpression sourceAccessor = config.SourceCollectionAccessor!;
+        Expression sourceCollection = new ParameterReplacer(sourceAccessor.Parameters[0], srcParam)
+            .Visit(sourceAccessor.Body)!;
+
+        MethodInfo mergeMethod = MergeWithIdentityMethod.MakeGenericMethod(sourceItemType, destItemType, keyType);
+        Type collectionType = typeof(ICollection<>).MakeGenericType(destItemType);
+        Type enumerableType = typeof(IEnumerable<>).MakeGenericType(sourceItemType);
+
+        Expression mergeCall = Expression.Call(
+            mergeMethod,
+            Expression.Convert(destAccess, collectionType),
+            Expression.Convert(sourceCollection, enumerableType),
+            Expression.Constant(config.SourceKeySelector),
+            Expression.Constant(config.DestKeySelector),
+            Expression.Constant(config.MapFunc),
+            Expression.Constant(config.MapToAction));
+
+        // When dest collection is null, we can't merge — skip (no-op)
+        return Expression.IfThen(
+            Expression.NotEqual(destAccess, Expression.Default(destAccess.Type)),
+            mergeCall);
     }
 
     /// <summary>
