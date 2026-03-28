@@ -392,7 +392,102 @@ Standalone nullable expressions are available via `ToNullableExpression()`:
 Expression<Func<OrderStatus?, OrderStatusDto?>> expr = mapper.ToNullableExpression();
 ```
 
-### 8. Null Handling
+### 8. Symmetric Enum Mapping
+
+`SymmetricEnumMapper<TLeft, TRight>` provides bidirectional (bijective) mapping between two enum types from a single forward definition. The reverse mapping is derived automatically by inverting the computed pairs.
+
+```csharp
+public class AppMappers : MapperContext
+{
+    public SymmetricEnumMapper<OrderStatus, OrderStatusDto> StatusMapper { get; }
+
+    public AppMappers()
+    {
+        StatusMapper = CreateSymmetricEnumMapper<OrderStatus, OrderStatusDto>(s => s switch
+        {
+            OrderStatus.Pending   => OrderStatusDto.Pending,
+            OrderStatus.Shipped   => OrderStatusDto.Shipped,
+            OrderStatus.Cancelled => OrderStatusDto.Cancelled,
+            _ => throw new ArgumentOutOfRangeException(nameof(s)),
+        });
+    }
+}
+```
+
+**Forward and reverse mapping:**
+
+```csharp
+// Forward: TLeft → TRight
+OrderStatusDto dto = mappers.StatusMapper.Map(OrderStatus.Pending);
+
+// Reverse: TRight → TLeft
+OrderStatus domain = mappers.StatusMapper.MapReverse(OrderStatusDto.Shipped);
+```
+
+**Inline in parent mappers:**
+
+```csharp
+// Forward direction
+Order = CreateMapper<Order, OrderDto>(src => new OrderDto
+{
+    Status = StatusMapper.Map(src.Status),
+});
+
+// Reverse direction
+OrderFromDto = CreateMapper<OrderDto, Order>(dto => new Order
+{
+    Status = StatusMapper.MapReverse(dto.Status),
+});
+```
+
+**Nullable support** — all the same overloads as `EnumMapper`:
+
+| Call | Return | Behaviour |
+|------|--------|-----------|
+| `Map(TLeft)` / `MapReverse(TRight)` | `TRight` / `TLeft` | Non-nullable |
+| `Map(TLeft?)` / `MapReverse(TRight?)` | `TRight?` / `TLeft?` | Null in → null out |
+| `Map(TLeft?, TRight default)` / `MapReverse(TRight?, TLeft default)` | `TRight` / `TLeft` | Null in → default value out |
+
+**Expression access:**
+
+```csharp
+Expression<Func<OrderStatus, OrderStatusDto>>   forward  = mapper.ToExpression();
+Expression<Func<OrderStatus?, OrderStatusDto?>>  fwdNull  = mapper.ToNullableExpression();
+Expression<Func<OrderStatusDto, OrderStatus>>    reverse  = mapper.ToReverseExpression();
+Expression<Func<OrderStatusDto?, OrderStatus?>>  revNull  = mapper.ToReverseNullableExpression();
+```
+
+**Inner mapper access** — `Forward` and `Reverse` properties expose the underlying `EnumMapper<,>` instances for advanced scenarios.
+
+**Bijection validation** — at build time the mapper validates that the mapping is truly one-to-one. If two source values map to the same destination value, an `InvalidOperationException` is thrown listing the conflict. For many-to-one mappings, use `EnumMapper<,>` instead.
+
+### 9. Clone Mapper
+
+`CreateCloneMapper<T>()` creates a mapper that auto-wires every public settable property as an identity mapping (`dest.Prop = src.Prop`). This is useful for creating shallow copies of a model.
+
+```csharp
+public class AppMappers : MapperContext
+{
+    public Mapper<Order, Order> OrderClone { get; }
+
+    public AppMappers()
+    {
+        OrderClone = CreateCloneMapper<Order>();
+    }
+}
+```
+
+The clone is shallow — reference-type properties copy the reference, not the object. Chain `.Ignore()` to exclude properties or `.Map()` to customize individual mappings:
+
+```csharp
+OrderClone = CreateCloneMapper<Order>()
+    .Ignore(d => d.Id)
+    .Map(d => d.Lines, s => s.Lines.ToList());
+```
+
+Since `CreateCloneMapper` returns a standard `MapperBuilder<T, T>`, all mapper features apply: coverage validation, optional properties, `MapTo`, expression transformers, and LINQ projection.
+
+### 10. Null Handling
 
 All mappers treat a null source as a null destination — no exceptions. This applies to both in-memory object mapping and LINQ expression projection.
 
@@ -400,7 +495,7 @@ For object mapping, the compiled delegate performs an upfront null check and ret
 
 For expression projection, no explicit null check is emitted into the expression tree — EF Core and other LINQ providers already handle null propagation correctly at the SQL level.
 
-### 9. Mapper Inheritance
+### 11. Mapper Inheritance
 
 When mapping a single source type to a destination type hierarchy (e.g., `DocumentSummaryDto` → `DocumentDetailDto`), use `Inherit()` to reuse the base mapper's property mappings in derived mappers. This avoids duplicating shared mapping logic.
 
@@ -448,7 +543,7 @@ TechnicalDetail = Inherit(Summary).For<TechnicalDocument, TechnicalDocumentDto>(
 
 Inherited source expressions remain valid because `TDerivedSource` inherits all members from `TSource`.
 
-### 10. Expression Transformers
+### 12. Expression Transformers
 
 Expression transformers allow rewriting mapper expression trees during compilation — useful for replacing patterns that EF Core cannot translate (e.g., custom implicit conversions) with translatable equivalents.
 
@@ -518,7 +613,7 @@ keeping the core library dependency-free.
 
 Transformers must preserve the `MemberInit` structure of the expression body and return an expression of the same type. Violations throw `InvalidOperationException` with a clear message.
 
-### 11. MapTo — Mapping onto an Existing Object
+### 13. MapTo — Mapping onto an Existing Object
 
 `MapTo` assigns mapped properties onto a **pre-existing** destination instance rather than creating a new one. This is useful for:
 
@@ -596,6 +691,13 @@ public abstract class MapperContext
         Func<TSource, TDest> mappingMethod)
         where TSource : struct, Enum
         where TDest   : struct, Enum;
+
+    protected static SymmetricEnumMapper<TLeft, TRight> CreateSymmetricEnumMapper<TLeft, TRight>(
+        Func<TLeft, TRight> forwardMethod)
+        where TLeft  : struct, Enum
+        where TRight : struct, Enum;
+
+    protected MapperBuilder<T, T> CreateCloneMapper<T>();
 
     protected static Variable<T> CreateVariable<T>(string? name = null, T? defaultValue = default);
 
@@ -756,12 +858,63 @@ public sealed class Variable<T>
 }
 ```
 
+### SymmetricEnumMapper<TLeft, TRight>
+
+```csharp
+public sealed class SymmetricEnumMapper<TLeft, TRight>
+    where TLeft  : struct, Enum
+    where TRight : struct, Enum
+{
+    // Forward: TLeft → TRight
+    TRight Map(TLeft source);
+    TRight? Map(TLeft? source);
+    TRight Map(TLeft? source, TRight defaultValue);
+
+    // Reverse: TRight → TLeft
+    TLeft MapReverse(TRight source);
+    TLeft? MapReverse(TRight? source);
+    TLeft MapReverse(TRight? source, TLeft defaultValue);
+
+    // Expression access
+    Expression<Func<TLeft, TRight>> ToExpression();
+    Expression<Func<TLeft?, TRight?>> ToNullableExpression();
+    Expression<Func<TRight, TLeft>> ToReverseExpression();
+    Expression<Func<TRight?, TLeft?>> ToReverseNullableExpression();
+
+    // Inner mapper access
+    EnumMapper<TLeft, TRight> Forward { get; }
+    EnumMapper<TRight, TLeft> Reverse { get; }
+}
+```
+
 ### IExpressionTransformer
 
 ```csharp
 public interface IExpressionTransformer
 {
     Expression Transform(Expression expression);
+}
+```
+
+### MethodCallTransformer
+
+```csharp
+public abstract class MethodCallTransformer : ExpressionVisitor, IExpressionTransformer
+{
+    public Expression Transform(Expression expression);
+    protected abstract MethodInfo Method { get; }
+    protected abstract Expression Replacement(
+        Expression? instance, IReadOnlyList<Expression> arguments);
+}
+```
+
+### CastTransformer<TSource, TTarget>
+
+```csharp
+public abstract class CastTransformer<TSource, TTarget> : ExpressionVisitor, IExpressionTransformer
+{
+    public Expression Transform(Expression expression);
+    protected abstract Expression Replacement(Expression operand);
 }
 ```
 
@@ -864,10 +1017,12 @@ Mapper/
 | **Collection handling** | Transparent — `IEnumerable<T>`, `List<T>`, and `ICollection<T>` are all handled without extra configuration. |
 | **Optional on nested / collection types** | Supported via `ThenInclude`-style chaining (see §5). |
 | **MapTo / merge** | In-memory only — maps onto an existing destination via a compiled `Action<TSource, TDest>`. No LINQ equivalent; merging into tracked EF Core entities is an application-layer concern. Nested objects are replaced, not recursively merged. Collection update mode is configurable: `Shallow` (default, replace reference), `Deep` (preserve collection, new elements), `DeepWithIdentity` (preserve collection + matching elements via key). |
-| **Reverse mapping** | Deferred — only considered if it does not add meaningful complexity. Not a v1 requirement. |
+| **Reverse mapping** | Supported for enums via `SymmetricEnumMapper<TLeft, TRight>` — bidirectional mapping from a single forward definition, validated for bijection at build time (see §8). |
 | **Source generators** | On the roadmap — a Roslyn source generator that emits mapping delegates at compile time for zero-allocation object mapping is a target for a future milestone. |
-| **Enum mapping** | Special-cased — defined as a plain method; the library generates a switch expression tree by enumerating all enum values (see §7). |
-| **Null inputs** | All mappers return `null` for a null source. No configuration needed (see §8). |
+| **Enum mapping** | Special-cased — defined as a plain method; the library generates a switch expression tree by enumerating all enum values (see §7). Nullable overloads support `TSource?` → `TDest?` and `TSource?` → `TDest` with a default value. |
+| **Symmetric enum mapping** | `SymmetricEnumMapper<TLeft, TRight>` — bijective enum mapping with auto-derived reverse. Validates one-to-one constraint at build time (see §8). |
+| **Clone mapper** | `CreateCloneMapper<T>()` — auto-wires identity mappings for all public settable properties. Returns a standard `MapperBuilder<T, T>` for customization (see §9). |
+| **Null inputs** | All mappers return `null` for a null source. No configuration needed (see §10). |
 | **Constructor-based mapping** | Not supported — destination types must have a public parameterless constructor. The library's core guarantee is "one definition, two modes": the same mapper drives both in-memory mapping and LINQ/EF Core expression projection. Parameterized constructors cannot be translated by EF Core, so allowing them would create mappers that silently fail at query time. If a use case does not need expression projection, a plain constructor call is simpler and more explicit than a mapper. |
 | **Mapper inheritance** | Supported via `Inherit(baseMapper).For<TDerived>()` — copies base property mappings into a derived builder. Keeps DRY without hidden coupling; the inherited mappings are visible in the base mapper's definition. |
-| **Expression transformers** | Three-level pipeline (global → per-context → per-mapper) for rewriting expression trees during compilation. Runs after inlining, before variable substitution. Must preserve `MemberInit` structure. |
+| **Expression transformers** | Three-level pipeline (global → per-context → per-mapper) with built-in `MethodCallTransformer` and `CastTransformer<TSource, TTarget>` base classes. Runs after inlining, before variable substitution. Must preserve `MemberInit` structure. |
