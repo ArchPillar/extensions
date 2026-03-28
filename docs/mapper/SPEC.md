@@ -540,7 +540,7 @@ mapper.Order.MapTo(command, existingOrder, o => o.Set(mapper.CurrentUserId, user
 - Optional properties are **also assigned** (the same `IncludeAll` rule that governs in-memory `Map` applies).
 - Variables can be provided via `MapOptions`, same as `Map`.
 - Nested scalar properties are **replaced** with a newly mapped object; the existing nested object is not recursively merged.
-- Collection properties are **replaced** with a newly mapped collection.
+- Collection properties implementing `ICollection<T>` are **updated in-place** — the existing collection is cleared and re-populated with mapped items, preserving the original collection instance. If the destination collection is `null`, a new collection is assigned instead.
 - If `source` is `null`, the call is a no-op — the destination is left unchanged.
 - `destination` must not be `null`; passing `null` throws `ArgumentNullException`.
 
@@ -828,7 +828,7 @@ Mapper/
 | **Ignore API** | Explicit — `.Ignore(dest => dest.Prop)` must be called for any destination property that is intentionally left unmapped. Silence is not acceptance. |
 | **Collection handling** | Transparent — `IEnumerable<T>`, `List<T>`, and `ICollection<T>` are all handled without extra configuration. |
 | **Optional on nested / collection types** | Supported via `ThenInclude`-style chaining (see §5). |
-| **MapTo / merge** | In-memory only — maps onto an existing destination via a compiled `Action<TSource, TDest>`. No LINQ equivalent; merging into tracked EF Core entities is an application-layer concern. Nested objects are replaced, not recursively merged. |
+| **MapTo / merge** | In-memory only — maps onto an existing destination via a compiled `Action<TSource, TDest>`. No LINQ equivalent; merging into tracked EF Core entities is an application-layer concern. Nested objects are replaced, not recursively merged. Collection properties implementing `ICollection<T>` are updated in-place (clear + re-add), preserving the original instance. |
 | **Reverse mapping** | Deferred — only considered if it does not add meaningful complexity. Not a v1 requirement. |
 | **Source generators** | On the roadmap — a Roslyn source generator that emits mapping delegates at compile time for zero-allocation object mapping is a target for a future milestone. |
 | **Enum mapping** | Special-cased — defined as a plain method; the library generates a switch expression tree by enumerating all enum values (see §7). |

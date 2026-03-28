@@ -210,6 +210,49 @@ public class CloneMapperTests
     }
 
     [Fact]
+    public void Clone_MapTo_UpdatesCollectionInPlace()
+    {
+        var source = new Ticket
+        {
+            Id          = 1,
+            Title       = "Task",
+            Description = "Do something",
+            Tags        = ["alpha", "beta"],
+        };
+        var originalTags = new List<string> { "old-tag" };
+        var target = new Ticket
+        {
+            Id          = 0,
+            Title       = "Placeholder",
+            Description = "Old",
+            Tags        = originalTags,
+        };
+
+        _mappers.Ticket.MapTo(source, target);
+
+        Assert.Same(originalTags, target.Tags);
+        Assert.Equal(["alpha", "beta"], target.Tags);
+    }
+
+    [Fact]
+    public void Clone_MapTo_SameObject_PreservesCollection()
+    {
+        var ticket = new Ticket
+        {
+            Id          = 1,
+            Title       = "Task",
+            Description = "Do something",
+            Tags        = ["alpha", "beta"],
+        };
+        List<string> originalTags = ticket.Tags;
+
+        _mappers.Ticket.MapTo(ticket, ticket);
+
+        Assert.Same(originalTags, ticket.Tags);
+        Assert.Equal(["alpha", "beta"], ticket.Tags);
+    }
+
+    [Fact]
     public void Clone_ToExpression_ProducesValidExpression()
     {
         var expression = _mappers.Ticket.ToExpression();

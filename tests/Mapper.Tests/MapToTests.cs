@@ -66,7 +66,41 @@ public class MapToTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void MapTo_WithCollection_ReplacesExistingCollection()
+    public void MapTo_WithCollection_UpdatesExistingCollectionInPlace()
+    {
+        var order = new Order
+        {
+            Id       = 1,
+            Status   = OrderStatus.Pending,
+            Customer = new Customer { Name = "Bob", Email = "" },
+            Lines    =
+            [
+                new OrderLine { Id = 1, ProductName = "Widget", Quantity = 2, UnitPrice = 5m },
+            ],
+        };
+        var originalLines = new List<OrderLineDto>
+        {
+            new() { ProductName = "OLD", Quantity = 0, UnitPrice = 0m },
+        };
+        var dest = new OrderDto
+        {
+            Id       = 0,
+            PlacedAt = DateTime.MinValue,
+            Status   = OrderStatusDto.Pending,
+            IsOwner  = false,
+            Lines    = originalLines,
+        };
+
+        _mappers.Order.MapTo(order, dest);
+
+        Assert.Same(originalLines, dest.Lines);
+        Assert.Single(dest.Lines);
+        Assert.Equal("Widget", dest.Lines[0].ProductName);
+        Assert.Equal(2, dest.Lines[0].Quantity);
+    }
+
+    [Fact]
+    public void MapTo_WithNullDestinationCollection_AssignsNewCollection()
     {
         var order = new Order
         {
@@ -84,14 +118,14 @@ public class MapToTests
             PlacedAt = DateTime.MinValue,
             Status   = OrderStatusDto.Pending,
             IsOwner  = false,
-            Lines    = [new OrderLineDto { ProductName = "OLD", Quantity = 0, UnitPrice = 0m }],
+            Lines    = null!,
         };
 
         _mappers.Order.MapTo(order, dest);
 
+        Assert.NotNull(dest.Lines);
         Assert.Single(dest.Lines);
         Assert.Equal("Widget", dest.Lines[0].ProductName);
-        Assert.Equal(2, dest.Lines[0].Quantity);
     }
 
     // -----------------------------------------------------------------------

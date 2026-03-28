@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
+using System.Reflection;
 using ArchPillar.Extensions.Mapper.Internal;
 
 namespace ArchPillar.Extensions.Mapper;
@@ -271,6 +272,11 @@ public sealed class Mapper<TSource, TDest> : IMapper
             body, raw.Parameters[0], bindingsParam);
     }
 
+    private static readonly MethodInfo ReplaceContentsMethod =
+        typeof(CollectionUpdater).GetMethod(
+            nameof(CollectionUpdater.ReplaceContents),
+            BindingFlags.Static | BindingFlags.Public)!;
+
     private Action<TSource, TDest, List<(object, object?)>?> BuildMapToAction()
     {
         Expression<Func<TSource, List<(object, object?)>?, TDest>> initExpr = BuildMapExpression();
@@ -289,14 +295,46 @@ public sealed class Mapper<TSource, TDest> : IMapper
                     $"MapTo requires MemberAssignment bindings but found {binding.BindingType} for '{binding.Member.Name}'.");
             }
 
-            assignments.Add(Expression.Assign(
-                Expression.MakeMemberAccess(destParam, assignment.Member),
-                assignment.Expression));
+            MemberExpression destAccess = Expression.MakeMemberAccess(destParam, assignment.Member);
+            Type? elementType = CollectionUpdater.GetCollectionElementType(destAccess.Type);
+
+            if (elementType is not null)
+            {
+                assignments.Add(BuildCollectionUpdate(destAccess, assignment.Expression, elementType));
+            }
+            else
+            {
+                assignments.Add(Expression.Assign(destAccess, assignment.Expression));
+            }
         }
 
         BlockExpression block = Expression.Block(typeof(void), assignments);
         return Expression.Lambda<Action<TSource, TDest, List<(object, object?)>?>>(
             block, srcParam, destParam, bindingsParam).Compile();
+    }
+
+    /// <summary>
+    /// Builds an expression that updates a collection property in-place:
+    /// if the destination collection is non-null, clears and re-populates it
+    /// via <see cref="CollectionUpdater.ReplaceContents{T}"/>; otherwise
+    /// falls back to direct assignment.
+    /// </summary>
+    private static ConditionalExpression BuildCollectionUpdate(
+        MemberExpression destAccess, Expression sourceExpression, Type elementType)
+    {
+        Type collectionType = typeof(ICollection<>).MakeGenericType(elementType);
+        Type enumerableType = typeof(IEnumerable<>).MakeGenericType(elementType);
+        MethodInfo replaceMethod = ReplaceContentsMethod.MakeGenericMethod(elementType);
+
+        Expression replaceCall = Expression.Call(
+            replaceMethod,
+            Expression.Convert(destAccess, collectionType),
+            Expression.Convert(sourceExpression, enumerableType));
+
+        return Expression.IfThenElse(
+            Expression.NotEqual(destAccess, Expression.Default(destAccess.Type)),
+            replaceCall,
+            Expression.Assign(destAccess, sourceExpression));
     }
 
     /// <summary>
