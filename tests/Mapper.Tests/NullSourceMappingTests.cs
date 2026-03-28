@@ -89,9 +89,9 @@ file class NullSourceMappers : MapperContext
         Root = CreateMapper<NullableSource, NullableDest>(s => new NullableDest
         {
             Id = s.Id,
-            Tag = s.Tag,
-            Child = Child.Map(s.Child),
-            Items = s.Items.Project(Item).ToList(),
-        });
+        })
+        .Optional(d => d.Tag, s => s.Tag)
+        .Optional(d => d.Child, s => Child.Map(s.Child))
+        .Optional(d => d.Items, s => s.Items!.Project(Item).ToList());
     }
 }
