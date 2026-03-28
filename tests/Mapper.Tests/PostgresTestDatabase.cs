@@ -1,5 +1,3 @@
-using Microsoft.EntityFrameworkCore;
-
 namespace ArchPillar.Extensions.Mapper.Tests;
 
 /// <summary>
