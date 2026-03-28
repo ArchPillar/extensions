@@ -5,10 +5,11 @@ namespace ArchPillar.Extensions.Mapper.Tests;
 
 /// <summary>
 /// Verifies that enum mapping expressions are translatable by the Npgsql
-/// (PostgreSQL) provider. Uses Testcontainers when Docker is available;
-/// falls back to host-local PostgreSQL when <c>CLAUDE_CLOUD=true</c>.
+/// (PostgreSQL) provider. Uses the shared <see cref="PostgresFixture"/>
+/// container; each test class gets an isolated database within it.
 /// </summary>
-public sealed class EnumMappingPostgresTests : IAsyncLifetime
+[Collection("PostgreSQL")]
+public sealed class EnumMappingPostgresTests(PostgresFixture fixture) : IAsyncLifetime
 {
     private PostgresTestDatabase _postgres = null!;
     private PostgresTestDbContext _db = null!;
@@ -16,7 +17,7 @@ public sealed class EnumMappingPostgresTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        _postgres = await PostgresTestDatabase.CreateAsync();
+        _postgres = await PostgresTestDatabase.CreateAsync(fixture);
 
         DbContextOptions<PostgresTestDbContext> options = new DbContextOptionsBuilder<PostgresTestDbContext>()
             .UseNpgsql(_postgres.ConnectionString)
@@ -169,7 +170,8 @@ public sealed class EnumMappingPostgresTests : IAsyncLifetime
 // Nullable enum PostgreSQL translation tests
 // ---------------------------------------------------------------------------
 
-public sealed class NullableEnumMappingPostgresTests : IAsyncLifetime
+[Collection("PostgreSQL")]
+public sealed class NullableEnumMappingPostgresTests(PostgresFixture fixture) : IAsyncLifetime
 {
     private PostgresTestDatabase _postgres = null!;
     private PostgresTestDbContext _db = null!;
@@ -177,7 +179,7 @@ public sealed class NullableEnumMappingPostgresTests : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
-        _postgres = await PostgresTestDatabase.CreateAsync();
+        _postgres = await PostgresTestDatabase.CreateAsync(fixture);
 
         DbContextOptions<PostgresTestDbContext> options = new DbContextOptionsBuilder<PostgresTestDbContext>()
             .UseNpgsql(_postgres.ConnectionString)

@@ -179,6 +179,23 @@ public abstract class MapperContext
         => new(mappingMethod);
 
     /// <summary>
+    /// Creates a symmetric (bidirectional) enum mapper from a single forward
+    /// mapping method. The reverse mapping is derived automatically by
+    /// inverting the computed pairs.
+    /// <para>
+    /// The mapping must be bijective (one-to-one). If two
+    /// <typeparamref name="TLeft"/> values map to the same
+    /// <typeparamref name="TRight"/> value, an
+    /// <see cref="InvalidOperationException"/> is thrown at build time.
+    /// </para>
+    /// </summary>
+    protected static SymmetricEnumMapper<TLeft, TRight> CreateSymmetricEnumMapper<TLeft, TRight>(
+        Func<TLeft, TRight> forwardMethod)
+        where TLeft  : struct, Enum
+        where TRight : struct, Enum
+        => new(forwardMethod);
+
+    /// <summary>
     /// Creates a typed <see cref="Variable{T}"/> that can be used inside
     /// mapping expressions as a placeholder value. Declare the returned
     /// instance as a public property on the context so callers can reference
@@ -193,7 +210,8 @@ public abstract class MapperContext
 
     /// <summary>
     /// Forces expression assembly and delegate compilation for every
-    /// <see cref="Mapper{TSource,TDest}"/> and <see cref="EnumMapper{TSource,TDest}"/>
+    /// <see cref="Mapper{TSource,TDest}"/>, <see cref="EnumMapper{TSource,TDest}"/>,
+    /// and <see cref="SymmetricEnumMapper{TLeft,TRight}"/>
     /// declared on this context — both properties and public parameterless methods
     /// that return a mapper type.
     /// Call this at the end of a subclass constructor to surface mapping errors
@@ -201,12 +219,13 @@ public abstract class MapperContext
     /// </summary>
     protected void EagerBuildAll()
     {
-        Type mapperGenericType     = typeof(Mapper<,>);
-        Type enumMapperGenericType = typeof(EnumMapper<,>);
+        Type mapperGenericType              = typeof(Mapper<,>);
+        Type enumMapperGenericType          = typeof(EnumMapper<,>);
+        Type symmetricEnumMapperGenericType = typeof(SymmetricEnumMapper<,>);
 
         foreach (PropertyInfo property in GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
-            if (TryGetMapperFromType(property.PropertyType, mapperGenericType, enumMapperGenericType) &&
+            if (TryGetMapperFromType(property.PropertyType, mapperGenericType, enumMapperGenericType, symmetricEnumMapperGenericType) &&
                 property.GetValue(this) is IMapper mapper)
             {
                 mapper.Compile();
@@ -217,7 +236,7 @@ public abstract class MapperContext
         {
             if (method.GetParameters().Length == 0 &&
                 !method.IsSpecialName &&
-                TryGetMapperFromType(method.ReturnType, mapperGenericType, enumMapperGenericType) &&
+                TryGetMapperFromType(method.ReturnType, mapperGenericType, enumMapperGenericType, symmetricEnumMapperGenericType) &&
                 method.Invoke(this, null) is IMapper mapper)
             {
                 mapper.Compile();
@@ -225,7 +244,8 @@ public abstract class MapperContext
         }
     }
 
-    private static bool TryGetMapperFromType(Type type, Type mapperGenericType, Type enumMapperGenericType)
+    private static bool TryGetMapperFromType(
+        Type type, Type mapperGenericType, Type enumMapperGenericType, Type symmetricEnumMapperGenericType)
     {
         if (!type.IsGenericType)
         {
@@ -233,6 +253,8 @@ public abstract class MapperContext
         }
 
         Type genericDef = type.GetGenericTypeDefinition();
-        return genericDef == mapperGenericType || genericDef == enumMapperGenericType;
+        return genericDef == mapperGenericType
+            || genericDef == enumMapperGenericType
+            || genericDef == symmetricEnumMapperGenericType;
     }
 }

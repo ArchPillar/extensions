@@ -1,115 +1,36 @@
-using DotNet.Testcontainers.Builders;
-using Microsoft.EntityFrameworkCore;
-using Testcontainers.PostgreSql;
-
 namespace ArchPillar.Extensions.Mapper.Tests;
 
 /// <summary>
-/// Manages a PostgreSQL database for integration tests. Tries Testcontainers
-/// (Docker) first; falls back to the host-local PostgreSQL instance when the
-/// <c>CLAUDE_CLOUD</c> environment variable is set and Docker is unavailable.
+/// Manages an isolated PostgreSQL database for a single test class. Uses
+/// the shared <see cref="PostgresFixture"/> container (one per assembly)
+/// and creates/drops a unique database within it.
 /// </summary>
 internal sealed class PostgresTestDatabase : IAsyncDisposable
 {
-    private const string LocalConnectionString =
-        "Host=localhost;Port=5432;Username=app;Password=postgres;Database={0}";
-
-    private PostgreSqlContainer? _container;
-    private string _databaseName = "";
+    private readonly PostgresFixture _fixture;
 
     internal string ConnectionString { get; private set; } = "";
 
-    internal static async Task<PostgresTestDatabase> CreateAsync()
+    private PostgresTestDatabase(PostgresFixture fixture)
     {
-        var instance = new PostgresTestDatabase();
-        await instance.InitializeAsync();
-        return instance;
+        _fixture = fixture;
     }
 
-    private async Task InitializeAsync()
+    internal static async Task<PostgresTestDatabase> CreateAsync(PostgresFixture fixture)
     {
-        if (TryCreateContainer(out PostgreSqlContainer? container) && container != null)
+        var connectionString = await fixture.CreateDatabaseAsync();
+
+        return new PostgresTestDatabase(fixture)
         {
-            _container = container;
-            await _container.StartAsync();
-            ConnectionString = _container.GetConnectionString();
-            return;
-        }
-
-        // Fallback: host-local PostgreSQL (cloud environments without Docker).
-        _databaseName = $"mapper_test_{Guid.NewGuid():N}";
-        ConnectionString = string.Format(LocalConnectionString, _databaseName);
-
-        // Create the disposable test database.
-        var adminConn = string.Format(LocalConnectionString, "postgres");
-        DbContextOptions<PostgresTestDbContext> adminOptions = new DbContextOptionsBuilder<PostgresTestDbContext>()
-            .UseNpgsql(adminConn)
-            .Options;
-
-        await using var adminDb = new PostgresTestDbContext(adminOptions);
-        await adminDb.Database.ExecuteSqlRawAsync(CreateDatabaseSql(_databaseName));
+            ConnectionString = connectionString,
+        };
     }
 
     public async ValueTask DisposeAsync()
     {
-        if (_container != null)
+        if (!string.IsNullOrEmpty(ConnectionString))
         {
-            await _container.DisposeAsync();
-            return;
-        }
-
-        // Drop the test database when using local PostgreSQL.
-        if (!string.IsNullOrEmpty(_databaseName))
-        {
-            var adminConn = string.Format(LocalConnectionString, "postgres");
-            DbContextOptions<PostgresTestDbContext> adminOptions = new DbContextOptionsBuilder<PostgresTestDbContext>()
-                .UseNpgsql(adminConn)
-                .Options;
-
-            await using var adminDb = new PostgresTestDbContext(adminOptions);
-            await adminDb.Database.ExecuteSqlRawAsync(DropDatabaseSql(_databaseName));
-        }
-    }
-
-    private static string CreateDatabaseSql(string name)
-    {
-        return $"CREATE DATABASE \"{name}\"";
-    }
-
-    private static string DropDatabaseSql(string name)
-    {
-        return $"DROP DATABASE IF EXISTS \"{name}\" WITH (FORCE)";
-    }
-
-    private static bool TryCreateContainer(out PostgreSqlContainer? container)
-    {
-        try
-        {
-            container = new PostgreSqlBuilder()
-                .WithWaitStrategy(Wait.ForUnixContainer()
-                    .UntilMessageIsLogged("database system is ready to accept connections"))
-                .Build();
-
-            if (Environment.GetEnvironmentVariable("CLAUDE_CLOUD") == "true")
-            {
-                try
-                {
-                    container.StartAsync().Wait(TimeSpan.FromSeconds(30));
-                    return true;
-                }
-                catch
-                {
-                    container = null;
-                    return false;
-                }
-            }
-
-            return true;
-        }
-        catch
-        {
-            container = null;
-            return false;
+            await _fixture.DropDatabaseAsync(ConnectionString);
         }
     }
 }
