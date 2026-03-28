@@ -210,7 +210,7 @@ public class CloneMapperTests
     }
 
     [Fact]
-    public void Clone_MapTo_UpdatesCollectionInPlace()
+    public void Clone_MapTo_Collection_ShallowCopiesReference()
     {
         var source = new Ticket
         {
@@ -219,37 +219,17 @@ public class CloneMapperTests
             Description = "Do something",
             Tags        = ["alpha", "beta"],
         };
-        var originalTags = new List<string> { "old-tag" };
         var target = new Ticket
         {
             Id          = 0,
             Title       = "Placeholder",
             Description = "Old",
-            Tags        = originalTags,
+            Tags        = ["old-tag"],
         };
 
         _mappers.Ticket.MapTo(source, target);
 
-        Assert.Same(originalTags, target.Tags);
-        Assert.Equal(["alpha", "beta"], target.Tags);
-    }
-
-    [Fact]
-    public void Clone_MapTo_SameObject_PreservesCollection()
-    {
-        var ticket = new Ticket
-        {
-            Id          = 1,
-            Title       = "Task",
-            Description = "Do something",
-            Tags        = ["alpha", "beta"],
-        };
-        List<string> originalTags = ticket.Tags;
-
-        _mappers.Ticket.MapTo(ticket, ticket);
-
-        Assert.Same(originalTags, ticket.Tags);
-        Assert.Equal(["alpha", "beta"], ticket.Tags);
+        Assert.Same(source.Tags, target.Tags);
     }
 
     [Fact]

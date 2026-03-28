@@ -550,3 +550,81 @@ public class EagerInheritanceMappers : InheritanceMappers
 {
     public EagerInheritanceMappers() { EagerBuildAll(); }
 }
+
+// ---------------------------------------------------------------------------
+// Collection MapTo mode test mappers
+// ---------------------------------------------------------------------------
+
+/// <summary>
+/// Uses <see cref="CollectionMapToMode.Deep"/> for the Order → OrderDto Lines
+/// collection. MapTo preserves the collection instance (clear + re-add).
+/// </summary>
+public class DeepCollectionMappers : MapperContext
+{
+    public EnumMapper<OrderStatus, OrderStatusDto> OrderStatusMapper { get; }
+    public Variable<int> CurrentUserId { get; } = CreateVariable<int>();
+    public Mapper<OrderLine, OrderLineDto> OrderLine { get; }
+    public Mapper<Order, OrderDto> Order { get; }
+
+    public DeepCollectionMappers()
+    {
+        OrderStatusMapper = CreateEnumMapper<OrderStatus, OrderStatusDto>(s => s switch
+        {
+            OrderStatus.Pending => OrderStatusDto.Pending,
+            OrderStatus.Shipped => OrderStatusDto.Shipped,
+            OrderStatus.Cancelled => OrderStatusDto.Cancelled,
+            _ => throw new ArgumentOutOfRangeException(nameof(s), s, null),
+        });
+
+        OrderLine = CreateMapper<OrderLine, OrderLineDto>(src => new OrderLineDto
+        {
+            ProductName = src.ProductName,
+            Quantity    = src.Quantity,
+            UnitPrice   = src.UnitPrice,
+        });
+
+        Order = CreateMapper<Order, OrderDto>(src => new OrderDto
+        {
+            Id       = src.Id,
+            PlacedAt = src.CreatedAt,
+            Status   = OrderStatusMapper.Map(src.Status),
+            IsOwner  = src.OwnerId == CurrentUserId,
+            Lines    = src.Lines.Project(OrderLine).ToList(),
+        })
+        .Optional(dest => dest.CustomerName, src => src.Customer.Name)
+        .MapToCollection<OrderLineDto>(dest => dest.Lines, CollectionMapToMode.Deep);
+    }
+}
+
+/// <summary>
+/// Uses <see cref="CollectionMapToMode.DeepWithIdentity"/> for the
+/// TaskBoard → TaskBoardDto Items collection. MapTo preserves both the
+/// collection instance and individual element instances matched by Id.
+/// </summary>
+public class IdentityCollectionMappers : MapperContext
+{
+    public Mapper<TaskItem, TaskItemDto> TaskItem { get; }
+    public Mapper<TaskBoard, TaskBoardDto> TaskBoard { get; }
+
+    public IdentityCollectionMappers()
+    {
+        TaskItem = CreateMapper<TaskItem, TaskItemDto>(src => new TaskItemDto
+        {
+            Id    = src.Id,
+            Title = src.Title,
+            Done  = src.Done,
+        });
+
+        TaskBoard = CreateMapper<TaskBoard, TaskBoardDto>(src => new TaskBoardDto
+        {
+            Id    = src.Id,
+            Items = src.Items.Project(TaskItem).ToList(),
+        })
+        .MapToCollection(
+            dest => dest.Items,
+            src => src.Items,
+            TaskItem,
+            src => src.Id,
+            dest => dest.Id);
+    }
+}

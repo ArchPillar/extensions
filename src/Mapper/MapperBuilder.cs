@@ -25,6 +25,7 @@ public sealed class MapperBuilder<TSource, TDest>
     private readonly IReadOnlyList<IExpressionTransformer> _globalTransformers;
     private readonly IReadOnlyList<IExpressionTransformer> _contextTransformers;
     private readonly List<IExpressionTransformer>          _mapperTransformers = [];
+    private readonly Dictionary<string, CollectionMapToConfig> _collectionConfigs = new(StringComparer.Ordinal);
     private CoverageValidation                             _coverageValidation;
 
     internal MapperBuilder(
@@ -120,6 +121,73 @@ public sealed class MapperBuilder<TSource, TDest>
         return this;
     }
 
+    // -------------------------------------------------------------------------
+    // Collection MapTo mode
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Configures how <c>MapTo</c> handles a collection property. By default
+    /// collections use <see cref="CollectionMapToMode.Shallow"/> (replace the
+    /// reference). Use <see cref="CollectionMapToMode.Deep"/> to preserve the
+    /// collection instance (clear + re-add mapped items).
+    /// </summary>
+    public MapperBuilder<TSource, TDest> MapToCollection<TItem>(
+        Expression<Func<TDest, IEnumerable<TItem>>> destination,
+        CollectionMapToMode mode)
+    {
+        var memberName = ExtractMember(destination).Name;
+        _collectionConfigs[memberName] = new CollectionMapToConfig { Mode = mode };
+        return this;
+    }
+
+    /// <summary>
+    /// Configures <c>MapTo</c> to perform identity-based merging on a
+    /// collection property. Existing destination elements that match a source
+    /// element by key are updated via <c>MapTo</c>; new source elements are
+    /// mapped and added; destination elements with no matching source are
+    /// removed.
+    /// <para>
+    /// This is critical for EF Core change-tracked collections: the tracker
+    /// sees individual <c>Modified</c> / <c>Added</c> / <c>Deleted</c>
+    /// changes instead of a wholesale collection replacement.
+    /// </para>
+    /// </summary>
+    /// <typeparam name="TSourceItem">Source element type.</typeparam>
+    /// <typeparam name="TDestItem">Destination element type.</typeparam>
+    /// <typeparam name="TKey">Key type used for identity matching.</typeparam>
+    /// <param name="destination">Destination collection property selector.</param>
+    /// <param name="sourceCollection">
+    /// Expression that accesses the raw source collection (e.g.
+    /// <c>src =&gt; src.Lines</c>). This is the pre-projection collection.
+    /// </param>
+    /// <param name="nestedMapper">
+    /// The nested mapper that maps <typeparamref name="TSourceItem"/> →
+    /// <typeparamref name="TDestItem"/>. Used for both <c>Map</c> (new items)
+    /// and <c>MapTo</c> (existing items).
+    /// </param>
+    /// <param name="sourceKey">Key extractor for source elements.</param>
+    /// <param name="destKey">Key extractor for destination elements.</param>
+    public MapperBuilder<TSource, TDest> MapToCollection<TSourceItem, TDestItem, TKey>(
+        Expression<Func<TDest, IEnumerable<TDestItem>>> destination,
+        Expression<Func<TSource, IEnumerable<TSourceItem>>> sourceCollection,
+        Mapper<TSourceItem, TDestItem> nestedMapper,
+        Func<TSourceItem, TKey> sourceKey,
+        Func<TDestItem, TKey> destKey)
+        where TKey : notnull
+    {
+        var memberName = ExtractMember(destination).Name;
+        _collectionConfigs[memberName] = new CollectionMapToConfig
+        {
+            Mode                     = CollectionMapToMode.DeepWithIdentity,
+            SourceCollectionAccessor = sourceCollection,
+            SourceKeySelector        = sourceKey,
+            DestKeySelector          = destKey,
+            MapFunc                  = new Func<TSourceItem, TDestItem>(src => nestedMapper.Map(src)!),
+            MapToAction              = new Action<TSourceItem, TDestItem>((src, dest) => nestedMapper.MapTo(src, dest)),
+        };
+        return this;
+    }
+
     /// <summary>
     /// Finalizes configuration and returns the built mapper.
     /// Throws <see cref="InvalidOperationException"/> if any destination
@@ -174,6 +242,15 @@ public sealed class MapperBuilder<TSource, TDest>
         foreach (var key in rawMappings.Where(kv => kv.Value.Kind == MappingKind.Ignored).Select(kv => kv.Key).ToList())
         {
             rawMappings.Remove(key);
+        }
+
+        // Attach collection MapTo configs to matching property mappings.
+        foreach ((var propName, CollectionMapToConfig config) in _collectionConfigs)
+        {
+            if (rawMappings.TryGetValue(propName, out PropertyMapping? mapping))
+            {
+                rawMappings[propName] = mapping with { CollectionConfig = config };
+            }
         }
 
         // Source expressions are stored raw. Nested mapper calls (Map / Project) are
