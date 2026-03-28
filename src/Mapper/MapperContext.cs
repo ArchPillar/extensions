@@ -167,6 +167,41 @@ public abstract class MapperContext
         => new(memberInitExpression, DefaultCoverageValidation, _globalTransformers, _contextTransformers);
 
     /// <summary>
+    /// Creates a clone mapper builder for <typeparamref name="T"/> that
+    /// auto-wires every public settable property as an identity mapping
+    /// (<c>dest.Prop = src.Prop</c>). Chain <c>.Ignore()</c> to exclude
+    /// properties that should not be cloned.
+    /// <para>
+    /// The clone is shallow — reference-type properties copy the reference,
+    /// not the object. Override individual properties with <c>.Map()</c>
+    /// to customize behavior (e.g. deep-copy a collection).
+    /// </para>
+    /// </summary>
+    protected MapperBuilder<T, T> CreateCloneMapper<T>()
+    {
+        ParameterExpression sourceParam = Expression.Parameter(typeof(T), "src");
+        List<PropertyMapping> mappings = [];
+
+        foreach (PropertyInfo property in typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        {
+            if (!property.CanWrite || property.GetIndexParameters().Length > 0)
+            {
+                continue;
+            }
+
+            MemberExpression access = Expression.Property(sourceParam, property);
+            LambdaExpression lambda = Expression.Lambda(access, sourceParam);
+            mappings.Add(new PropertyMapping(property, lambda, MappingKind.Required));
+        }
+
+        return new MapperBuilder<T, T>(
+            mappings,
+            DefaultCoverageValidation,
+            _globalTransformers,
+            _contextTransformers);
+    }
+
+    /// <summary>
     /// Creates an enum mapper from a plain mapping method.
     /// The library enumerates every <typeparamref name="TSource"/> value,
     /// calls <paramref name="mappingMethod"/> for each, and builds a
