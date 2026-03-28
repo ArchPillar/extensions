@@ -158,7 +158,7 @@ public class AppMappers : MapperContext
 }
 ```
 
-This forces expression assembly and delegate compilation for every `Mapper` and `EnumMapper` on the context. Any configuration mistake (unmapped property, circular reference) throws immediately at construction time instead of at first use.
+This forces expression assembly and delegate compilation for every `Mapper`, `EnumMapper`, and `SymmetricEnumMapper` on the context. Any configuration mistake (unmapped property, circular reference) throws immediately at construction time instead of at first use.
 
 ## Coverage Validation
 

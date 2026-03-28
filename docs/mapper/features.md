@@ -254,6 +254,139 @@ Order = CreateMapper<Order, OrderDto>(src => new OrderDto
 
 The generated expression is a chain of conditionals that EF Core can translate to SQL — no `throw` expressions, no delegate calls.
 
+### Nullable enums
+
+`EnumMapper` supports nullable source values with proper null propagation:
+
+```csharp
+Order = CreateMapper<Order, OrderDto>(src => new OrderDto
+{
+    // Nullable → nullable: null in → null out
+    Status = OrderStatusMapper.Map(src.NullableStatus),
+
+    // Nullable → non-nullable with default: null in → default value out
+    Priority = PriorityMapper.Map(src.NullablePriority, PriorityDto.Normal),
+
+    // Non-nullable → nullable: uses C#'s implicit conversion (no special handling)
+    Category = CategoryMapper.Map(src.Category),
+});
+```
+
+| Call | Return | Behaviour |
+|------|--------|-----------|
+| `Map(TSource)` | `TDest` | Non-nullable to non-nullable |
+| `Map(TSource?)` | `TDest?` | Null in → null out |
+| `Map(TSource?, TDest default)` | `TDest` | Null in → default value out |
+
+All three overloads work standalone, inlined in parent mapper expressions, and in LINQ projection (EF Core translatable).
+
+For standalone use, the nullable expression tree is available via `ToNullableExpression()`:
+
+```csharp
+Expression<Func<OrderStatus?, OrderStatusDto?>> expr = mappers.OrderStatusMapper.ToNullableExpression();
+```
+
+## Symmetric Enum Mapping
+
+`SymmetricEnumMapper<TLeft, TRight>` provides bidirectional (bijective) mapping between two enum types from a single forward definition. The reverse mapping is derived automatically.
+
+### Declaring
+
+```csharp
+public class AppMappers : MapperContext
+{
+    public SymmetricEnumMapper<OrderStatus, OrderStatusDto> StatusMapper { get; }
+
+    public AppMappers()
+    {
+        StatusMapper = CreateSymmetricEnumMapper<OrderStatus, OrderStatusDto>(s => s switch
+        {
+            OrderStatus.Pending   => OrderStatusDto.Pending,
+            OrderStatus.Shipped   => OrderStatusDto.Shipped,
+            OrderStatus.Cancelled => OrderStatusDto.Cancelled,
+            _ => throw new ArgumentOutOfRangeException(nameof(s)),
+        });
+    }
+}
+```
+
+### Forward and reverse mapping
+
+```csharp
+// Forward: OrderStatus → OrderStatusDto
+OrderStatusDto dto = mappers.StatusMapper.Map(OrderStatus.Pending);
+
+// Reverse: OrderStatusDto → OrderStatus
+OrderStatus domain = mappers.StatusMapper.MapReverse(OrderStatusDto.Shipped);
+```
+
+### Inline in parent mappers
+
+```csharp
+// Forward direction
+Order = CreateMapper<Order, OrderDto>(src => new OrderDto
+{
+    Status = StatusMapper.Map(src.Status),
+});
+
+// Reverse direction
+OrderFromDto = CreateMapper<OrderDto, Order>(dto => new Order
+{
+    Status = StatusMapper.MapReverse(dto.Status),
+});
+```
+
+### Nullable support
+
+All the same nullable overloads as `EnumMapper` are available on both `Map()` and `MapReverse()`.
+
+### Bijection validation
+
+The mapper validates at build time that the mapping is truly one-to-one. If two source values map to the same destination value, an `InvalidOperationException` is thrown listing the conflict. For many-to-one mappings, use `EnumMapper<,>` instead.
+
+### Expression access
+
+```csharp
+Expression<Func<OrderStatus, OrderStatusDto>>   forward  = mappers.StatusMapper.ToExpression();
+Expression<Func<OrderStatus?, OrderStatusDto?>>  fwdNull  = mappers.StatusMapper.ToNullableExpression();
+Expression<Func<OrderStatusDto, OrderStatus>>    reverse  = mappers.StatusMapper.ToReverseExpression();
+Expression<Func<OrderStatusDto?, OrderStatus?>>  revNull  = mappers.StatusMapper.ToReverseNullableExpression();
+```
+
+## Clone Mapper
+
+`CreateCloneMapper<T>()` creates a mapper that auto-wires every public settable property as an identity mapping (`dest.Prop = src.Prop`). This is useful for creating shallow copies of a model.
+
+### Declaring
+
+```csharp
+public class AppMappers : MapperContext
+{
+    public Mapper<Order, Order> OrderClone { get; }
+
+    public AppMappers()
+    {
+        OrderClone = CreateCloneMapper<Order>();
+    }
+}
+```
+
+### Customizing
+
+Chain `.Ignore()` to exclude properties, or `.Map()` to override individual mappings:
+
+```csharp
+OrderClone = CreateCloneMapper<Order>()
+    .Ignore(d => d.Id)                              // Don't copy the primary key
+    .Map(d => d.Lines, s => s.Lines.ToList());      // Deep-copy the collection
+```
+
+### Behavior
+
+- The clone is **shallow** — reference-type properties copy the reference, not the object
+- All standard mapper features apply: coverage validation, `MapTo`, expression projection
+- Works with both in-memory mapping and LINQ projection
+
 ## MapTo
 
 `MapTo` assigns mapped properties onto a pre-existing destination instance rather than creating a new one.
@@ -278,12 +411,43 @@ mappers.Order.MapTo(command, existingOrder, o => o.Set(mappers.CurrentUserId, us
 
 - All required and optional properties are assigned (same `IncludeAll` rule as in-memory `Map`)
 - Nested scalar properties are **replaced** (not recursively merged)
-- Collection properties are **replaced** with a newly mapped collection
+- Collection properties follow their configured `CollectionMapToMode` (default: `Shallow`)
 - If `source` is `null`, the call is a no-op
 - If `destination` is `null`, `ArgumentNullException` is thrown
 - Zero allocation for scalar-only mappings (no intermediate object is created)
 
 `MapTo` is in-memory only — there is no LINQ/EF Core equivalent.
+
+### Collection update modes
+
+By default, `MapTo` replaces collection references (same as `Map`). For scenarios that require preserving the existing collection instance or individual elements, configure the mode on the builder:
+
+| Mode | Behaviour |
+|------|-----------|
+| `Shallow` (default) | Replace the collection reference with a newly mapped collection. Identical to `Map` behaviour. |
+| `Deep` | Preserve the collection instance: clear it and re-add newly mapped items. The reference on the destination is unchanged. Useful for observable collections or data-binding scenarios. |
+| `DeepWithIdentity` | Preserve both the collection instance and individual element instances that match by key. Existing items are updated via `MapTo`, new source items are mapped and added, unmatched destination items are removed. Critical for EF Core change-tracked collections. |
+
+**Deep** — preserve the collection instance:
+
+```csharp
+Order = CreateMapper<Order, OrderDto>(src => new OrderDto { ... })
+    .MapToCollection<OrderLineDto>(dest => dest.Lines, CollectionMapToMode.Deep);
+```
+
+**DeepWithIdentity** — preserve both the collection and matching elements:
+
+```csharp
+Order = CreateMapper<Order, OrderDto>(src => new OrderDto { ... })
+    .MapToCollection(
+        dest => dest.Lines,          // destination collection
+        src  => src.Lines,           // raw source collection (pre-projection)
+        OrderLine,                   // nested mapper (for Map + MapTo)
+        srcKey:  src  => src.Id,     // source element key
+        destKey: dest => dest.Id);   // destination element key
+```
+
+With `DeepWithIdentity`, EF Core's change tracker sees individual entity state changes (`Modified`, `Added`, `Deleted`) rather than a wholesale collection replacement.
 
 ## Coverage Validation
 
@@ -457,6 +621,43 @@ public class AppMappers : MapperContext
     }
 }
 ```
+
+### Built-in base classes
+
+The library provides two abstract base classes for common transformation patterns:
+
+**`MethodCallTransformer`** — replaces calls to a specific method with a custom expression:
+
+```csharp
+public sealed class IsPositiveTransformer : MethodCallTransformer
+{
+    protected override MethodInfo Method { get; }
+        = typeof(Money).GetMethod(nameof(Money.IsPositive))!;
+
+    protected override Expression Replacement(
+        Expression? instance, IReadOnlyList<Expression> arguments)
+        => Expression.GreaterThan(
+            Expression.Property(instance!, nameof(Money.Amount)),
+            Expression.Constant(0m));
+}
+```
+
+`MethodCallTransformer` automatically handles:
+- Generic method instantiations (matches against the open generic definition)
+- Methods inherited from generic base classes (e.g., `ValueObject<Money>`)
+- Methods defined on interfaces (resolves the concrete implementation via interface mapping)
+
+**`CastTransformer<TSource, TTarget>`** — replaces cast expressions (implicit/explicit conversions) with a custom expression:
+
+```csharp
+public sealed class MoneyToAmountTransformer : CastTransformer<Money, decimal>
+{
+    protected override Expression Replacement(Expression operand)
+        => Expression.Property(operand, nameof(Money.Amount));
+}
+```
+
+The source type match uses `IsAssignableTo`, so specifying a base class or interface matches all derived/implementing types.
 
 ### Constraints
 

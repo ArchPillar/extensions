@@ -30,7 +30,7 @@ public class AppMappers : MapperContext
 }
 ```
 
-`EagerBuildAll()` must be called after all mapper properties are assigned. It iterates over the context's public `Mapper<,>` and `EnumMapper<,>` properties and forces compilation.
+`EagerBuildAll()` must be called after all mapper properties are assigned. It iterates over the context's public `Mapper<,>`, `EnumMapper<,>`, and `SymmetricEnumMapper<,>` properties (and public parameterless methods returning these types) and forces compilation.
 
 ## Prefer Member-Init for Simple Mappings
 
@@ -178,6 +178,59 @@ globalOptions.AddTransformer(new CastTransformer());
 ```
 
 Register transformers at the narrowest scope possible — prefer per-mapper over per-context, and per-context over global.
+
+## Use SymmetricEnumMapper for Bidirectional Enums
+
+When you need both forward and reverse enum mapping (e.g., domain ↔ DTO), use `SymmetricEnumMapper` instead of two separate `EnumMapper` instances. It validates bijection at build time and derives the reverse automatically:
+
+```csharp
+// Good — single definition, bidirectional
+StatusMapper = CreateSymmetricEnumMapper<OrderStatus, OrderStatusDto>(s => s switch
+{
+    OrderStatus.Pending   => OrderStatusDto.Pending,
+    OrderStatus.Shipped   => OrderStatusDto.Shipped,
+    OrderStatus.Cancelled => OrderStatusDto.Cancelled,
+    _ => throw new ArgumentOutOfRangeException(nameof(s)),
+});
+
+// Bad — two separate mappers that can drift apart
+StatusToDto   = CreateEnumMapper<OrderStatus, OrderStatusDto>(...);
+StatusFromDto = CreateEnumMapper<OrderStatusDto, OrderStatus>(...);
+```
+
+If the mapping is many-to-one (multiple source values map to the same destination), use `EnumMapper` — `SymmetricEnumMapper` will reject it at build time.
+
+## Use CreateCloneMapper for Identity Copies
+
+When you need a shallow copy of a model (e.g., creating a draft from an existing entity), use `CreateCloneMapper<T>()` instead of manually listing every property:
+
+```csharp
+// Good — auto-wired, stays in sync with the model
+OrderClone = CreateCloneMapper<Order>()
+    .Ignore(d => d.Id);
+
+// Bad — manual listing that breaks when properties are added
+OrderClone = CreateMapper<Order, Order>()
+    .Map(d => d.Name, s => s.Name)
+    .Map(d => d.Status, s => s.Status)
+    // ... easy to forget new properties
+```
+
+## Use DeepWithIdentity for EF Core Change-Tracked Collections
+
+When updating entities that have change-tracked collections, use `DeepWithIdentity` mode so the tracker sees individual `Modified`, `Added`, and `Deleted` states:
+
+```csharp
+Order = CreateMapper<OrderCommand, Order>(...)
+    .MapToCollection(
+        dest => dest.Lines,
+        src  => src.Lines,
+        OrderLine,
+        srcKey:  s => s.Id,
+        destKey: d => d.Id);
+```
+
+The `Deep` mode (clear + re-add) is useful for observable collections where the reference must be preserved but element identity doesn't matter.
 
 ## Avoid Circular Mapper References
 
