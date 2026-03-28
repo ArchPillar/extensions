@@ -81,17 +81,14 @@ internal static class CollectionUpdater
             destByKey[destKeySelector(destItem)] = destItem;
         }
 
-        // Track which keys were seen in the source
-        var matchedKeys = new HashSet<TKey>();
         var newItems = new List<TDestItem>();
 
         foreach (TSourceItem srcItem in sourceItems)
         {
             TKey key = sourceKeySelector(srcItem);
-            if (destByKey.TryGetValue(key, out TDestItem? destItem))
+            if (destByKey.Remove(key, out TDestItem? destItem))
             {
                 mapTo(srcItem, destItem);
-                matchedKeys.Add(key);
             }
             else
             {
@@ -100,16 +97,7 @@ internal static class CollectionUpdater
         }
 
         // Remove destination items not present in source
-        var toRemove = new List<TDestItem>();
-        foreach (TDestItem destItem in destCollection)
-        {
-            if (!matchedKeys.Contains(destKeySelector(destItem)))
-            {
-                toRemove.Add(destItem);
-            }
-        }
-
-        foreach (TDestItem item in toRemove)
+        foreach (TDestItem item in destByKey.Values)
         {
             destCollection.Remove(item);
         }
