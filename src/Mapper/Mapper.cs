@@ -97,7 +97,8 @@ public sealed class Mapper<TSource, TDest> : IMapper
     /// expression so callers can apply <see cref="VariableReplacer"/> or
     /// <see cref="VariableDictReplacer"/> in a single post-build pass.
     /// </summary>
-    private Expression<Func<TSource, TDest>> BuildExpression(IncludeSet includes, int depth = 0)
+    private Expression<Func<TSource, TDest>> BuildExpression(
+        IncludeSet includes, int depth = 0, bool guardNullOptionalCollections = false)
     {
         if (depth > NestedMapperInliner.MaxNestingDepth)
         {
@@ -128,6 +129,11 @@ public sealed class Mapper<TSource, TDest> : IMapper
                 : includes.Nested.GetValueOrDefault(mapping.Destination.Name, IncludeSet.Empty);
 
             body = new NestedMapperInliner(nestedIncludes, depth).Visit(body)!;
+
+            if (guardNullOptionalCollections && mapping.Kind == MappingKind.Optional)
+            {
+                body = GuardNullCollectionSource(body);
+            }
 
             bindings.Add(Expression.Bind(mapping.Destination, body));
         }
@@ -193,6 +199,57 @@ public sealed class Mapper<TSource, TDest> : IMapper
     }
 
     // -------------------------------------------------------------------------
+    // Null-guard for optional collection sources (in-memory only)
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Wraps an optional mapping body with a null guard when it contains a
+    /// LINQ collection chain (e.g. <c>Select(...).ToList()</c>). Walks the
+    /// <see cref="Enumerable"/> method call chain to find the root collection
+    /// source; if the source is a nullable reference type, the body is wrapped
+    /// with <c>source == null ? default : body</c>.
+    /// <para>
+    /// This prevents <see cref="ArgumentNullException"/> from
+    /// <c>Enumerable.Select</c> when an optional collection source is null
+    /// during in-memory mapping. Expression projections (EF Core) do not use
+    /// this guard — collection navigations are never null in the database.
+    /// </para>
+    /// </summary>
+    private static Expression GuardNullCollectionSource(Expression body)
+    {
+        if (ExtractCollectionSource(body) is not { Type.IsValueType: false } source)
+        {
+            return body;
+        }
+
+        return Expression.Condition(
+            Expression.Equal(source, Expression.Default(source.Type)),
+            Expression.Default(body.Type),
+            body);
+    }
+
+    /// <summary>
+    /// Walks an <see cref="Enumerable"/> method call chain
+    /// (<c>ToList</c>, <c>ToArray</c>, <c>ToHashSet</c>, <c>Select</c>,
+    /// <c>Where</c>, <c>ToDictionary</c>, etc.) and returns the innermost
+    /// non-<see cref="Enumerable"/> source expression, or <see langword="null"/>
+    /// if the expression is not a recognisable LINQ chain.
+    /// </summary>
+    private static Expression? ExtractCollectionSource(Expression expression)
+    {
+        if (expression is not MethodCallExpression call
+            || call.Method.DeclaringType != typeof(Enumerable)
+            || call.Arguments.Count < 1)
+        {
+            return null;
+        }
+
+        Expression source = call.Arguments[0];
+
+        return ExtractCollectionSource(source) ?? source;
+    }
+
+    // -------------------------------------------------------------------------
     // In-memory object mapping
     // -------------------------------------------------------------------------
 
@@ -206,7 +263,8 @@ public sealed class Mapper<TSource, TDest> : IMapper
     private Expression<Func<TSource, List<(object, object?)>?, TDest>> BuildMapExpression()
     {
         ParameterExpression bindingsParam = Expression.Parameter(VariableDictReplacer.BindingsType, "vars");
-        Expression<Func<TSource, TDest>> raw = BuildExpression(IncludeSet.All);
+        Expression<Func<TSource, TDest>> raw = BuildExpression(
+            IncludeSet.All, guardNullOptionalCollections: true);
         Expression withLookups = new VariableDictReplacer(bindingsParam).Visit(raw)!;
         Expression body = new SelectorCompiler(bindingsParam).Visit(((LambdaExpression)withLookups).Body);
         return Expression.Lambda<Func<TSource, List<(object, object?)>?, TDest>>(

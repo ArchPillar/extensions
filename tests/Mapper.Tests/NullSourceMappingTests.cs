@@ -7,9 +7,9 @@ namespace ArchPillar.Extensions.Mapper.Tests;
 public class NullSourceMappingTests
 {
     [Fact]
-    public void Map_AllNullableSourcePropertiesNull_MapsWithoutError()
+    public void Map_OptionalPropertiesNull_MapsAllToNull()
     {
-        var mappers = new NullSourceMappers();
+        var mappers = new NullOptionalMappers();
         var source = new NullableSource
         {
             Id = 1,
@@ -26,10 +26,40 @@ public class NullSourceMappingTests
         Assert.Null(dest.Child);
         Assert.Null(dest.Items);
     }
+
+    [Fact]
+    public void Map_OptionalCollectionNonNull_MapsNormally()
+    {
+        var mappers = new NullOptionalMappers();
+        var source = new NullableSource
+        {
+            Id = 1,
+            Items = [new ItemSource { Label = "A" }, new ItemSource { Label = "B" }],
+        };
+
+        NullableDest? dest = mappers.Root.Map(source);
+
+        Assert.NotNull(dest!.Items);
+        Assert.Equal(2, dest.Items!.Count);
+        Assert.Equal("A", dest.Items[0].Label);
+    }
+
+    [Fact]
+    public void Map_RequiredCollectionNull_Throws()
+    {
+        var mappers = new NullRequiredMappers();
+        var source = new RequiredCollectionSource
+        {
+            Id = 1,
+            Items = null!,
+        };
+
+        Assert.Throws<ArgumentNullException>(() => mappers.Root.Map(source));
+    }
 }
 
 // ---------------------------------------------------------------------------
-// Test-local models and mappers
+// Test-local models
 // ---------------------------------------------------------------------------
 
 file class ChildSource
@@ -68,13 +98,29 @@ file class NullableDest
     public List<ItemDest>? Items { get; set; }
 }
 
-file class NullSourceMappers : MapperContext
+file class RequiredCollectionSource
+{
+    public required int Id { get; set; }
+    public required List<ItemSource> Items { get; set; }
+}
+
+file class RequiredCollectionDest
+{
+    public required int Id { get; set; }
+    public required List<ItemDest> Items { get; set; }
+}
+
+// ---------------------------------------------------------------------------
+// Test-local mappers
+// ---------------------------------------------------------------------------
+
+file class NullOptionalMappers : MapperContext
 {
     public Mapper<ChildSource, ChildDest> Child { get; }
     public Mapper<ItemSource, ItemDest> Item { get; }
     public Mapper<NullableSource, NullableDest> Root { get; }
 
-    public NullSourceMappers()
+    public NullOptionalMappers()
     {
         Child = CreateMapper<ChildSource, ChildDest>(s => new ChildDest
         {
@@ -93,5 +139,25 @@ file class NullSourceMappers : MapperContext
         .Optional(d => d.Tag, s => s.Tag)
         .Optional(d => d.Child, s => Child.Map(s.Child))
         .Optional(d => d.Items, s => s.Items!.Project(Item).ToList());
+    }
+}
+
+file class NullRequiredMappers : MapperContext
+{
+    public Mapper<ItemSource, ItemDest> Item { get; }
+    public Mapper<RequiredCollectionSource, RequiredCollectionDest> Root { get; }
+
+    public NullRequiredMappers()
+    {
+        Item = CreateMapper<ItemSource, ItemDest>(s => new ItemDest
+        {
+            Label = s.Label,
+        });
+
+        Root = CreateMapper<RequiredCollectionSource, RequiredCollectionDest>(s => new RequiredCollectionDest
+        {
+            Id = s.Id,
+            Items = s.Items.Project(Item).ToList(),
+        });
     }
 }
