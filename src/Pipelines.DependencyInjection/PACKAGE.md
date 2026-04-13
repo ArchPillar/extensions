@@ -25,13 +25,29 @@ Middlewares execute in the order they were registered. Each middleware and the h
 
 Pipelines are scoped by default. Override via `services.AddPipeline<T>(ServiceLifetime.Singleton)` if you need long-lived pipelines (ensure your middlewares and handler are singleton-safe).
 
-## Isolation
+## Composition via DI
 
-`AddPipeline<T>()` registers middlewares by their **concrete type**, not as `IPipelineMiddleware<T>`. That means:
+`Pipeline<T>` is resolved by the container using its public constructor:
 
-- Two different pipelines for the same `T` don't accidentally share middlewares.
-- Registering `IPipelineMiddleware<T>` elsewhere in the container does not attach it to the pipeline built here.
-- `sp.GetServices<IPipelineMiddleware<T>>()` is not polluted by the pipeline registration.
+```csharp
+public Pipeline(IPipelineHandler<T> handler, IEnumerable<IPipelineMiddleware<T>> middlewares)
+```
+
+Both collaborators come from the container. `.Use<TMiddleware>()` writes an `IPipelineMiddleware<T>` → `TMiddleware` descriptor via `TryAddEnumerable`; `.Handle<THandler>()` writes `IPipelineHandler<T>` → `THandler` via `TryAdd`. That means:
+
+- **Multiple modules can contribute middlewares to the same pipeline.** Two unrelated calls to `services.AddPipeline<T>().Use<X>()` compose cleanly — the resulting pipeline contains the union of all registered middlewares.
+- **External `services.AddScoped<IPipelineMiddleware<T>, X>()` registrations are respected** and show up in the pipeline in registration order.
+- **The builder holds no captured state.** Once `AddPipeline<T>()` returns, the builder can be discarded; everything that drives the pipeline's behaviour lives as plain service descriptors in the container.
+
+## Forgiving registration
+
+Every registration is idempotent:
+
+- `AddPipeline<T>()` called twice → one `Pipeline<T>` descriptor (second call is a no-op).
+- `.Use<M>()` called twice for the same `M` → one `IPipelineMiddleware<T>` descriptor (deduplicated by `TryAddEnumerable`).
+- `.Handle<H1>()` then `.Handle<H2>()` → `H1` wins (first call registers, subsequent `TryAdd`s are no-ops).
+
+This makes it safe for library code to contribute middlewares to a pipeline owned by application code without having to detect or care about existing registrations.
 
 ## Documentation
 

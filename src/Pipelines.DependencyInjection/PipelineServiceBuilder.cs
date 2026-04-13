@@ -6,26 +6,40 @@ namespace ArchPillar.Extensions.Pipelines;
 /// <summary>
 /// Fluent builder returned by
 /// <see cref="ServiceCollectionExtensions.AddPipeline{T}(IServiceCollection, ServiceLifetime)"/>.
-/// Registers middlewares and a terminal handler for a <see cref="Pipeline{T}"/>,
-/// and produces the pipeline at resolve time.
+/// Registers middlewares and a terminal handler for a <see cref="Pipeline{T}"/>
+/// <strong>directly in the service collection</strong> — the builder itself
+/// holds no state.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Middlewares are registered by their concrete type — not as global
-/// <see cref="IPipelineMiddleware{T}"/> services — so that two pipelines for
-/// the same context type, or unrelated middlewares registered elsewhere, do
-/// not get conflated. At resolve time, the builder walks its own list of
-/// registered types in order and asks the container for each one, giving
-/// every middleware the full benefit of constructor injection without
-/// polluting the <see cref="IPipelineMiddleware{T}"/> service namespace.
+/// Every call writes a <see cref="ServiceDescriptor"/> into the
+/// <see cref="IServiceCollection"/>:
+/// </para>
+/// <list type="bullet">
+///   <item>
+///     <see cref="Use{TMiddleware}"/> uses
+///     <c>TryAddEnumerable(IPipelineMiddleware&lt;T&gt;, TMiddleware)</c>, so calling
+///     it twice with the same middleware is a no-op. Middlewares execute in the
+///     order they were added — the order in which <see cref="IEnumerable{T}"/>
+///     services come out of the container matches their registration order.
+///   </item>
+///   <item>
+///     <see cref="Handle{THandler}"/> uses
+///     <c>TryAdd(IPipelineHandler&lt;T&gt;, THandler)</c>, so the first handler
+///     configured for a given context type wins.
+///   </item>
+/// </list>
+/// <para>
+/// When <see cref="Pipeline{T}"/> is resolved from the container, its public
+/// constructor is invoked with the registered handler and the full
+/// <see cref="IEnumerable{T}"/> of registered middlewares — proper DI
+/// composition, no captured closure state.
 /// </para>
 /// </remarks>
 /// <typeparam name="T">The context type the pipeline will process.</typeparam>
 public sealed class PipelineServiceBuilder<T>
 {
     private readonly IServiceCollection _services;
-    private readonly List<Type> _middlewareTypes = [];
-    private Type? _handlerType;
 
     internal PipelineServiceBuilder(IServiceCollection services, ServiceLifetime lifetime)
     {
@@ -34,21 +48,16 @@ public sealed class PipelineServiceBuilder<T>
     }
 
     /// <summary>
-    /// The DI lifetime applied to the <see cref="Pipeline{T}"/> and any
-    /// middleware/handler classes registered through this builder.
+    /// The DI lifetime applied to the <see cref="Pipeline{T}"/>, the handler,
+    /// and every middleware registered through this builder.
     /// </summary>
     public ServiceLifetime Lifetime { get; }
 
     /// <summary>
-    /// The number of middlewares registered so far. The terminal handler is
-    /// not counted.
-    /// </summary>
-    public int MiddlewareCount => _middlewareTypes.Count;
-
-    /// <summary>
-    /// Appends a middleware class to the pipeline. The class is registered
-    /// in the service collection (by its own concrete type) if it isn't
-    /// already, so its own constructor dependencies are resolved from DI.
+    /// Appends a middleware class to the pipeline. The middleware is registered
+    /// as <see cref="IPipelineMiddleware{T}"/> via
+    /// <see cref="ServiceCollectionDescriptorExtensions.TryAddEnumerable(IServiceCollection, ServiceDescriptor)"/>
+    /// so calling this method twice for the same middleware type is a no-op.
     /// Middlewares execute in the order they were added.
     /// </summary>
     /// <typeparam name="TMiddleware">The middleware class.</typeparam>
@@ -56,58 +65,29 @@ public sealed class PipelineServiceBuilder<T>
     public PipelineServiceBuilder<T> Use<TMiddleware>()
         where TMiddleware : class, IPipelineMiddleware<T>
     {
-        _services.TryAdd(new ServiceDescriptor(typeof(TMiddleware), typeof(TMiddleware), Lifetime));
-        _middlewareTypes.Add(typeof(TMiddleware));
+        _services.TryAddEnumerable(ServiceDescriptor.Describe(
+            typeof(IPipelineMiddleware<T>),
+            typeof(TMiddleware),
+            Lifetime));
         return this;
     }
 
     /// <summary>
-    /// Sets the terminal handler class for the pipeline. The class is
-    /// registered in the service collection (by its own concrete type) if it
-    /// isn't already, so its own constructor dependencies are resolved from DI.
+    /// Configures the terminal handler class for the pipeline. The handler is
+    /// registered as <see cref="IPipelineHandler{T}"/> via
+    /// <see cref="ServiceCollectionDescriptorExtensions.TryAdd(IServiceCollection, ServiceDescriptor)"/>
+    /// so the first handler configured for a given context type wins — calling
+    /// this method a second time is silently ignored.
     /// </summary>
     /// <typeparam name="THandler">The handler class.</typeparam>
     /// <returns>This builder, for chaining.</returns>
-    /// <exception cref="InvalidOperationException">
-    /// Thrown if a handler has already been registered for this pipeline.
-    /// A pipeline has exactly one terminal handler.
-    /// </exception>
     public PipelineServiceBuilder<T> Handle<THandler>()
         where THandler : class, IPipelineHandler<T>
     {
-        if (_handlerType is not null)
-        {
-            throw new InvalidOperationException(
-                $"A handler for Pipeline<{typeof(T).Name}> is already registered ({_handlerType.Name}). " +
-                "A pipeline has exactly one terminal handler.");
-        }
-
-        _services.TryAdd(new ServiceDescriptor(typeof(THandler), typeof(THandler), Lifetime));
-        _handlerType = typeof(THandler);
+        _services.TryAdd(ServiceDescriptor.Describe(
+            typeof(IPipelineHandler<T>),
+            typeof(THandler),
+            Lifetime));
         return this;
-    }
-
-    /// <summary>
-    /// Factory used by the <see cref="Pipeline{T}"/> service descriptor to
-    /// materialize a pipeline from the configured handler and middleware types.
-    /// </summary>
-    internal Pipeline<T> BuildPipeline(IServiceProvider serviceProvider)
-    {
-        if (_handlerType is null)
-        {
-            throw new InvalidOperationException(
-                $"Pipeline<{typeof(T).Name}> has no terminal handler. " +
-                "Call .Handle<THandler>() when configuring the pipeline.");
-        }
-
-        var handler = (IPipelineHandler<T>)serviceProvider.GetRequiredService(_handlerType);
-
-        var middlewares = new IPipelineMiddleware<T>[_middlewareTypes.Count];
-        for (var i = 0; i < _middlewareTypes.Count; i++)
-        {
-            middlewares[i] = (IPipelineMiddleware<T>)serviceProvider.GetRequiredService(_middlewareTypes[i]);
-        }
-
-        return new Pipeline<T>(handler, middlewares);
     }
 }

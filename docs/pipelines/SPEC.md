@@ -164,9 +164,8 @@ public static PipelineServiceBuilder<T> AddPipeline<T>(
     ServiceLifetime lifetime = ServiceLifetime.Scoped);
 ```
 
-Registers `Pipeline<T>` in the service collection and returns a builder for configuring its middlewares and handler.
-
-Calling `AddPipeline<T>()` a second time for the same `T` throws `InvalidOperationException`. A context type can have exactly one pipeline per service collection.
+Registers `Pipeline<T>` in the service collection and returns a fluent builder for configuring its middlewares and handler. The registration is done via
+`TryAdd`, so calling `AddPipeline<T>()` a second time for the same context type is a no-op — the first registration wins.
 
 ### `PipelineServiceBuilder<T>`
 
@@ -174,7 +173,6 @@ Calling `AddPipeline<T>()` a second time for the same `T` throws `InvalidOperati
 public sealed class PipelineServiceBuilder<T>
 {
     public ServiceLifetime Lifetime { get; }
-    public int MiddlewareCount { get; }
 
     public PipelineServiceBuilder<T> Use<TMiddleware>()
         where TMiddleware : class, IPipelineMiddleware<T>;
@@ -184,26 +182,50 @@ public sealed class PipelineServiceBuilder<T>
 }
 ```
 
-`Use<TMiddleware>()` appends a middleware class to the pipeline. If the class isn't already registered in the service collection, it is registered by its concrete type at the configured lifetime.
+The builder holds **no state of its own** — every method writes a `ServiceDescriptor` directly into the `IServiceCollection`:
 
-`Handle<THandler>()` sets the terminal handler. Calling it twice throws `InvalidOperationException`.
+- **`Use<TMiddleware>()`** — registers `IPipelineMiddleware<T>` → `TMiddleware` via `TryAddEnumerable`, so the same middleware added twice is deduplicated. Middlewares execute in the order they were added; this matches the order in which `IEnumerable<IPipelineMiddleware<T>>` services come out of the container.
+- **`Handle<THandler>()`** — registers `IPipelineHandler<T>` → `THandler` via `TryAdd`, so the first handler configured for a given context type wins. Calling it a second time is silently ignored.
 
-### Isolation
+### Composition via DI
 
-Middlewares are registered by their **concrete type** (`TMiddleware`), not as `IPipelineMiddleware<T>`. This is a deliberate design choice:
+The key property of this design is that **`Pipeline<T>` is resolved by DI using standard constructor injection**. When the container builds a `Pipeline<T>`, it invokes the class's public constructor:
 
-- **Two pipelines for the same `T` stay isolated.** If one pipeline uses `LoggingMiddleware` and another uses `RetryMiddleware`, they do not see each other's steps.
-- **Unrelated `IPipelineMiddleware<T>` registrations don't leak into the pipeline.** Code that registers `services.AddSingleton<IPipelineMiddleware<OrderContext>, AuditMiddleware>()` does **not** attach `AuditMiddleware` to any pipeline built via `AddPipeline<OrderContext>()`. The pipeline knows exactly which concrete types it was told about, and asks the container for those.
-- **`sp.GetServices<IPipelineMiddleware<T>>()` is not polluted.** Consumers who do want the global service namespace for their own reasons can use it freely.
+```csharp
+public Pipeline(IPipelineHandler<T> handler, IEnumerable<IPipelineMiddleware<T>> middlewares)
+```
 
-At resolve time, the pipeline factory walks its own list of registered concrete types in order and calls `serviceProvider.GetRequiredService(type)` for each one. Every middleware and the handler get full constructor injection from the container.
+Both parameters are resolved from the container:
+
+- `IPipelineHandler<T>` — the handler registered via `Handle<THandler>()` (or by any other code that registers the interface).
+- `IEnumerable<IPipelineMiddleware<T>>` — **every** middleware registered as `IPipelineMiddleware<T>` in the container, in registration order.
+
+This has several consequences, all intentional:
+
+- **Multiple modules can contribute middlewares to the same pipeline.** Two unrelated calls to `services.AddPipeline<T>().Use<X>()` are composable — the resulting pipeline contains both `X` and whatever other modules added.
+- **External `services.AddScoped<IPipelineMiddleware<T>, X>()` registrations are respected** and show up in the pipeline. This is how you compose a pipeline from parts that don't know about each other.
+- **Nothing is captured in closure state.** The builder is just a thin wrapper that writes descriptors; once `AddPipeline<T>()` returns, the builder can be discarded and the pipeline still resolves correctly from the container.
+- **No internal registry, no hidden list.** Everything that drives the pipeline's behaviour is a plain `ServiceDescriptor` that standard DI tooling can introspect.
+
+### Forgiving registration
+
+Because every registration goes through `TryAdd` or `TryAddEnumerable`, the entire DI surface is idempotent:
+
+| Call sequence                                                      | Result                                       |
+| ------------------------------------------------------------------ | -------------------------------------------- |
+| `AddPipeline<T>()` twice                                           | One `Pipeline<T>` descriptor; second is a no-op |
+| `.Use<M>()` twice for the same `M`                                 | One `IPipelineMiddleware<T>` descriptor      |
+| `.Use<A>().Use<B>()` then later `.Use<A>()` again                  | `[A, B]` (second `A` is a no-op)             |
+| `.Handle<H1>()` then `.Handle<H2>()`                               | `H1` wins (first registration)               |
+
+This makes it safe for library code to contribute middlewares without having to detect or care about existing registrations.
 
 ### Lifetime
 
 The `ServiceLifetime` parameter of `AddPipeline<T>()` applies to:
 
 - The `Pipeline<T>` registration itself.
-- Any middleware/handler class that `Use<T>()` / `Handle<T>()` registers (via `TryAdd`, so existing registrations with a different lifetime are respected).
+- Any `IPipelineMiddleware<T>` / `IPipelineHandler<T>` the builder writes via `Use<>` / `Handle<>` (via `TryAdd`/`TryAddEnumerable`, so pre-existing registrations with a different lifetime are respected).
 
 The default is `Scoped`, matching typical per-request usage.
 

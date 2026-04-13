@@ -5,7 +5,7 @@ namespace ArchPillar.Extensions.Pipelines.DependencyInjection.Tests;
 public class ServiceCollectionExtensionsTests
 {
     // -----------------------------------------------------------------------
-    // Pipeline resolves and runs
+    // Pipeline resolves and runs — standard DI composition
     // -----------------------------------------------------------------------
 
     [Fact]
@@ -89,14 +89,83 @@ public class ServiceCollectionExtensionsTests
     }
 
     // -----------------------------------------------------------------------
-    // Isolation from the global IPipelineMiddleware<T> service namespace
+    // Forgiving registration (TryAdd / TryAddEnumerable semantics)
     // -----------------------------------------------------------------------
 
     [Fact]
-    public async Task AddPipeline_DoesNotRegisterMiddlewaresAsGlobalIPipelineMiddlewareAsync()
+    public void AddPipeline_CalledTwiceForSameContextType_IsIdempotent()
+    {
+        var services = new ServiceCollection();
+        services.AddPipeline<TestContext>().Handle<RecordingHandler>();
+        services.AddPipeline<TestContext>().Handle<AnotherHandler>();
+
+        ServiceDescriptor[] pipelineDescriptors = services
+            .Where(s => s.ServiceType == typeof(Pipeline<TestContext>))
+            .ToArray();
+        ServiceDescriptor[] handlerDescriptors = services
+            .Where(s => s.ServiceType == typeof(IPipelineHandler<TestContext>))
+            .ToArray();
+
+        // Only one Pipeline<T> descriptor — the second AddPipeline was a no-op.
+        Assert.Single(pipelineDescriptors);
+
+        // Only one handler descriptor — the first call wins.
+        Assert.Single(handlerDescriptors);
+        Assert.Equal(typeof(RecordingHandler), handlerDescriptors[0].ImplementationType);
+    }
+
+    [Fact]
+    public void Use_SameMiddlewareRegisteredTwice_IsDeduplicated()
+    {
+        var services = new ServiceCollection();
+        services.AddPipeline<TestContext>()
+            .Use<FirstMiddleware>()
+            .Use<FirstMiddleware>()
+            .Use<FirstMiddleware>()
+            .Handle<RecordingHandler>();
+
+        ServiceDescriptor[] middlewareDescriptors = services
+            .Where(s => s.ServiceType == typeof(IPipelineMiddleware<TestContext>))
+            .ToArray();
+
+        Assert.Single(middlewareDescriptors);
+        Assert.Equal(typeof(FirstMiddleware), middlewareDescriptors[0].ImplementationType);
+    }
+
+    [Fact]
+    public async Task Handle_CalledTwice_FirstRegistrationWinsAsync()
     {
         var services = new ServiceCollection();
         services.AddSingleton<TestJournal>();
+        services.AddPipeline<TestContext>()
+            .Handle<RecordingHandler>()
+            .Handle<AnotherHandler>();
+
+        using ServiceProvider provider = services.BuildServiceProvider();
+        using IServiceScope scope = provider.CreateScope();
+
+        Pipeline<TestContext> pipeline = scope.ServiceProvider.GetRequiredService<Pipeline<TestContext>>();
+        TestJournal journal = scope.ServiceProvider.GetRequiredService<TestJournal>();
+
+        await pipeline.ExecuteAsync(new TestContext());
+
+        Assert.Equal(new[] { "handler" }, journal.Events);
+    }
+
+    // -----------------------------------------------------------------------
+    // Proper DI composition — external registrations are respected
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public async Task ExternalIPipelineMiddlewareRegistration_IsIncludedInPipelineAsync()
+    {
+        // Register an IPipelineMiddleware<T> directly, without going through
+        // AddPipeline<T>. Because AddPipeline<T> composes via the container,
+        // this middleware IS picked up by the pipeline.
+        var services = new ServiceCollection();
+        services.AddSingleton<TestJournal>();
+        services.AddScoped<IPipelineMiddleware<TestContext>, UnrelatedMiddleware>();
+
         services.AddPipeline<TestContext>()
             .Use<FirstMiddleware>()
             .Handle<RecordingHandler>();
@@ -104,33 +173,34 @@ public class ServiceCollectionExtensionsTests
         using ServiceProvider provider = services.BuildServiceProvider();
         using IServiceScope scope = provider.CreateScope();
 
-        IEnumerable<IPipelineMiddleware<TestContext>> globalMiddlewares =
-            scope.ServiceProvider.GetServices<IPipelineMiddleware<TestContext>>();
-
-        Assert.Empty(globalMiddlewares);
-
-        // And the pipeline still runs the middleware it knows about.
         Pipeline<TestContext> pipeline = scope.ServiceProvider.GetRequiredService<Pipeline<TestContext>>();
         TestJournal journal = scope.ServiceProvider.GetRequiredService<TestJournal>();
+
         await pipeline.ExecuteAsync(new TestContext());
 
+        // The externally-registered middleware runs first (registered first),
+        // followed by the Use<FirstMiddleware>() registration, then the handler.
         Assert.Equal(
-            new[] { "first:before", "handler", "first:after" },
+            new[] { "unrelated", "first:before", "handler", "first:after" },
             journal.Events);
     }
 
     [Fact]
-    public async Task AddPipeline_UnrelatedIPipelineMiddlewareRegistrationsAreNotAttachedToThePipelineAsync()
+    public async Task MultipleModulesEachAddingMiddleware_AllContributionsAreComposedAsync()
     {
-        // An unrelated middleware registered directly as IPipelineMiddleware<T>
-        // must not leak into the pipeline built via AddPipeline<T>().
+        // Two independent "modules" each register middlewares for the same
+        // pipeline. TryAddEnumerable stacks them without conflict.
         var services = new ServiceCollection();
         services.AddSingleton<TestJournal>();
-        services.AddSingleton<IPipelineMiddleware<TestContext>, UnrelatedMiddleware>();
 
+        // Module A
         services.AddPipeline<TestContext>()
             .Use<FirstMiddleware>()
             .Handle<RecordingHandler>();
+
+        // Module B — also configures the same pipeline type
+        services.AddPipeline<TestContext>()
+            .Use<SecondMiddleware>();
 
         using ServiceProvider provider = services.BuildServiceProvider();
         using IServiceScope scope = provider.CreateScope();
@@ -140,40 +210,17 @@ public class ServiceCollectionExtensionsTests
 
         await pipeline.ExecuteAsync(new TestContext());
 
-        // Only the explicitly-added first middleware runs, not UnrelatedMiddleware.
-        Assert.DoesNotContain("unrelated", journal.Events);
         Assert.Equal(
-            new[] { "first:before", "handler", "first:after" },
+            new[] { "first:before", "second:before", "handler", "second:after", "first:after" },
             journal.Events);
     }
 
     // -----------------------------------------------------------------------
-    // Duplicate and misuse detection
+    // Missing handler — DI surfaces a resolution error
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void AddPipeline_CalledTwiceForSameContextType_Throws()
-    {
-        var services = new ServiceCollection();
-        services.AddPipeline<TestContext>();
-
-        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
-            () => services.AddPipeline<TestContext>());
-        Assert.Contains("already registered", ex.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void Handle_CalledTwice_Throws()
-    {
-        var services = new ServiceCollection();
-        PipelineServiceBuilder<TestContext> builder = services.AddPipeline<TestContext>()
-            .Handle<RecordingHandler>();
-
-        Assert.Throws<InvalidOperationException>(() => builder.Handle<AnotherHandler>());
-    }
-
-    [Fact]
-    public void Resolve_WithoutHandler_Throws()
+    public void Resolve_WithoutHandler_ThrowsFromDependencyInjection()
     {
         var services = new ServiceCollection();
         services.AddSingleton<TestJournal>();
@@ -183,6 +230,8 @@ public class ServiceCollectionExtensionsTests
         using ServiceProvider provider = services.BuildServiceProvider();
         using IServiceScope scope = provider.CreateScope();
 
+        // DI can't satisfy Pipeline<TestContext>'s IPipelineHandler<TestContext>
+        // constructor parameter because no handler was registered.
         Assert.Throws<InvalidOperationException>(
             () => scope.ServiceProvider.GetRequiredService<Pipeline<TestContext>>());
     }
@@ -209,46 +258,12 @@ public class ServiceCollectionExtensionsTests
             .Handle<RecordingHandler>();
 
         ServiceDescriptor pipelineDescriptor = services.Single(s => s.ServiceType == typeof(Pipeline<TestContext>));
-        ServiceDescriptor middlewareDescriptor = services.Single(s => s.ServiceType == typeof(FirstMiddleware));
-        ServiceDescriptor handlerDescriptor = services.Single(s => s.ServiceType == typeof(RecordingHandler));
+        ServiceDescriptor middlewareDescriptor = services.Single(s => s.ServiceType == typeof(IPipelineMiddleware<TestContext>));
+        ServiceDescriptor handlerDescriptor = services.Single(s => s.ServiceType == typeof(IPipelineHandler<TestContext>));
 
         Assert.Equal(ServiceLifetime.Singleton, pipelineDescriptor.Lifetime);
         Assert.Equal(ServiceLifetime.Singleton, middlewareDescriptor.Lifetime);
         Assert.Equal(ServiceLifetime.Singleton, handlerDescriptor.Lifetime);
-    }
-
-    // -----------------------------------------------------------------------
-    // Pre-registered concrete types are reused (TryAdd semantics)
-    // -----------------------------------------------------------------------
-
-    [Fact]
-    public async Task AddPipeline_PreRegisteredMiddlewareConcreteType_IsReusedInsteadOfDuplicatedAsync()
-    {
-        var services = new ServiceCollection();
-        services.AddSingleton<TestJournal>();
-
-        // Explicit concrete-type registration
-        services.AddSingleton<FirstMiddleware>();
-
-        services.AddPipeline<TestContext>()
-            .Use<FirstMiddleware>()
-            .Handle<RecordingHandler>();
-
-        ServiceDescriptor middlewareDescriptor = services.Single(s => s.ServiceType == typeof(FirstMiddleware));
-
-        // The existing Singleton registration wins - AddPipeline uses TryAdd and does not downgrade to Scoped.
-        Assert.Equal(ServiceLifetime.Singleton, middlewareDescriptor.Lifetime);
-
-        using ServiceProvider provider = services.BuildServiceProvider();
-        using IServiceScope scope = provider.CreateScope();
-
-        Pipeline<TestContext> pipeline = scope.ServiceProvider.GetRequiredService<Pipeline<TestContext>>();
-        TestJournal journal = scope.ServiceProvider.GetRequiredService<TestJournal>();
-        await pipeline.ExecuteAsync(new TestContext());
-
-        Assert.Equal(
-            new[] { "first:before", "handler", "first:after" },
-            journal.Events);
     }
 
     // -----------------------------------------------------------------------
@@ -338,9 +353,12 @@ public class ServiceCollectionExtensionsTests
         }
     }
 
-    public sealed class AnotherHandler : IPipelineHandler<TestContext>
+    public sealed class AnotherHandler(TestJournal journal) : IPipelineHandler<TestContext>
     {
         public Task HandleAsync(TestContext context, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
+        {
+            journal.Events.Add("another-handler");
+            return Task.CompletedTask;
+        }
     }
 }

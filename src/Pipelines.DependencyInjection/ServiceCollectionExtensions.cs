@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace ArchPillar.Extensions.Pipelines;
 
@@ -15,17 +16,26 @@ public static class ServiceCollectionExtensions
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Middlewares are registered by their concrete type, not as the global
-    /// <see cref="IPipelineMiddleware{T}"/> service. This keeps every pipeline
-    /// isolated: two pipelines for the same context type can have completely
-    /// different sets of middlewares, and registering
-    /// <see cref="IPipelineMiddleware{T}"/> elsewhere in the container does
-    /// not accidentally attach it to the pipeline built here.
+    /// The registration is <strong>forgiving</strong>: both this method and
+    /// the builder's <c>Use&lt;&gt;</c>/<c>Handle&lt;&gt;</c> methods use
+    /// <see cref="ServiceCollectionDescriptorExtensions.TryAdd(IServiceCollection, ServiceDescriptor)"/>
+    /// and
+    /// <see cref="ServiceCollectionDescriptorExtensions.TryAddEnumerable(IServiceCollection, ServiceDescriptor)"/>.
+    /// Calling <c>AddPipeline&lt;T&gt;()</c> a second time for the same context
+    /// type is a no-op; calling <c>Use&lt;M&gt;()</c> twice for the same
+    /// middleware type is a no-op; calling <c>Handle&lt;H&gt;()</c> a second
+    /// time is silently ignored (first handler wins). This means multiple
+    /// modules can each contribute middlewares to the same pipeline without
+    /// having to coordinate ordering or detect existing registrations.
     /// </para>
     /// <para>
-    /// Call this method exactly once per context type <typeparamref name="T"/>.
-    /// Calling it a second time for the same type throws
-    /// <see cref="InvalidOperationException"/>.
+    /// The <see cref="Pipeline{T}"/> itself is registered as a self-constructed
+    /// service — when it is resolved, DI invokes its public constructor with
+    /// the registered <see cref="IPipelineHandler{T}"/> and the full
+    /// <see cref="IEnumerable{T}"/> of registered
+    /// <see cref="IPipelineMiddleware{T}"/> services. This is standard DI
+    /// composition: middlewares and handlers are real container services, not
+    /// closure-captured state.
     /// </para>
     /// <code>
     /// services.AddPipeline&lt;OrderContext&gt;()
@@ -40,33 +50,20 @@ public static class ServiceCollectionExtensions
     /// <typeparam name="T">The context type the pipeline will process.</typeparam>
     /// <returns>A fluent builder for configuring the pipeline.</returns>
     /// <exception cref="ArgumentNullException">Thrown if <paramref name="services"/> is <c>null</c>.</exception>
-    /// <exception cref="InvalidOperationException">
-    /// Thrown if a <see cref="Pipeline{T}"/> has already been registered for this context type.
-    /// </exception>
     public static PipelineServiceBuilder<T> AddPipeline<T>(
         this IServiceCollection services,
         ServiceLifetime lifetime = ServiceLifetime.Scoped)
     {
         ArgumentNullException.ThrowIfNull(services);
 
-        for (var i = 0; i < services.Count; i++)
-        {
-            if (services[i].ServiceType == typeof(Pipeline<T>))
-            {
-                throw new InvalidOperationException(
-                    $"A Pipeline<{typeof(T).Name}> is already registered in this service collection. " +
-                    "Call AddPipeline<T>() only once per context type and configure all middlewares " +
-                    "and the handler in a single chain.");
-            }
-        }
-
-        var builder = new PipelineServiceBuilder<T>(services, lifetime);
-
-        services.Add(new ServiceDescriptor(
+        // Register Pipeline<T> as a self-constructed service. On resolve, DI
+        // will invoke Pipeline<T>'s public constructor with the registered
+        // IPipelineHandler<T> and IEnumerable<IPipelineMiddleware<T>>.
+        services.TryAdd(ServiceDescriptor.Describe(
             typeof(Pipeline<T>),
-            builder.BuildPipeline,
+            typeof(Pipeline<T>),
             lifetime));
 
-        return builder;
+        return new PipelineServiceBuilder<T>(services, lifetime);
     }
 }
