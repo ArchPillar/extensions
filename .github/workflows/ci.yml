@@ -27,5 +27,11 @@ jobs:
       - name: Build
         run: dotnet build -c Release --no-restore
 
-      - name: Test
+      - name: Test Mapper
         run: dotnet test tests/Mapper.Tests -c Release --no-build --verbosity normal
+
+      - name: Test Primitives
+        run: dotnet test tests/Primitives.Tests -c Release --no-build --verbosity normal
+
+      - name: Test Primitives.DependencyInjection
+        run: dotnet test tests/Primitives.DependencyInjection.Tests -c Release --no-build --verbosity normal

@@ -1,0 +1,16 @@
+<Project>
+
+    <!-- Chain to the repo-root Directory.Build.props. Without this explicit import,
+         MSBuild stops at the nearest Directory.Build.props and the root-level
+         properties (TargetFramework, LangVersion, Nullable, analyzers, etc.) are lost. -->
+    <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+    <PropertyGroup>
+        <!-- Both the core Primitives project and the sibling DependencyInjection project
+             share a single root namespace. Feature folders (Pipelines/, etc.) are an
+             organizational concern only — .cs files declare the flat namespace directly. -->
+        <RootNamespace>ArchPillar.Extensions.Primitives</RootNamespace>
+        <Product>ArchPillar.Extensions.Primitives</Product>
+    </PropertyGroup>
+
+</Project>

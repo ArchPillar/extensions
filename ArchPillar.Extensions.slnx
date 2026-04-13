@@ -7,9 +7,19 @@
   <Folder Name="/samples/Mapper/WebShop.OData/">
     <Project Path="samples/Mapper/WebShop.OData/WebShop.OData.csproj" />
   </Folder>
+  <Folder Name="/samples/Primitives/" />
+  <Folder Name="/samples/Primitives/Pipeline.BuilderSample/">
+    <Project Path="samples/Primitives/Pipeline.BuilderSample/Pipeline.BuilderSample.csproj" />
+  </Folder>
+  <Folder Name="/samples/Primitives/Pipeline.HostSample/">
+    <Project Path="samples/Primitives/Pipeline.HostSample/Pipeline.HostSample.csproj" />
+  </Folder>
   <Folder Name="/benchmarks/" />
   <Folder Name="/benchmarks/Mapper.Benchmarks/">
     <Project Path="benchmarks/Mapper.Benchmarks/ArchPillar.Extensions.Mapper.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/benchmarks/Primitives.Benchmarks/">
+    <Project Path="benchmarks/Primitives.Benchmarks/ArchPillar.Extensions.Primitives.Benchmarks.csproj" />
   </Folder>
   <Folder Name="/src/" />
   <Folder Name="/src/Mapper/">
@@ -18,11 +28,23 @@
   <Folder Name="/src/Mapper.EntityFrameworkCore/">
     <Project Path="src/Mapper.EntityFrameworkCore/ArchPillar.Extensions.Mapper.EntityFrameworkCore.csproj" />
   </Folder>
+  <Folder Name="/src/Primitives/">
+    <Project Path="src/Primitives/ArchPillar.Extensions.Primitives.csproj" />
+  </Folder>
+  <Folder Name="/src/Primitives.DependencyInjection/">
+    <Project Path="src/Primitives/DependencyInjection/ArchPillar.Extensions.Primitives.DependencyInjection.csproj" />
+  </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/Mapper.Tests/">
     <Project Path="tests/Mapper.Tests/ArchPillar.Extensions.Mapper.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/Mapper.OData.Tests/">
     <Project Path="tests/Mapper.OData.Tests/ArchPillar.Extensions.Mapper.OData.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Primitives.Tests/">
+    <Project Path="tests/Primitives.Tests/ArchPillar.Extensions.Primitives.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Primitives.DependencyInjection.Tests/">
+    <Project Path="tests/Primitives.DependencyInjection.Tests/ArchPillar.Extensions.Primitives.DependencyInjection.Tests.csproj" />
   </Folder>
 </Solution>
