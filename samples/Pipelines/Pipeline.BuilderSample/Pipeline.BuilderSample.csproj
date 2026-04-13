@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <!-- Override library defaults — this is an application, not a library -->
+        <GenerateDocumentationFile>false</GenerateDocumentationFile>
+        <Nullable>enable</Nullable>
+        <NoWarn>$(NoWarn);IDE0005</NoWarn>
+        <RootNamespace>Pipeline.BuilderSample</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../../../src/Pipelines/ArchPillar.Extensions.Pipelines.csproj" />
+    </ItemGroup>
+
+</Project>

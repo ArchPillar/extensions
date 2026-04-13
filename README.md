@@ -8,9 +8,9 @@ A collection of standalone .NET libraries that grew out of personal needs during
 
 Explicit object-to-object DTO mapping and LINQ/EF Core expression projection. One definition drives both in-memory mapping and IQueryable projection — with full IDE traceability.
 
-### [ArchPillar.Extensions.Primitives](docs/primitives/)
+### [ArchPillar.Extensions.Pipelines](docs/pipelines/)
 
-A collection of small, dependency-free .NET primitives. Currently ships `Pipeline<T>`, a lightweight DI-friendly async middleware pipeline built on pre-composed nested lambdas. Allocation-free on the synchronous hot path. Ships with an optional `Microsoft.Extensions.DependencyInjection` integration package.
+A lightweight, DI-friendly, allocation-free async middleware pipeline. `Pipeline<T>` composes `IPipelineMiddleware<T>` steps around an `IPipelineHandler<T>` terminal step as pre-built nested lambdas — reusable across invocations with zero per-call allocations on the synchronous hot path. Ships with an optional `Microsoft.Extensions.DependencyInjection` integration package.
 
 ## Repository Structure
 
@@ -18,26 +18,26 @@ A collection of small, dependency-free .NET primitives. Currently ships `Pipelin
 ├── src/
 │   ├── Mapper/                            # Core mapping library
 │   ├── Mapper.EntityFrameworkCore/        # EF Core integration
-│   └── Primitives/                        # Core primitives library
-│       └── DependencyInjection/           # Microsoft.Extensions.DI integration
+│   ├── Pipelines/                         # Core pipelines library
+│   └── Pipelines.DependencyInjection/     # Microsoft.Extensions.DI integration
 ├── tests/
 │   ├── Mapper.Tests/                      # Unit and integration tests
 │   ├── Mapper.OData.Tests/                # OData-specific tests
-│   ├── Primitives.Tests/                  # Primitives unit + allocation tests
-│   └── Primitives.DependencyInjection.Tests/
+│   ├── Pipelines.Tests/                   # Pipelines unit + allocation tests
+│   └── Pipelines.DependencyInjection.Tests/
 ├── benchmarks/
 │   ├── Mapper.Benchmarks/                 # Mapper BenchmarkDotNet suite
-│   └── Primitives.Benchmarks/             # Primitives BenchmarkDotNet suite
+│   └── Pipelines.Benchmarks/              # Pipelines BenchmarkDotNet suite
 ├── samples/
 │   ├── Mapper/
 │   │   ├── WebShop/                       # ASP.NET Core Web API sample
 │   │   └── WebShop.OData/                 # OData endpoint sample
-│   └── Primitives/
+│   └── Pipelines/
 │       ├── Pipeline.BuilderSample/        # Direct (no-DI) Pipeline<T> sample
 │       └── Pipeline.HostSample/           # Host-builder + AddPipeline<T>() sample
 ├── docs/
 │   ├── mapper/                            # Mapper documentation and spec
-│   └── primitives/                        # Primitives documentation and spec
+│   └── pipelines/                         # Pipelines documentation and spec
 ├── Directory.Build.props                  # Shared project properties
 ├── Directory.Build.targets                # Roslyn analyzer configuration
 ├── Directory.Packages.props               # Central package management

@@ -30,8 +30,8 @@ jobs:
       - name: Test Mapper
         run: dotnet test tests/Mapper.Tests -c Release --no-build --verbosity normal
 
-      - name: Test Primitives
-        run: dotnet test tests/Primitives.Tests -c Release --no-build --verbosity normal
+      - name: Test Pipelines
+        run: dotnet test tests/Pipelines.Tests -c Release --no-build --verbosity normal
 
-      - name: Test Primitives.DependencyInjection
-        run: dotnet test tests/Primitives.DependencyInjection.Tests -c Release --no-build --verbosity normal
+      - name: Test Pipelines.DependencyInjection
+        run: dotnet test tests/Pipelines.DependencyInjection.Tests -c Release --no-build --verbosity normal
