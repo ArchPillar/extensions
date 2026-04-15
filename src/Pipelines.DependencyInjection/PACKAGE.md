@@ -1,17 +1,20 @@
 # ArchPillar.Extensions.Pipelines.DependencyInjection
 
-`Microsoft.Extensions.DependencyInjection` integration for `ArchPillar.Extensions.Pipelines`. Adds a fluent `services.AddPipeline<T>()` registration for `Pipeline<T>` middlewares and handlers.
+`Microsoft.Extensions.DependencyInjection` integration for `ArchPillar.Extensions.Pipelines`. Provides `AddPipeline<T, THandler>()`, `AddPipelineMiddleware<T, TMiddleware>()`, and `ReplacePipelineHandler<T, THandler>()` extension methods.
 
 ## Quick Start
 
 ```csharp
 using ArchPillar.Extensions.Pipelines;
 
-services.AddPipeline<OrderContext>()
-    .Use<LoggingMiddleware>()
-    .Use<ValidationMiddleware>()
-    .Use<TransactionMiddleware>()
-    .Handle<PlaceOrderHandler>();
+// A pipeline always has a terminal handler — register it upfront.
+services.AddPipeline<OrderContext, PlaceOrderHandler>();
+
+// Middlewares are registered independently. Library modules can contribute
+// middlewares to a pipeline owned by the application.
+services.AddPipelineMiddleware<OrderContext, LoggingMiddleware>();
+services.AddPipelineMiddleware<OrderContext, ValidationMiddleware>();
+services.AddPipelineMiddleware<OrderContext, TransactionMiddleware>();
 
 // Resolve Pipeline<OrderContext> anywhere
 public sealed class OrderEndpoint(Pipeline<OrderContext> pipeline)
@@ -21,9 +24,44 @@ public sealed class OrderEndpoint(Pipeline<OrderContext> pipeline)
 }
 ```
 
-Middlewares execute in the order they were registered. Each middleware and the handler resolve their own constructor dependencies from DI just like any other registered class.
+Middlewares execute in registration order. Each middleware and the handler resolve their own constructor dependencies from DI like any other registered class.
 
-Pipelines are scoped by default. Override via `services.AddPipeline<T>(ServiceLifetime.Singleton)` if you need long-lived pipelines (ensure your middlewares and handler are singleton-safe).
+## Delegate handlers
+
+Use an inline delegate when a class handler is overkill — for tests, adapters, or trivial sinks:
+
+```csharp
+services.AddPipeline<OrderContext>((ctx, ct) => Task.CompletedTask);           // async + token
+services.AddPipeline<OrderContext>(ctx => SomeTask(ctx));                      // async
+services.AddPipeline<OrderContext>(ctx => ctx.Handled = true);                 // sync
+```
+
+Delegate handlers are registered as singleton instances (the delegate itself is stateless).
+
+## Replacing the handler
+
+`ReplacePipelineHandler<T, THandler>()` removes any existing handler registration and installs a new one. This is useful in tests that need to swap out the production handler:
+
+```csharp
+services.ReplacePipelineHandler<OrderContext, FakeOrderHandler>();
+// or with a delegate:
+services.ReplacePipelineHandler<OrderContext>((ctx, ct) => Task.CompletedTask);
+```
+
+## Lifetimes
+
+Every registration accepts its own `ServiceLifetime`. The pipeline, each middleware, and the handler are independent:
+
+```csharp
+services.AddPipeline<OrderContext, PlaceOrderHandler>(
+    pipelineLifetime: ServiceLifetime.Scoped,
+    handlerLifetime: ServiceLifetime.Scoped);
+
+services.AddPipelineMiddleware<OrderContext, LoggingMiddleware>(ServiceLifetime.Singleton);
+services.AddPipelineMiddleware<OrderContext, AuditMiddleware>(ServiceLifetime.Scoped);
+```
+
+The only combination that is rejected at registration time is a **singleton `Pipeline<T>` with a scoped middleware or handler** — the classic captive-dependency bug. The validation fires whichever order you register in: if the pipeline is already singleton, adding a scoped step throws; if a scoped step is already registered, promoting the pipeline to singleton throws.
 
 ## Composition via DI
 
@@ -33,21 +71,11 @@ Pipelines are scoped by default. Override via `services.AddPipeline<T>(ServiceLi
 public Pipeline(IPipelineHandler<T> handler, IEnumerable<IPipelineMiddleware<T>> middlewares)
 ```
 
-Both collaborators come from the container. `.Use<TMiddleware>()` writes an `IPipelineMiddleware<T>` → `TMiddleware` descriptor via `TryAddEnumerable`; `.Handle<THandler>()` writes `IPipelineHandler<T>` → `THandler` via `TryAdd`. That means:
+Both collaborators come from the container:
 
-- **Multiple modules can contribute middlewares to the same pipeline.** Two unrelated calls to `services.AddPipeline<T>().Use<X>()` compose cleanly — the resulting pipeline contains the union of all registered middlewares.
+- **Multiple modules can contribute middlewares to the same pipeline.** `AddPipelineMiddleware<T, X>()` writes an `IPipelineMiddleware<T>` → `X` descriptor via `TryAddEnumerable`.
 - **External `services.AddScoped<IPipelineMiddleware<T>, X>()` registrations are respected** and show up in the pipeline in registration order.
-- **The builder holds no captured state.** Once `AddPipeline<T>()` returns, the builder can be discarded; everything that drives the pipeline's behaviour lives as plain service descriptors in the container.
-
-## Forgiving registration
-
-Every registration is idempotent:
-
-- `AddPipeline<T>()` called twice → one `Pipeline<T>` descriptor (second call is a no-op).
-- `.Use<M>()` called twice for the same `M` → one `IPipelineMiddleware<T>` descriptor (deduplicated by `TryAddEnumerable`).
-- `.Handle<H1>()` then `.Handle<H2>()` → `H1` wins (first call registers, subsequent `TryAdd`s are no-ops).
-
-This makes it safe for library code to contribute middlewares to a pipeline owned by application code without having to detect or care about existing registrations.
+- **Registration calls are idempotent by type.** `AddPipelineMiddleware<T, X>()` called twice for the same `X` dedupes to a single descriptor. `AddPipeline<T, H>()` called twice is a no-op (first handler wins). To change a handler, use `ReplacePipelineHandler<T, …>()`.
 
 ## Documentation
 

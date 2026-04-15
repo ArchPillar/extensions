@@ -5,7 +5,7 @@ A lightweight, DI-friendly, **allocation-free** async middleware pipeline for .N
 ## Packages
 
 - **`ArchPillar.Extensions.Pipelines`** — BCL-only core. Contains the contracts (`IPipelineHandler<T>`, `IPipelineMiddleware<T>`, `PipelineDelegate<T>`), the `Pipeline<T>` class, the static `Pipeline.For<T>()` entry point, the `PipelineBuilder<T>`, and delegate-based helpers.
-- **`ArchPillar.Extensions.Pipelines.DependencyInjection`** — `Microsoft.Extensions.DependencyInjection` integration. Adds `services.AddPipeline<T>()` for type-based registration with constructor injection into middlewares and handler.
+- **`ArchPillar.Extensions.Pipelines.DependencyInjection`** — `Microsoft.Extensions.DependencyInjection` integration. Adds `AddPipeline<T, THandler>()`, `AddPipelineMiddleware<T, TMiddleware>()`, and `ReplacePipelineHandler<T, THandler>()` extensions with constructor injection into middlewares and handler.
 
 ## Why?
 
@@ -16,7 +16,7 @@ Middleware pipelines are everywhere — ASP.NET Core, MediatR behaviours, MassTr
 - **Nested-lambda model.** Each middleware wraps the rest of the pipeline. Short-circuit by not calling `next(...)`. Add error boundaries with `try/catch await next(...)`.
 - **Pre-built delegate chain.** The middleware → handler composition is built **once** in the `Pipeline<T>` constructor. Every subsequent `ExecuteAsync` is a single delegate invocation.
 - **Allocation-free hot path.** Synchronous pipelines (handler returns a completed task, middlewares tail-call `next`) allocate **zero bytes per invocation**. Locked in by unit tests using `GC.GetAllocatedBytesForCurrentThread()`.
-- **DI-native.** Middlewares and handlers are classes with constructor-injected dependencies. `services.AddPipeline<T>()` registers them by their concrete types so pipelines stay isolated from the global `IPipelineMiddleware<T>` service namespace.
+- **DI-native.** Middlewares and handlers are classes with constructor-injected dependencies. `services.AddPipeline<T>()` composes a `Pipeline<T>` from the `IPipelineMiddleware<T>` and `IPipelineHandler<T>` services registered in the container, so multiple modules can contribute to the same pipeline without coordination.
 - **Async-first.** `Task`-returning throughout, with `CancellationToken` flowing through every step.
 - **Reusable.** A single `Pipeline<T>` instance is safe to invoke many times, concurrently, as long as the underlying handler and middlewares themselves are thread-safe.
 
@@ -50,11 +50,10 @@ await pipeline.ExecuteAsync(new OrderContext { OrderId = 42 });
 using ArchPillar.Extensions.Pipelines;
 using Microsoft.Extensions.DependencyInjection;
 
-services.AddPipeline<OrderContext>()
-    .Use<LoggingMiddleware>()
-    .Use<ValidationMiddleware>()
-    .Use<TransactionMiddleware>()
-    .Handle<PlaceOrderHandler>();
+services.AddPipeline<OrderContext, PlaceOrderHandler>();
+services.AddPipelineMiddleware<OrderContext, LoggingMiddleware>();
+services.AddPipelineMiddleware<OrderContext, ValidationMiddleware>();
+services.AddPipelineMiddleware<OrderContext, TransactionMiddleware>();
 
 // Inject Pipeline<OrderContext> anywhere:
 public sealed class OrderEndpoint(Pipeline<OrderContext> pipeline)

@@ -12,7 +12,7 @@ namespace ArchPillar.Extensions.Pipelines.Tests;
 /// on the hot path, these assertions will fail.
 /// </para>
 /// </summary>
-public class PipelineAllocationTests
+public sealed class PipelineAllocationTests
 {
     // Run a decent number of invocations so the assertion tolerates the
     // occasional bookkeeping byte from the runtime but still catches any

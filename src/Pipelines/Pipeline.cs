@@ -20,9 +20,11 @@ namespace ArchPillar.Extensions.Pipelines;
 /// The constructor accepts plain <see cref="IEnumerable{T}"/> collaborators,
 /// making the type trivially resolvable from any DI container. See
 /// <c>ArchPillar.Extensions.Pipelines.DependencyInjection</c> for the
-/// <c>AddPipeline&lt;T&gt;()</c> fluent registration helper, which registers
-/// each middleware by its concrete type so pipelines stay isolated from the
-/// global <see cref="IPipelineMiddleware{T}"/> service namespace.
+/// <c>AddPipeline&lt;T, THandler&gt;()</c> and
+/// <c>AddPipelineMiddleware&lt;T, TMiddleware&gt;()</c> extension methods,
+/// which compose a pipeline from the <see cref="IPipelineMiddleware{T}"/>
+/// and <see cref="IPipelineHandler{T}"/> services registered in the
+/// container.
 /// </para>
 /// </summary>
 /// <typeparam name="T">The context type passed through the pipeline.</typeparam>

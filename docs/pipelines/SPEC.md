@@ -144,7 +144,7 @@ public static class PipelineHandler
 public static class PipelineMiddleware
 {
     public static IPipelineMiddleware<T> FromDelegate<T>(Func<T, PipelineDelegate<T>, CancellationToken, Task> invoke);
-    public static IPipelineMiddleware<T> FromDelegate<T>(Func<T, PipelineDelegate<T>, Task> invoke);
+    public static IPipelineMiddleware<T> FromDelegate<T>(Func<T, Func<T, Task>, Task> invoke);
 }
 ```
 
@@ -154,38 +154,82 @@ Wrap plain delegates as `IPipelineHandler<T>` / `IPipelineMiddleware<T>`. Useful
 
 ## DI integration
 
-Lives in the companion package `ArchPillar.Extensions.Pipelines.DependencyInjection`.
+Lives in the companion package `ArchPillar.Extensions.Pipelines.DependencyInjection`. The public surface is three extension methods on `IServiceCollection`: one to register the pipeline with its required handler, one to contribute a middleware, and one to swap the handler.
 
-### `services.AddPipeline<T>()`
+### `AddPipeline<T, THandler>`
 
 ```csharp
-public static PipelineServiceBuilder<T> AddPipeline<T>(
+public static IServiceCollection AddPipeline<T, THandler>(
     this IServiceCollection services,
-    ServiceLifetime lifetime = ServiceLifetime.Scoped);
+    ServiceLifetime pipelineLifetime = ServiceLifetime.Scoped,
+    ServiceLifetime? handlerLifetime = null)
+    where THandler : class, IPipelineHandler<T>;
 ```
 
-Registers `Pipeline<T>` in the service collection and returns a fluent builder for configuring its middlewares and handler. The registration is done via
-`TryAdd`, so calling `AddPipeline<T>()` a second time for the same context type is a no-op — the first registration wins.
+Registers `Pipeline<T>` and its required terminal handler. A pipeline without a handler is not valid — if you don't have a real handler yet, register a dummy that throws.
 
-### `PipelineServiceBuilder<T>`
+Both descriptors are written via `TryAdd`, so calling `AddPipeline<T, THandler>()` a second time for the same `T` is a no-op (first handler wins). To swap the handler after the fact, use `ReplacePipelineHandler<T, ...>()`.
+
+`handlerLifetime` defaults to `pipelineLifetime`.
+
+#### Delegate overloads
+
+For inline handlers (tests, adapters, trivial sinks):
 
 ```csharp
-public sealed class PipelineServiceBuilder<T>
-{
-    public ServiceLifetime Lifetime { get; }
+public static IServiceCollection AddPipeline<T>(
+    this IServiceCollection services,
+    Func<T, CancellationToken, Task> handler,
+    ServiceLifetime pipelineLifetime = ServiceLifetime.Scoped);
 
-    public PipelineServiceBuilder<T> Use<TMiddleware>()
-        where TMiddleware : class, IPipelineMiddleware<T>;
+public static IServiceCollection AddPipeline<T>(
+    this IServiceCollection services,
+    Func<T, Task> handler,
+    ServiceLifetime pipelineLifetime = ServiceLifetime.Scoped);
 
-    public PipelineServiceBuilder<T> Handle<THandler>()
-        where THandler : class, IPipelineHandler<T>;
-}
+public static IServiceCollection AddPipeline<T>(
+    this IServiceCollection services,
+    Action<T> handler,
+    ServiceLifetime pipelineLifetime = ServiceLifetime.Scoped);
 ```
 
-The builder holds **no state of its own** — every method writes a `ServiceDescriptor` directly into the `IServiceCollection`:
+The delegate is wrapped via `PipelineHandler.FromDelegate(...)` and registered as a singleton `IPipelineHandler<T>` instance. Singletons are compatible with every pipeline lifetime, so no lifetime knob is needed for the handler itself.
 
-- **`Use<TMiddleware>()`** — registers `IPipelineMiddleware<T>` → `TMiddleware` via `TryAddEnumerable`, so the same middleware added twice is deduplicated. Middlewares execute in the order they were added; this matches the order in which `IEnumerable<IPipelineMiddleware<T>>` services come out of the container.
-- **`Handle<THandler>()`** — registers `IPipelineHandler<T>` → `THandler` via `TryAdd`, so the first handler configured for a given context type wins. Calling it a second time is silently ignored.
+### `AddPipelineMiddleware<T, TMiddleware>`
+
+```csharp
+public static IServiceCollection AddPipelineMiddleware<T, TMiddleware>(
+    this IServiceCollection services,
+    ServiceLifetime lifetime = ServiceLifetime.Scoped)
+    where TMiddleware : class, IPipelineMiddleware<T>;
+```
+
+Adds a middleware to `Pipeline<T>` without touching the pipeline registration. Library modules use this to contribute middlewares to a pipeline owned by the application — if the application never registers `Pipeline<T>`, the middleware is simply inert, and resolving the pipeline is the caller's responsibility.
+
+Written via `TryAddEnumerable`, so calling it twice for the same `TMiddleware` is a no-op. Middlewares execute in registration order.
+
+### `ReplacePipelineHandler<T, THandler>`
+
+```csharp
+public static IServiceCollection ReplacePipelineHandler<T, THandler>(
+    this IServiceCollection services,
+    ServiceLifetime lifetime = ServiceLifetime.Scoped)
+    where THandler : class, IPipelineHandler<T>;
+
+public static IServiceCollection ReplacePipelineHandler<T>(
+    this IServiceCollection services,
+    Func<T, CancellationToken, Task> handler);
+
+public static IServiceCollection ReplacePipelineHandler<T>(
+    this IServiceCollection services,
+    Func<T, Task> handler);
+
+public static IServiceCollection ReplacePipelineHandler<T>(
+    this IServiceCollection services,
+    Action<T> handler);
+```
+
+Removes every existing `IPipelineHandler<T>` descriptor and installs the replacement. Useful in integration tests and for environment-specific overrides. Delegate overloads register the replacement as a singleton instance.
 
 ### Composition via DI
 
@@ -197,37 +241,27 @@ public Pipeline(IPipelineHandler<T> handler, IEnumerable<IPipelineMiddleware<T>>
 
 Both parameters are resolved from the container:
 
-- `IPipelineHandler<T>` — the handler registered via `Handle<THandler>()` (or by any other code that registers the interface).
+- `IPipelineHandler<T>` — the handler registered via `AddPipeline<T, THandler>()` or `ReplacePipelineHandler<T, THandler>()` (or by any other code that registers the interface).
 - `IEnumerable<IPipelineMiddleware<T>>` — **every** middleware registered as `IPipelineMiddleware<T>` in the container, in registration order.
 
 This has several consequences, all intentional:
 
-- **Multiple modules can contribute middlewares to the same pipeline.** Two unrelated calls to `services.AddPipeline<T>().Use<X>()` are composable — the resulting pipeline contains both `X` and whatever other modules added.
+- **Multiple modules can contribute middlewares to the same pipeline.** Unrelated `AddPipelineMiddleware<T, X>()` calls compose — the resulting pipeline contains the union.
 - **External `services.AddScoped<IPipelineMiddleware<T>, X>()` registrations are respected** and show up in the pipeline. This is how you compose a pipeline from parts that don't know about each other.
-- **Nothing is captured in closure state.** The builder is just a thin wrapper that writes descriptors; once `AddPipeline<T>()` returns, the builder can be discarded and the pipeline still resolves correctly from the container.
 - **No internal registry, no hidden list.** Everything that drives the pipeline's behaviour is a plain `ServiceDescriptor` that standard DI tooling can introspect.
 
-### Forgiving registration
+### Lifetime rules
 
-Because every registration goes through `TryAdd` or `TryAddEnumerable`, the entire DI surface is idempotent:
+Each extension takes its own `ServiceLifetime`. The pipeline, each middleware, and the handler are independent. The only combination rejected at registration time is a **singleton `Pipeline<T>` with a scoped middleware or handler** — the classic captive-dependency bug. The check fires in both directions:
 
-| Call sequence                                                      | Result                                       |
-| ------------------------------------------------------------------ | -------------------------------------------- |
-| `AddPipeline<T>()` twice                                           | One `Pipeline<T>` descriptor; second is a no-op |
-| `.Use<M>()` twice for the same `M`                                 | One `IPipelineMiddleware<T>` descriptor      |
-| `.Use<A>().Use<B>()` then later `.Use<A>()` again                  | `[A, B]` (second `A` is a no-op)             |
-| `.Handle<H1>()` then `.Handle<H2>()`                               | `H1` wins (first registration)               |
+| When you call                                               | It throws if                                                         |
+| ----------------------------------------------------------- | -------------------------------------------------------------------- |
+| `AddPipeline<T, THandler>(Singleton, Scoped)`               | The handler lifetime is scoped                                       |
+| `AddPipeline<T, _>(Singleton, ...)`                         | A scoped `IPipelineMiddleware<T>` or `IPipelineHandler<T>` already exists |
+| `AddPipelineMiddleware<T, _>(Scoped)`                       | `Pipeline<T>` is already registered as singleton                     |
+| `ReplacePipelineHandler<T, _>(Scoped)`                      | `Pipeline<T>` is already registered as singleton                     |
 
-This makes it safe for library code to contribute middlewares without having to detect or care about existing registrations.
-
-### Lifetime
-
-The `ServiceLifetime` parameter of `AddPipeline<T>()` applies to:
-
-- The `Pipeline<T>` registration itself.
-- Any `IPipelineMiddleware<T>` / `IPipelineHandler<T>` the builder writes via `Use<>` / `Handle<>` (via `TryAdd`/`TryAddEnumerable`, so pre-existing registrations with a different lifetime are respected).
-
-The default is `Scoped`, matching typical per-request usage.
+Scoped and transient pipelines accept any step lifetime. Singleton middlewares and handlers are always compatible with any pipeline lifetime.
 
 ---
 

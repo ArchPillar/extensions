@@ -94,17 +94,22 @@ Middlewares execute in the order you added them, wrapping outward → inward. `H
 
 ## 5b. Build a pipeline with DI
 
-For host-based applications (`Microsoft.Extensions.Hosting`, ASP.NET Core, etc.), register the pipeline in your `IServiceCollection` so every middleware and the handler get full constructor injection:
+For host-based applications (`Microsoft.Extensions.Hosting`, ASP.NET Core, etc.), register the pipeline in your `IServiceCollection` so every middleware and the handler get full constructor injection. The DI integration lives in `ArchPillar.Extensions.Pipelines.DependencyInjection` and exposes three extension methods:
 
 ```csharp
 using ArchPillar.Extensions.Pipelines;
 using Microsoft.Extensions.DependencyInjection;
 
-services.AddPipeline<OrderContext>()
-    .Use<LoggingMiddleware>()
-    .Use<ValidationMiddleware>()
-    .Use<AuthorizationMiddleware>()
-    .Handle<PlaceOrderHandler>();
+// 1) Register the pipeline with its required terminal handler.
+services.AddPipeline<OrderContext, PlaceOrderHandler>();
+
+// 2) Contribute middlewares — either from application startup or from
+//    independent library modules. AddPipelineMiddleware<T, M>() is a
+//    standalone extension: it does not touch the Pipeline<T> registration,
+//    so modules can contribute middlewares to a pipeline they don't own.
+services.AddPipelineMiddleware<OrderContext, LoggingMiddleware>();
+services.AddPipelineMiddleware<OrderContext, ValidationMiddleware>();
+services.AddPipelineMiddleware<OrderContext, AuthorizationMiddleware>();
 ```
 
 Now any component can take `Pipeline<OrderContext>` as a constructor dependency:
@@ -117,19 +122,46 @@ public sealed class OrderEndpoint(Pipeline<OrderContext> pipeline)
 }
 ```
 
-The middlewares and the handler are registered in the DI container by their **concrete type**, not as `IPipelineMiddleware<OrderContext>`. This keeps your pipeline isolated from the rest of the container — see the [SPEC](SPEC.md#isolation) for details.
+The middlewares and the handler are registered in the DI container as `IPipelineMiddleware<OrderContext>` and `IPipelineHandler<OrderContext>` via `TryAddEnumerable` / `TryAdd`. `Pipeline<OrderContext>` is then composed from whichever implementations are registered — see the [SPEC](SPEC.md#composition-via-di) for details.
 
-### Lifetime knob
+### Delegate handlers
 
-`AddPipeline<T>()` defaults to `ServiceLifetime.Scoped`. Pass `ServiceLifetime.Singleton` or `ServiceLifetime.Transient` if you need something different:
+When a class handler is overkill (tests, adapters, trivial sinks), `AddPipeline<T>` also accepts a delegate — synchronous or asynchronous, with or without a cancellation token:
 
 ```csharp
-services.AddPipeline<OrderContext>(ServiceLifetime.Singleton)
-    .Use<LoggingMiddleware>()
-    .Handle<PlaceOrderHandler>();
+services.AddPipeline<OrderContext>((ctx, ct) => SomeTask(ctx, ct));  // async + token
+services.AddPipeline<OrderContext>(ctx => SomeTask(ctx));            // async
+services.AddPipeline<OrderContext>(ctx => ctx.Handled = true);       // sync
 ```
 
-The lifetime is applied both to the `Pipeline<T>` registration and to any middleware/handler classes `Use<...>()` / `Handle<...>()` register (if they are not already registered).
+Delegate handlers are registered as singleton `IPipelineHandler<T>` instances.
+
+### Replacing the handler in tests
+
+`ReplacePipelineHandler<T, THandler>()` (and its delegate overloads) removes any existing handler registration and installs a new one. Use this in integration tests to swap out the production handler without rebuilding the service collection:
+
+```csharp
+services.ReplacePipelineHandler<OrderContext>((ctx, ct) =>
+{
+    ctx.Handled = true;
+    return Task.CompletedTask;
+});
+```
+
+### Lifetimes
+
+Each extension takes its own `ServiceLifetime`. The pipeline, each middleware, and the handler are independent:
+
+```csharp
+services.AddPipeline<OrderContext, PlaceOrderHandler>(
+    pipelineLifetime: ServiceLifetime.Scoped,
+    handlerLifetime: ServiceLifetime.Scoped);
+
+services.AddPipelineMiddleware<OrderContext, LoggingMiddleware>(ServiceLifetime.Singleton);
+services.AddPipelineMiddleware<OrderContext, AuditMiddleware>(ServiceLifetime.Scoped);
+```
+
+The only combination rejected at registration time is a **singleton `Pipeline<T>` with a scoped middleware or handler** — the classic captive-dependency bug. The check fires whichever order you register in.
 
 ## 6. Run it
 

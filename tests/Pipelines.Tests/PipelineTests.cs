@@ -1,6 +1,6 @@
 namespace ArchPillar.Extensions.Pipelines.Tests;
 
-public class PipelineTests
+public sealed class PipelineTests
 {
     // -----------------------------------------------------------------------
     // Order of execution

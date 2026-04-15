@@ -46,7 +46,7 @@ public sealed class PipelineBuilder<T>
     /// </summary>
     /// <param name="invoke">The middleware delegate.</param>
     /// <returns>This builder, for chaining.</returns>
-    public PipelineBuilder<T> Use(Func<T, PipelineDelegate<T>, Task> invoke)
+    public PipelineBuilder<T> Use(Func<T, Func<T, Task>, Task> invoke)
         => Use(PipelineMiddleware.FromDelegate(invoke));
 
     /// <summary>

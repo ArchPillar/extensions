@@ -21,12 +21,16 @@ builder.Logging.AddSimpleConsole(o =>
     o.TimestampFormat = "HH:mm:ss ";
 });
 
-builder.Services
-    .AddPipeline<OrderContext>()
-    .Use<LoggingMiddleware>()
-    .Use<ValidationMiddleware>()
-    .Use<AuthorizationMiddleware>()
-    .Handle<PlaceOrderHandler>();
+// Register the pipeline with its terminal handler. Middlewares are registered
+// separately — either by the application (as here) or by independent library
+// modules using the same AddPipelineMiddleware<T, TMiddleware>() extension.
+builder.Services.AddPipeline<OrderContext, PlaceOrderHandler>();
+builder.Services.AddPipelineMiddleware<OrderContext, LoggingMiddleware>();
+builder.Services.AddPipelineMiddleware<OrderContext, ValidationMiddleware>();
+builder.Services.AddPipelineMiddleware<OrderContext, AuthorizationMiddleware>();
+
+// In tests, you could swap the terminal handler with:
+//     builder.Services.ReplacePipelineHandler<OrderContext>((ctx, ct) => Task.CompletedTask);
 
 using IHost host = builder.Build();
 

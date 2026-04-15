@@ -1,6 +1,6 @@
 namespace ArchPillar.Extensions.Pipelines.Tests;
 
-public class PipelineBuilderTests
+public sealed class PipelineBuilderTests
 {
     [Fact]
     public void Build_WithoutHandler_Throws()
@@ -109,10 +109,31 @@ public class PipelineBuilderTests
     }
 
     [Fact]
+    public async Task PipelineMiddleware_FromDelegate_ShortOverload_ForwardsCancellationToNextAsync()
+    {
+        using var cts = new CancellationTokenSource();
+        CancellationToken seenByHandler = default;
+
+        Pipeline<object> pipeline = Pipeline
+            .For<object>()
+            .Use((ctx, next) => next(ctx))
+            .Handle((_, ct) =>
+            {
+                seenByHandler = ct;
+                return Task.CompletedTask;
+            })
+            .Build();
+
+        await pipeline.ExecuteAsync(new object(), cts.Token);
+
+        Assert.Equal(cts.Token, seenByHandler);
+    }
+
+    [Fact]
     public void PipelineMiddleware_FromDelegate_NullDelegate_Throws()
     {
         Assert.Throws<ArgumentNullException>(
-            () => PipelineMiddleware.FromDelegate<object>((Func<object, PipelineDelegate<object>, Task>)null!));
+            () => PipelineMiddleware.FromDelegate<object>((Func<object, Func<object, Task>, Task>)null!));
         Assert.Throws<ArgumentNullException>(
             () => PipelineMiddleware.FromDelegate<object>((Func<object, PipelineDelegate<object>, CancellationToken, Task>)null!));
     }
