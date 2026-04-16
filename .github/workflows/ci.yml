@@ -32,6 +32,3 @@ jobs:
 
       - name: Test Pipelines
         run: dotnet test tests/Pipelines.Tests -c Release --no-build --verbosity normal
-
-      - name: Test Pipelines.DependencyInjection
-        run: dotnet test tests/Pipelines.DependencyInjection.Tests -c Release --no-build --verbosity normal

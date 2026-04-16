@@ -10,7 +10,7 @@ Explicit object-to-object DTO mapping and LINQ/EF Core expression projection. On
 
 ### [ArchPillar.Extensions.Pipelines](docs/pipelines/)
 
-A lightweight, DI-friendly, allocation-free async middleware pipeline. `Pipeline<T>` composes `IPipelineMiddleware<T>` steps around an `IPipelineHandler<T>` terminal step as pre-built nested lambdas — reusable across invocations with zero per-call allocations on the synchronous hot path. Ships with an optional `Microsoft.Extensions.DependencyInjection` integration package.
+A lightweight, allocation-free async middleware pipeline. `Pipeline<T>` composes `IPipelineMiddleware<T>` steps around an `IPipelineHandler<T>` terminal step as pre-built nested lambdas — reusable across invocations with zero per-call allocations on the synchronous hot path. Ships with built-in `Microsoft.Extensions.DependencyInjection` integration and a drop-in `System.Diagnostics.Activity` middleware for distributed tracing.
 
 ## Repository Structure
 
@@ -18,13 +18,11 @@ A lightweight, DI-friendly, allocation-free async middleware pipeline. `Pipeline
 ├── src/
 │   ├── Mapper/                            # Core mapping library
 │   ├── Mapper.EntityFrameworkCore/        # EF Core integration
-│   ├── Pipelines/                         # Core pipelines library
-│   └── Pipelines.DependencyInjection/     # Microsoft.Extensions.DI integration
+│   └── Pipelines/                         # Pipelines library (includes DI extensions)
 ├── tests/
 │   ├── Mapper.Tests/                      # Unit and integration tests
 │   ├── Mapper.OData.Tests/                # OData-specific tests
-│   ├── Pipelines.Tests/                   # Pipelines unit + allocation tests
-│   └── Pipelines.DependencyInjection.Tests/
+│   └── Pipelines.Tests/                   # Pipelines unit + allocation + DI tests
 ├── benchmarks/
 │   ├── Mapper.Benchmarks/                 # Mapper BenchmarkDotNet suite
 │   └── Pipelines.Benchmarks/              # Pipelines BenchmarkDotNet suite

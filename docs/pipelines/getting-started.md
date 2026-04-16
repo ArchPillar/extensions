@@ -4,17 +4,13 @@ This walks you through installing `ArchPillar.Extensions.Pipelines`, writing you
 
 ## 1. Install
 
-The library ships as two NuGet packages:
+The library ships as a single NuGet package:
 
 ```bash
-# Core — BCL only
 dotnet add package ArchPillar.Extensions.Pipelines
-
-# Optional — Microsoft.Extensions.DependencyInjection integration
-dotnet add package ArchPillar.Extensions.Pipelines.DependencyInjection
 ```
 
-You can use the core package on its own — the DI package is needed only if you want the fluent `services.AddPipeline<T>()` registration helper.
+Depends on `Microsoft.Extensions.DependencyInjection.Abstractions` and nothing else. You can use `Pipeline<T>` directly via `Pipeline.For<T>()...Build()` without touching a DI container, or register it through `services.AddPipeline<T, THandler>()` when you do.
 
 ## 2. Define your context type
 
@@ -94,7 +90,7 @@ Middlewares execute in the order you added them, wrapping outward → inward. `H
 
 ## 5b. Build a pipeline with DI
 
-For host-based applications (`Microsoft.Extensions.Hosting`, ASP.NET Core, etc.), register the pipeline in your `IServiceCollection` so every middleware and the handler get full constructor injection. The DI integration lives in `ArchPillar.Extensions.Pipelines.DependencyInjection` and exposes three extension methods:
+For host-based applications (`Microsoft.Extensions.Hosting`, ASP.NET Core, etc.), register the pipeline in your `IServiceCollection` so every middleware and the handler get full constructor injection. The DI integration is part of the core package and exposes four extension methods:
 
 ```csharp
 using ArchPillar.Extensions.Pipelines;
@@ -122,30 +118,36 @@ public sealed class OrderEndpoint(Pipeline<OrderContext> pipeline)
 }
 ```
 
-The middlewares and the handler are registered in the DI container as `IPipelineMiddleware<OrderContext>` and `IPipelineHandler<OrderContext>` via `TryAddEnumerable` / `TryAdd`. `Pipeline<OrderContext>` is then composed from whichever implementations are registered — see the [SPEC](SPEC.md#composition-via-di) for details.
+The middlewares are registered in the DI container as `IPipelineMiddleware<OrderContext>` via `TryAddEnumerable`, and the handler as `IPipelineHandler<OrderContext>` via `Replace`. `Pipeline<OrderContext>` is then composed from whichever implementations are registered — see the [SPEC](SPEC.md#composition-via-di) for details.
 
-### Delegate handlers
+### Handler as an instance
 
-When a class handler is overkill (tests, adapters, trivial sinks), `AddPipeline<T>` also accepts a delegate — synchronous or asynchronous, with or without a cancellation token:
+When a class handler is overkill (tests, adapters, trivial sinks), pass a pre-built `IPipelineHandler<T>` — typically one wrapped from a delegate:
 
 ```csharp
-services.AddPipeline<OrderContext>((ctx, ct) => SomeTask(ctx, ct));  // async + token
-services.AddPipeline<OrderContext>(ctx => SomeTask(ctx));            // async
-services.AddPipeline<OrderContext>(ctx => ctx.Handled = true);       // sync
+services.AddPipeline<OrderContext>(
+    PipelineHandler.FromDelegate<OrderContext>((ctx, ct) => SomeTask(ctx, ct)));
 ```
 
-Delegate handlers are registered as singleton `IPipelineHandler<T>` instances.
+`PipelineHandler.FromDelegate` has overloads for `Func<T, CancellationToken, Task>`, `Func<T, Task>`, and `Action<T>`. The instance overload registers the handler as a singleton and is always compatible with any pipeline lifetime.
 
 ### Replacing the handler in tests
 
-`ReplacePipelineHandler<T, THandler>()` (and its delegate overloads) removes any existing handler registration and installs a new one. Use this in integration tests to swap out the production handler without rebuilding the service collection:
+`ReplacePipelineHandler<T, THandler>()` removes any existing handler registration and installs a new one. Use this in integration tests to swap out the production handler without rebuilding the service collection:
 
 ```csharp
-services.ReplacePipelineHandler<OrderContext>((ctx, ct) =>
-{
-    ctx.Handled = true;
-    return Task.CompletedTask;
-});
+services.ReplacePipelineHandler<OrderContext, FakeOrderHandler>();
+```
+
+To replace with a delegate-backed handler directly, use `IServiceCollection.Replace` with `PipelineHandler.FromDelegate(...)`:
+
+```csharp
+services.Replace(ServiceDescriptor.Singleton<IPipelineHandler<OrderContext>>(
+    PipelineHandler.FromDelegate<OrderContext>((ctx, ct) =>
+    {
+        ctx.Authorized = true;
+        return Task.CompletedTask;
+    })));
 ```
 
 ### Lifetimes
@@ -161,7 +163,68 @@ services.AddPipelineMiddleware<OrderContext, LoggingMiddleware>(ServiceLifetime.
 services.AddPipelineMiddleware<OrderContext, AuditMiddleware>(ServiceLifetime.Scoped);
 ```
 
-The only combination rejected at registration time is a **singleton `Pipeline<T>` with a scoped middleware or handler** — the classic captive-dependency bug. The check fires whichever order you register in.
+The library only rejects one obvious combination at registration time: `AddPipeline<T, THandler>(pipelineLifetime: Singleton, handlerLifetime: Scoped)` throws, because the two lifetimes are explicit in the same call. Every other captive-dependency check is delegated to the container — enable `ValidateScopes` and `ValidateOnBuild` on `ServiceProviderOptions` (or use `Host.CreateApplicationBuilder`, which turns them on in Development) to catch the rest.
+
+## 5c. Opt into distributed tracing
+
+`ActivityMiddleware<T>` wraps the pipeline in a `System.Diagnostics.Activity`. It works on any `T` that implements `IPipelineContext`:
+
+```csharp
+using System.Diagnostics;
+
+public sealed class OrderContext : IPipelineContext
+{
+    public int OrderId { get; set; }
+    public int UserId { get; set; }
+
+    public string OperationName => "Orders.Place";
+
+    public void EnrichActivity(Activity activity)
+    {
+        activity.SetTag("order.id", OrderId);
+        activity.SetTag("user.id", UserId);
+    }
+}
+```
+
+Only `OperationName` is required. Override `ActivityKind` (default `Internal`), `ParentContext` (default: inherit `Activity.Current`), or `EnrichActivity` as needed. Register the middleware with the dedicated shortcut:
+
+```csharp
+services.AddPipelineTelemetry<OrderContext>();
+```
+
+(This is equivalent to `AddPipelineMiddleware<OrderContext, ActivityMiddleware<OrderContext>>()` but with a default lifetime of `Singleton` — the middleware is stateless.)
+
+Activities flow to whatever subscribes to the library's `ActivitySource`:
+
+```csharp
+// OpenTelemetry:
+builder.Services.AddOpenTelemetry().WithTracing(b => b
+    .AddSource(PipelineActivitySource.Name)
+    .AddOtlpExporter());
+
+// Raw ActivityListener:
+using var listener = new ActivityListener
+{
+    ShouldListenTo = s => s.Name == PipelineActivitySource.Name,
+    Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+    ActivityStopped = a => Console.WriteLine($"{a.DisplayName}: {a.Duration}"),
+};
+ActivitySource.AddActivityListener(listener);
+```
+
+**Injecting a remote parent** — for a queue consumer receiving a `traceparent` header:
+
+```csharp
+ActivityContext.TryParse(traceparentHeader, null, out var parent);
+await pipeline.ExecuteAsync(new OrderContext
+{
+    ParentContextOverride = parent,  // expose via a ParentContext property
+    OrderId = ...,
+});
+```
+
+When no subscriber is attached, `ActivityMiddleware<T>` is a pass-through — no allocation, no activity overhead.
 
 ## 6. Run it
 

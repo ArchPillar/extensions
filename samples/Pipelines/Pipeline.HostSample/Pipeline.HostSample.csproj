@@ -11,7 +11,6 @@
 
     <ItemGroup>
         <ProjectReference Include="../../../src/Pipelines/ArchPillar.Extensions.Pipelines.csproj" />
-        <ProjectReference Include="../../../src/Pipelines.DependencyInjection/ArchPillar.Extensions.Pipelines.DependencyInjection.csproj" />
     </ItemGroup>
 
     <ItemGroup>

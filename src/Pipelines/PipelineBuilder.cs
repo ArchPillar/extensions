@@ -8,8 +8,8 @@ namespace ArchPillar.Extensions.Pipelines;
 /// <remarks>
 /// Use this builder when you are wiring pipelines by hand (tests, console
 /// apps, or any scenario without a DI container). For DI-hosted applications,
-/// see <c>services.AddPipeline&lt;T&gt;()</c> in
-/// <c>ArchPillar.Extensions.Pipelines.DependencyInjection</c>.
+/// use <c>services.AddPipeline&lt;T, THandler&gt;()</c> on
+/// <see cref="Microsoft.Extensions.DependencyInjection.IServiceCollection"/>.
 /// </remarks>
 /// <typeparam name="T">The context type the pipeline will process.</typeparam>
 public sealed class PipelineBuilder<T>

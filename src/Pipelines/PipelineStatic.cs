@@ -22,8 +22,8 @@ namespace ArchPillar.Extensions.Pipelines;
 /// await pipeline.ExecuteAsync(context);
 /// </code>
 /// <para>
-/// For DI-hosted applications, prefer the <c>services.AddPipeline&lt;T&gt;()</c>
-/// extension from <c>ArchPillar.Extensions.Pipelines.DependencyInjection</c>.
+/// For DI-hosted applications, prefer the <c>services.AddPipeline&lt;T, THandler&gt;()</c>
+/// extension on <see cref="Microsoft.Extensions.DependencyInjection.IServiceCollection"/>.
 /// </para>
 /// </remarks>
 public static class Pipeline

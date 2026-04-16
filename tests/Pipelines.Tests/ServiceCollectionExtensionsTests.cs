@@ -1,6 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 
-namespace ArchPillar.Extensions.Pipelines.DependencyInjection.Tests;
+namespace ArchPillar.Extensions.Pipelines.Tests;
 
 public sealed class ServiceCollectionExtensionsTests
 {
@@ -80,23 +80,23 @@ public sealed class ServiceCollectionExtensionsTests
     }
 
     // -----------------------------------------------------------------------
-    // AddPipeline<T> delegate overloads
+    // AddPipeline<T>(instance) — handler as a pre-built instance
     // -----------------------------------------------------------------------
 
     [Fact]
-    public async Task AddPipeline_AsyncDelegateHandlerWithToken_ResolvesAndRunsAsync()
+    public async Task AddPipeline_WithHandlerInstance_ResolvesAndRunsAsync()
     {
         var handled = false;
         CancellationToken seenByHandler = default;
 
         var services = new ServiceCollection();
-        services.AddPipeline<TestContext>((ctx, ct) =>
+        services.AddPipeline<TestContext>(PipelineHandler.FromDelegate<TestContext>((ctx, ct) =>
         {
             handled = true;
             seenByHandler = ct;
             ctx.Handled = true;
             return Task.CompletedTask;
-        });
+        }));
 
         using ServiceProvider provider = services.BuildServiceProvider();
         using IServiceScope scope = provider.CreateScope();
@@ -110,51 +110,15 @@ public sealed class ServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public async Task AddPipeline_AsyncDelegateHandler_ResolvesAndRunsAsync()
-    {
-        var handled = false;
-        var services = new ServiceCollection();
-        services.AddPipeline<TestContext>(_ =>
-        {
-            handled = true;
-            return Task.CompletedTask;
-        });
-
-        using ServiceProvider provider = services.BuildServiceProvider();
-        using IServiceScope scope = provider.CreateScope();
-
-        Pipeline<TestContext> pipeline = scope.ServiceProvider.GetRequiredService<Pipeline<TestContext>>();
-        await pipeline.ExecuteAsync(new TestContext());
-
-        Assert.True(handled);
-    }
-
-    [Fact]
-    public async Task AddPipeline_SyncDelegateHandler_ResolvesAndRunsAsync()
-    {
-        var handled = false;
-        var services = new ServiceCollection();
-        services.AddPipeline<TestContext>((Action<TestContext>)(_ => handled = true));
-
-        using ServiceProvider provider = services.BuildServiceProvider();
-        using IServiceScope scope = provider.CreateScope();
-
-        Pipeline<TestContext> pipeline = scope.ServiceProvider.GetRequiredService<Pipeline<TestContext>>();
-        await pipeline.ExecuteAsync(new TestContext());
-
-        Assert.True(handled);
-    }
-
-    [Fact]
-    public async Task AddPipeline_DelegateHandler_ComposesWithRegisteredMiddlewaresAsync()
+    public async Task AddPipeline_WithHandlerInstance_ComposesWithRegisteredMiddlewaresAsync()
     {
         var services = new ServiceCollection();
         services.AddSingleton<TestJournal>();
-        services.AddPipeline<TestContext>(ctx =>
+        services.AddPipeline<TestContext>(PipelineHandler.FromDelegate<TestContext>(ctx =>
         {
-            ctx.Journal!.Events.Add("delegate-handler");
+            ctx.Journal!.Events.Add("instance-handler");
             return Task.CompletedTask;
-        });
+        }));
         services.AddPipelineMiddleware<TestContext, FirstMiddleware>();
 
         using ServiceProvider provider = services.BuildServiceProvider();
@@ -167,7 +131,7 @@ public sealed class ServiceCollectionExtensionsTests
         await pipeline.ExecuteAsync(context);
 
         Assert.Equal(
-            new[] { "first:before", "delegate-handler", "first:after" },
+            new[] { "first:before", "instance-handler", "first:after" },
             journal.Events);
     }
 
@@ -251,63 +215,12 @@ public sealed class ServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public async Task ReplacePipelineHandler_WithAsyncDelegate_RunsReplacementAsync()
+    public void ReplacePipelineHandler_WhenNoHandlerRegistered_AddsOne()
     {
         var services = new ServiceCollection();
-        services.AddSingleton<TestJournal>();
-        services.AddPipeline<TestContext, RecordingHandler>();
-
-        services.ReplacePipelineHandler<TestContext>((ctx, _) =>
-        {
-            ctx.Handled = true;
-            return Task.CompletedTask;
-        });
-
-        using ServiceProvider provider = services.BuildServiceProvider();
-        using IServiceScope scope = provider.CreateScope();
-
-        Pipeline<TestContext> pipeline = scope.ServiceProvider.GetRequiredService<Pipeline<TestContext>>();
-        var context = new TestContext();
-        await pipeline.ExecuteAsync(context);
-
-        Assert.True(context.Handled);
-    }
-
-    [Fact]
-    public async Task ReplacePipelineHandler_WithSyncDelegate_RunsReplacementAsync()
-    {
-        var services = new ServiceCollection();
-        services.AddPipeline<TestContext, RecordingHandler>();
-        services.ReplacePipelineHandler<TestContext>((Action<TestContext>)(ctx => ctx.Handled = true));
-
-        using ServiceProvider provider = services.BuildServiceProvider();
-        using IServiceScope scope = provider.CreateScope();
-
-        Pipeline<TestContext> pipeline = scope.ServiceProvider.GetRequiredService<Pipeline<TestContext>>();
-        var context = new TestContext();
-        await pipeline.ExecuteAsync(context);
-
-        Assert.True(context.Handled);
-    }
-
-    [Fact]
-    public async Task ReplacePipelineHandler_WhenNoHandlerRegistered_AddsOneAsync()
-    {
-        var services = new ServiceCollection();
-        services.ReplacePipelineHandler<TestContext>((Action<TestContext>)(ctx => ctx.Handled = true));
+        services.ReplacePipelineHandler<TestContext, AnotherHandler>();
 
         Assert.Single(services, s => s.ServiceType == typeof(IPipelineHandler<TestContext>));
-
-        // Still runs if a pipeline is registered afterward.
-        services.AddPipeline<TestContext, RecordingHandler>();
-        using ServiceProvider provider = services.BuildServiceProvider();
-        using IServiceScope scope = provider.CreateScope();
-
-        Pipeline<TestContext> pipeline = scope.ServiceProvider.GetRequiredService<Pipeline<TestContext>>();
-        var context = new TestContext();
-        await pipeline.ExecuteAsync(context);
-
-        Assert.True(context.Handled);
     }
 
     // -----------------------------------------------------------------------
@@ -343,42 +256,6 @@ public sealed class ServiceCollectionExtensionsTests
     }
 
     [Fact]
-    public void AddPipelineMiddleware_Scoped_WhenPipelineIsSingleton_Throws()
-    {
-        var services = new ServiceCollection();
-        services.AddPipeline<TestContext, RecordingHandler>(
-            pipelineLifetime: ServiceLifetime.Singleton,
-            handlerLifetime: ServiceLifetime.Singleton);
-
-        Assert.Throws<InvalidOperationException>(
-            () => services.AddPipelineMiddleware<TestContext, FirstMiddleware>(ServiceLifetime.Scoped));
-    }
-
-    [Fact]
-    public void AddPipeline_SingletonPipeline_WhenScopedMiddlewareAlreadyRegistered_Throws()
-    {
-        var services = new ServiceCollection();
-        services.AddPipelineMiddleware<TestContext, FirstMiddleware>(ServiceLifetime.Scoped);
-
-        Assert.Throws<InvalidOperationException>(
-            () => services.AddPipeline<TestContext, RecordingHandler>(
-                pipelineLifetime: ServiceLifetime.Singleton,
-                handlerLifetime: ServiceLifetime.Singleton));
-    }
-
-    [Fact]
-    public void ReplacePipelineHandler_Scoped_WhenPipelineIsSingleton_Throws()
-    {
-        var services = new ServiceCollection();
-        services.AddPipeline<TestContext, RecordingHandler>(
-            pipelineLifetime: ServiceLifetime.Singleton,
-            handlerLifetime: ServiceLifetime.Singleton);
-
-        Assert.Throws<InvalidOperationException>(
-            () => services.ReplacePipelineHandler<TestContext, AnotherHandler>(ServiceLifetime.Scoped));
-    }
-
-    [Fact]
     public void AddPipeline_ScopedPipeline_AllowsSingletonMiddleware()
     {
         var services = new ServiceCollection();
@@ -411,22 +288,20 @@ public sealed class ServiceCollectionExtensionsTests
     // -----------------------------------------------------------------------
 
     [Fact]
-    public void AddPipeline_CalledTwice_IsIdempotent()
+    public void AddPipeline_CalledTwice_LastWins()
     {
         var services = new ServiceCollection();
         services.AddPipeline<TestContext, RecordingHandler>();
         services.AddPipeline<TestContext, AnotherHandler>();
 
-        ServiceDescriptor[] pipelineDescriptors = services
-            .Where(s => s.ServiceType == typeof(Pipeline<TestContext>))
-            .ToArray();
-        ServiceDescriptor[] handlerDescriptors = services
-            .Where(s => s.ServiceType == typeof(IPipelineHandler<TestContext>))
-            .ToArray();
+        ServiceDescriptor[] pipelineDescriptors = [.. services
+            .Where(s => s.ServiceType == typeof(Pipeline<TestContext>))];
+        ServiceDescriptor[] handlerDescriptors = [.. services
+            .Where(s => s.ServiceType == typeof(IPipelineHandler<TestContext>))];
 
         Assert.Single(pipelineDescriptors);
         Assert.Single(handlerDescriptors);
-        Assert.Equal(typeof(RecordingHandler), handlerDescriptors[0].ImplementationType);
+        Assert.Equal(typeof(AnotherHandler), handlerDescriptors[0].ImplementationType);
     }
 
     // -----------------------------------------------------------------------
@@ -463,22 +338,19 @@ public sealed class ServiceCollectionExtensionsTests
     [Fact]
     public void AddPipeline_NullServiceCollection_Throws()
     {
+        IPipelineHandler<TestContext> instance = PipelineHandler.FromDelegate<TestContext>(_ => { });
         Assert.Throws<ArgumentNullException>(
             () => ServiceCollectionExtensions.AddPipeline<TestContext, RecordingHandler>(null!));
         Assert.Throws<ArgumentNullException>(
-            () => ServiceCollectionExtensions.AddPipeline<TestContext>(null!, (Action<TestContext>)(_ => { })));
+            () => ServiceCollectionExtensions.AddPipeline(null!, instance));
     }
 
     [Fact]
-    public void AddPipeline_NullDelegate_Throws()
+    public void AddPipeline_NullHandlerInstance_Throws()
     {
         var services = new ServiceCollection();
         Assert.Throws<ArgumentNullException>(
-            () => services.AddPipeline<TestContext>((Func<TestContext, CancellationToken, Task>)null!));
-        Assert.Throws<ArgumentNullException>(
-            () => services.AddPipeline<TestContext>((Func<TestContext, Task>)null!));
-        Assert.Throws<ArgumentNullException>(
-            () => services.AddPipeline<TestContext>((Action<TestContext>)null!));
+            () => services.AddPipeline<TestContext>((IPipelineHandler<TestContext>)null!));
     }
 
     [Fact]
@@ -495,16 +367,71 @@ public sealed class ServiceCollectionExtensionsTests
             () => ServiceCollectionExtensions.ReplacePipelineHandler<TestContext, RecordingHandler>(null!));
     }
 
+    // -----------------------------------------------------------------------
+    // AddPipelineTelemetry<T> — shortcut for ActivityMiddleware<T>
+    // -----------------------------------------------------------------------
+
     [Fact]
-    public void ReplacePipelineHandler_NullDelegate_Throws()
+    public void AddPipelineTelemetry_RegistersActivityMiddleware()
     {
         var services = new ServiceCollection();
+        services.AddPipelineTelemetry<TelemetryContext>();
+
+        ServiceDescriptor descriptor = Assert.Single(
+            services,
+            s => s.ServiceType == typeof(IPipelineMiddleware<TelemetryContext>));
+
+        Assert.Equal(typeof(ActivityMiddleware<TelemetryContext>), descriptor.ImplementationType);
+        Assert.Equal(ServiceLifetime.Singleton, descriptor.Lifetime);
+    }
+
+    [Fact]
+    public void AddPipelineTelemetry_CalledTwice_IsDeduplicated()
+    {
+        var services = new ServiceCollection();
+        services.AddPipelineTelemetry<TelemetryContext>();
+        services.AddPipelineTelemetry<TelemetryContext>();
+        services.AddPipelineTelemetry<TelemetryContext>();
+
+        Assert.Single(services, s => s.ServiceType == typeof(IPipelineMiddleware<TelemetryContext>));
+    }
+
+    [Fact]
+    public void AddPipelineTelemetry_RespectsExplicitLifetime()
+    {
+        var services = new ServiceCollection();
+        services.AddPipelineTelemetry<TelemetryContext>(ServiceLifetime.Scoped);
+
+        ServiceDescriptor descriptor = services.Single(
+            s => s.ServiceType == typeof(IPipelineMiddleware<TelemetryContext>));
+
+        Assert.Equal(ServiceLifetime.Scoped, descriptor.Lifetime);
+    }
+
+    [Fact]
+    public void AddPipelineTelemetry_NullServiceCollection_Throws()
+    {
         Assert.Throws<ArgumentNullException>(
-            () => services.ReplacePipelineHandler<TestContext>((Func<TestContext, CancellationToken, Task>)null!));
-        Assert.Throws<ArgumentNullException>(
-            () => services.ReplacePipelineHandler<TestContext>((Func<TestContext, Task>)null!));
-        Assert.Throws<ArgumentNullException>(
-            () => services.ReplacePipelineHandler<TestContext>((Action<TestContext>)null!));
+            () => ServiceCollectionExtensions.AddPipelineTelemetry<TelemetryContext>(null!));
+    }
+
+    [Fact]
+    public async Task AddPipelineTelemetry_ComposesIntoPipelineWithHandlerAsync()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<TestJournal>();
+        services.AddPipeline<TelemetryContext, TelemetryRecordingHandler>();
+        services.AddPipelineTelemetry<TelemetryContext>();
+
+        using ServiceProvider provider = services.BuildServiceProvider();
+        using IServiceScope scope = provider.CreateScope();
+
+        Pipeline<TelemetryContext> pipeline = scope.ServiceProvider.GetRequiredService<Pipeline<TelemetryContext>>();
+        TestJournal journal = scope.ServiceProvider.GetRequiredService<TestJournal>();
+
+        await pipeline.ExecuteAsync(new TelemetryContext());
+
+        Assert.Equal(new[] { "telemetry-handler" }, journal.Events);
     }
 
     // =======================================================================
@@ -589,6 +516,20 @@ public sealed class ServiceCollectionExtensionsTests
         public Task HandleAsync(TestContext context, CancellationToken cancellationToken = default)
         {
             journal.Events.Add("another-handler");
+            return Task.CompletedTask;
+        }
+    }
+
+    public sealed class TelemetryContext : IPipelineContext
+    {
+        public string OperationName => "Test.Telemetry";
+    }
+
+    public sealed class TelemetryRecordingHandler(TestJournal journal) : IPipelineHandler<TelemetryContext>
+    {
+        public Task HandleAsync(TelemetryContext context, CancellationToken cancellationToken = default)
+        {
+            journal.Events.Add("telemetry-handler");
             return Task.CompletedTask;
         }
     }

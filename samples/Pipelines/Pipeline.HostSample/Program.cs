@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using ArchPillar.Extensions.Pipelines;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -10,7 +11,33 @@ using Microsoft.Extensions.Logging;
 // with full DI wiring. Middlewares and the handler are classes with
 // constructor-injected dependencies (here: ILogger<T>), registered via
 // services.AddPipeline<OrderContext>()... and resolved from the container.
+//
+// Also demonstrates telemetry wiring via ActivityMiddleware<T>: OrderContext
+// implements IPipelineContext, ActivityMiddleware<OrderContext> is added to
+// the pipeline, and an ActivityListener subscribes to
+// PipelineActivitySource.Name to print each activity to the console.
 // ---------------------------------------------------------------------------
+
+// Set up a console listener for the pipeline's ActivitySource. In a real app
+// this would typically be replaced by OpenTelemetry:
+//     builder.Services.AddOpenTelemetry().WithTracing(b => b
+//         .AddSource(PipelineActivitySource.Name)
+//         .AddOtlpExporter());
+using var listener = new ActivityListener
+{
+    ShouldListenTo = s => s.Name == PipelineActivitySource.Name,
+    Sample = static (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+    ActivityStopped = a =>
+    {
+        Console.WriteLine(
+            $"  [activity] {a.DisplayName} kind={a.Kind} status={a.Status} duration={a.Duration.TotalMilliseconds:F1}ms");
+        foreach (KeyValuePair<string, object?> tag in a.TagObjects)
+        {
+            Console.WriteLine($"             tag {tag.Key}={tag.Value}");
+        }
+    },
+};
+ActivitySource.AddActivityListener(listener);
 
 HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
 
@@ -25,12 +52,17 @@ builder.Logging.AddSimpleConsole(o =>
 // separately — either by the application (as here) or by independent library
 // modules using the same AddPipelineMiddleware<T, TMiddleware>() extension.
 builder.Services.AddPipeline<OrderContext, PlaceOrderHandler>();
+builder.Services.AddPipelineTelemetry<OrderContext>();        // outermost — wraps everything below
 builder.Services.AddPipelineMiddleware<OrderContext, LoggingMiddleware>();
 builder.Services.AddPipelineMiddleware<OrderContext, ValidationMiddleware>();
 builder.Services.AddPipelineMiddleware<OrderContext, AuthorizationMiddleware>();
 
 // In tests, you could swap the terminal handler with:
-//     builder.Services.ReplacePipelineHandler<OrderContext>((ctx, ct) => Task.CompletedTask);
+//     builder.Services.ReplacePipelineHandler<OrderContext, NoOpOrderHandler>();
+//
+// For a delegate-backed handler, wrap it with PipelineHandler.FromDelegate:
+//     builder.Services.AddPipeline<OrderContext>(
+//         PipelineHandler.FromDelegate<OrderContext>((ctx, ct) => Task.CompletedTask));
 
 using IHost host = builder.Build();
 
@@ -54,11 +86,20 @@ using (IServiceScope scope = host.Services.CreateScope())
 // Context, middlewares, handler
 // ---------------------------------------------------------------------------
 
-internal sealed class OrderContext
+internal sealed class OrderContext : IPipelineContext
 {
     public int OrderId { get; set; }
     public int UserId { get; set; }
     public bool Authorized { get; set; }
+
+    // IPipelineContext — drives the ActivityMiddleware<OrderContext>.
+    public string OperationName => "Orders.Place";
+
+    public void EnrichActivity(Activity activity)
+    {
+        activity.SetTag("order.id", OrderId);
+        activity.SetTag("user.id", UserId);
+    }
 }
 
 internal sealed class LoggingMiddleware(ILogger<LoggingMiddleware> logger) : IPipelineMiddleware<OrderContext>

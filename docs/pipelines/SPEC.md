@@ -2,7 +2,7 @@
 
 `ArchPillar.Extensions.Pipelines` is a lightweight, DI-friendly, allocation-free async middleware pipeline for .NET. This document is the specification for the library's single public type: **`Pipeline<T>`**.
 
-The library has one unifying rule: **it is self-contained and framework-independent** — no shared machinery with other libraries, no runtime reflection, no hidden coupling. The core package depends only on BCL types; the companion DI package depends only on `Microsoft.Extensions.DependencyInjection.Abstractions`.
+The library has one unifying rule: **it is self-contained and framework-independent** — no shared machinery with other libraries, no runtime reflection, no hidden coupling. The only runtime dependency is `Microsoft.Extensions.DependencyInjection.Abstractions` (referenced privately — consumers who do not use the `IServiceCollection` extensions never see it).
 
 ---
 
@@ -18,8 +18,8 @@ Middlewares are composed as nested lambdas, with the handler at the innermost po
 
 ## Goals
 
-- **Framework-independent.** The core package depends only on BCL types (`Task`, `Func`, `IEnumerable<T>`, `CancellationToken`). It is not tied to ASP.NET Core or any other host.
-- **DI-native.** Middlewares and handlers are classes with constructor-injected dependencies. `Pipeline<T>` is trivially resolvable from any DI container, and the companion `AddPipeline<T>()` extension for `Microsoft.Extensions.DependencyInjection` provides fluent type-based registration.
+- **Framework-independent.** The engine uses only BCL types (`Task`, `Func`, `IEnumerable<T>`, `CancellationToken`). It is not tied to ASP.NET Core or any other host.
+- **Dependency-injection-native.** Middlewares and handlers are classes with constructor-injected dependencies. `Pipeline<T>` is trivially resolvable from any dependency injection container, and the built-in `AddPipeline<T, THandler>()` extension for `Microsoft.Extensions.DependencyInjection` provides fluent type-based registration.
 - **Allocation-free on the hot path.** The delegate chain is pre-built once in the constructor; subsequent invocations are a single delegate call. Synchronous pipelines allocate zero bytes per invocation.
 - **Traceable.** Middlewares and handlers are real named classes. `Go to Definition` / `Find All References` work on them exactly as they do on any other service.
 - **Familiar mental model.** If you have written ASP.NET Core middleware before, you already know how to write `IPipelineMiddleware<T>`.
@@ -83,8 +83,6 @@ public sealed class Pipeline<T>
 {
     public Pipeline(IPipelineHandler<T> handler, IEnumerable<IPipelineMiddleware<T>> middlewares);
 
-    public int MiddlewareCount { get; }
-
     public Task ExecuteAsync(T context, CancellationToken cancellationToken = default);
 }
 ```
@@ -118,7 +116,7 @@ public sealed class PipelineBuilder<T>
 {
     public PipelineBuilder<T> Use(IPipelineMiddleware<T> middleware);
     public PipelineBuilder<T> Use(Func<T, PipelineDelegate<T>, CancellationToken, Task> invoke);
-    public PipelineBuilder<T> Use(Func<T, PipelineDelegate<T>, Task> invoke);
+    public PipelineBuilder<T> Use(Func<T, Func<T, Task>, Task> invoke);
 
     public PipelineBuilder<T> Handle(IPipelineHandler<T> handler);
     public PipelineBuilder<T> Handle(Func<T, CancellationToken, Task> handle);
@@ -154,7 +152,7 @@ Wrap plain delegates as `IPipelineHandler<T>` / `IPipelineMiddleware<T>`. Useful
 
 ## DI integration
 
-Lives in the companion package `ArchPillar.Extensions.Pipelines.DependencyInjection`. The public surface is three extension methods on `IServiceCollection`: one to register the pipeline with its required handler, one to contribute a middleware, and one to swap the handler.
+Shipped in the same package as the engine. Depends privately on `Microsoft.Extensions.DependencyInjection.Abstractions` (consumers who only use `Pipeline<T>` directly never see the dependency). The public surface is five extension methods on `IServiceCollection`: two to register the pipeline (by handler type or handler instance), one to contribute a middleware, one to swap the handler, and one shortcut for wiring `ActivityMiddleware<T>`.
 
 ### `AddPipeline<T, THandler>`
 
@@ -168,32 +166,27 @@ public static IServiceCollection AddPipeline<T, THandler>(
 
 Registers `Pipeline<T>` and its required terminal handler. A pipeline without a handler is not valid — if you don't have a real handler yet, register a dummy that throws.
 
-Both descriptors are written via `TryAdd`, so calling `AddPipeline<T, THandler>()` a second time for the same `T` is a no-op (first handler wins). To swap the handler after the fact, use `ReplacePipelineHandler<T, ...>()`.
+Both descriptors are written via `Replace`, so calling `AddPipeline<T, THandler>()` again for the same `T` swaps both the pipeline lifetime and the handler (last wins). `ReplacePipelineHandler<T, …>()` is the more explicit form for replacing only the handler.
 
 `handlerLifetime` defaults to `pipelineLifetime`.
 
-#### Delegate overloads
-
-For inline handlers (tests, adapters, trivial sinks):
+### `AddPipeline<T>(IPipelineHandler<T>)`
 
 ```csharp
 public static IServiceCollection AddPipeline<T>(
     this IServiceCollection services,
-    Func<T, CancellationToken, Task> handler,
-    ServiceLifetime pipelineLifetime = ServiceLifetime.Scoped);
-
-public static IServiceCollection AddPipeline<T>(
-    this IServiceCollection services,
-    Func<T, Task> handler,
-    ServiceLifetime pipelineLifetime = ServiceLifetime.Scoped);
-
-public static IServiceCollection AddPipeline<T>(
-    this IServiceCollection services,
-    Action<T> handler,
+    IPipelineHandler<T> handlerInstance,
     ServiceLifetime pipelineLifetime = ServiceLifetime.Scoped);
 ```
 
-The delegate is wrapped via `PipelineHandler.FromDelegate(...)` and registered as a singleton `IPipelineHandler<T>` instance. Singletons are compatible with every pipeline lifetime, so no lifetime knob is needed for the handler itself.
+Registers `Pipeline<T>` with a pre-built handler instance. The handler is registered as a singleton (stateless by construction) and is compatible with every pipeline lifetime, so no lifetime knob is needed for the handler itself.
+
+For delegate-backed handlers, wrap the delegate with `PipelineHandler.FromDelegate(...)`:
+
+```csharp
+services.AddPipeline<OrderContext>(
+    PipelineHandler.FromDelegate<OrderContext>((ctx, ct) => Task.CompletedTask));
+```
 
 ### `AddPipelineMiddleware<T, TMiddleware>`
 
@@ -215,21 +208,20 @@ public static IServiceCollection ReplacePipelineHandler<T, THandler>(
     this IServiceCollection services,
     ServiceLifetime lifetime = ServiceLifetime.Scoped)
     where THandler : class, IPipelineHandler<T>;
-
-public static IServiceCollection ReplacePipelineHandler<T>(
-    this IServiceCollection services,
-    Func<T, CancellationToken, Task> handler);
-
-public static IServiceCollection ReplacePipelineHandler<T>(
-    this IServiceCollection services,
-    Func<T, Task> handler);
-
-public static IServiceCollection ReplacePipelineHandler<T>(
-    this IServiceCollection services,
-    Action<T> handler);
 ```
 
-Removes every existing `IPipelineHandler<T>` descriptor and installs the replacement. Useful in integration tests and for environment-specific overrides. Delegate overloads register the replacement as a singleton instance.
+Removes every existing `IPipelineHandler<T>` descriptor and installs the replacement. Useful in integration tests and for environment-specific overrides. To replace with an instance directly, call `services.Replace(ServiceDescriptor.Singleton<IPipelineHandler<T>>(instance))`.
+
+### `AddPipelineTelemetry<T>`
+
+```csharp
+public static IServiceCollection AddPipelineTelemetry<T>(
+    this IServiceCollection services,
+    ServiceLifetime lifetime = ServiceLifetime.Singleton)
+    where T : class, IPipelineContext;
+```
+
+Shortcut for `AddPipelineMiddleware<T, ActivityMiddleware<T>>(lifetime)` with a default lifetime of `Singleton` (the middleware is stateless). Like the general middleware registration, it uses `TryAddEnumerable`, so calling it twice is a no-op. Call it before other `AddPipelineMiddleware<T, …>()` registrations if you want the activity to wrap the full pipeline; call it last to measure only the handler.
 
 ### Composition via DI
 
@@ -252,16 +244,135 @@ This has several consequences, all intentional:
 
 ### Lifetime rules
 
-Each extension takes its own `ServiceLifetime`. The pipeline, each middleware, and the handler are independent. The only combination rejected at registration time is a **singleton `Pipeline<T>` with a scoped middleware or handler** — the classic captive-dependency bug. The check fires in both directions:
+Each extension takes its own `ServiceLifetime`. The pipeline, each middleware, and the handler are independent. The only registration-time check the library does is a single obvious one: `AddPipeline<T, THandler>` rejects the case where both `pipelineLifetime` and the resolved handler lifetime are passed in the same call and form a captive dependency (`pipelineLifetime: Singleton`, `handlerLifetime: Scoped`).
 
-| When you call                                               | It throws if                                                         |
-| ----------------------------------------------------------- | -------------------------------------------------------------------- |
-| `AddPipeline<T, THandler>(Singleton, Scoped)`               | The handler lifetime is scoped                                       |
-| `AddPipeline<T, _>(Singleton, ...)`                         | A scoped `IPipelineMiddleware<T>` or `IPipelineHandler<T>` already exists |
-| `AddPipelineMiddleware<T, _>(Scoped)`                       | `Pipeline<T>` is already registered as singleton                     |
-| `ReplacePipelineHandler<T, _>(Scoped)`                      | `Pipeline<T>` is already registered as singleton                     |
+All other cross-registration lifetime validation is delegated to the container. Enable `ValidateScopes` and `ValidateOnBuild` on `ServiceProviderOptions` to catch captive dependencies across middleware/handler registrations:
+
+```csharp
+using var provider = services.BuildServiceProvider(new ServiceProviderOptions
+{
+    ValidateScopes = true,
+    ValidateOnBuild = true,
+});
+```
 
 Scoped and transient pipelines accept any step lifetime. Singleton middlewares and handlers are always compatible with any pipeline lifetime.
+
+---
+
+## Telemetry
+
+The library exposes a built-in distributed-tracing middleware —
+`ActivityMiddleware<T>` — plus an optional contract,
+`IPipelineContext`, that contexts opt into when they want telemetry.
+
+### `IPipelineContext`
+
+```csharp
+public interface IPipelineContext
+{
+    string OperationName { get; }
+    ActivityKind ActivityKind => ActivityKind.Internal;
+    ActivityContext ParentContext => default;
+    void EnrichActivity(Activity activity) { }
+}
+```
+
+- **`OperationName`** — required. The display name used for the activity.
+  Typically a short, hierarchical string (`"Orders.Place"`,
+  `"Mediator.GetCustomerByIdQuery"`).
+- **`ActivityKind`** — default `Internal`. Override to `Server` for inbound
+  request handlers, `Consumer` for queue handlers, `Producer` for
+  outbound-message pipelines, `Client` for outbound-call pipelines.
+- **`ParentContext`** — default `default(ActivityContext)`, which falls back
+  to `Activity.Current`. Override to inject a remote parent parsed from a
+  `traceparent` header (queue messages, async continuations across
+  process boundaries).
+- **`EnrichActivity`** — default no-op. Called once, immediately after the
+  activity is started, before `next(...)`. Add context-specific tags,
+  events, or links here.
+
+Only `OperationName` is required. Every other member has a default
+interface implementation — contexts that don't need the override don't
+write one.
+
+### `ActivityMiddleware<T>`
+
+```csharp
+public sealed class ActivityMiddleware<T> : IPipelineMiddleware<T>
+    where T : class, IPipelineContext;
+```
+
+A drop-in middleware that:
+
+1. Starts an activity via the library-owned `ActivitySource`, passing
+   `context.OperationName`, `context.ActivityKind`, and
+   `context.ParentContext` to `StartActivity(...)`.
+2. Calls `context.EnrichActivity(activity)` if the activity is non-null.
+3. Awaits `next(context, cancellationToken)`.
+4. On exception: records an `exception` event on the activity with
+   OpenTelemetry-conventional tags (`exception.type`,
+   `exception.message`, `exception.stacktrace`, `exception.escaped`) and
+   sets the activity status to `Error`. The exception is rethrown — the
+   middleware never swallows.
+5. Disposes the activity on exit.
+
+When no `ActivityListener` is subscribed, `StartActivity` returns `null`
+and the middleware is a pass-through: no activity allocation, no
+enrichment callback, no exception-tag construction.
+
+### `PipelineActivitySource`
+
+```csharp
+public static class PipelineActivitySource
+{
+    public const string Name = "ArchPillar.Extensions.Pipelines";
+}
+```
+
+The source name that subscribers reference. With OpenTelemetry:
+
+```csharp
+builder.Services.AddOpenTelemetry().WithTracing(b => b
+    .AddSource(PipelineActivitySource.Name)
+    .AddOtlpExporter());
+```
+
+With a raw `ActivityListener`:
+
+```csharp
+using var listener = new ActivityListener
+{
+    ShouldListenTo = s => s.Name == PipelineActivitySource.Name,
+    Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+    ActivityStopped = a => Console.WriteLine($"{a.DisplayName}: {a.Duration}"),
+};
+ActivitySource.AddActivityListener(listener);
+```
+
+### Registration
+
+Use the dedicated shortcut:
+
+```csharp
+services.AddPipelineTelemetry<OrderContext>();
+```
+
+This is equivalent to
+`AddPipelineMiddleware<OrderContext, ActivityMiddleware<OrderContext>>()`
+but with the lifetime defaulting to `Singleton` (the middleware is
+stateless). Order matters: register it first if you want the activity
+to wrap the full pipeline (including other middlewares); register it
+last if you want it to measure only the handler.
+
+### What is deliberately not on the interface
+
+- **No `Tags` property.** The enrichment callback covers the same ground
+  with more flexibility (tags + events + links) and no allocation in the
+  zero-tags case.
+- **No `CorrelationId` / `TraceId` property.** `Activity.Current.TraceId`
+  is the source of truth — asking the context to expose one invites
+  divergence.
 
 ---
 

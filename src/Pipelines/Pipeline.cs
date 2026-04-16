@@ -18,13 +18,12 @@ namespace ArchPillar.Extensions.Pipelines;
 /// </para>
 /// <para>
 /// The constructor accepts plain <see cref="IEnumerable{T}"/> collaborators,
-/// making the type trivially resolvable from any DI container. See
-/// <c>ArchPillar.Extensions.Pipelines.DependencyInjection</c> for the
-/// <c>AddPipeline&lt;T, THandler&gt;()</c> and
-/// <c>AddPipelineMiddleware&lt;T, TMiddleware&gt;()</c> extension methods,
-/// which compose a pipeline from the <see cref="IPipelineMiddleware{T}"/>
-/// and <see cref="IPipelineHandler{T}"/> services registered in the
-/// container.
+/// making the type trivially resolvable from any DI container. The
+/// <see cref="ServiceCollectionExtensions.AddPipeline{T, THandler}(Microsoft.Extensions.DependencyInjection.IServiceCollection, Microsoft.Extensions.DependencyInjection.ServiceLifetime, Microsoft.Extensions.DependencyInjection.ServiceLifetime?)"/>
+/// and <see cref="ServiceCollectionExtensions.AddPipelineMiddleware{T, TMiddleware}(Microsoft.Extensions.DependencyInjection.IServiceCollection, Microsoft.Extensions.DependencyInjection.ServiceLifetime)"/>
+/// extension methods compose a pipeline from the
+/// <see cref="IPipelineMiddleware{T}"/> and <see cref="IPipelineHandler{T}"/>
+/// services registered in the container.
 /// </para>
 /// </summary>
 /// <typeparam name="T">The context type passed through the pipeline.</typeparam>
@@ -77,7 +76,7 @@ public sealed class Pipeline<T>
     /// The number of middlewares registered in this pipeline, not counting
     /// the terminal handler.
     /// </summary>
-    public int MiddlewareCount { get; }
+    internal int MiddlewareCount { get; }
 
     /// <summary>
     /// Executes the pipeline with the supplied context.

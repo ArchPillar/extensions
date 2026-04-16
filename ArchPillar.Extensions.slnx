@@ -31,9 +31,6 @@
   <Folder Name="/src/Pipelines/">
     <Project Path="src/Pipelines/ArchPillar.Extensions.Pipelines.csproj" />
   </Folder>
-  <Folder Name="/src/Pipelines.DependencyInjection/">
-    <Project Path="src/Pipelines.DependencyInjection/ArchPillar.Extensions.Pipelines.DependencyInjection.csproj" />
-  </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/Mapper.Tests/">
     <Project Path="tests/Mapper.Tests/ArchPillar.Extensions.Mapper.Tests.csproj" />
@@ -43,8 +40,5 @@
   </Folder>
   <Folder Name="/tests/Pipelines.Tests/">
     <Project Path="tests/Pipelines.Tests/ArchPillar.Extensions.Pipelines.Tests.csproj" />
-  </Folder>
-  <Folder Name="/tests/Pipelines.DependencyInjection.Tests/">
-    <Project Path="tests/Pipelines.DependencyInjection.Tests/ArchPillar.Extensions.Pipelines.DependencyInjection.Tests.csproj" />
   </Folder>
 </Solution>
