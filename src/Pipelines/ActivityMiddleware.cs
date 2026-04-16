@@ -32,36 +32,49 @@ public sealed class ActivityMiddleware<T> : IPipelineMiddleware<T>
     where T : class, IPipelineContext
 {
     /// <inheritdoc/>
-    public async Task InvokeAsync(T context, PipelineDelegate<T> next, CancellationToken cancellationToken = default)
+    public Task InvokeAsync(T context, PipelineDelegate<T> next, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(next);
 
-        using Activity? activity = PipelineActivitySource.Instance.StartActivity(
+        Activity? activity = PipelineActivitySource.Instance.StartActivity(
             context.OperationName,
             context.ActivityKind,
             context.ParentContext);
 
-        if (activity is not null)
+        if (activity is null)
         {
-            context.EnrichActivity(activity);
+            return next(context, cancellationToken);
         }
 
-        try
+        context.EnrichActivity(activity);
+        return InvokeWithActivityAsync(activity, context, next, cancellationToken);
+    }
+
+    private static async Task InvokeWithActivityAsync(
+        Activity activity,
+        T context,
+        PipelineDelegate<T> next,
+        CancellationToken cancellationToken)
+    {
+        using (activity)
         {
-            await next(context, cancellationToken);
-        }
-        catch (Exception ex) when (activity is not null)
-        {
-            activity.AddEvent(new ActivityEvent("exception", tags: new ActivityTagsCollection
+            try
             {
-                { "exception.type", ex.GetType().FullName },
-                { "exception.message", ex.Message },
-                { "exception.stacktrace", ex.ToString() },
-                { "exception.escaped", true },
-            }));
-            activity.SetStatus(ActivityStatusCode.Error, ex.Message);
-            throw;
+                await next(context, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                activity.AddEvent(new ActivityEvent("exception", tags: new ActivityTagsCollection
+                {
+                    { "exception.type", ex.GetType().FullName },
+                    { "exception.message", ex.Message },
+                    { "exception.stacktrace", ex.StackTrace },
+                    { "exception.escaped", true },
+                }));
+                activity.SetStatus(ActivityStatusCode.Error, ex.Message);
+                throw;
+            }
         }
     }
 }

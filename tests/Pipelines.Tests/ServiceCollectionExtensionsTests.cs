@@ -110,6 +110,35 @@ public sealed class ServiceCollectionExtensionsTests
     }
 
     [Fact]
+    public async Task AddPipeline_WithHandlerInstance_ReplacesPreviouslyRegisteredHandlerAsync()
+    {
+        // A previous AddPipeline<T, THandler>() call (or any other code) may
+        // already have registered an IPipelineHandler<T>. AddPipeline<T>(instance)
+        // must replace that registration — last wins, one handler only.
+        var services = new ServiceCollection();
+        services.AddSingleton<TestJournal>();
+        services.AddPipeline<TestContext, RecordingHandler>();
+
+        services.AddPipeline<TestContext>(PipelineHandler.FromDelegate<TestContext>(ctx =>
+        {
+            ctx.Journal!.Events.Add("instance-handler");
+            return Task.CompletedTask;
+        }));
+
+        using ServiceProvider provider = services.BuildServiceProvider();
+        using IServiceScope scope = provider.CreateScope();
+
+        Pipeline<TestContext> pipeline = scope.ServiceProvider.GetRequiredService<Pipeline<TestContext>>();
+        TestJournal journal = scope.ServiceProvider.GetRequiredService<TestJournal>();
+        var context = new TestContext { Journal = journal };
+
+        await pipeline.ExecuteAsync(context);
+
+        Assert.Equal(new[] { "instance-handler" }, journal.Events);
+        Assert.Single(services, s => s.ServiceType == typeof(IPipelineHandler<TestContext>));
+    }
+
+    [Fact]
     public async Task AddPipeline_WithHandlerInstance_ComposesWithRegisteredMiddlewaresAsync()
     {
         var services = new ServiceCollection();
