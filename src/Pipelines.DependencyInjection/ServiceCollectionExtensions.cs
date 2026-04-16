@@ -70,7 +70,7 @@ public static class ServiceCollectionExtensions
             typeof(Pipeline<T>),
             pipelineLifetime));
 
-        services.TryAdd(ServiceDescriptor.Describe(
+        services.Replace(ServiceDescriptor.Describe(
             typeof(IPipelineHandler<T>),
             typeof(THandler),
             resolvedHandlerLifetime));
@@ -205,8 +205,7 @@ public static class ServiceCollectionExtensions
 
         EnsureStepLifetimeCompatibleWithPipeline<T>(services, lifetime, pipelineLifetime: null);
 
-        RemoveHandlerDescriptors<T>(services);
-        services.Add(ServiceDescriptor.Describe(
+        services.Replace(ServiceDescriptor.Describe(
             typeof(IPipelineHandler<T>),
             typeof(THandler),
             lifetime));
@@ -231,7 +230,12 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(handler);
-        return ReplaceWithInstance<T>(services, PipelineHandler.FromDelegate(handler));
+
+        services.Replace(ServiceDescriptor.Singleton(
+            typeof(IPipelineHandler<T>),
+            PipelineHandler.FromDelegate(handler)));
+
+        return services;
     }
 
     /// <summary>
@@ -251,7 +255,12 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(handler);
-        return ReplaceWithInstance<T>(services, PipelineHandler.FromDelegate(handler));
+
+        services.Replace(ServiceDescriptor.Singleton(
+            typeof(IPipelineHandler<T>),
+            PipelineHandler.FromDelegate(handler)));
+
+        return services;
     }
 
     /// <summary>
@@ -271,7 +280,11 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(handler);
-        return ReplaceWithInstance<T>(services, PipelineHandler.FromDelegate(handler));
+
+        services.Replace(ServiceDescriptor.Singleton(
+            PipelineHandler.FromDelegate(handler)));
+
+        return services;
     }
 
     private static IServiceCollection AddPipelineWithInstance<T>(
@@ -289,28 +302,9 @@ public static class ServiceCollectionExtensions
             typeof(Pipeline<T>),
             pipelineLifetime));
 
-        services.TryAddSingleton<IPipelineHandler<T>>(handlerInstance);
-        return services;
-    }
+        services.Replace(ServiceDescriptor.Singleton(handlerInstance));
 
-    private static IServiceCollection ReplaceWithInstance<T>(
-        IServiceCollection services,
-        IPipelineHandler<T> handlerInstance)
-    {
-        RemoveHandlerDescriptors<T>(services);
-        services.AddSingleton<IPipelineHandler<T>>(handlerInstance);
         return services;
-    }
-
-    private static void RemoveHandlerDescriptors<T>(IServiceCollection services)
-    {
-        for (var i = services.Count - 1; i >= 0; i--)
-        {
-            if (services[i].ServiceType == typeof(IPipelineHandler<T>))
-            {
-                services.RemoveAt(i);
-            }
-        }
     }
 
     private static void EnsurePipelineLifetimeCompatibleWithExistingSteps<T>(

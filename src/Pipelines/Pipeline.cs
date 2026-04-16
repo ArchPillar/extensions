@@ -53,16 +53,6 @@ public sealed class Pipeline<T>
 
         IPipelineMiddleware<T>[] snapshot = [.. middlewares];
 
-        for (var i = 0; i < snapshot.Length; i++)
-        {
-            if (snapshot[i] is null)
-            {
-                throw new ArgumentException(
-                    $"Middleware at index {i} is null.",
-                    nameof(middlewares));
-            }
-        }
-
         MiddlewareCount = snapshot.Length;
 
         // Pre-build the nested delegate chain once. Each layer captures its
@@ -71,7 +61,11 @@ public sealed class Pipeline<T>
         PipelineDelegate<T> chain = handler.HandleAsync;
         for (var i = snapshot.Length - 1; i >= 0; i--)
         {
-            IPipelineMiddleware<T> middleware = snapshot[i];
+            IPipelineMiddleware<T> middleware = snapshot[i]
+                ?? throw new ArgumentException(
+                    $"Middleware at index {i} is null.",
+                    nameof(middlewares));
+
             PipelineDelegate<T> next = chain;
             chain = (context, cancellationToken) => middleware.InvokeAsync(context, next, cancellationToken);
         }
