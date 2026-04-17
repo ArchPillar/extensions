@@ -12,6 +12,7 @@ namespace ArchPillar.Extensions.Pipelines.Tests;
 /// on the hot path, these assertions will fail.
 /// </para>
 /// </summary>
+[Collection(PipelineActivitySourceCollection.Name)]
 public sealed class PipelineAllocationTests
 {
     // Run a decent number of invocations so the assertion tolerates the
@@ -72,6 +73,38 @@ public sealed class PipelineAllocationTests
         });
     }
 
+    // -----------------------------------------------------------------------
+    // ActivityMiddleware<T> pass-through (no listener subscribed)
+    //
+    // Locks in the allocation-free fast path through ActivityMiddleware<T>
+    // when no ActivityListener is attached to PipelineActivitySource. The
+    // middleware must detect the null activity and tail-call next(...) without
+    // producing an async state machine or any other per-call allocation.
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void ActivityMiddleware_WithNoListenerSubscribed_IsAllocationFree()
+    {
+        // Sanity: any pre-existing listener for the pipeline source would
+        // invalidate the "no listener" precondition of this test.
+        Assert.False(
+            PipelineActivitySource.Instance.HasListeners(),
+            "Expected no ActivityListener subscribed to PipelineActivitySource for this test.");
+
+        var pipeline = new Pipeline<TracedContext>(
+            new NoopTracedHandler(),
+            [new ActivityMiddleware<TracedContext>()]);
+        var context = new TracedContext();
+
+        AssertZeroAllocations(() =>
+        {
+            for (var i = 0; i < Invocations; i++)
+            {
+                pipeline.ExecuteAsync(context).GetAwaiter().GetResult();
+            }
+        });
+    }
+
     private static void AssertZeroAllocations(Action action)
     {
         // Warm-up call: triggers JIT compilation so the first iteration does
@@ -100,5 +133,16 @@ public sealed class PipelineAllocationTests
     {
         public Task InvokeAsync(object context, PipelineDelegate<object> next, CancellationToken cancellationToken = default)
             => next(context, cancellationToken);
+    }
+
+    private sealed class TracedContext : IPipelineContext
+    {
+        public string OperationName => "Allocation.Test";
+    }
+
+    private sealed class NoopTracedHandler : IPipelineHandler<TracedContext>
+    {
+        public Task HandleAsync(TracedContext context, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
     }
 }
