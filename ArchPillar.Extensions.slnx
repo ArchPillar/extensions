@@ -7,9 +7,19 @@
   <Folder Name="/samples/Mapper/WebShop.OData/">
     <Project Path="samples/Mapper/WebShop.OData/WebShop.OData.csproj" />
   </Folder>
+  <Folder Name="/samples/Pipelines/" />
+  <Folder Name="/samples/Pipelines/Pipeline.BuilderSample/">
+    <Project Path="samples/Pipelines/Pipeline.BuilderSample/Pipeline.BuilderSample.csproj" />
+  </Folder>
+  <Folder Name="/samples/Pipelines/Pipeline.HostSample/">
+    <Project Path="samples/Pipelines/Pipeline.HostSample/Pipeline.HostSample.csproj" />
+  </Folder>
   <Folder Name="/benchmarks/" />
   <Folder Name="/benchmarks/Mapper.Benchmarks/">
     <Project Path="benchmarks/Mapper.Benchmarks/ArchPillar.Extensions.Mapper.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/benchmarks/Pipelines.Benchmarks/">
+    <Project Path="benchmarks/Pipelines.Benchmarks/ArchPillar.Extensions.Pipelines.Benchmarks.csproj" />
   </Folder>
   <Folder Name="/src/" />
   <Folder Name="/src/Mapper/">
@@ -18,11 +28,17 @@
   <Folder Name="/src/Mapper.EntityFrameworkCore/">
     <Project Path="src/Mapper.EntityFrameworkCore/ArchPillar.Extensions.Mapper.EntityFrameworkCore.csproj" />
   </Folder>
+  <Folder Name="/src/Pipelines/">
+    <Project Path="src/Pipelines/ArchPillar.Extensions.Pipelines.csproj" />
+  </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/Mapper.Tests/">
     <Project Path="tests/Mapper.Tests/ArchPillar.Extensions.Mapper.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/Mapper.OData.Tests/">
     <Project Path="tests/Mapper.OData.Tests/ArchPillar.Extensions.Mapper.OData.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Pipelines.Tests/">
+    <Project Path="tests/Pipelines.Tests/ArchPillar.Extensions.Pipelines.Tests.csproj" />
   </Folder>
 </Solution>
