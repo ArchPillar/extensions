@@ -47,7 +47,6 @@ public sealed class ActivityMiddleware<T> : IPipelineMiddleware<T>
             return next(context, cancellationToken);
         }
 
-        context.EnrichActivity(activity);
         return InvokeWithActivityAsync(activity, context, next, cancellationToken);
     }
 
@@ -61,6 +60,8 @@ public sealed class ActivityMiddleware<T> : IPipelineMiddleware<T>
         {
             try
             {
+                context.EnrichActivity(activity);
+
                 await next(context, cancellationToken);
             }
             catch (Exception ex)
