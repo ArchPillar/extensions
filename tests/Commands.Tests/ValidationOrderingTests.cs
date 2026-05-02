@@ -50,7 +50,7 @@ public class ValidationOrderingTests
     }
 
     [Fact]
-    public async Task UserMiddleware_WrapsValidationAndHandler()
+    public async Task UserMiddleware_WrapsValidationAndHandlerAsync()
     {
         var log = new OrderingLog();
 
@@ -74,7 +74,7 @@ public class ValidationOrderingTests
     }
 
     [Fact]
-    public async Task UserMiddleware_WrapsValidationOnFailure_Too()
+    public async Task UserMiddleware_WrapsValidationOnFailure_TooAsync()
     {
         var log = new OrderingLog();
 

@@ -48,7 +48,7 @@ public class BatchDispatcherTests
     }
 
     [Fact]
-    public async Task SendBatchAsync_NoBatchHandler_FansOut()
+    public async Task SendBatchAsync_NoBatchHandler_FansOutAsync()
     {
         using ServiceProvider provider = BuildProvider(s =>
         {
@@ -67,7 +67,7 @@ public class BatchDispatcherTests
     }
 
     [Fact]
-    public async Task SendBatchAsync_WithBatchHandler_UsesBatchHandler()
+    public async Task SendBatchAsync_WithBatchHandler_UsesBatchHandlerAsync()
     {
         var log = new BatchInvocationLog();
 
@@ -90,7 +90,7 @@ public class BatchDispatcherTests
     }
 
     [Fact]
-    public async Task SendBatchAsync_FiltersInvalidBeforeBatchCall()
+    public async Task SendBatchAsync_FiltersInvalidBeforeBatchCallAsync()
     {
         var log = new BatchInvocationLog();
 
@@ -119,7 +119,7 @@ public class BatchDispatcherTests
     }
 
     [Fact]
-    public async Task SendBatchAsync_EmptyBatch_ReturnsEmpty()
+    public async Task SendBatchAsync_EmptyBatch_ReturnsEmptyAsync()
     {
         using ServiceProvider provider = BuildProvider(s =>
         {

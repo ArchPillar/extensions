@@ -6,7 +6,7 @@ namespace ArchPillar.Extensions.Commands.Tests;
 public class CommandDispatcherTests
 {
     [Fact]
-    public async Task SendAsync_ResultBearingCommand_ReturnsCreated()
+    public async Task SendAsync_ResultBearingCommand_ReturnsCreatedAsync()
     {
         ServiceProvider provider = BuildProvider(s =>
         {
@@ -25,7 +25,7 @@ public class CommandDispatcherTests
     }
 
     [Fact]
-    public async Task SendAsync_FireAndForgetCommand_ReturnsNoContent()
+    public async Task SendAsync_FireAndForgetCommand_ReturnsNoContentAsync()
     {
         ServiceProvider provider = BuildProvider(s =>
         {
@@ -43,7 +43,7 @@ public class CommandDispatcherTests
     }
 
     [Fact]
-    public async Task SendAsync_ValidationFails_ReturnsUnprocessableEntity()
+    public async Task SendAsync_ValidationFails_ReturnsUnprocessableEntityAsync()
     {
         ServiceProvider provider = BuildProvider(s =>
         {
@@ -62,7 +62,7 @@ public class CommandDispatcherTests
     }
 
     [Fact]
-    public async Task SendAsync_HandlerThrows_ReturnsInternalServerError()
+    public async Task SendAsync_HandlerThrows_ReturnsInternalServerErrorAsync()
     {
         ServiceProvider provider = BuildProvider(s =>
         {
@@ -82,7 +82,7 @@ public class CommandDispatcherTests
     }
 
     [Fact]
-    public async Task SendAsync_HandlerThrowsOperationException_UnwrapsResult()
+    public async Task SendAsync_HandlerThrowsOperationException_UnwrapsResultAsync()
     {
         ServiceProvider provider = BuildProvider(s =>
         {
@@ -100,7 +100,7 @@ public class CommandDispatcherTests
     }
 
     [Fact]
-    public async Task SendAsync_NoHandlerRegistered_ReturnsInternalServerError()
+    public async Task SendAsync_NoHandlerRegistered_ReturnsInternalServerErrorAsync()
     {
         ServiceProvider provider = BuildProvider(s => s.AddCommands());
 
@@ -114,7 +114,7 @@ public class CommandDispatcherTests
     }
 
     [Fact]
-    public async Task SendAsync_NullCommand_Throws()
+    public async Task SendAsync_NullCommand_ThrowsAsync()
     {
         ServiceProvider provider = BuildProvider(s =>
         {

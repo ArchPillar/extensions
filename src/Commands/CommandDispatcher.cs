@@ -27,7 +27,6 @@ internal sealed class CommandDispatcher : ICommandDispatcher
         _services = services;
     }
 
-
     public async Task<OperationResult> SendAsync(ICommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
@@ -38,7 +37,6 @@ internal sealed class CommandDispatcher : ICommandDispatcher
         return context.Result
             ?? OperationResult.Failed(OperationStatus.InternalServerError, "Command pipeline produced no result.");
     }
-
 
     public async Task<OperationResult<TResult>> SendAsync<TResult>(
         ICommand<TResult> command,
@@ -56,7 +54,6 @@ internal sealed class CommandDispatcher : ICommandDispatcher
             _ => OperationResult<TResult>.Failed(OperationStatus.InternalServerError, "Command pipeline produced no result."),
         };
     }
-
 
     public async Task<IReadOnlyList<OperationResult>> SendBatchAsync<TCommand>(
         IReadOnlyList<TCommand> commands,
@@ -87,7 +84,6 @@ internal sealed class CommandDispatcher : ICommandDispatcher
 
         return results;
     }
-
 
     public async Task<IReadOnlyList<OperationResult<TResult>>> SendBatchAsync<TCommand, TResult>(
         IReadOnlyList<TCommand> commands,

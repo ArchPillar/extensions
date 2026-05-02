@@ -13,7 +13,7 @@ public sealed class CommandActivitySourceCollection
 public class CommandActivityTests
 {
     [Fact]
-    public async Task Dispatch_WithListener_StartsActivityForCommand()
+    public async Task Dispatch_WithListener_StartsActivityForCommandAsync()
     {
         var stopped = new List<Activity>();
         using var listener = new ActivityListener
@@ -36,7 +36,7 @@ public class CommandActivityTests
     }
 
     [Fact]
-    public async Task Dispatch_NoListener_IsPassThrough()
+    public async Task Dispatch_NoListener_IsPassThroughAsync()
     {
         // Sanity check: with no subscriber attached, dispatching still succeeds.
         using ServiceProvider provider = BuildProvider();

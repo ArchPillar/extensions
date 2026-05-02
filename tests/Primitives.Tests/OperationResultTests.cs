@@ -1,5 +1,3 @@
-using ArchPillar.Extensions.Primitives;
-
 namespace ArchPillar.Extensions.Primitives.Tests;
 
 public class OperationResultTests
@@ -82,7 +80,7 @@ public class OperationResultTests
     }
 
     [Fact]
-    public async Task ImplicitTaskConversion_WrapsSynchronously()
+    public async Task ImplicitTaskConversion_WrapsSynchronouslyAsync()
     {
         Task<OperationResult> task = OperationResult.Ok();
 
@@ -98,7 +96,7 @@ public class OperationResultTests
 
         Exception ex = source;
 
-        var op = Assert.IsType<OperationException>(ex);
+        OperationException op = Assert.IsType<OperationException>(ex);
         Assert.Same(source, op.Result);
     }
 

@@ -1,5 +1,3 @@
-using ArchPillar.Extensions.Primitives;
-
 namespace ArchPillar.Extensions.Primitives.Tests;
 
 public class OperationExceptionTests
