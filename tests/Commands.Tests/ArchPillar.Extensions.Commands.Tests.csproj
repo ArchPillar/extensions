@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Commands\ArchPillar.Extensions.Commands.csproj" />
+    <ProjectReference Include="..\..\src\Primitives\ArchPillar.Extensions.Primitives.csproj" />
+    <ProjectReference Include="..\..\src\Pipelines\ArchPillar.Extensions.Pipelines.csproj" />
+  </ItemGroup>
+
+</Project>

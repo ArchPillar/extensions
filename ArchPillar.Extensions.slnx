@@ -14,12 +14,19 @@
   <Folder Name="/samples/Pipelines/Pipeline.HostSample/">
     <Project Path="samples/Pipelines/Pipeline.HostSample/Pipeline.HostSample.csproj" />
   </Folder>
+  <Folder Name="/samples/Commands/" />
+  <Folder Name="/samples/Commands/Command.HostSample/">
+    <Project Path="samples/Commands/Command.HostSample/Command.HostSample.csproj" />
+  </Folder>
   <Folder Name="/benchmarks/" />
   <Folder Name="/benchmarks/Mapper.Benchmarks/">
     <Project Path="benchmarks/Mapper.Benchmarks/ArchPillar.Extensions.Mapper.Benchmarks.csproj" />
   </Folder>
   <Folder Name="/benchmarks/Pipelines.Benchmarks/">
     <Project Path="benchmarks/Pipelines.Benchmarks/ArchPillar.Extensions.Pipelines.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/benchmarks/Commands.Benchmarks/">
+    <Project Path="benchmarks/Commands.Benchmarks/ArchPillar.Extensions.Commands.Benchmarks.csproj" />
   </Folder>
   <Folder Name="/src/" />
   <Folder Name="/src/Mapper/">
@@ -31,6 +38,12 @@
   <Folder Name="/src/Pipelines/">
     <Project Path="src/Pipelines/ArchPillar.Extensions.Pipelines.csproj" />
   </Folder>
+  <Folder Name="/src/Primitives/">
+    <Project Path="src/Primitives/ArchPillar.Extensions.Primitives.csproj" />
+  </Folder>
+  <Folder Name="/src/Commands/">
+    <Project Path="src/Commands/ArchPillar.Extensions.Commands.csproj" />
+  </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/Mapper.Tests/">
     <Project Path="tests/Mapper.Tests/ArchPillar.Extensions.Mapper.Tests.csproj" />
@@ -40,5 +53,11 @@
   </Folder>
   <Folder Name="/tests/Pipelines.Tests/">
     <Project Path="tests/Pipelines.Tests/ArchPillar.Extensions.Pipelines.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Primitives.Tests/">
+    <Project Path="tests/Primitives.Tests/ArchPillar.Extensions.Primitives.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Commands.Tests/">
+    <Project Path="tests/Commands.Tests/ArchPillar.Extensions.Commands.Tests.csproj" />
   </Folder>
 </Solution>
