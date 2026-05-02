@@ -1,5 +1,3 @@
-using ArchPillar.Extensions.Commands;
-using ArchPillar.Extensions.Commands.Validation;
 using ArchPillar.Extensions.Primitives;
 using BenchmarkDotNet.Attributes;
 using Microsoft.Extensions.DependencyInjection;
@@ -34,11 +32,11 @@ public class CommandDispatcherBenchmarks
     }
 
     [Benchmark]
-    public Task<OperationResult> SendAsync_FireAndForget()
+    public Task<OperationResult> SendAsync_FireAndForgetAsync()
         => _dispatcher.SendAsync(new NoopCommand());
 
     [Benchmark]
-    public Task<OperationResult<int>> SendAsync_ResultBearing()
+    public Task<OperationResult<int>> SendAsync_ResultBearingAsync()
         => _dispatcher.SendAsync(new NoopValueCommand());
 
     public sealed record NoopCommand : ICommand;

@@ -1,4 +1,3 @@
-using ArchPillar.Extensions.Commands;
 using ArchPillar.Extensions.Commands.Validation;
 using ArchPillar.Extensions.Primitives;
 

@@ -1,4 +1,3 @@
-using ArchPillar.Extensions.Commands;
 using ArchPillar.Extensions.Primitives;
 using BenchmarkDotNet.Attributes;
 using Microsoft.Extensions.DependencyInjection;
@@ -54,11 +53,11 @@ public class BatchDispatcherBenchmarks
     }
 
     [Benchmark(Baseline = true)]
-    public Task<IReadOnlyList<OperationResult>> SendBatchAsync_FanOut()
+    public Task<IReadOnlyList<OperationResult>> SendBatchAsync_FanOutAsync()
         => _fanOutDispatcher.SendBatchAsync(_commands);
 
     [Benchmark]
-    public Task<IReadOnlyList<OperationResult>> SendBatchAsync_BatchHandler()
+    public Task<IReadOnlyList<OperationResult>> SendBatchAsync_BatchHandlerAsync()
         => _batchDispatcher.SendBatchAsync(_commands);
 
     public sealed record NoopCommand : ICommand;
@@ -75,7 +74,7 @@ public class BatchDispatcherBenchmarks
             IReadOnlyList<NoopCommand> commands,
             CancellationToken cancellationToken)
         {
-            OperationResult[] results = new OperationResult[commands.Count];
+            var results = new OperationResult[commands.Count];
             for (var i = 0; i < commands.Count; i++)
             {
                 results[i] = OperationResult.Ok();

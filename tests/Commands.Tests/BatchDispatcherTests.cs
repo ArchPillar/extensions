@@ -25,14 +25,16 @@ public class BatchDispatcherTests
         private readonly BatchInvocationLog _log;
 
         public TrackingBatchHandler(BatchInvocationLog log)
-            => _log = log;
+        {
+            _log = log;
+        }
 
         public Task<IReadOnlyList<OperationResult>> HandleBatchAsync(
             IReadOnlyList<AddItem> commands,
             CancellationToken cancellationToken)
         {
             _log.Received.AddRange(commands);
-            OperationResult[] results = new OperationResult[commands.Count];
+            var results = new OperationResult[commands.Count];
             for (var i = 0; i < commands.Count; i++)
             {
                 results[i] = OperationResult.NoContent();

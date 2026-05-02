@@ -1,4 +1,3 @@
-using ArchPillar.Extensions.Commands;
 using ArchPillar.Extensions.Commands.Validation;
 using ArchPillar.Extensions.Pipelines;
 using ArchPillar.Extensions.Primitives;
@@ -14,7 +13,10 @@ public class ValidationOrderingTests
     {
         private readonly OrderingLog _log;
 
-        public DoThingHandler(OrderingLog log) => _log = log;
+        public DoThingHandler(OrderingLog log)
+        {
+            _log = log;
+        }
 
         public override Task ValidateAsync(DoThing command, IValidationContext context, CancellationToken cancellationToken)
         {
@@ -34,7 +36,10 @@ public class ValidationOrderingTests
     {
         private readonly OrderingLog _log;
 
-        public TracingMiddleware(OrderingLog log) => _log = log;
+        public TracingMiddleware(OrderingLog log)
+        {
+            _log = log;
+        }
 
         public async Task InvokeAsync(CommandContext context, PipelineDelegate<CommandContext> next, CancellationToken cancellationToken = default)
         {
