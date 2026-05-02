@@ -61,8 +61,24 @@ OperationResult<Order>.NotFound("missing");
 ```csharp
 result.IsSuccess          // true when (int)Status is in [200, 300)
 result.IsFailure          // !IsSuccess
-result.ThrowIfFailed();   // throws OperationException carrying the result
+result.ThrowIfFailed();   // throws OperationException carrying the result; returns result for chaining
 ```
+
+## Unwrap
+
+When you reach the boundary where you actually want the typed value, `Unwrap` is a one-call shortcut that throws on failure. Sync as an instance method, async as an extension on the task itself:
+
+```csharp
+// Sync — instance:
+Order order = result.Unwrap();
+result.Unwrap();                                              // void on the non-generic — asserts success
+
+// Async — extension on Task<OperationResult<T>> / Task<OperationResult>:
+var order = await dispatcher.SendAsync(getOrder).UnwrapAsync();
+await       dispatcher.SendAsync(cancelOrder).UnwrapAsync();
+```
+
+The async form removes the `(await …).Unwrap()` parenthesis dance. Failure becomes an `OperationException` carrying the original result — catch it if you want status-aware handling, or let it propagate to the surrounding handler.
 
 ## Why an `int`-aligned enum?
 

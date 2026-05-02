@@ -93,6 +93,16 @@ public class OperationResult
         return this;
     }
 
+    /// <summary>
+    /// Asserts the operation succeeded. Throws <see cref="OperationException"/>
+    /// on failure. The closest sync analogue to a method call:
+    /// <code>result.Unwrap();</code>
+    /// is to "calling the operation" what
+    /// <code>void Method();</code>
+    /// is to invoking a void method — success is silent, failure throws.
+    /// </summary>
+    public void Unwrap() => ThrowIfFailed();
+
     /// <summary>Creates a successful result with status <see cref="OperationStatus.Ok"/> by default.</summary>
     public static OperationResult Ok(OperationStatus status = OperationStatus.Ok)
         => new() { Status = status };

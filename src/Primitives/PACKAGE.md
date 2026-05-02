@@ -30,6 +30,18 @@ Throwing a result short-circuits anywhere:
 if (!authorized) throw OperationResult.Forbidden("not your order");
 ```
 
+Unwrap at the consumption site to get the value back, throwing on failure:
+
+```csharp
+// Instance — sync:
+Order order = result.Unwrap();
+
+// Extension — async, no parens:
+var order = await dispatcher.SendAsync(query).UnwrapAsync();
+```
+
+`Unwrap()` keeps the result-first contract everywhere else but gives you a one-call shortcut at the boundary where you actually need the typed value.
+
 The implicit conversion from `OperationResult` to `Exception` produces an `OperationException` carrying the result, which downstream code (e.g. `ArchPillar.Extensions.Commands`) unwraps back into the result.
 
 ## License

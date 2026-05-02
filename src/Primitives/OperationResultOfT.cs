@@ -25,6 +25,23 @@ public sealed class OperationResult<TValue> : OperationResult
     public TValue? Value { get; init; }
 
     /// <summary>
+    /// Returns <see cref="Value"/> on success; throws
+    /// <see cref="OperationException"/> on failure. The sync analogue to a
+    /// method call:
+    /// <code>TValue value = result.Unwrap();</code>
+    /// is to "calling the operation" what
+    /// <code>TValue value = Method();</code>
+    /// is to invoking a value-returning method — success returns the value,
+    /// failure throws.
+    /// </summary>
+    /// <returns>The non-null payload.</returns>
+    public new TValue Unwrap()
+    {
+        ThrowIfFailed();
+        return Value!;
+    }
+
+    /// <summary>
     /// Wraps this typed result in a completed <see cref="Task{TResult}"/>.
     /// </summary>
     /// <param name="result">The result to wrap.</param>
