@@ -32,7 +32,12 @@ public class UnwrapTests
     {
         var result = OperationResult.Ok();
 
-        result.Unwrap();
+        Exception? thrown = Record.Exception(() =>
+        {
+            result.Unwrap();
+        });
+
+        Assert.Null(thrown);
     }
 
     [Fact]
@@ -68,7 +73,10 @@ public class UnwrapTests
     [Fact]
     public async Task UnwrapAsync_OnBaseSuccess_CompletesAsync()
     {
-        await Task.FromResult(OperationResult.Ok()).UnwrapAsync();
+        Exception? thrown = await Record.ExceptionAsync(() =>
+            Task.FromResult(OperationResult.Ok()).UnwrapAsync());
+
+        Assert.Null(thrown);
     }
 
     [Fact]
