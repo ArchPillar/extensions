@@ -4,10 +4,6 @@ using ArchPillar.Extensions.Primitives;
 
 namespace ArchPillar.Extensions.Commands;
 
-// Default <see cref="ICommandDispatcher"/>. Every dispatch goes through the
-// shared Pipeline<CommandContext> resolved from DI. Internal because it
-// depends on the internal CommandInvokerRegistry; consumers resolve via
-// ICommandDispatcher.
 internal sealed class CommandDispatcher : ICommandDispatcher
 {
     private readonly Pipeline<CommandContext> _pipeline;
@@ -71,12 +67,10 @@ internal sealed class CommandDispatcher : ICommandDispatcher
 
         if (descriptor.InvokeBatchAsync is { } batch)
         {
-            // Run validation first per command; pass only the valid ones to the batch handler.
             return await RunBatchAsync(commands, descriptor, batch, cancellationToken).ConfigureAwait(false);
         }
 
-        // Fan out via the regular pipeline to keep middlewares applied.
-        OperationResult[] results = new OperationResult[commands.Count];
+        var results = new OperationResult[commands.Count];
         for (var i = 0; i < commands.Count; i++)
         {
             results[i] = await SendAsync(commands[i], cancellationToken).ConfigureAwait(false);
@@ -102,7 +96,7 @@ internal sealed class CommandDispatcher : ICommandDispatcher
         if (descriptor.InvokeBatchAsync is { } batch)
         {
             IReadOnlyList<OperationResult> raw = await RunBatchAsync(commands, descriptor, batch, cancellationToken).ConfigureAwait(false);
-            OperationResult<TResult>[] typed = new OperationResult<TResult>[raw.Count];
+            var typed = new OperationResult<TResult>[raw.Count];
             for (var i = 0; i < raw.Count; i++)
             {
                 typed[i] = raw[i] is OperationResult<TResult> t ? t : Coerce<TResult>(raw[i]);
@@ -111,7 +105,7 @@ internal sealed class CommandDispatcher : ICommandDispatcher
             return typed;
         }
 
-        OperationResult<TResult>[] results = new OperationResult<TResult>[commands.Count];
+        var results = new OperationResult<TResult>[commands.Count];
         for (var i = 0; i < commands.Count; i++)
         {
             results[i] = await SendAsync(commands[i], cancellationToken).ConfigureAwait(false);
@@ -127,9 +121,7 @@ internal sealed class CommandDispatcher : ICommandDispatcher
         CancellationToken cancellationToken)
         where TCommand : IRequest
     {
-        // Per-command validation up front. Indices that pass are forwarded to the batch handler;
-        // indices that fail keep their validation result.
-        OperationResult?[] preliminary = new OperationResult?[commands.Count];
+        var preliminary = new OperationResult?[commands.Count];
         List<TCommand>? valid = null;
         List<int>? validIndices = null;
 
@@ -154,7 +146,7 @@ internal sealed class CommandDispatcher : ICommandDispatcher
 
         if (valid is { Count: > 0 })
         {
-            IRequest[] payload = new IRequest[valid.Count];
+            var payload = new IRequest[valid.Count];
             for (var i = 0; i < valid.Count; i++)
             {
                 payload[i] = valid[i];
@@ -173,7 +165,7 @@ internal sealed class CommandDispatcher : ICommandDispatcher
             }
         }
 
-        OperationResult[] final = new OperationResult[commands.Count];
+        var final = new OperationResult[commands.Count];
         for (var i = 0; i < commands.Count; i++)
         {
             final[i] = preliminary[i]

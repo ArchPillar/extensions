@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using ArchPillar.Extensions.Commands.Internal;
 using ArchPillar.Extensions.Commands.Middlewares;
 using ArchPillar.Extensions.Pipelines;
@@ -15,8 +16,8 @@ public static class ServiceCollectionExtensions
 {
     /// <summary>
     /// Registers the command dispatcher and its shared pipeline. Built-in
-    /// middlewares (telemetry, exception, validation) are added in the order
-    /// the dispatcher expects.
+    /// middlewares (telemetry, exception) are added in the order the
+    /// dispatcher expects.
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <param name="configure">Optional configuration callback.</param>
@@ -55,7 +56,9 @@ public static class ServiceCollectionExtensions
     /// <param name="services">The service collection.</param>
     /// <param name="lifetime">Lifetime for <typeparamref name="THandler"/>. Defaults to <see cref="ServiceLifetime.Scoped"/>.</param>
     /// <returns>The service collection, for chaining.</returns>
-    public static IServiceCollection AddCommandHandler<TCommand, THandler>(
+    public static IServiceCollection AddCommandHandler<
+        TCommand,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] THandler>(
         this IServiceCollection services,
         ServiceLifetime lifetime = ServiceLifetime.Scoped)
         where TCommand : class, ICommand
@@ -97,7 +100,10 @@ public static class ServiceCollectionExtensions
     /// <param name="services">The service collection.</param>
     /// <param name="lifetime">Lifetime for <typeparamref name="THandler"/>. Defaults to <see cref="ServiceLifetime.Scoped"/>.</param>
     /// <returns>The service collection, for chaining.</returns>
-    public static IServiceCollection AddCommandHandler<TCommand, TResult, THandler>(
+    public static IServiceCollection AddCommandHandler<
+        TCommand,
+        TResult,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] THandler>(
         this IServiceCollection services,
         ServiceLifetime lifetime = ServiceLifetime.Scoped)
         where TCommand : class, ICommand<TResult>
@@ -141,7 +147,9 @@ public static class ServiceCollectionExtensions
     /// <param name="services">The service collection.</param>
     /// <param name="lifetime">Lifetime for <typeparamref name="THandler"/>. Defaults to <see cref="ServiceLifetime.Scoped"/>.</param>
     /// <returns>The service collection, for chaining.</returns>
-    public static IServiceCollection AddBatchCommandHandler<TCommand, THandler>(
+    public static IServiceCollection AddBatchCommandHandler<
+        TCommand,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] THandler>(
         this IServiceCollection services,
         ServiceLifetime lifetime = ServiceLifetime.Scoped)
         where TCommand : class, ICommand
@@ -164,7 +172,7 @@ public static class ServiceCollectionExtensions
             CancellationToken ct)
         {
             IBatchCommandHandler<TCommand> handler = sp.GetRequiredService<IBatchCommandHandler<TCommand>>();
-            TCommand[] typed = new TCommand[commands.Count];
+            var typed = new TCommand[commands.Count];
             for (var i = 0; i < commands.Count; i++)
             {
                 typed[i] = (TCommand)commands[i];
@@ -183,7 +191,10 @@ public static class ServiceCollectionExtensions
     /// <param name="services">The service collection.</param>
     /// <param name="lifetime">Lifetime for <typeparamref name="THandler"/>. Defaults to <see cref="ServiceLifetime.Scoped"/>.</param>
     /// <returns>The service collection, for chaining.</returns>
-    public static IServiceCollection AddBatchCommandHandler<TCommand, TResult, THandler>(
+    public static IServiceCollection AddBatchCommandHandler<
+        TCommand,
+        TResult,
+        [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] THandler>(
         this IServiceCollection services,
         ServiceLifetime lifetime = ServiceLifetime.Scoped)
         where TCommand : class, ICommand<TResult>
@@ -206,14 +217,14 @@ public static class ServiceCollectionExtensions
             CancellationToken ct)
         {
             IBatchCommandHandler<TCommand, TResult> handler = sp.GetRequiredService<IBatchCommandHandler<TCommand, TResult>>();
-            TCommand[] typed = new TCommand[commands.Count];
+            var typed = new TCommand[commands.Count];
             for (var i = 0; i < commands.Count; i++)
             {
                 typed[i] = (TCommand)commands[i];
             }
 
             IReadOnlyList<OperationResult<TResult>> handled = await handler.HandleBatchAsync(typed, ct).ConfigureAwait(false);
-            OperationResult[] erased = new OperationResult[handled.Count];
+            var erased = new OperationResult[handled.Count];
             for (var i = 0; i < handled.Count; i++)
             {
                 erased[i] = handled[i];
