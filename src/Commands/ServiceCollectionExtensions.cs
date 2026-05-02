@@ -42,7 +42,7 @@ public static class ServiceCollectionExtensions
         // registrations are no-ops.
         services.AddPipeline<CommandContext, CommandRouter>();
 
-        services.TryAddEnumerable(ServiceDescriptor.Singleton<IPipelineMiddleware<CommandContext>, ActivityMiddleware<CommandContext>>());
+        services.TryAddEnumerable(ServiceDescriptor.Singleton<IPipelineMiddleware<CommandContext>, CommandActivityMiddleware>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IPipelineMiddleware<CommandContext>, ExceptionMiddleware>());
 
         return services;

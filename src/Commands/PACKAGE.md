@@ -68,7 +68,7 @@ return Results.Json(result.Errors, statusCode: (int)result.Status);
 
 ## Telemetry
 
-`AddCommands()` registers `ActivityMiddleware<CommandContext>` automatically.
+`AddCommands()` registers `CommandActivityMiddleware` automatically.
 Subscribe via OpenTelemetry to capture every dispatch:
 
 ```csharp

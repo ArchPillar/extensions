@@ -1,17 +1,25 @@
 using System.Diagnostics;
+using ArchPillar.Extensions.Commands.Validation;
 using ArchPillar.Extensions.Primitives;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ArchPillar.Extensions.Commands.Tests;
 
-[CollectionDefinition(nameof(CommandActivitySourceCollection), DisableParallelization = true)]
-public sealed class CommandActivitySourceCollection
-{
-}
-
-[Collection(nameof(CommandActivitySourceCollection))]
 public class CommandActivityTests
 {
+    // Uniquely-named so other tests dispatching CancelOrder / CreateOrder /
+    // AddItem in parallel don't add their activities to the listener buffer.
+    private sealed record TelemetryProbe : ICommand;
+
+    private sealed class TelemetryProbeHandler : CommandHandlerBase<TelemetryProbe>
+    {
+        public override Task ValidateAsync(TelemetryProbe command, IValidationContext context, CancellationToken cancellationToken)
+            => Task.CompletedTask;
+
+        public override Task<OperationResult> HandleAsync(TelemetryProbe command, CancellationToken cancellationToken)
+            => NoContent();
+    }
+
     [Fact]
     public async Task Dispatch_WithListener_StartsActivityForCommandAsync()
     {
@@ -20,7 +28,13 @@ public class CommandActivityTests
         {
             ShouldListenTo = s => s.Name == CommandActivitySource.Name,
             Sample = static (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
-            ActivityStopped = a => stopped.Add(a),
+            ActivityStopped = a =>
+            {
+                if (a.DisplayName == "Commands.TelemetryProbe")
+                {
+                    stopped.Add(a);
+                }
+            },
         };
         ActivitySource.AddActivityListener(listener);
 
@@ -28,22 +42,21 @@ public class CommandActivityTests
         using IServiceScope scope = provider.CreateScope();
         ICommandDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ICommandDispatcher>();
 
-        await dispatcher.SendAsync(new CancelOrder(Guid.NewGuid()));
+        await dispatcher.SendAsync(new TelemetryProbe());
 
         Activity activity = Assert.Single(stopped);
-        Assert.Equal("Commands.CancelOrder", activity.DisplayName);
+        Assert.Equal("Commands.TelemetryProbe", activity.DisplayName);
         Assert.Contains(activity.TagObjects, t => t.Key == "command.type");
     }
 
     [Fact]
     public async Task Dispatch_NoListener_IsPassThroughAsync()
     {
-        // Sanity check: with no subscriber attached, dispatching still succeeds.
         using ServiceProvider provider = BuildProvider();
         using IServiceScope scope = provider.CreateScope();
         ICommandDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ICommandDispatcher>();
 
-        OperationResult result = await dispatcher.SendAsync(new CancelOrder(Guid.NewGuid()));
+        OperationResult result = await dispatcher.SendAsync(new TelemetryProbe());
         Assert.True(result.IsSuccess);
     }
 
@@ -51,7 +64,7 @@ public class CommandActivityTests
     {
         var services = new ServiceCollection();
         services.AddCommands();
-        services.AddCommandHandler<CancelOrder, TestCancelOrderHandler>();
+        services.AddCommandHandler<TelemetryProbe, TelemetryProbeHandler>();
         return services.BuildServiceProvider(new ServiceProviderOptions
         {
             ValidateScopes = true,

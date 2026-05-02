@@ -23,7 +23,7 @@ Explicit non-goals:
                                 ┌──────────────────────────────────────┐
                                 │ Pipeline<CommandContext>             │
                                 │                                      │
-   ICommandDispatcher ──► CommandContext  ──► [ ActivityMiddleware ]   │
+   ICommandDispatcher ──► CommandContext  ──► [ CommandActivityMiddleware ]│
                                 │              ↓                       │
                                 │            [ ExceptionMiddleware ]   │
                                 │              ↓                       │
@@ -142,14 +142,14 @@ The `CommandInvokerRegistry` stores the `IEnumerable<CommandInvokerDescriptor>` 
 | Scoped    | `ICommandDispatcher` → `CommandDispatcher` |
 | Scoped    | `Pipeline<CommandContext>` (via `AddPipeline<...>()`) |
 | Scoped    | `IPipelineHandler<CommandContext>` → `CommandRouter` |
-| Singleton | `IPipelineMiddleware<CommandContext>` → `ActivityMiddleware<CommandContext>` |
+| Singleton | `IPipelineMiddleware<CommandContext>` → `CommandActivityMiddleware` |
 | Singleton | `IPipelineMiddleware<CommandContext>` → `ExceptionMiddleware` |
 
 User-added middlewares append to the chain. The order is significant: telemetry wraps everything; the exception middleware catches throws from user middlewares, the router, validation, and the handler. Validation is **not** a middleware — it runs inside the router so user middlewares (transactions, locks, retry) wrap both validation and the handler.
 
 ## Telemetry
 
-`CommandActivitySource.Name = "ArchPillar.Extensions.Commands"`. Activities are started by `ActivityMiddleware<CommandContext>` (from the Pipelines library) — `CommandContext` implements `IPipelineContext`. The activity gets `command.type` as a tag. When no listener is attached the middleware is a zero-allocation pass-through.
+`CommandActivitySource.Name = "ArchPillar.Extensions.Commands"`. Activities are started by `CommandActivityMiddleware` on the Commands-owned `ActivitySource` so subscribers can opt in to command dispatches without also receiving every other pipeline's activities. The activity gets `command.type` as a tag. When no listener is attached the middleware is a zero-allocation pass-through.
 
 ## Cancellation
 
