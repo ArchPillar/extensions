@@ -34,13 +34,15 @@ public static class ServiceCollectionExtensions
         services.TryAddSingleton<CommandInvokerRegistry>();
         services.TryAddScoped<ICommandDispatcher, CommandDispatcher>();
 
-        // Shared pipeline: terminal handler is the router. Middlewares are
-        // contributed via TryAddEnumerable so duplicate registrations are no-ops.
+        // Shared pipeline: terminal handler is the router. The router runs
+        // both validation and the handler, so user-added middlewares
+        // (transactions, unit-of-work, retry, …) wrap both consistently.
+        // Middlewares are contributed via TryAddEnumerable so duplicate
+        // registrations are no-ops.
         services.AddPipeline<CommandContext, CommandRouter>();
 
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IPipelineMiddleware<CommandContext>, ActivityMiddleware<CommandContext>>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IPipelineMiddleware<CommandContext>, ExceptionMiddleware>());
-        services.TryAddEnumerable(ServiceDescriptor.Scoped<IPipelineMiddleware<CommandContext>, ValidationMiddleware>());
 
         return services;
     }

@@ -92,7 +92,7 @@ services.AddCommandHandler<CreateOrder, Guid, CreateOrderHandler>();
 services.AddCommandHandler<CancelOrder, CancelOrderHandler>();
 ```
 
-`AddCommands()` registers the dispatcher, the shared pipeline, and the three built-in middlewares (telemetry, exception, validation).
+`AddCommands()` registers the dispatcher, the shared pipeline, and the two built-in middlewares (telemetry, exception). Validation runs inside the router, so any user-added middleware you register after `AddCommands()` (transactions, unit-of-work, retry, locks) wraps both validation and the handler.
 
 ## 5. Dispatch
 

@@ -25,7 +25,7 @@ ambitions, and a hard line about runtime reflection.
 - **`IBatchCommandHandler<TCommand>`** — opt in to bulk processing for a command type.
 - **`CommandHandlerBase<TCommand>`** / **`CommandHandlerBase<TCommand, TResult>`** — optional base classes with status factories (`Ok`, `NotFound`, `Conflict`, …) and assert helpers (`EnsureFound`, `Ensure`, `EnsureAuthorized`).
 - **`ICommandDispatcher`** — `SendAsync` and `SendBatchAsync`, always returning an `OperationResult`.
-- **Built-in middlewares** — telemetry, exception, validation. Wired by `AddCommands()` in the right order.
+- **Built-in middlewares** — telemetry and exception. Validation is part of the terminal so user middlewares (transactions, locks, retry) wrap both validation and the handler. Wired by `AddCommands()`.
 
 ## Quick start
 

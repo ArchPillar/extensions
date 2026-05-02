@@ -27,11 +27,11 @@ Explicit non-goals:
                                 │              ↓                       │
                                 │            [ ExceptionMiddleware ]   │
                                 │              ↓                       │
-                                │            [ ValidationMiddleware ]  │
-                                │              ↓                       │
                                 │            [ user middlewares ]      │
-                                │              ↓                       │
+                                │              ↓ (e.g. transactions)   │
                                 │            [ CommandRouter ]         │
+                                │                ├─ ValidateAsync(...) │
+                                │                └─ HandleAsync(...)   │
                                 └──────────────────┬───────────────────┘
                                                    │
                                                    ▼
@@ -39,6 +39,8 @@ Explicit non-goals:
 ```
 
 A single shared pipeline means cross-cutting middlewares (transactions, logging, authorization) are written once and apply to every command. Per-command targeting, when needed, happens via `if (ctx.Command is CreateOrder)` checks inside the middleware.
+
+**Validation runs inside the router**, not as a separate middleware. This is deliberate: validation that touches storage ("is this order still cancellable?") needs to read on the same transactional snapshot the handler will write against. By running validation as the first thing the terminal handler does, every user-added wrapping middleware (a transaction, a unit-of-work, a retry-with-backoff, a distributed lock) is in scope for both the validation read and the handler's write — no TOCTOU race between them.
 
 ## Type tier
 
@@ -94,9 +96,18 @@ public interface IBatchCommandHandler<in TCommand, TResult> : IRequestHandler
 
 Validation is part of the handler interface so validation can load entities from storage and validate against persisted state. The default `ValidateAsync` is a no-op; the optional `CommandHandlerBase<TCommand[, TResult]>` makes it abstract to nudge users into a deliberate choice.
 
-`IValidationContext` accumulates `OperationError`s; the included `ValidationMiddleware` calls `ValidateAsync` and short-circuits with `OperationStatus.UnprocessableEntity` when errors are present.
+`IValidationContext` accumulates `OperationError`s; the **router** calls `ValidateAsync` before invoking the handler and short-circuits with `OperationStatus.UnprocessableEntity` when errors are present. Running validation inside the router (rather than as an outer middleware) means it sees the same transactional scope as the handler's write — see "Validation and transactions" below.
 
 `ValidationExtensions` provides composable helpers (`NotEmpty`, `NotBlank`, `Range`, `MaxLength`, `MinLength`, `Matches`, `Must`). They return the context for chaining.
+
+### Validation and transactions
+
+Validation often needs to check persisted state ("is this order still in cancellable state?", "does this customer exist?"). Those reads must happen on the same transactional snapshot the handler writes against — otherwise:
+
+- A row read at validation time can be mutated before the handler's write, producing a TOCTOU race that turns a clean `OperationStatus.Conflict` into a generic 500 from a constraint violation.
+- Validation and the handler can read at different isolation levels, disagreeing about "the same operation."
+
+The router runs validation immediately before the handler, so any user-supplied wrapping middleware (transactions, unit-of-work, retry, distributed locks) is in scope for both halves. The trade-off: when validation fails the transaction was opened pointlessly. In practice that cost is rounding error compared to the cost of a TOCTOU bug, and `OperationException` short-circuits cleanly so the rollback path is fast.
 
 ## Result transport and exceptions
 
@@ -133,9 +144,8 @@ The `CommandInvokerRegistry` stores the `IEnumerable<CommandInvokerDescriptor>` 
 | Scoped    | `IPipelineHandler<CommandContext>` → `CommandRouter` |
 | Singleton | `IPipelineMiddleware<CommandContext>` → `ActivityMiddleware<CommandContext>` |
 | Singleton | `IPipelineMiddleware<CommandContext>` → `ExceptionMiddleware` |
-| Scoped    | `IPipelineMiddleware<CommandContext>` → `ValidationMiddleware` |
 
-User-added middlewares append to the chain. The order is significant: telemetry wraps everything; the exception middleware wraps validation and the user middlewares; validation runs before any user middleware so transactional concerns never start when validation fails.
+User-added middlewares append to the chain. The order is significant: telemetry wraps everything; the exception middleware catches throws from user middlewares, the router, validation, and the handler. Validation is **not** a middleware — it runs inside the router so user middlewares (transactions, locks, retry) wrap both validation and the handler.
 
 ## Telemetry
 

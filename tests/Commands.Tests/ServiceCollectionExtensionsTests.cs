@@ -37,7 +37,9 @@ public class ServiceCollectionExtensionsTests
         IEnumerable<IPipelineMiddleware<CommandContext>> middlewares =
             scope.ServiceProvider.GetServices<IPipelineMiddleware<CommandContext>>();
 
-        Assert.Equal(3, middlewares.Count());
+        // Built-ins: ActivityMiddleware + ExceptionMiddleware. Validation runs
+        // inside the router, not as a middleware, so it doesn't appear here.
+        Assert.Equal(2, middlewares.Count());
     }
 
     [Fact]
