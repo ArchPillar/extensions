@@ -4,24 +4,16 @@ using ArchPillar.Extensions.Primitives;
 
 namespace ArchPillar.Extensions.Commands;
 
-/// <summary>
-/// Default <see cref="ICommandDispatcher"/>. Every dispatch goes through the
-/// shared <c>Pipeline&lt;CommandContext&gt;</c> resolved from DI.
-/// </summary>
-public sealed class CommandDispatcher : ICommandDispatcher
+// Default <see cref="ICommandDispatcher"/>. Every dispatch goes through the
+// shared Pipeline<CommandContext> resolved from DI. Internal because it
+// depends on the internal CommandInvokerRegistry; consumers resolve via
+// ICommandDispatcher.
+internal sealed class CommandDispatcher : ICommandDispatcher
 {
     private readonly Pipeline<CommandContext> _pipeline;
     private readonly CommandInvokerRegistry _registry;
     private readonly IServiceProvider _services;
 
-    /// <summary>
-    /// Initializes a new <see cref="CommandDispatcher"/>. Registered by
-    /// <c>AddCommands()</c> — application code resolves the dispatcher from
-    /// DI, not directly.
-    /// </summary>
-    /// <param name="pipeline">The shared command pipeline.</param>
-    /// <param name="registry">The lazy descriptor registry.</param>
-    /// <param name="services">The active service provider (scoped if available).</param>
     public CommandDispatcher(
         Pipeline<CommandContext> pipeline,
         CommandInvokerRegistry registry,
@@ -35,7 +27,7 @@ public sealed class CommandDispatcher : ICommandDispatcher
         _services = services;
     }
 
-    /// <inheritdoc/>
+
     public async Task<OperationResult> SendAsync(ICommand command, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(command);
@@ -47,7 +39,7 @@ public sealed class CommandDispatcher : ICommandDispatcher
             ?? OperationResult.Failed(OperationStatus.InternalServerError, "Command pipeline produced no result.");
     }
 
-    /// <inheritdoc/>
+
     public async Task<OperationResult<TResult>> SendAsync<TResult>(
         ICommand<TResult> command,
         CancellationToken cancellationToken = default)
@@ -65,7 +57,7 @@ public sealed class CommandDispatcher : ICommandDispatcher
         };
     }
 
-    /// <inheritdoc/>
+
     public async Task<IReadOnlyList<OperationResult>> SendBatchAsync<TCommand>(
         IReadOnlyList<TCommand> commands,
         CancellationToken cancellationToken = default)
@@ -96,7 +88,7 @@ public sealed class CommandDispatcher : ICommandDispatcher
         return results;
     }
 
-    /// <inheritdoc/>
+
     public async Task<IReadOnlyList<OperationResult<TResult>>> SendBatchAsync<TCommand, TResult>(
         IReadOnlyList<TCommand> commands,
         CancellationToken cancellationToken = default)

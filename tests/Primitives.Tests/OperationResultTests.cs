@@ -82,37 +82,33 @@ public class OperationResultTests
     }
 
     [Fact]
-    public void ImplicitTaskConversion_WrapsSynchronously()
+    public async Task ImplicitTaskConversion_WrapsSynchronously()
     {
         Task<OperationResult> task = OperationResult.Ok();
 
         Assert.True(task.IsCompletedSuccessfully);
-        Assert.True(task.Result.IsSuccess);
+        OperationResult awaited = await task;
+        Assert.True(awaited.IsSuccess);
     }
 
     [Fact]
     public void ImplicitExceptionConversion_ProducesOperationException()
     {
-        OperationResult source = OperationResult.NotFound("missing");
+        var source = OperationResult.NotFound("missing");
 
         Exception ex = source;
 
-        OperationException op = Assert.IsType<OperationException>(ex);
+        var op = Assert.IsType<OperationException>(ex);
         Assert.Same(source, op.Result);
     }
 
     [Fact]
     public void Throw_OperationResult_PropagatesAsOperationException()
     {
-        var result = OperationResult.Conflict("already exists");
-
         OperationException thrown = Assert.Throws<OperationException>(static () =>
             ThrowHelper(OperationResult.Conflict("already exists")));
 
         Assert.Equal(OperationStatus.Conflict, thrown.Result.Status);
-
-        // unused locally — keeps the analyzer happy and shows the call shape.
-        _ = result;
 
         static void ThrowHelper(OperationResult r) => throw r;
     }
@@ -132,7 +128,13 @@ public class OperationResultTests
     {
         var result = OperationResult.NotFound("missing");
 
-        OperationException ex = Assert.Throws<OperationException>(() => result.ThrowIfFailed());
+        // Block-bodied lambda forces Action overload — `OperationResult` has an
+        // implicit conversion to `Task<OperationResult>`, so an expression-bodied
+        // lambda would match the obsolete `Assert.Throws<T>(Func<Task>)` overload.
+        OperationException ex = Assert.Throws<OperationException>(() =>
+        {
+            result.ThrowIfFailed();
+        });
         Assert.Same(result, ex.Result);
     }
 }

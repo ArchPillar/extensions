@@ -11,7 +11,7 @@ public class OperationResultOfTTests
     {
         var order = new Order(1, "alice");
 
-        OperationResult<Order> result = OperationResult<Order>.Ok(order);
+        var result = OperationResult<Order>.Ok(order);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(OperationStatus.Ok, result.Status);
@@ -23,7 +23,7 @@ public class OperationResultOfTTests
     {
         var order = new Order(2, "bob");
 
-        OperationResult<Order> result = OperationResult<Order>.Created(order);
+        var result = OperationResult<Order>.Created(order);
 
         Assert.Equal(OperationStatus.Created, result.Status);
         Assert.Same(order, result.Value);
@@ -32,7 +32,7 @@ public class OperationResultOfTTests
     [Fact]
     public void NotFound_Typed_HasNoValue()
     {
-        OperationResult<Order> result = OperationResult<Order>.NotFound("missing");
+        var result = OperationResult<Order>.NotFound("missing");
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
@@ -50,22 +50,23 @@ public class OperationResultOfTTests
     }
 
     [Fact]
-    public void ImplicitTaskConversion_WrapsSynchronously()
+    public async Task ImplicitTaskConversion_WrapsSynchronously()
     {
         Task<OperationResult<Order>> task = OperationResult<Order>.Ok(new Order(4, "d"));
 
         Assert.True(task.IsCompletedSuccessfully);
-        Assert.True(task.Result.IsSuccess);
+        OperationResult<Order> awaited = await task;
+        Assert.True(awaited.IsSuccess);
     }
 
     [Fact]
     public void ImplicitExceptionConversion_StillWorksOnGeneric()
     {
-        OperationResult<Order> source = OperationResult<Order>.Conflict("conflict");
+        var source = OperationResult<Order>.Conflict("conflict");
 
         Exception ex = source;
 
-        OperationException op = Assert.IsType<OperationException>(ex);
+        var op = Assert.IsType<OperationException>(ex);
         Assert.Same(source, op.Result);
     }
 }
