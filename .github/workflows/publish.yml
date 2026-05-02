@@ -26,7 +26,7 @@ jobs:
         run: dotnet build -c Release --no-restore
 
       - name: Test
-        run: dotnet test tests/Mapper.Tests -c Release --no-build --verbosity normal
+        run: dotnet test -c Release --no-build --verbosity normal
 
       - name: Pack
         run: dotnet pack src/Mapper/ArchPillar.Extensions.Mapper.csproj -c Release --no-build -o ./nupkgs -p:PackageVersion=${GITHUB_TAG#v}

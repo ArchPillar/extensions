@@ -12,8 +12,8 @@ namespace ArchPillar.Extensions.Primitives;
 /// <para>
 /// Implicit conversions are provided to reduce boilerplate at common call sites:
 /// <list type="bullet">
-/// <item><description><see cref="op_Implicit(OperationResult)"/> to <see cref="Task{TResult}"/> wraps the result in a completed task — useful for synchronous handlers that return <c>Task&lt;OperationResult&gt;</c> without <see cref="Task.FromResult{TResult}(TResult)"/>.</description></item>
-/// <item><description><see cref="op_Implicit(OperationResult)"/> to <see cref="System.Exception"/> produces an <see cref="OperationException"/> that carries this result, enabling <c>throw result;</c> from any code path.</description></item>
+/// <item><description>To <see cref="Task{TResult}"/> wraps the result in a completed task — useful for synchronous handlers that return <c>Task&lt;OperationResult&gt;</c> without <see cref="Task.FromResult{TResult}(TResult)"/>.</description></item>
+/// <item><description>To <see cref="System.Exception"/> produces an <see cref="OperationException"/> that carries this result, enabling <c>throw result;</c> from any code path.</description></item>
 /// </list>
 /// </para>
 /// </remarks>
