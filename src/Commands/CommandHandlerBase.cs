@@ -5,7 +5,7 @@ using ArchPillar.Extensions.Primitives;
 namespace ArchPillar.Extensions.Commands;
 
 /// <summary>
-/// Optional base class for fire-and-forget command handlers. Provides
+/// Optional base class for no-result command handlers. Provides
 /// status-factory and assert helpers in the spirit of ASP.NET Core's
 /// <c>ControllerBase</c>. Forces the subclass to make a deliberate choice
 /// about validation by leaving <see cref="ValidateAsync"/> abstract.

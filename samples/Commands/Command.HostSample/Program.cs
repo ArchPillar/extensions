@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging;
 //
 // Demonstrates ArchPillar.Extensions.Commands inside a
 // Microsoft.Extensions.Hosting application:
-//   - Two commands: result-bearing (CreateOrder) and fire-and-forget (CancelOrder).
+//   - Two commands: result-bearing (CreateOrder) and no-result (CancelOrder).
 //   - Handlers derived from CommandHandlerBase<TCommand[, TResult]> using the
 //     status factories (Ok/Created/NotFound) and assert helpers (EnsureFound).
 //   - Validation per-handler via the IValidationContext fluent helpers.

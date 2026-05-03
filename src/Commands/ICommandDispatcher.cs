@@ -8,7 +8,8 @@ namespace ArchPillar.Extensions.Commands;
 /// </summary>
 /// <remarks>
 /// All <c>SendAsync</c> overloads return an <see cref="OperationResult"/> /
-/// <see cref="OperationResult{TValue}"/> — this is not a fire-and-forget API.
+/// <see cref="OperationResult{TValue}"/> — callers always await and observe
+/// the outcome.
 /// </remarks>
 public interface ICommandDispatcher
 {
@@ -31,7 +32,7 @@ public interface ICommandDispatcher
     Task<OperationResult<TResult>> SendAsync<TResult>(ICommand<TResult> command, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Dispatches a batch of fire-and-forget commands. If a
+    /// Dispatches a batch of no-result commands. If a
     /// <see cref="IBatchCommandHandler{TCommand}"/> is registered for
     /// <typeparamref name="TCommand"/> it is used; otherwise the dispatcher
     /// fans out to the single-command handler.

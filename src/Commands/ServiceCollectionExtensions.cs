@@ -49,7 +49,7 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Registers a command handler for a fire-and-forget command.
+    /// Registers a command handler for a no-result command.
     /// </summary>
     /// <typeparam name="TCommand">The command type.</typeparam>
     /// <typeparam name="THandler">The handler implementation.</typeparam>

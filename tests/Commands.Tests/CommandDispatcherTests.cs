@@ -25,7 +25,7 @@ public class CommandDispatcherTests
     }
 
     [Fact]
-    public async Task SendAsync_FireAndForgetCommand_ReturnsNoContentAsync()
+    public async Task SendAsync_NoResultCommand_ReturnsNoContentAsync()
     {
         ServiceProvider provider = BuildProvider(s =>
         {

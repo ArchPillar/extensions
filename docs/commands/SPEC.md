@@ -6,7 +6,7 @@ Provide an in-process command dispatcher that:
 
 - Has a tiny, hard-to-misuse public surface.
 - Builds on `ArchPillar.Extensions.Pipelines` for cross-cutting concerns instead of inventing a parallel "behaviors" mechanism.
-- Returns a uniform `OperationResult` / `OperationResult<TResult>` from every dispatch (no fire-and-forget).
+- Returns a uniform `OperationResult` / `OperationResult<TResult>` from every dispatch — every command is awaited, never queued or discarded.
 - Stays AOT/trim-safe and reflection-free at dispatch time.
 - Supports validation, exceptions-as-results, telemetry, and optional batching out of the box.
 

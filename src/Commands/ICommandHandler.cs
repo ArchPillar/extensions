@@ -4,8 +4,9 @@ using ArchPillar.Extensions.Primitives;
 namespace ArchPillar.Extensions.Commands;
 
 /// <summary>
-/// Handles a fire-and-forget command — one that produces no payload, only a
-/// status carried in the returned <see cref="OperationResult"/>.
+/// Handles a command that produces no payload — only a status carried in the
+/// returned <see cref="OperationResult"/>. The dispatcher still awaits the
+/// handler and returns the outcome to the caller.
 /// </summary>
 /// <typeparam name="TCommand">The command type.</typeparam>
 /// <remarks>

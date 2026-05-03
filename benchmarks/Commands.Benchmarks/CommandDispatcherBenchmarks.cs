@@ -32,7 +32,7 @@ public class CommandDispatcherBenchmarks
     }
 
     [Benchmark]
-    public Task<OperationResult> SendAsync_FireAndForgetAsync()
+    public Task<OperationResult> SendAsync_NoResultAsync()
         => _dispatcher.SendAsync(new NoopCommand());
 
     [Benchmark]
