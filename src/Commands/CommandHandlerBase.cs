@@ -44,11 +44,8 @@ public abstract class CommandHandlerBase<TCommand> : ICommandHandler<TCommand>
     /// <summary>Returns <see cref="OperationStatus.Forbidden"/>.</summary>
     protected static OperationResult Forbidden(string? message = null) => OperationResult.Forbidden(message);
 
-    /// <summary>Returns <see cref="OperationStatus.BadRequest"/>.</summary>
-    protected static OperationResult BadRequest(params OperationError[] errors) => OperationResult.BadRequest(errors);
-
-    /// <summary>Returns <see cref="OperationStatus.BadRequest"/> with a single error message.</summary>
-    protected static OperationResult BadRequest(string message) => OperationResult.BadRequest(message);
+    /// <summary>Returns <see cref="OperationStatus.BadRequest"/> with an optional <paramref name="detail"/>.</summary>
+    protected static OperationResult BadRequest(string? detail = null) => OperationResult.BadRequest(detail);
 
     /// <summary>Throws an <see cref="OperationException"/> with status <see cref="OperationStatus.NotFound"/> if <paramref name="entity"/> is <c>null</c>.</summary>
     protected static void EnsureFound<T>([NotNull] T? entity, string? message = null)

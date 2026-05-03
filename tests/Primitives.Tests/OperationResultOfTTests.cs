@@ -14,6 +14,7 @@ public class OperationResultOfTTests
         Assert.True(result.IsSuccess);
         Assert.Equal(OperationStatus.Ok, result.Status);
         Assert.Same(order, result.Value);
+        Assert.Null(result.Problem);
     }
 
     [Fact]
@@ -28,13 +29,15 @@ public class OperationResultOfTTests
     }
 
     [Fact]
-    public void NotFound_Typed_HasNoValue()
+    public void NotFound_Typed_HasNoValueAndPopulatedProblem()
     {
         var result = OperationResult<Order>.NotFound("missing");
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
         Assert.Equal(OperationStatus.NotFound, result.Status);
+        Assert.NotNull(result.Problem);
+        Assert.Equal("missing", result.Problem!.Detail);
     }
 
     [Fact]

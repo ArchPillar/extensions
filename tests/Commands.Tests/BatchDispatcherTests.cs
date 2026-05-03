@@ -12,7 +12,7 @@ public class BatchDispatcherTests
     {
         public override Task ValidateAsync(AddItem command, IValidationContext context, CancellationToken cancellationToken)
         {
-            context.NotEmpty(command.Name, nameof(command.Name));
+            context.NotEmpty(command.Name);
             return Task.CompletedTask;
         }
 
@@ -112,7 +112,7 @@ public class BatchDispatcherTests
 
         Assert.Equal(3, results.Count);
         Assert.Equal(OperationStatus.NoContent, results[0].Status);
-        Assert.Equal(OperationStatus.UnprocessableEntity, results[1].Status);
+        Assert.Equal(OperationStatus.BadRequest, results[1].Status);
         Assert.Equal(OperationStatus.NoContent, results[2].Status);
 
         Assert.Equal(2, log.Received.Count);

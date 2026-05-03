@@ -12,10 +12,7 @@ namespace ArchPillar.Extensions.Primitives;
 /// </remarks>
 public sealed class OperationException : Exception
 {
-    /// <summary>
-    /// Wraps an existing <see cref="OperationResult"/>.
-    /// </summary>
-    /// <param name="result">The result to carry.</param>
+    /// <summary>Wraps an existing <see cref="OperationResult"/>.</summary>
     public OperationException(OperationResult result)
         : base(BuildMessage(result), result?.Exception)
     {
@@ -24,24 +21,16 @@ public sealed class OperationException : Exception
     }
 
     /// <summary>
-    /// Constructs a result from <paramref name="status"/> and <paramref name="message"/>
-    /// and wraps it. Useful as a one-liner inside handlers:
-    /// <c>throw new OperationException(OperationStatus.NotFound, "Order missing");</c>
+    /// Constructs a result from <paramref name="status"/> and <paramref name="detail"/>
+    /// and wraps it.
     /// </summary>
-    /// <param name="status">The status to carry.</param>
-    /// <param name="message">An optional human-readable description.</param>
-    public OperationException(OperationStatus status, string? message = null)
-        : this(BuildResult(status, message))
+    public OperationException(OperationStatus status, string? detail = null)
+        : this(OperationResult.Failure(status, status.ToString().ToLowerInvariant(), OperationResult.StatusTitle(status), detail))
     {
     }
 
     /// <summary>The carried <see cref="OperationResult"/>.</summary>
     public OperationResult Result { get; }
-
-    private static OperationResult BuildResult(OperationStatus status, string? message)
-        => message is null
-            ? new OperationResult { Status = status }
-            : OperationResult.Failed(status, message);
 
     private static string BuildMessage(OperationResult? result)
     {
@@ -50,9 +39,14 @@ public sealed class OperationException : Exception
             return "Operation failed.";
         }
 
-        if (result.Errors.Count > 0)
+        if (result.Problem?.Detail is { } detail)
         {
-            return $"Operation failed with status {result.Status}: {result.Errors[0].Message}";
+            return $"Operation failed with status {result.Status}: {detail}";
+        }
+
+        if (result.Problem?.Title is { } title)
+        {
+            return $"Operation failed with status {result.Status}: {title}";
         }
 
         return $"Operation failed with status {result.Status}.";

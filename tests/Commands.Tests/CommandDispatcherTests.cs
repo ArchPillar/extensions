@@ -57,8 +57,10 @@ public class CommandDispatcherTests
         OperationResult<Guid> result = await dispatcher.SendAsync(new CreateOrder("", 999));
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(OperationStatus.UnprocessableEntity, result.Status);
-        Assert.Equal(2, result.Errors.Count);
+        Assert.Equal(OperationStatus.BadRequest, result.Status);
+        Assert.NotNull(result.Problem);
+        Assert.NotNull(result.Problem!.Errors);
+        Assert.Equal(2, result.Problem.Errors!.Count);
     }
 
     [Fact]

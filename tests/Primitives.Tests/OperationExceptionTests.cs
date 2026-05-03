@@ -14,13 +14,13 @@ public class OperationExceptionTests
     }
 
     [Fact]
-    public void Constructor_FromStatusAndMessage_BuildsResult()
+    public void Constructor_FromStatusAndDetail_BuildsResult()
     {
         var ex = new OperationException(OperationStatus.Conflict, "already exists");
 
         Assert.Equal(OperationStatus.Conflict, ex.Result.Status);
-        Assert.Single(ex.Result.Errors);
-        Assert.Equal("already exists", ex.Result.Errors[0].Message);
+        Assert.NotNull(ex.Result.Problem);
+        Assert.Equal("already exists", ex.Result.Problem!.Detail);
     }
 
     [Fact]

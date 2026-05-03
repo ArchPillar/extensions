@@ -1,16 +1,20 @@
+using System.Text.Json.Serialization;
+
 namespace ArchPillar.Extensions.Primitives;
 
 /// <summary>
-/// The outcome of an operation. Carries an HTTP-aligned <see cref="Status"/>,
-/// optional <see cref="Errors"/>, and an optional <see cref="Exception"/>.
+/// The outcome of an operation. Carries an HTTP-aligned <see cref="Status"/>
+/// and an optional <see cref="Problem"/> body describing why the operation
+/// failed (RFC 7807 <c>application/problem+json</c> shape).
 /// </summary>
 /// <remarks>
 /// <para>
-/// The base <see cref="OperationResult"/> represents an outcome with no value.
-/// Use <see cref="OperationResult{TValue}"/> when an outcome carries a payload.
+/// On success <see cref="Problem"/> is <c>null</c> — the result is just a
+/// status code, no body to allocate. <see cref="OperationResult{TValue}"/>
+/// adds the typed payload.
 /// </para>
 /// <para>
-/// Implicit conversions are provided to reduce boilerplate at common call sites:
+/// Implicit conversions:
 /// <list type="bullet">
 /// <item><description>To <see cref="Task{TResult}"/> wraps the result in a completed task — useful for synchronous handlers that return <c>Task&lt;OperationResult&gt;</c> without <see cref="Task.FromResult{TResult}(TResult)"/>.</description></item>
 /// <item><description>To <see cref="System.Exception"/> produces an <see cref="OperationException"/> that carries this result, enabling <c>throw result;</c> from any code path.</description></item>
@@ -28,41 +32,35 @@ public class OperationResult
     {
     }
 
-    /// <summary>
-    /// The HTTP-aligned status of the operation.
-    /// </summary>
+    /// <summary>The HTTP-aligned status of the operation.</summary>
+    [JsonPropertyName("status")]
     public OperationStatus Status { get; init; } = OperationStatus.None;
 
     /// <summary>
-    /// The errors attached to the operation. Empty for successful results;
-    /// typically populated for validation and bad-request outcomes.
+    /// The error body, populated on failure and <c>null</c> on success.
+    /// Modelled after RFC 7807 <c>problem+json</c>.
     /// </summary>
-    public IReadOnlyList<OperationError> Errors { get; init; } = [];
+    [JsonPropertyName("problem")]
+    public OperationProblem? Problem { get; init; }
 
     /// <summary>
-    /// The exception that caused the operation to fail, if any. Set by the
-    /// dispatcher when an unhandled exception escapes a handler. May also be
-    /// set by handlers that want to preserve the original cause alongside a
-    /// translated <see cref="Status"/>.
+    /// The exception that caused the operation to fail, if any. Internal-only
+    /// — never serialized over the wire. Set by the dispatcher's exception
+    /// middleware when an unhandled exception escapes a handler.
     /// </summary>
+    [JsonIgnore]
     public Exception? Exception { get; init; }
 
-    /// <summary>
-    /// <c>true</c> when <see cref="Status"/> is in the 2xx range.
-    /// </summary>
+    /// <summary><c>true</c> when <see cref="Status"/> is in the 2xx range.</summary>
+    [JsonIgnore]
     public bool IsSuccess => (int)Status is >= 200 and < 300;
 
-    /// <summary>
-    /// <c>true</c> when <see cref="IsSuccess"/> is <c>false</c>.
-    /// </summary>
+    /// <summary><c>true</c> when <see cref="IsSuccess"/> is <c>false</c>.</summary>
+    [JsonIgnore]
     public bool IsFailure => !IsSuccess;
 
     /// <summary>
-    /// Wraps this result in a completed <see cref="Task{TResult}"/>. Allows
-    /// non-async methods to return an <see cref="OperationResult"/> directly:
-    /// <code>
-    /// public Task&lt;OperationResult&gt; HandleAsync(...) => Ok();
-    /// </code>
+    /// Wraps this result in a completed <see cref="Task{TResult}"/>.
     /// </summary>
     /// <param name="result">The result to wrap.</param>
     public static implicit operator Task<OperationResult>(OperationResult result)
@@ -70,18 +68,13 @@ public class OperationResult
 
     /// <summary>
     /// Produces an <see cref="OperationException"/> that carries this result.
-    /// Allows <c>throw result;</c> from any code path:
-    /// <code>
-    /// if (entity is null) throw NotFound("entity missing");
-    /// </code>
+    /// Allows <c>throw result;</c> from any code path.
     /// </summary>
     /// <param name="result">The result to wrap.</param>
     public static implicit operator Exception(OperationResult result)
         => new OperationException(result);
 
-    /// <summary>
-    /// Throws an <see cref="OperationException"/> if the result is a failure.
-    /// </summary>
+    /// <summary>Throws an <see cref="OperationException"/> if the result is a failure.</summary>
     /// <returns>The current result, for chaining.</returns>
     public OperationResult ThrowIfFailed()
     {
@@ -95,11 +88,7 @@ public class OperationResult
 
     /// <summary>
     /// Asserts the operation succeeded. Throws <see cref="OperationException"/>
-    /// on failure. The closest sync analogue to a method call:
-    /// <code>result.Unwrap();</code>
-    /// is to "calling the operation" what
-    /// <code>void Method();</code>
-    /// is to invoking a void method — success is silent, failure throws.
+    /// on failure. The sync analogue to a <c>void</c>-returning method call.
     /// </summary>
     public void Unwrap() => ThrowIfFailed();
 
@@ -107,67 +96,80 @@ public class OperationResult
     public static OperationResult Ok(OperationStatus status = OperationStatus.Ok)
         => new() { Status = status };
 
-    /// <summary>Creates a successful result with status <see cref="OperationStatus.Created"/>.</summary>
+    /// <summary>Creates a successful <see cref="OperationStatus.Created"/> result.</summary>
     public static OperationResult Created()
         => new() { Status = OperationStatus.Created };
 
-    /// <summary>Creates a successful result with status <see cref="OperationStatus.Accepted"/>.</summary>
+    /// <summary>Creates a successful <see cref="OperationStatus.Accepted"/> result.</summary>
     public static OperationResult Accepted()
         => new() { Status = OperationStatus.Accepted };
 
-    /// <summary>Creates a successful result with status <see cref="OperationStatus.NoContent"/>.</summary>
+    /// <summary>Creates a successful <see cref="OperationStatus.NoContent"/> result.</summary>
     public static OperationResult NoContent()
         => new() { Status = OperationStatus.NoContent };
 
-    /// <summary>Creates a <see cref="OperationStatus.BadRequest"/> result.</summary>
-    public static OperationResult BadRequest(params OperationError[] errors)
-        => new() { Status = OperationStatus.BadRequest, Errors = errors };
+    /// <summary>Creates a <see cref="OperationStatus.BadRequest"/> failure.</summary>
+    public static OperationResult BadRequest(string? detail = null)
+        => Failure(OperationStatus.BadRequest, "bad_request", "Bad Request", detail);
 
-    /// <summary>Creates a <see cref="OperationStatus.BadRequest"/> result from a message.</summary>
-    public static OperationResult BadRequest(string message)
-        => new() { Status = OperationStatus.BadRequest, Errors = [new OperationError("bad_request", message)] };
+    /// <summary>Creates an <see cref="OperationStatus.Unauthorized"/> failure.</summary>
+    public static OperationResult Unauthorized(string? detail = null)
+        => Failure(OperationStatus.Unauthorized, "unauthorized", "Unauthorized", detail);
 
-    /// <summary>Creates a <see cref="OperationStatus.Unauthorized"/> result.</summary>
-    public static OperationResult Unauthorized(string? message = null)
-        => new()
-        {
-            Status = OperationStatus.Unauthorized,
-            Errors = message is null ? [] : [new OperationError("unauthorized", message)],
-        };
+    /// <summary>Creates a <see cref="OperationStatus.Forbidden"/> failure.</summary>
+    public static OperationResult Forbidden(string? detail = null)
+        => Failure(OperationStatus.Forbidden, "forbidden", "Forbidden", detail);
 
-    /// <summary>Creates a <see cref="OperationStatus.Forbidden"/> result.</summary>
-    public static OperationResult Forbidden(string? message = null)
-        => new()
-        {
-            Status = OperationStatus.Forbidden,
-            Errors = message is null ? [] : [new OperationError("forbidden", message)],
-        };
+    /// <summary>Creates a <see cref="OperationStatus.NotFound"/> failure.</summary>
+    public static OperationResult NotFound(string? detail = null)
+        => Failure(OperationStatus.NotFound, "not_found", "Not Found", detail);
 
-    /// <summary>Creates a <see cref="OperationStatus.NotFound"/> result.</summary>
-    public static OperationResult NotFound(string? message = null)
-        => new()
-        {
-            Status = OperationStatus.NotFound,
-            Errors = message is null ? [] : [new OperationError("not_found", message)],
-        };
-
-    /// <summary>Creates a <see cref="OperationStatus.Conflict"/> result.</summary>
-    public static OperationResult Conflict(string? message = null)
-        => new()
-        {
-            Status = OperationStatus.Conflict,
-            Errors = message is null ? [] : [new OperationError("conflict", message)],
-        };
-
-    /// <summary>Creates a <see cref="OperationStatus.UnprocessableEntity"/> result with the supplied validation errors.</summary>
-    public static OperationResult ValidationFailed(IReadOnlyList<OperationError> errors)
-        => new() { Status = OperationStatus.UnprocessableEntity, Errors = errors };
+    /// <summary>Creates a <see cref="OperationStatus.Conflict"/> failure.</summary>
+    public static OperationResult Conflict(string? detail = null)
+        => Failure(OperationStatus.Conflict, "conflict", "Conflict", detail);
 
     /// <summary>Creates a failure result from an <see cref="System.Exception"/>.</summary>
     public static OperationResult Failed(Exception exception, OperationStatus status = OperationStatus.InternalServerError)
-        => new() { Status = status, Exception = exception };
+        => new()
+        {
+            Status = status,
+            Exception = exception,
+            Problem = new OperationProblem
+            {
+                Type = "internal_error",
+                Title = StatusTitle(status),
+                Detail = exception?.Message,
+            },
+        };
 
-    /// <summary>Creates a failure result with the supplied status and message.</summary>
-    public static OperationResult Failed(OperationStatus status, string message)
-        => new() { Status = status, Errors = [new OperationError("error", message)] };
+    /// <summary>Creates a failure result with the supplied status, title, and detail.</summary>
+    public static OperationResult Failure(OperationStatus status, string type, string title, string? detail = null)
+        => new()
+        {
+            Status = status,
+            Problem = new OperationProblem
+            {
+                Type = type,
+                Title = title,
+                Detail = detail,
+            },
+        };
+
+    internal static string StatusTitle(OperationStatus status)
+        => status switch
+        {
+            OperationStatus.BadRequest => "Bad Request",
+            OperationStatus.Unauthorized => "Unauthorized",
+            OperationStatus.Forbidden => "Forbidden",
+            OperationStatus.NotFound => "Not Found",
+            OperationStatus.Conflict => "Conflict",
+            OperationStatus.Gone => "Gone",
+            OperationStatus.PreconditionFailed => "Precondition Failed",
+            OperationStatus.UnprocessableEntity => "Unprocessable Entity",
+            OperationStatus.TooManyRequests => "Too Many Requests",
+            OperationStatus.InternalServerError => "Internal Server Error",
+            OperationStatus.NotImplemented => "Not Implemented",
+            OperationStatus.ServiceUnavailable => "Service Unavailable",
+            _ => status.ToString(),
+        };
 }

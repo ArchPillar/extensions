@@ -16,8 +16,8 @@ internal sealed class TestCreateOrderHandler : CommandHandlerBase<CreateOrder, G
     public override Task ValidateAsync(CreateOrder command, IValidationContext context, CancellationToken cancellationToken)
     {
         context
-            .NotEmpty(command.CustomerId, nameof(command.CustomerId))
-            .Range(command.Quantity, 1, 100, nameof(command.Quantity));
+            .NotEmpty(command.CustomerId)
+            .Range(command.Quantity, 1, 100);
         return Task.CompletedTask;
     }
 

@@ -97,7 +97,7 @@ public class ValidationOrderingTests
         OperationResult result = await dispatcher.SendAsync(new DoThing(""));
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(OperationStatus.UnprocessableEntity, result.Status);
+        Assert.Equal(OperationStatus.BadRequest, result.Status);
 
         // Validation runs inside the user middleware; the handler does not.
         Assert.Equal(

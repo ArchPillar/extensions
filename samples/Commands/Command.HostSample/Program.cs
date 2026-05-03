@@ -67,12 +67,12 @@ Console.WriteLine($"  status={created.Status} value={created.Value}");
 Console.WriteLine();
 Console.WriteLine("== validation fails ==");
 OperationResult<Guid> invalid = await dispatcher.SendAsync(new CreateOrder("", 999));
-Console.WriteLine($"  status={invalid.Status} errors={invalid.Errors.Count}");
+Console.WriteLine($"  status={invalid.Status} fields={invalid.Problem?.Errors?.Count ?? 0}");
 
 Console.WriteLine();
 Console.WriteLine("== cancel missing order — handler throws OperationResult.NotFound ==");
 OperationResult cancel = await dispatcher.SendAsync(new CancelOrder(Guid.NewGuid()));
-Console.WriteLine($"  status={cancel.Status} errors={cancel.Errors.Count}");
+Console.WriteLine($"  status={cancel.Status} detail={cancel.Problem?.Detail}");
 
 Console.WriteLine();
 Console.WriteLine("== batch insert (3 commands, 1 invalid) ==");
@@ -114,8 +114,8 @@ internal sealed class CreateOrderHandler(InMemoryOrderStore store, ILogger<Creat
     public override Task ValidateAsync(CreateOrder command, IValidationContext context, CancellationToken cancellationToken)
     {
         context
-            .NotEmpty(command.Customer, nameof(command.Customer))
-            .Range(command.Quantity, 1, 100, nameof(command.Quantity));
+            .NotEmpty(command.Customer)
+            .Range(command.Quantity, 1, 100);
         return Task.CompletedTask;
     }
 

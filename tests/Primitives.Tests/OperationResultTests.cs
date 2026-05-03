@@ -10,7 +10,7 @@ public class OperationResultTests
         Assert.True(result.IsSuccess);
         Assert.False(result.IsFailure);
         Assert.Equal(OperationStatus.Ok, result.Status);
-        Assert.Empty(result.Errors);
+        Assert.Null(result.Problem);
         Assert.Null(result.Exception);
     }
 
@@ -33,43 +33,46 @@ public class OperationResultTests
     }
 
     [Fact]
-    public void NotFound_WithMessage_ProducesErrorEntry()
+    public void NotFound_WithDetail_ProducesProblemWithDetail()
     {
         var result = OperationResult.NotFound("missing");
 
         Assert.Equal(OperationStatus.NotFound, result.Status);
         Assert.False(result.IsSuccess);
-        Assert.Single(result.Errors);
-        Assert.Equal("not_found", result.Errors[0].Code);
-        Assert.Equal("missing", result.Errors[0].Message);
+        Assert.NotNull(result.Problem);
+        Assert.Equal("not_found", result.Problem!.Type);
+        Assert.Equal("Not Found", result.Problem.Title);
+        Assert.Equal("missing", result.Problem.Detail);
     }
 
     [Fact]
-    public void NotFound_WithoutMessage_HasNoErrors()
+    public void NotFound_WithoutDetail_ProblemDetailIsNull()
     {
         var result = OperationResult.NotFound();
 
         Assert.Equal(OperationStatus.NotFound, result.Status);
-        Assert.Empty(result.Errors);
+        Assert.NotNull(result.Problem);
+        Assert.Null(result.Problem!.Detail);
     }
 
     [Fact]
-    public void ValidationFailed_CarriesErrors()
+    public void Failure_PopulatesProblem()
     {
-        OperationError[] errors =
-        [
-            new("required", "Customer is required.", "CustomerId"),
-            new("out_of_range", "Quantity must be between 1 and 100.", "Quantity"),
-        ];
-
-        var result = OperationResult.ValidationFailed(errors);
+        var result = OperationResult.Failure(
+            OperationStatus.UnprocessableEntity,
+            "validation",
+            "Validation Failed",
+            "Multiple errors occurred.");
 
         Assert.Equal(OperationStatus.UnprocessableEntity, result.Status);
-        Assert.Equal(2, result.Errors.Count);
+        Assert.NotNull(result.Problem);
+        Assert.Equal("validation", result.Problem!.Type);
+        Assert.Equal("Validation Failed", result.Problem.Title);
+        Assert.Equal("Multiple errors occurred.", result.Problem.Detail);
     }
 
     [Fact]
-    public void Failed_FromException_PreservesException()
+    public void Failed_FromException_PreservesExceptionAtTopLevel()
     {
         var ex = new InvalidOperationException("boom");
 
@@ -77,6 +80,8 @@ public class OperationResultTests
 
         Assert.Same(ex, result.Exception);
         Assert.Equal(OperationStatus.InternalServerError, result.Status);
+        Assert.NotNull(result.Problem);
+        Assert.Equal("boom", result.Problem!.Detail);
     }
 
     [Fact]
@@ -107,6 +112,7 @@ public class OperationResultTests
             ThrowHelper(OperationResult.Conflict("already exists")));
 
         Assert.Equal(OperationStatus.Conflict, thrown.Result.Status);
+        Assert.Equal("already exists", thrown.Result.Problem?.Detail);
 
         static void ThrowHelper(OperationResult r) => throw r;
     }
@@ -126,9 +132,6 @@ public class OperationResultTests
     {
         var result = OperationResult.NotFound("missing");
 
-        // Block-bodied lambda forces Action overload — `OperationResult` has an
-        // implicit conversion to `Task<OperationResult>`, so an expression-bodied
-        // lambda would match the obsolete `Assert.Throws<T>(Func<Task>)` overload.
         OperationException ex = Assert.Throws<OperationException>(() =>
         {
             result.ThrowIfFailed();

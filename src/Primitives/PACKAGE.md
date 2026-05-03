@@ -2,16 +2,13 @@
 
 Foundational types for the `ArchPillar.Extensions.*` family. Lightweight, allocation-conscious, AOT/trim-safe — no dependencies beyond the BCL.
 
-## Why?
-
-Application code that does work — write commands, domain operations, integration calls — needs a uniform way to report outcomes back to callers. Returning `Task<bool>` loses information; returning `Task<TValue>` and throwing on failure forces every layer to understand the exception hierarchy. `OperationResult` provides the third option: a small value type that carries a status, optional payload, errors, and the original exception.
-
 ## What you get
 
-- **`OperationStatus`** — a typed enum with HTTP-aligned numeric values (200, 404, 422, 500…). Cast to `int` to get the HTTP code; cast back from any custom code.
-- **`OperationResult`** / **`OperationResult<TValue>`** — the result types. Status, errors, optional exception, and on the generic variant, the payload.
-- **`OperationError`** — a `record` with `Code`, `Message`, optional `Field` and structured `Details`.
-- **`OperationException`** — used internally to surface results through `throw`.
+- **`OperationStatus`** — typed enum with HTTP-aligned numeric values (200, 404, 422, 500…).
+- **`OperationResult`** / **`OperationResult<TValue>`** — `Status` plus an optional `Problem` body and an internal-only `Exception`.
+- **`OperationProblem`** — RFC 7807 `application/problem+json`-shaped error body. Holds `Type`, `Title`, `Detail`, `Instance`, field-keyed `Errors`, free-form `Extensions`. Returned directly from an HTTP boundary.
+- **`OperationError`** — per-error item used inside `OperationProblem.Errors`: `Type`, `Detail`, `Status`, `Extensions`.
+- **`OperationException`** — exception that carries an `OperationResult`. Used to surface results through `throw`.
 
 ## Quick start
 
@@ -20,7 +17,7 @@ public Task<OperationResult<Order>> GetOrderAsync(Guid id)
 {
     var order = repository.Find(id);
     if (order is null) return OperationResult<Order>.NotFound("Order missing");
-    return OperationResult<Order>.Ok(order);   // implicit Task wrap — no Task.FromResult
+    return OperationResult<Order>.Ok(order);
 }
 ```
 
@@ -30,19 +27,35 @@ Throwing a result short-circuits anywhere:
 if (!authorized) throw OperationResult.Forbidden("not your order");
 ```
 
-Unwrap at the consumption site to get the value back, throwing on failure:
+Unwrap at the consumption boundary:
 
 ```csharp
-// Instance — sync:
+// Sync
 Order order = result.Unwrap();
 
-// Extension — async, no parens:
+// Async — no parens
 var order = await dispatcher.SendAsync(query).UnwrapAsync();
 ```
 
-`Unwrap()` keeps the result-first contract everywhere else but gives you a one-call shortcut at the boundary where you actually need the typed value.
+## Wire shape
 
-The implicit conversion from `OperationResult` to `Exception` produces an `OperationException` carrying the result, which downstream code (e.g. `ArchPillar.Extensions.Commands`) unwraps back into the result.
+`OperationResult` JSON-serializes with property names that match RFC 7807, so it can be returned directly from an HTTP endpoint or further serialized to a pure problem-details payload:
+
+```jsonc
+{
+    "status": 400,
+    "problem": {
+        "type":   "validation",
+        "title":  "Bad Request",
+        "detail": "One or more validation errors occurred.",
+        "errors": {
+            "Quantity": [{ "type": "out_of_range", "detail": "...", "status": 400, "extensions": {...} }]
+        }
+    }
+}
+```
+
+`Exception` is `[JsonIgnore]` — diagnostic-only.
 
 ## License
 

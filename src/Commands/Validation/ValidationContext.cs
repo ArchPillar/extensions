@@ -9,19 +9,19 @@ namespace ArchPillar.Extensions.Commands.Validation;
 /// </summary>
 public sealed class ValidationContext : IValidationContext
 {
-    private List<OperationError>? _errors;
+    private List<ValidationEntry>? _entries;
 
     /// <inheritdoc/>
-    public bool HasErrors => _errors is { Count: > 0 };
+    public bool HasErrors => _entries is { Count: > 0 };
 
     /// <inheritdoc/>
-    public IReadOnlyList<OperationError> Errors
-        => (IReadOnlyList<OperationError>?)_errors ?? [];
+    public IReadOnlyList<ValidationEntry> Entries
+        => (IReadOnlyList<ValidationEntry>?)_entries ?? [];
 
     /// <inheritdoc/>
-    public void AddError(OperationError error)
+    public void AddError(string? field, OperationError error)
     {
         ArgumentNullException.ThrowIfNull(error);
-        (_errors ??= []).Add(error);
+        (_entries ??= []).Add(new ValidationEntry(field, error));
     }
 }

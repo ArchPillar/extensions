@@ -32,7 +32,7 @@ public abstract class CommandHandlerBase<TCommand, TResult> : ICommandHandler<TC
     protected static OperationResult<TResult> Conflict(string? message = null) => OperationResult<TResult>.Conflict(message);
 
     /// <summary>Returns a typed <see cref="OperationStatus.BadRequest"/> result.</summary>
-    protected static OperationResult<TResult> BadRequest(params OperationError[] errors) => OperationResult<TResult>.BadRequest(errors);
+    protected static OperationResult<TResult> BadRequest(string? detail = null) => OperationResult<TResult>.BadRequest(detail);
 
     /// <inheritdoc cref="CommandHandlerBase{TCommand}.EnsureFound{T}"/>
     protected static void EnsureFound<T>([NotNull] T? entity, string? message = null)

@@ -35,8 +35,10 @@ public sealed class CreateOrderHandler(IOrderRepository repo)
 {
     public override Task ValidateAsync(CreateOrder cmd, IValidationContext ctx, CancellationToken ct)
     {
-        ctx.NotEmpty(cmd.Customer, nameof(cmd.Customer))
-           .Range(cmd.Quantity, 1, 100, nameof(cmd.Quantity));
+        // Field name is auto-captured from the argument expression — pass it
+        // explicitly only if you want a friendlier label than "cmd.Customer".
+        ctx.NotEmpty(cmd.Customer)
+           .Range(cmd.Quantity, 1, 100);
         return Task.CompletedTask;
     }
 
@@ -55,6 +57,8 @@ public sealed class CancelOrderHandler(IOrderRepository repo) : CommandHandlerBa
     public override Task ValidateAsync(CancelOrder cmd, IValidationContext ctx, CancellationToken ct)
     {
         ctx.Must(cmd.OrderId != Guid.Empty, "required", "OrderId is required.", nameof(cmd.OrderId));
+        // Validate persisted state alongside shape — runs in the same scope as
+        // the handler's write, so any wrapping transaction is in effect.
         return Task.CompletedTask;
     }
 

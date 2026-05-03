@@ -9,28 +9,33 @@ public class ValidationExtensionsTests
     public void NotNull_NullValue_AddsRequiredError()
     {
         var ctx = new ValidationContext();
-        ctx.NotNull<string>(null, "Field");
+        const string? value = null;
 
-        Assert.Single(ctx.Errors);
-        Assert.Equal("required", ctx.Errors[0].Code);
-        Assert.Equal("Field", ctx.Errors[0].Field);
+        ctx.NotNull(value);
+
+        ValidationEntry entry = Assert.Single(ctx.Entries);
+        Assert.Equal("value", entry.Field);
+        Assert.Equal("required", entry.Error.Type);
+        Assert.Equal(OperationStatus.BadRequest, entry.Error.Status);
     }
 
     [Fact]
     public void NotEmpty_EmptyString_AddsRequiredError()
     {
         var ctx = new ValidationContext();
-        ctx.NotEmpty(string.Empty, "Field");
+        const string value = "";
 
-        Assert.Single(ctx.Errors);
-        Assert.Equal("required", ctx.Errors[0].Code);
+        ctx.NotEmpty(value);
+
+        ValidationEntry entry = Assert.Single(ctx.Entries);
+        Assert.Equal("required", entry.Error.Type);
     }
 
     [Fact]
     public void NotEmpty_PopulatedString_NoErrors()
     {
         var ctx = new ValidationContext();
-        ctx.NotEmpty("hello", "Field");
+        ctx.NotEmpty("hello");
 
         Assert.False(ctx.HasErrors);
     }
@@ -39,7 +44,7 @@ public class ValidationExtensionsTests
     public void NotEmpty_EmptyCollection_AddsRequiredError()
     {
         var ctx = new ValidationContext();
-        ctx.NotEmpty(Array.Empty<int>(), "Field");
+        ctx.NotEmpty(Array.Empty<int>());
 
         Assert.True(ctx.HasErrors);
     }
@@ -48,31 +53,33 @@ public class ValidationExtensionsTests
     public void NotBlank_Whitespace_AddsBlankError()
     {
         var ctx = new ValidationContext();
-        ctx.NotBlank("   ", "Field");
+        ctx.NotBlank("   ");
 
-        Assert.Single(ctx.Errors);
-        Assert.Equal("blank", ctx.Errors[0].Code);
+        ValidationEntry entry = Assert.Single(ctx.Entries);
+        Assert.Equal("blank", entry.Error.Type);
     }
 
     [Fact]
-    public void Range_OutOfRange_AddsOutOfRangeError()
+    public void Range_OutOfRange_AddsOutOfRangeErrorWithExtensions()
     {
         var ctx = new ValidationContext();
-        ctx.Range(150, 1, 100, "Quantity");
+        const int quantity = 150;
 
-        Assert.Single(ctx.Errors);
-        Assert.Equal("out_of_range", ctx.Errors[0].Code);
-        OperationError error = ctx.Errors[0];
-        Assert.NotNull(error.Details);
-        Assert.Equal(1, error.Details!["min"]);
-        Assert.Equal(100, error.Details["max"]);
+        ctx.Range(quantity, 1, 100);
+
+        ValidationEntry entry = Assert.Single(ctx.Entries);
+        Assert.Equal("out_of_range", entry.Error.Type);
+        Assert.NotNull(entry.Error.Extensions);
+        Assert.Equal(1, entry.Error.Extensions!["min"]);
+        Assert.Equal(100, entry.Error.Extensions["max"]);
+        Assert.Equal(150, entry.Error.Extensions["actual"]);
     }
 
     [Fact]
     public void Range_InRange_NoError()
     {
         var ctx = new ValidationContext();
-        ctx.Range(50, 1, 100, "Quantity");
+        ctx.Range(50, 1, 100);
 
         Assert.False(ctx.HasErrors);
     }
@@ -81,43 +88,77 @@ public class ValidationExtensionsTests
     public void MaxLength_TooLong_AddsTooLongError()
     {
         var ctx = new ValidationContext();
-        ctx.MaxLength("abcdef", 3, "Field");
+        ctx.MaxLength("abcdef", 3);
 
-        Assert.Single(ctx.Errors);
-        Assert.Equal("too_long", ctx.Errors[0].Code);
+        ValidationEntry entry = Assert.Single(ctx.Entries);
+        Assert.Equal("too_long", entry.Error.Type);
     }
 
     [Fact]
     public void Matches_NotMatching_AddsInvalidFormatError()
     {
         var ctx = new ValidationContext();
-        ctx.Matches("not-a-number", @"^\d+$", "Field");
+        ctx.Matches("not-a-number", @"^\d+$");
 
-        Assert.Single(ctx.Errors);
-        Assert.Equal("invalid_format", ctx.Errors[0].Code);
+        ValidationEntry entry = Assert.Single(ctx.Entries);
+        Assert.Equal("invalid_format", entry.Error.Type);
     }
 
     [Fact]
-    public void Must_FalseCondition_AddsError()
+    public void Authorize_FalseCondition_AddsForbiddenTopLevelError()
+    {
+        var ctx = new ValidationContext();
+        ctx.Authorize(false);
+
+        ValidationEntry entry = Assert.Single(ctx.Entries);
+        Assert.Null(entry.Field);
+        Assert.Equal("forbidden", entry.Error.Type);
+        Assert.Equal(OperationStatus.Forbidden, entry.Error.Status);
+    }
+
+    [Fact]
+    public void Exists_NullEntity_AddsNotFoundTopLevelError()
+    {
+        var ctx = new ValidationContext();
+        Order? order = null;
+
+        ctx.Exists(order);
+
+        ValidationEntry entry = Assert.Single(ctx.Entries);
+        Assert.Null(entry.Field);
+        Assert.Equal("not_found", entry.Error.Type);
+        Assert.Equal(OperationStatus.NotFound, entry.Error.Status);
+    }
+
+    [Fact]
+    public void Must_FalseCondition_AddsBadRequest()
     {
         var ctx = new ValidationContext();
         ctx.Must(false, "custom_code", "custom message", "Field");
 
-        Assert.Single(ctx.Errors);
-        Assert.Equal("custom_code", ctx.Errors[0].Code);
-        Assert.Equal("custom message", ctx.Errors[0].Message);
-        Assert.Equal("Field", ctx.Errors[0].Field);
+        ValidationEntry entry = Assert.Single(ctx.Entries);
+        Assert.Equal("custom_code", entry.Error.Type);
+        Assert.Equal("custom message", entry.Error.Detail);
+        Assert.Equal(OperationStatus.BadRequest, entry.Error.Status);
+        Assert.Equal("Field", entry.Field);
     }
 
     [Fact]
     public void Chained_AccumulatesAllErrors()
     {
         var ctx = new ValidationContext();
+        const string a = "";
+        const int b = 0;
 
-        ctx.NotEmpty(string.Empty, "A")
-           .Range(0, 1, 100, "B")
+        ctx.NotEmpty(a)
+           .Range(b, 1, 100)
            .Must(false, "x", "y");
 
-        Assert.Equal(3, ctx.Errors.Count);
+        Assert.Equal(3, ctx.Entries.Count);
+    }
+
+    private sealed class Order
+    {
+        public int Id { get; init; }
     }
 }

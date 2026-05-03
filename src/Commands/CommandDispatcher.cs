@@ -31,7 +31,11 @@ internal sealed class CommandDispatcher : ICommandDispatcher
         await _pipeline.ExecuteAsync(context, cancellationToken).ConfigureAwait(false);
 
         return context.Result
-            ?? OperationResult.Failed(OperationStatus.InternalServerError, "Command pipeline produced no result.");
+            ?? OperationResult.Failure(
+                OperationStatus.InternalServerError,
+                "internal_error",
+                "Internal Server Error",
+                "Command pipeline produced no result.");
     }
 
     public async Task<OperationResult<TResult>> SendAsync<TResult>(
@@ -47,7 +51,11 @@ internal sealed class CommandDispatcher : ICommandDispatcher
         {
             OperationResult<TResult> typed => typed,
             OperationResult untyped => Coerce<TResult>(untyped),
-            _ => OperationResult<TResult>.Failed(OperationStatus.InternalServerError, "Command pipeline produced no result."),
+            _ => OperationResult<TResult>.Failure(
+                OperationStatus.InternalServerError,
+                "internal_error",
+                "Internal Server Error",
+                "Command pipeline produced no result."),
         };
     }
 
@@ -133,9 +141,10 @@ internal sealed class CommandDispatcher : ICommandDispatcher
             var validation = new Validation.ValidationContext();
             await descriptor.ValidateAsync(_services, command, validation, cancellationToken).ConfigureAwait(false);
 
-            if (validation.HasErrors)
+            OperationResult? failure = Validation.ValidationContextExtensions.ToFailureResult(validation);
+            if (failure is not null)
             {
-                preliminary[i] = OperationResult.ValidationFailed(validation.Errors);
+                preliminary[i] = failure;
             }
             else
             {
@@ -169,7 +178,7 @@ internal sealed class CommandDispatcher : ICommandDispatcher
         for (var i = 0; i < commands.Count; i++)
         {
             final[i] = preliminary[i]
-                ?? OperationResult.Failed(OperationStatus.InternalServerError, "Batch produced no result for command.");
+                ?? OperationResult.Failure(OperationStatus.InternalServerError, "internal_error", "Internal Server Error", "Batch produced no result for command.");
         }
 
         return final;
@@ -179,7 +188,7 @@ internal sealed class CommandDispatcher : ICommandDispatcher
         => new()
         {
             Status = source.Status,
-            Errors = source.Errors,
+            Problem = source.Problem,
             Exception = source.Exception,
         };
 }

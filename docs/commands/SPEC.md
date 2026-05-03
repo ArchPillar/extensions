@@ -96,9 +96,28 @@ public interface IBatchCommandHandler<in TCommand, TResult> : IRequestHandler
 
 Validation is part of the handler interface so validation can load entities from storage and validate against persisted state. The default `ValidateAsync` is a no-op; the optional `CommandHandlerBase<TCommand[, TResult]>` makes it abstract to nudge users into a deliberate choice.
 
-`IValidationContext` accumulates `OperationError`s; the **router** calls `ValidateAsync` before invoking the handler and short-circuits with `OperationStatus.UnprocessableEntity` when errors are present. Running validation inside the router (rather than as an outer middleware) means it sees the same transactional scope as the handler's write — see "Validation and transactions" below.
+`IValidationContext` accumulates `(field?, OperationError)` entries — each error carries its own `OperationStatus` (set by the validator) and structured `Extensions`. The **router** calls `ValidateAsync` before invoking the handler. When entries are present, the router converts them via `ValidationContextExtensions.ToFailureResult()` into an `OperationResult` whose `Problem.Errors` is keyed by field name (RFC 7807 `application/problem+json` shape) and whose `Status` follows precedence:
 
-`ValidationExtensions` provides composable helpers (`NotEmpty`, `NotBlank`, `Range`, `MaxLength`, `MinLength`, `Matches`, `Must`). They return the context for chaining.
+```
+401 Unauthorized > 403 Forbidden > 404 NotFound > 409 Conflict > 412 PreconditionFailed > 400 BadRequest > 422 UnprocessableEntity
+```
+
+so an authorization failure wins over an input-shape failure. Top-level (non-field) errors promote their `Type`/`Detail`/`Extensions` onto `Problem.Title`/`Detail`/`Extensions`.
+
+`ValidationExtensions` provides composable helpers, each carrying its own default status:
+
+| Helper | Status | Field captured | Notes |
+| --- | --- | --- | --- |
+| `NotNull` / `NotEmpty` / `NotBlank` | `BadRequest` | yes (via `[CallerArgumentExpression]`) | shape |
+| `Range` / `MaxLength` / `MinLength` / `Matches` | `BadRequest` | yes | shape; populates `Extensions` (`min`/`max`/`actual`/`pattern`/`length`) |
+| `Exists<T>` | `NotFound` | yes | top-level |
+| `Authenticate` | `Unauthorized` | — | top-level, captures rule expression |
+| `Authorize` | `Forbidden` | — | top-level |
+| `Conflict` | `Conflict` | — | top-level |
+| `Must` | `BadRequest` | optional | escape hatch |
+| `Require` | caller-supplied | optional | full escape hatch |
+
+All helpers return `IValidationContext` for chaining. The first parameter (the value being validated) becomes the field name automatically via `[CallerArgumentExpression]`.
 
 ### Validation and transactions
 
@@ -113,9 +132,9 @@ The router runs validation immediately before the handler, so any user-supplied 
 
 `CommandContext.Result` (`OperationResult?`) is the slot middlewares populate. The router writes the handler's return value; `ExceptionMiddleware` writes an `OperationResult` synthesized from any thrown exception:
 
-- `OperationException` (thrown via `throw OperationResult.NotFound(...)`) → its carried `Result`.
+- `OperationException` (thrown via `throw OperationResult.NotFound(...)`) → its carried `Result` (with the `Problem` body intact).
 - `OperationCanceledException` → re-thrown.
-- Any other exception → `OperationResult.Failed(ex, OperationStatus.InternalServerError)`.
+- Any other exception → `OperationResult.Failed(ex)` (status 500, `Exception` captured at the top level, `Problem.Detail = ex.Message`).
 
 The dispatcher reads the slot once the pipeline completes. If the slot is still `null` (programmer error — middleware skipped without producing a result), the dispatcher synthesizes a 500.
 

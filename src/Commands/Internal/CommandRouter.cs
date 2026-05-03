@@ -1,3 +1,4 @@
+using ArchPillar.Extensions.Commands.Validation;
 using ArchPillar.Extensions.Pipelines;
 using ArchPillar.Extensions.Primitives;
 
@@ -36,9 +37,10 @@ internal sealed class CommandRouter : IPipelineHandler<CommandContext>
         // writes against — no TOCTOU between validation read and handler
         // write.
         await descriptor.ValidateAsync(_services, context.Command, context.Validation, cancellationToken).ConfigureAwait(false);
-        if (context.Validation.HasErrors)
+        OperationResult? failure = context.Validation.ToFailureResult();
+        if (failure is not null)
         {
-            context.Result = OperationResult.ValidationFailed(context.Validation.Errors);
+            context.Result = failure;
             return;
         }
 
