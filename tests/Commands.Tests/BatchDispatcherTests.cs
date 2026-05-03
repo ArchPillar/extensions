@@ -1,5 +1,5 @@
 using ArchPillar.Extensions.Commands.Validation;
-using ArchPillar.Extensions.Primitives;
+using ArchPillar.Extensions.Operations;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ArchPillar.Extensions.Commands.Tests;

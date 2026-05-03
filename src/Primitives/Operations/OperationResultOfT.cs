@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace ArchPillar.Extensions.Primitives;
+namespace ArchPillar.Extensions.Operations;
 
 /// <summary>
 /// An <see cref="OperationResult"/> that carries a successful payload.

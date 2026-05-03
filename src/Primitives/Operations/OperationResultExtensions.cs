@@ -1,4 +1,4 @@
-namespace ArchPillar.Extensions.Primitives;
+namespace ArchPillar.Extensions.Operations;
 
 /// <summary>
 /// Async extensions for awaiting an <see cref="OperationResult"/>-returning

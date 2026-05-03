@@ -2,6 +2,8 @@
 
 Foundational types for the `ArchPillar.Extensions.*` family. Lightweight, allocation-conscious, AOT/trim-safe — no dependencies beyond the BCL.
 
+The package's assembly base namespace is `ArchPillar.Extensions`. Types live under topic sub-namespaces; the operation-result family ships under `ArchPillar.Extensions.Operations`. Future primitive areas (typed identifiers, JSON converters, …) will get their own sub-namespaces under the same package.
+
 ## Public surface
 
 | Type | Purpose |

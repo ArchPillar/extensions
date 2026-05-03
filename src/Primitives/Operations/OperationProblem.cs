@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace ArchPillar.Extensions.Primitives;
+namespace ArchPillar.Extensions.Operations;
 
 /// <summary>
 /// The error body of a failed <see cref="OperationResult"/>. Modelled after

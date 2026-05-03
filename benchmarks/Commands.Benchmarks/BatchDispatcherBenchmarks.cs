@@ -1,4 +1,4 @@
-using ArchPillar.Extensions.Primitives;
+using ArchPillar.Extensions.Operations;
 using BenchmarkDotNet.Attributes;
 using Microsoft.Extensions.DependencyInjection;
 

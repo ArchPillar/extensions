@@ -1,6 +1,6 @@
 using ArchPillar.Extensions.Commands.Internal;
 using ArchPillar.Extensions.Pipelines;
-using ArchPillar.Extensions.Primitives;
+using ArchPillar.Extensions.Operations;
 
 namespace ArchPillar.Extensions.Commands;
 
@@ -51,7 +51,7 @@ internal sealed class CommandDispatcher : ICommandDispatcher
         {
             OperationResult<TResult> typed => typed,
             OperationResult untyped => Coerce<TResult>(untyped),
-            _ => OperationResult<TResult>.Failure(
+            _ => OperationResult.Failure(
                 OperationStatus.InternalServerError,
                 "internal_error",
                 "Internal Server Error",

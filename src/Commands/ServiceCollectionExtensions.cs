@@ -2,7 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using ArchPillar.Extensions.Commands.Internal;
 using ArchPillar.Extensions.Commands.Middlewares;
 using ArchPillar.Extensions.Pipelines;
-using ArchPillar.Extensions.Primitives;
+using ArchPillar.Extensions.Operations;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 

@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace ArchPillar.Extensions.Primitives;
+namespace ArchPillar.Extensions.Operations;
 
 /// <summary>
 /// A single error item carried inside an <see cref="OperationProblem"/>.

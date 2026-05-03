@@ -1,4 +1,4 @@
-namespace ArchPillar.Extensions.Primitives;
+namespace ArchPillar.Extensions.Operations;
 
 /// <summary>
 /// An <see cref="OperationResult"/> known at construction time to be a failure.

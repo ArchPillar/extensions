@@ -2,7 +2,7 @@ namespace ArchPillar.Extensions.Commands;
 
 /// <summary>
 /// A command that mutates state and produces no payload — only a status. The
-/// dispatcher still returns an <see cref="ArchPillar.Extensions.Primitives.OperationResult"/>
+/// dispatcher still returns an <see cref="ArchPillar.Extensions.Operations.OperationResult"/>
 /// so callers can observe the outcome.
 /// </summary>
 /// <remarks>
@@ -17,7 +17,7 @@ public interface ICommand : IRequest
 /// <summary>
 /// A command that mutates state and produces a payload of type
 /// <typeparamref name="TResult"/> on success. The dispatcher returns an
-/// <see cref="ArchPillar.Extensions.Primitives.OperationResult{TValue}"/>.
+/// <see cref="ArchPillar.Extensions.Operations.OperationResult{TValue}"/>.
 /// </summary>
 /// <typeparam name="TResult">The payload type on success.</typeparam>
 /// <remarks>

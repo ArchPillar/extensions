@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace ArchPillar.Extensions.Primitives;
+namespace ArchPillar.Extensions.Operations;
 
 /// <summary>
 /// The outcome of an operation. Carries an HTTP-aligned <see cref="Status"/>

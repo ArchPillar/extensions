@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using ArchPillar.Extensions.Commands.Validation;
-using ArchPillar.Extensions.Primitives;
+using ArchPillar.Extensions.Operations;
 
 namespace ArchPillar.Extensions.Commands;
 

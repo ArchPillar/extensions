@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using ArchPillar.Extensions.Commands.Validation;
 using ArchPillar.Extensions.Pipelines;
-using ArchPillar.Extensions.Primitives;
+using ArchPillar.Extensions.Operations;
 
 namespace ArchPillar.Extensions.Commands;
 

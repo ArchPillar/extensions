@@ -1,4 +1,4 @@
-namespace ArchPillar.Extensions.Primitives;
+namespace ArchPillar.Extensions.Operations;
 
 /// <summary>
 /// Exception that carries an <see cref="OperationResult"/>. Thrown when a

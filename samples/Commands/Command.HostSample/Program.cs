@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using ArchPillar.Extensions.Commands;
 using ArchPillar.Extensions.Commands.Validation;
-using ArchPillar.Extensions.Primitives;
+using ArchPillar.Extensions.Operations;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -163,7 +163,7 @@ internal sealed class CreateOrderBatchHandler(InMemoryOrderStore store, ILogger<
         {
             CreateOrder command = commands[i];
             var id = store.Create(command.Customer, command.Quantity);
-            results[i] = OperationResult<Guid>.Created(id);
+            results[i] = OperationResult.Created(id);
         }
 
         logger.LogInformation("Inserted batch of {Count} orders", commands.Count);

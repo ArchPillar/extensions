@@ -1,4 +1,4 @@
-using ArchPillar.Extensions.Primitives;
+using ArchPillar.Extensions.Operations;
 using BenchmarkDotNet.Attributes;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -52,6 +52,6 @@ public class CommandDispatcherBenchmarks
     public sealed class NoopValueHandler : ICommandHandler<NoopValueCommand, int>
     {
         public Task<OperationResult<int>> HandleAsync(NoopValueCommand command, CancellationToken cancellationToken)
-            => OperationResult<int>.Ok(42);
+            => OperationResult.Ok(42);
     }
 }

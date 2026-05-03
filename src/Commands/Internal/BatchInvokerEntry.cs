@@ -1,4 +1,4 @@
-using ArchPillar.Extensions.Primitives;
+using ArchPillar.Extensions.Operations;
 
 namespace ArchPillar.Extensions.Commands.Internal;
 

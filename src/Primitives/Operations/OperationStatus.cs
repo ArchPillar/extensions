@@ -1,4 +1,4 @@
-namespace ArchPillar.Extensions.Primitives;
+namespace ArchPillar.Extensions.Operations;
 
 /// <summary>
 /// HTTP-aligned status values carried by <see cref="OperationResult"/>. Numeric

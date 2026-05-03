@@ -1,6 +1,6 @@
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
-using ArchPillar.Extensions.Primitives;
+using ArchPillar.Extensions.Operations;
 
 namespace ArchPillar.Extensions.Commands.Validation;
 
