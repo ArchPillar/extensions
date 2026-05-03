@@ -26,7 +26,7 @@ namespace ArchPillar.Extensions.Pipelines.Benchmarks;
 /// </summary>
 [MemoryDiagnoser]
 [ShortRunJob]
-public sealed class ActivityMiddlewareBenchmarks
+public class ActivityMiddlewareBenchmarks
 {
     private TracedContext _context = null!;
     private Pipeline<TracedContext> _baseline = null!;
