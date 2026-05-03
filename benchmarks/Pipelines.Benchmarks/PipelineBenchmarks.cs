@@ -23,7 +23,7 @@ namespace ArchPillar.Extensions.Pipelines.Benchmarks;
 /// </remarks>
 [MemoryDiagnoser]
 [ShortRunJob]
-public sealed class PipelineBenchmarks
+public class PipelineBenchmarks
 {
     private BenchmarkContext _context = null!;
     private IPipelineHandler<BenchmarkContext> _handler = null!;
