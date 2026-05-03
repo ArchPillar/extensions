@@ -48,8 +48,18 @@ public sealed class CreateOrderHandler(IOrderRepository repo)
         EnsureFound(customer, "Customer not found.");
 
         var id = await repo.CreateAsync(customer, cmd.Quantity, ct);
-        return Created(id);
+        return Created(id);             // helper returns OperationResult<Guid>
     }
+}
+
+// Failure helpers return OperationFailure. Either return them directly
+// (the implicit conversion lifts to the typed result) or throw them:
+public override async Task<OperationResult<Guid>> HandleAsync(CreateOrder cmd, CancellationToken ct)
+{
+    if (await repo.ExistsAsync(cmd, ct))
+        return Conflict("Order already exists.");                    // OperationFailure → OperationResult<Guid>
+
+    return Created(await repo.CreateAsync(cmd, ct));
 }
 
 public sealed class CancelOrderHandler(IOrderRepository repo) : CommandHandlerBase<CancelOrder>

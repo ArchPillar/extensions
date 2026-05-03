@@ -16,8 +16,8 @@ Foundational types for the `ArchPillar.Extensions.*` family. Lightweight, alloca
 public Task<OperationResult<Order>> GetOrderAsync(Guid id)
 {
     var order = repository.Find(id);
-    if (order is null) return OperationResult<Order>.NotFound("Order missing");
-    return OperationResult<Order>.Ok(order);
+    if (order is null) return OperationResult.NotFound("Order missing");   // OperationFailure → OperationResult<Order>
+    return OperationResult.Ok(order);                                       // TValue inferred
 }
 ```
 

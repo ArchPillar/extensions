@@ -5,11 +5,11 @@ public class OperationResultOfTTests
     private sealed record Order(int Id, string Customer);
 
     [Fact]
-    public void Ok_WithValue_IsSuccessAndCarriesValue()
+    public void Ok_GenericInferred_CarriesValue()
     {
         var order = new Order(1, "alice");
 
-        var result = OperationResult<Order>.Ok(order);
+        var result = OperationResult.Ok(order);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(OperationStatus.Ok, result.Status);
@@ -18,20 +18,21 @@ public class OperationResultOfTTests
     }
 
     [Fact]
-    public void Created_WithValue_HasStatusCreated()
+    public void Created_GenericInferred_HasStatusCreated()
     {
         var order = new Order(2, "bob");
 
-        var result = OperationResult<Order>.Created(order);
+        var result = OperationResult.Created(order);
 
         Assert.Equal(OperationStatus.Created, result.Status);
         Assert.Same(order, result.Value);
     }
 
     [Fact]
-    public void NotFound_Typed_HasNoValueAndPopulatedProblem()
+    public void NotFound_ImplicitConvertsToTypedResult()
     {
-        var result = OperationResult<Order>.NotFound("missing");
+        // Failure factory returns OperationFailure, implicit conversion lifts to typed result.
+        OperationResult<Order> result = OperationResult.NotFound("missing");
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Value);
@@ -53,7 +54,7 @@ public class OperationResultOfTTests
     [Fact]
     public async Task ImplicitTaskConversion_WrapsSynchronouslyAsync()
     {
-        Task<OperationResult<Order>> task = OperationResult<Order>.Ok(new Order(4, "d"));
+        Task<OperationResult<Order>> task = OperationResult.Ok(new Order(4, "d"));
 
         Assert.True(task.IsCompletedSuccessfully);
         OperationResult<Order> awaited = await task;
@@ -63,11 +64,11 @@ public class OperationResultOfTTests
     [Fact]
     public void ImplicitExceptionConversion_StillWorksOnGeneric()
     {
-        var source = OperationResult<Order>.Conflict("conflict");
+        OperationResult<Order> source = OperationResult.Conflict("conflict");
 
         Exception ex = source;
 
         OperationException op = Assert.IsType<OperationException>(ex);
-        Assert.Same(source, op.Result);
+        Assert.Equal(OperationStatus.Conflict, op.Result.Status);
     }
 }

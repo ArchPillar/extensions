@@ -5,7 +5,7 @@ public class OperationExceptionTests
     [Fact]
     public void Constructor_FromResult_SetsResult()
     {
-        var result = OperationResult.NotFound("missing");
+        OperationFailure result = OperationResult.NotFound("missing");
 
         var ex = new OperationException(result);
 
@@ -27,7 +27,7 @@ public class OperationExceptionTests
     public void Constructor_FromResult_PreservesInnerException()
     {
         var inner = new InvalidOperationException("boom");
-        var result = OperationResult.Failed(inner);
+        OperationFailure result = OperationResult.Failed(inner);
 
         var ex = new OperationException(result);
 

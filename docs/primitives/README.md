@@ -99,25 +99,60 @@ await       dispatcher.SendAsync(cancelOrder).UnwrapAsync();
 
 Failure becomes an `OperationException` carrying the original result — catch it if you want status-aware handling, or let it propagate to the surrounding handler.
 
-## Status factories
+## Factories
+
+All construction goes through `OperationResult` static factories. **Success** factories use method-level generics so `TValue` is inferred from the argument — you never write `OperationResult<Order>.Ok(...)`. **Failure** factories return `OperationFailure`, a marker subclass with an implicit conversion onto `OperationResult<TValue>`, so the same call works regardless of the target's `TValue`:
 
 ```csharp
-OperationResult.Ok();                                     // 200
-OperationResult.Created();                                // 201
-OperationResult.Accepted();                               // 202
-OperationResult.NoContent();                              // 204
-OperationResult.BadRequest("invalid");                    // 400 + Problem.Detail = "invalid"
-OperationResult.Unauthorized();                           // 401
-OperationResult.Forbidden();                              // 403
-OperationResult.NotFound("entity missing");               // 404 + Problem.Detail
-OperationResult.Conflict("already exists");               // 409
-OperationResult.Failed(exception);                        // 500 + Exception captured at top-level + Problem.Detail = exception.Message
-OperationResult.Failure(status, type, title, detail);     // arbitrary
-
-OperationResult<Order>.Ok(order);
-OperationResult<Order>.Created(order);
-OperationResult<Order>.NotFound("missing");
+public Task<OperationResult<Order>> HandleAsync(...)
+{
+    if (notFound)  return OperationResult.NotFound("Order missing.");        // OperationFailure → OperationResult<Order>
+    if (locked)    return OperationResult.Conflict("Order locked.");
+    return OperationResult.Ok(order);                                        // TValue inferred
+}
 ```
+
+**Success — non-generic, no value:**
+
+```csharp
+OperationResult.Ok();
+OperationResult.Created();
+OperationResult.Accepted();
+OperationResult.NoContent();
+```
+
+**Success — value-bearing, generic on the method:**
+
+```csharp
+OperationResult.Ok(order);              // OperationResult<Order>
+OperationResult.Created(orderId);       // OperationResult<Guid>
+OperationResult.Accepted(receipt);      // OperationResult<Receipt>
+```
+
+**Failure (return `OperationFailure`, implicit-converts to `OperationResult<T>`):**
+
+```csharp
+OperationResult.BadRequest("Validation failed.",
+    errors: new Dictionary<string, IReadOnlyList<OperationError>> { ... });   // 400, plus field-keyed errors
+
+OperationResult.Unauthorized("Authentication required.");                    // 401
+OperationResult.Forbidden("User lacks 'orders.cancel'.");                    // 403
+OperationResult.NotFound("Order 'abc-123' missing.");                        // 404
+OperationResult.Conflict("Order locked.",
+    extensions: new Dictionary<string, object?> { ["lockedBy"] = "alice" }); // 409, plus structured extras
+
+OperationResult.Failed(exception);                                            // 500, captures Exception
+OperationResult.Failure(status, type, title, detail, ...);                   // escape hatch
+```
+
+Every failure factory takes a required `detail` (the per-occurrence "what's what" message). Optional named arguments mirror the RFC 7807 problem fields:
+
+| Argument | Where it lands |
+| --- | --- |
+| `type` | `Problem.Type` (overrides the default identifier) |
+| `errors` | `Problem.Errors` (only on `BadRequest`, `Conflict`, `Failure`) |
+| `extensions` | `Problem.Extensions` |
+| `instance` | `Problem.Instance` |
 
 ## Why an `int`-aligned enum?
 

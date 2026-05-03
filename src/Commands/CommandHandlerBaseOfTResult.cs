@@ -20,44 +20,53 @@ public abstract class CommandHandlerBase<TCommand, TResult> : ICommandHandler<TC
     public abstract Task<OperationResult<TResult>> HandleAsync(TCommand command, CancellationToken cancellationToken);
 
     /// <summary>Returns a successful <see cref="OperationStatus.Ok"/> result carrying <paramref name="value"/>.</summary>
-    protected static OperationResult<TResult> Ok(TResult value) => OperationResult<TResult>.Ok(value);
+    protected static OperationResult<TResult> Ok(TResult value) => OperationResult.Ok(value);
 
     /// <summary>Returns a successful <see cref="OperationStatus.Created"/> result carrying <paramref name="value"/>.</summary>
-    protected static OperationResult<TResult> Created(TResult value) => OperationResult<TResult>.Created(value);
+    protected static OperationResult<TResult> Created(TResult value) => OperationResult.Created(value);
 
-    /// <summary>Returns a typed <see cref="OperationStatus.NotFound"/> result.</summary>
-    protected static OperationResult<TResult> NotFound(string? message = null) => OperationResult<TResult>.NotFound(message);
+    /// <summary>Returns a successful <see cref="OperationStatus.Accepted"/> result carrying <paramref name="value"/>.</summary>
+    protected static OperationResult<TResult> Accepted(TResult value) => OperationResult.Accepted(value);
 
-    /// <summary>Returns a typed <see cref="OperationStatus.Conflict"/> result.</summary>
-    protected static OperationResult<TResult> Conflict(string? message = null) => OperationResult<TResult>.Conflict(message);
+    /// <inheritdoc cref="OperationResult.NotFound(string, string?, IReadOnlyDictionary{string, object?}?, string?)"/>
+    protected static OperationFailure NotFound(string detail, string? type = null) => OperationResult.NotFound(detail, type);
 
-    /// <summary>Returns a typed <see cref="OperationStatus.BadRequest"/> result.</summary>
-    protected static OperationResult<TResult> BadRequest(string? detail = null) => OperationResult<TResult>.BadRequest(detail);
+    /// <inheritdoc cref="OperationResult.Conflict(string, string?, IReadOnlyDictionary{string, IReadOnlyList{OperationError}}?, IReadOnlyDictionary{string, object?}?, string?)"/>
+    protected static OperationFailure Conflict(string detail, string? type = null) => OperationResult.Conflict(detail, type);
+
+    /// <inheritdoc cref="OperationResult.Unauthorized(string, string?, IReadOnlyDictionary{string, object?}?, string?)"/>
+    protected static OperationFailure Unauthorized(string detail, string? type = null) => OperationResult.Unauthorized(detail, type);
+
+    /// <inheritdoc cref="OperationResult.Forbidden(string, string?, IReadOnlyDictionary{string, object?}?, string?)"/>
+    protected static OperationFailure Forbidden(string detail, string? type = null) => OperationResult.Forbidden(detail, type);
+
+    /// <inheritdoc cref="OperationResult.BadRequest(string, string?, IReadOnlyDictionary{string, IReadOnlyList{OperationError}}?, IReadOnlyDictionary{string, object?}?, string?)"/>
+    protected static OperationFailure BadRequest(string detail, string? type = null) => OperationResult.BadRequest(detail, type);
 
     /// <inheritdoc cref="CommandHandlerBase{TCommand}.EnsureFound{T}"/>
-    protected static void EnsureFound<T>([NotNull] T? entity, string? message = null)
+    protected static void EnsureFound<T>([NotNull] T? entity, string? detail = null)
         where T : class
     {
         if (entity is null)
         {
-            throw new OperationException(OperationStatus.NotFound, message ?? $"{typeof(T).Name} not found.");
+            throw new OperationException(OperationStatus.NotFound, detail ?? $"{typeof(T).Name} not found.");
         }
     }
 
     /// <inheritdoc cref="CommandHandlerBase{TCommand}.Ensure"/>
-    protected static void Ensure(bool condition, OperationStatus status, string? message = null)
+    protected static void Ensure(bool condition, OperationStatus status, string detail)
     {
         if (!condition)
         {
-            throw new OperationException(status, message);
+            throw new OperationException(status, detail);
         }
     }
 
     /// <inheritdoc cref="CommandHandlerBase{TCommand}.EnsureAuthorized"/>
-    protected static void EnsureAuthorized(bool condition, string? message = null)
-        => Ensure(condition, OperationStatus.Forbidden, message);
+    protected static void EnsureAuthorized(bool condition, string detail)
+        => Ensure(condition, OperationStatus.Forbidden, detail);
 
     /// <inheritdoc cref="CommandHandlerBase{TCommand}.EnsureNoConflict"/>
-    protected static void EnsureNoConflict(bool condition, string? message = null)
-        => Ensure(condition, OperationStatus.Conflict, message);
+    protected static void EnsureNoConflict(bool condition, string detail)
+        => Ensure(condition, OperationStatus.Conflict, detail);
 }

@@ -8,7 +8,7 @@ public class UnwrapTests
     public void Unwrap_OnSuccess_ReturnsValue()
     {
         var order = new Order(1);
-        var result = OperationResult<Order>.Ok(order);
+        var result = OperationResult.Ok(order);
 
         Order unwrapped = result.Unwrap();
 
@@ -18,13 +18,13 @@ public class UnwrapTests
     [Fact]
     public void Unwrap_OnFailure_ThrowsOperationException()
     {
-        var result = OperationResult<Order>.NotFound("missing");
+        OperationResult<Order> result = OperationResult.NotFound("missing");
 
         OperationException ex = Assert.Throws<OperationException>(() =>
         {
             result.Unwrap();
         });
-        Assert.Same(result, ex.Result);
+        Assert.Equal(OperationStatus.NotFound, ex.Result.Status);
     }
 
     [Fact]
@@ -43,7 +43,7 @@ public class UnwrapTests
     [Fact]
     public void Unwrap_BaseOnFailure_ThrowsOperationException()
     {
-        var result = OperationResult.Conflict("dup");
+        OperationFailure result = OperationResult.Conflict("dup");
 
         OperationException ex = Assert.Throws<OperationException>(() =>
         {
@@ -56,8 +56,9 @@ public class UnwrapTests
     public async Task UnwrapAsync_OnTypedSuccess_ReturnsValueAsync()
     {
         var order = new Order(2);
+        Task<OperationResult<Order>> task = OperationResult.Ok(order);
 
-        Order unwrapped = await Task.FromResult(OperationResult<Order>.Ok(order)).UnwrapAsync();
+        Order unwrapped = await task.UnwrapAsync();
 
         Assert.Same(order, unwrapped);
     }
@@ -65,16 +66,19 @@ public class UnwrapTests
     [Fact]
     public async Task UnwrapAsync_OnTypedFailure_ThrowsAsync()
     {
-        OperationException ex = await Assert.ThrowsAsync<OperationException>(() =>
-            Task.FromResult(OperationResult<Order>.NotFound("missing")).UnwrapAsync());
+        Task<OperationResult<Order>> task = (OperationResult<Order>)OperationResult.NotFound("missing");
+
+        OperationException ex = await Assert.ThrowsAsync<OperationException>(() => task.UnwrapAsync());
+
         Assert.Equal(OperationStatus.NotFound, ex.Result.Status);
     }
 
     [Fact]
     public async Task UnwrapAsync_OnBaseSuccess_CompletesAsync()
     {
-        Exception? thrown = await Record.ExceptionAsync(() =>
-            Task.FromResult(OperationResult.Ok()).UnwrapAsync());
+        Task<OperationResult> task = OperationResult.Ok();
+
+        Exception? thrown = await Record.ExceptionAsync(() => task.UnwrapAsync());
 
         Assert.Null(thrown);
     }
@@ -82,8 +86,10 @@ public class UnwrapTests
     [Fact]
     public async Task UnwrapAsync_OnBaseFailure_ThrowsAsync()
     {
-        OperationException ex = await Assert.ThrowsAsync<OperationException>(() =>
-            Task.FromResult(OperationResult.Conflict("dup")).UnwrapAsync());
+        Task<OperationResult> task = Task.FromResult<OperationResult>(OperationResult.Conflict("dup"));
+
+        OperationException ex = await Assert.ThrowsAsync<OperationException>(() => task.UnwrapAsync());
+
         Assert.Equal(OperationStatus.Conflict, ex.Result.Status);
     }
 

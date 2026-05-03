@@ -24,7 +24,7 @@ public sealed class OperationException : Exception
     /// Constructs a result from <paramref name="status"/> and <paramref name="detail"/>
     /// and wraps it.
     /// </summary>
-    public OperationException(OperationStatus status, string? detail = null)
+    public OperationException(OperationStatus status, string detail)
         : this(OperationResult.Failure(status, status.ToString().ToLowerInvariant(), OperationResult.StatusTitle(status), detail))
     {
     }

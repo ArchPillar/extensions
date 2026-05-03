@@ -10,23 +10,22 @@ namespace ArchPillar.Extensions.Primitives;
 /// <remarks>
 /// <para>
 /// On success <see cref="Problem"/> is <c>null</c> — the result is just a
-/// status code, no body to allocate. <see cref="OperationResult{TValue}"/>
-/// adds the typed payload.
+/// status, no body to allocate. <see cref="OperationResult{TValue}"/> adds
+/// the typed payload.
 /// </para>
 /// <para>
-/// Implicit conversions:
-/// <list type="bullet">
-/// <item><description>To <see cref="Task{TResult}"/> wraps the result in a completed task — useful for synchronous handlers that return <c>Task&lt;OperationResult&gt;</c> without <see cref="Task.FromResult{TResult}(TResult)"/>.</description></item>
-/// <item><description>To <see cref="System.Exception"/> produces an <see cref="OperationException"/> that carries this result, enabling <c>throw result;</c> from any code path.</description></item>
-/// </list>
+/// Construction goes through the static factories on this type. Failure
+/// factories return <see cref="OperationFailure"/> so callers can return them
+/// from any handler signature — an implicit conversion on
+/// <see cref="OperationResult{TValue}"/> picks the failure up without forcing
+/// the caller to repeat the value type.
 /// </para>
 /// </remarks>
 public class OperationResult
 {
     /// <summary>
     /// Initializes a new <see cref="OperationResult"/>. Prefer the static
-    /// factories (<see cref="Ok(OperationStatus)"/>, <see cref="NotFound(string?)"/>,
-    /// etc.) at call sites.
+    /// factories at call sites.
     /// </summary>
     public OperationResult()
     {
@@ -45,8 +44,7 @@ public class OperationResult
 
     /// <summary>
     /// The exception that caused the operation to fail, if any. Internal-only
-    /// — never serialized over the wire. Set by the dispatcher's exception
-    /// middleware when an unhandled exception escapes a handler.
+    /// — never serialized over the wire.
     /// </summary>
     [JsonIgnore]
     public Exception? Exception { get; init; }
@@ -92,45 +90,106 @@ public class OperationResult
     /// </summary>
     public void Unwrap() => ThrowIfFailed();
 
-    /// <summary>Creates a successful result with status <see cref="OperationStatus.Ok"/> by default.</summary>
-    public static OperationResult Ok(OperationStatus status = OperationStatus.Ok)
-        => new() { Status = status };
+    // ─────────────────────────────────────────────────────────────────────
+    // Success
+    // ─────────────────────────────────────────────────────────────────────
 
-    /// <summary>Creates a successful <see cref="OperationStatus.Created"/> result.</summary>
+    /// <summary>Creates a successful result with <see cref="OperationStatus.Ok"/>.</summary>
+    public static OperationResult Ok()
+        => new() { Status = OperationStatus.Ok };
+
+    /// <summary>
+    /// Creates a successful <see cref="OperationResult{TValue}"/> carrying
+    /// <paramref name="value"/>. <typeparamref name="TValue"/> is inferred
+    /// from the argument.
+    /// </summary>
+    public static OperationResult<TValue> Ok<TValue>(TValue value)
+        => new() { Status = OperationStatus.Ok, Value = value };
+
+    /// <summary>Creates a successful result with <see cref="OperationStatus.Created"/>.</summary>
     public static OperationResult Created()
         => new() { Status = OperationStatus.Created };
 
-    /// <summary>Creates a successful <see cref="OperationStatus.Accepted"/> result.</summary>
+    /// <summary>
+    /// Creates a successful <see cref="OperationStatus.Created"/> result
+    /// carrying <paramref name="value"/>.
+    /// </summary>
+    public static OperationResult<TValue> Created<TValue>(TValue value)
+        => new() { Status = OperationStatus.Created, Value = value };
+
+    /// <summary>Creates a successful result with <see cref="OperationStatus.Accepted"/>.</summary>
     public static OperationResult Accepted()
         => new() { Status = OperationStatus.Accepted };
 
-    /// <summary>Creates a successful <see cref="OperationStatus.NoContent"/> result.</summary>
+    /// <summary>
+    /// Creates a successful <see cref="OperationStatus.Accepted"/> result
+    /// carrying <paramref name="value"/>.
+    /// </summary>
+    public static OperationResult<TValue> Accepted<TValue>(TValue value)
+        => new() { Status = OperationStatus.Accepted, Value = value };
+
+    /// <summary>Creates a successful result with <see cref="OperationStatus.NoContent"/>.</summary>
     public static OperationResult NoContent()
         => new() { Status = OperationStatus.NoContent };
 
+    // ─────────────────────────────────────────────────────────────────────
+    // Failure — return OperationFailure (implicit-converts to OperationResult<TValue>)
+    // ─────────────────────────────────────────────────────────────────────
+
     /// <summary>Creates a <see cref="OperationStatus.BadRequest"/> failure.</summary>
-    public static OperationResult BadRequest(string? detail = null)
-        => Failure(OperationStatus.BadRequest, "bad_request", "Bad Request", detail);
+    /// <param name="detail">Per-occurrence explanation. Required.</param>
+    /// <param name="type">Override the default <c>"bad_request"</c> type identifier.</param>
+    /// <param name="errors">Optional field-keyed validation errors.</param>
+    /// <param name="extensions">Optional structured extras for the problem.</param>
+    /// <param name="instance">Optional URI identifying this specific occurrence.</param>
+    public static OperationFailure BadRequest(
+        string detail,
+        string? type = null,
+        IReadOnlyDictionary<string, IReadOnlyList<OperationError>>? errors = null,
+        IReadOnlyDictionary<string, object?>? extensions = null,
+        string? instance = null)
+        => Build(OperationStatus.BadRequest, type ?? "bad_request", detail, errors, extensions, instance);
 
     /// <summary>Creates an <see cref="OperationStatus.Unauthorized"/> failure.</summary>
-    public static OperationResult Unauthorized(string? detail = null)
-        => Failure(OperationStatus.Unauthorized, "unauthorized", "Unauthorized", detail);
+    public static OperationFailure Unauthorized(
+        string detail,
+        string? type = null,
+        IReadOnlyDictionary<string, object?>? extensions = null,
+        string? instance = null)
+        => Build(OperationStatus.Unauthorized, type ?? "unauthorized", detail, errors: null, extensions, instance);
 
     /// <summary>Creates a <see cref="OperationStatus.Forbidden"/> failure.</summary>
-    public static OperationResult Forbidden(string? detail = null)
-        => Failure(OperationStatus.Forbidden, "forbidden", "Forbidden", detail);
+    public static OperationFailure Forbidden(
+        string detail,
+        string? type = null,
+        IReadOnlyDictionary<string, object?>? extensions = null,
+        string? instance = null)
+        => Build(OperationStatus.Forbidden, type ?? "forbidden", detail, errors: null, extensions, instance);
 
     /// <summary>Creates a <see cref="OperationStatus.NotFound"/> failure.</summary>
-    public static OperationResult NotFound(string? detail = null)
-        => Failure(OperationStatus.NotFound, "not_found", "Not Found", detail);
+    public static OperationFailure NotFound(
+        string detail,
+        string? type = null,
+        IReadOnlyDictionary<string, object?>? extensions = null,
+        string? instance = null)
+        => Build(OperationStatus.NotFound, type ?? "not_found", detail, errors: null, extensions, instance);
 
     /// <summary>Creates a <see cref="OperationStatus.Conflict"/> failure.</summary>
-    public static OperationResult Conflict(string? detail = null)
-        => Failure(OperationStatus.Conflict, "conflict", "Conflict", detail);
+    public static OperationFailure Conflict(
+        string detail,
+        string? type = null,
+        IReadOnlyDictionary<string, IReadOnlyList<OperationError>>? errors = null,
+        IReadOnlyDictionary<string, object?>? extensions = null,
+        string? instance = null)
+        => Build(OperationStatus.Conflict, type ?? "conflict", detail, errors, extensions, instance);
 
     /// <summary>Creates a failure result from an <see cref="System.Exception"/>.</summary>
-    public static OperationResult Failed(Exception exception, OperationStatus status = OperationStatus.InternalServerError)
-        => new()
+    public static OperationFailure Failed(
+        Exception exception,
+        OperationStatus status = OperationStatus.InternalServerError)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+        return new OperationFailure
         {
             Status = status,
             Exception = exception,
@@ -138,13 +197,29 @@ public class OperationResult
             {
                 Type = "internal_error",
                 Title = StatusTitle(status),
-                Detail = exception?.Message,
+                Detail = exception.Message,
             },
         };
+    }
 
-    /// <summary>Creates a failure result with the supplied status, title, and detail.</summary>
-    public static OperationResult Failure(OperationStatus status, string type, string title, string? detail = null)
-        => new()
+    /// <summary>
+    /// Creates a failure result with the supplied status, type, title, detail
+    /// and optional structured extras. Use this when no purpose-built helper
+    /// fits.
+    /// </summary>
+    public static OperationFailure Failure(
+        OperationStatus status,
+        string type,
+        string title,
+        string detail,
+        IReadOnlyDictionary<string, IReadOnlyList<OperationError>>? errors = null,
+        IReadOnlyDictionary<string, object?>? extensions = null,
+        string? instance = null)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+        ArgumentNullException.ThrowIfNull(title);
+        ArgumentNullException.ThrowIfNull(detail);
+        return new OperationFailure
         {
             Status = status,
             Problem = new OperationProblem
@@ -152,8 +227,36 @@ public class OperationResult
                 Type = type,
                 Title = title,
                 Detail = detail,
+                Errors = errors,
+                Extensions = extensions,
+                Instance = instance,
             },
         };
+    }
+
+    private static OperationFailure Build(
+        OperationStatus status,
+        string type,
+        string detail,
+        IReadOnlyDictionary<string, IReadOnlyList<OperationError>>? errors,
+        IReadOnlyDictionary<string, object?>? extensions,
+        string? instance)
+    {
+        ArgumentNullException.ThrowIfNull(detail);
+        return new OperationFailure
+        {
+            Status = status,
+            Problem = new OperationProblem
+            {
+                Type = type,
+                Title = StatusTitle(status),
+                Detail = detail,
+                Errors = errors,
+                Extensions = extensions,
+                Instance = instance,
+            },
+        };
+    }
 
     internal static string StatusTitle(OperationStatus status)
         => status switch

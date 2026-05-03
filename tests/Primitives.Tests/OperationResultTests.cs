@@ -33,9 +33,9 @@ public class OperationResultTests
     }
 
     [Fact]
-    public void NotFound_WithDetail_ProducesProblemWithDetail()
+    public void NotFound_RequiredDetail_PopulatesProblem()
     {
-        var result = OperationResult.NotFound("missing");
+        OperationFailure result = OperationResult.NotFound("missing");
 
         Assert.Equal(OperationStatus.NotFound, result.Status);
         Assert.False(result.IsSuccess);
@@ -46,19 +46,42 @@ public class OperationResultTests
     }
 
     [Fact]
-    public void NotFound_WithoutDetail_ProblemDetailIsNull()
+    public void NotFound_TypeOverride_ReplacesDefault()
     {
-        var result = OperationResult.NotFound();
+        OperationFailure result = OperationResult.NotFound("missing", type: "order_missing");
 
-        Assert.Equal(OperationStatus.NotFound, result.Status);
-        Assert.NotNull(result.Problem);
-        Assert.Null(result.Problem!.Detail);
+        Assert.Equal("order_missing", result.Problem!.Type);
     }
 
     [Fact]
-    public void Failure_PopulatesProblem()
+    public void BadRequest_WithErrorsDictionary_PopulatesProblemErrors()
     {
-        var result = OperationResult.Failure(
+        var errors = new Dictionary<string, IReadOnlyList<OperationError>>
+        {
+            ["Quantity"] = [new OperationError("out_of_range", "must be 1..100", OperationStatus.BadRequest)],
+        };
+
+        OperationFailure result = OperationResult.BadRequest("Validation failed.", errors: errors);
+
+        Assert.NotNull(result.Problem!.Errors);
+        Assert.True(result.Problem.Errors!.ContainsKey("Quantity"));
+    }
+
+    [Fact]
+    public void Conflict_WithExtensions_PopulatesExtensions()
+    {
+        var ext = new Dictionary<string, object?> { ["lockedBy"] = "alice" };
+
+        OperationFailure result = OperationResult.Conflict("Order is locked.", extensions: ext);
+
+        Assert.NotNull(result.Problem!.Extensions);
+        Assert.Equal("alice", result.Problem.Extensions!["lockedBy"]);
+    }
+
+    [Fact]
+    public void Failure_PopulatesEverything()
+    {
+        OperationFailure result = OperationResult.Failure(
             OperationStatus.UnprocessableEntity,
             "validation",
             "Validation Failed",
@@ -76,7 +99,7 @@ public class OperationResultTests
     {
         var ex = new InvalidOperationException("boom");
 
-        var result = OperationResult.Failed(ex);
+        OperationFailure result = OperationResult.Failed(ex);
 
         Assert.Same(ex, result.Exception);
         Assert.Equal(OperationStatus.InternalServerError, result.Status);
@@ -97,7 +120,7 @@ public class OperationResultTests
     [Fact]
     public void ImplicitExceptionConversion_ProducesOperationException()
     {
-        var source = OperationResult.NotFound("missing");
+        OperationFailure source = OperationResult.NotFound("missing");
 
         Exception ex = source;
 
@@ -130,7 +153,7 @@ public class OperationResultTests
     [Fact]
     public void ThrowIfFailed_OnFailure_Throws()
     {
-        var result = OperationResult.NotFound("missing");
+        OperationFailure result = OperationResult.NotFound("missing");
 
         OperationException ex = Assert.Throws<OperationException>(() =>
         {

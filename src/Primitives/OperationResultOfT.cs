@@ -5,12 +5,22 @@ namespace ArchPillar.Extensions.Primitives;
 /// <summary>
 /// An <see cref="OperationResult"/> that carries a successful payload.
 /// </summary>
+/// <remarks>
+/// Construction goes through factories on <see cref="OperationResult"/>
+/// (<see cref="OperationResult.Ok{TValue}(TValue)"/>,
+/// <see cref="OperationResult.Created{TValue}(TValue)"/>) for success, or any
+/// <see cref="OperationFailure"/>-returning factory (
+/// <see cref="OperationResult.NotFound(string, string?, IReadOnlyDictionary{string, object?}?, string?)"/>,
+/// <see cref="OperationResult.Conflict(string, string?, IReadOnlyDictionary{string, IReadOnlyList{OperationError}}?, IReadOnlyDictionary{string, object?}?, string?)"/>,
+/// …) for failure — the implicit conversions on this type pick up the values
+/// without requiring the caller to repeat <typeparamref name="TValue"/>.
+/// </remarks>
 /// <typeparam name="TValue">The payload type returned on success.</typeparam>
 public sealed class OperationResult<TValue> : OperationResult
 {
     /// <summary>
     /// Initializes a new <see cref="OperationResult{TValue}"/>. Prefer the
-    /// static factories at call sites.
+    /// <see cref="OperationResult"/> factories at call sites.
     /// </summary>
     public OperationResult()
     {
@@ -39,58 +49,19 @@ public sealed class OperationResult<TValue> : OperationResult
     public static implicit operator OperationResult<TValue>(TValue value)
         => new() { Status = OperationStatus.Ok, Value = value };
 
-    /// <summary>Creates a successful result carrying <paramref name="value"/>.</summary>
-    public static OperationResult<TValue> Ok(TValue value, OperationStatus status = OperationStatus.Ok)
-        => new() { Status = status, Value = value };
-
-    /// <summary>Creates a successful <see cref="OperationStatus.Created"/> result carrying <paramref name="value"/>.</summary>
-    public static OperationResult<TValue> Created(TValue value)
-        => new() { Status = OperationStatus.Created, Value = value };
-
-    /// <summary>Creates a typed <see cref="OperationStatus.NotFound"/> failure.</summary>
-    public static new OperationResult<TValue> NotFound(string? detail = null)
-        => Failure(OperationStatus.NotFound, "not_found", "Not Found", detail);
-
-    /// <summary>Creates a typed <see cref="OperationStatus.Conflict"/> failure.</summary>
-    public static new OperationResult<TValue> Conflict(string? detail = null)
-        => Failure(OperationStatus.Conflict, "conflict", "Conflict", detail);
-
-    /// <summary>Creates a typed <see cref="OperationStatus.BadRequest"/> failure.</summary>
-    public static new OperationResult<TValue> BadRequest(string? detail = null)
-        => Failure(OperationStatus.BadRequest, "bad_request", "Bad Request", detail);
-
-    /// <summary>Creates a typed <see cref="OperationStatus.Unauthorized"/> failure.</summary>
-    public static new OperationResult<TValue> Unauthorized(string? detail = null)
-        => Failure(OperationStatus.Unauthorized, "unauthorized", "Unauthorized", detail);
-
-    /// <summary>Creates a typed <see cref="OperationStatus.Forbidden"/> failure.</summary>
-    public static new OperationResult<TValue> Forbidden(string? detail = null)
-        => Failure(OperationStatus.Forbidden, "forbidden", "Forbidden", detail);
-
-    /// <summary>Creates a typed failure result from an <see cref="System.Exception"/>.</summary>
-    public static new OperationResult<TValue> Failed(Exception exception, OperationStatus status = OperationStatus.InternalServerError)
-        => new()
+    /// <summary>
+    /// Lifts a known-failure <see cref="OperationFailure"/> into a typed
+    /// result so failure factories can be returned without repeating
+    /// <typeparamref name="TValue"/>.
+    /// </summary>
+    public static implicit operator OperationResult<TValue>(OperationFailure failure)
+    {
+        ArgumentNullException.ThrowIfNull(failure);
+        return new OperationResult<TValue>
         {
-            Status = status,
-            Exception = exception,
-            Problem = new OperationProblem
-            {
-                Type = "internal_error",
-                Title = StatusTitle(status),
-                Detail = exception?.Message,
-            },
+            Status = failure.Status,
+            Problem = failure.Problem,
+            Exception = failure.Exception,
         };
-
-    /// <summary>Creates a typed failure result with the supplied status, type, title, and detail.</summary>
-    public static new OperationResult<TValue> Failure(OperationStatus status, string type, string title, string? detail = null)
-        => new()
-        {
-            Status = status,
-            Problem = new OperationProblem
-            {
-                Type = type,
-                Title = title,
-                Detail = detail,
-            },
-        };
+    }
 }
