@@ -14,6 +14,14 @@ namespace ArchPillar.Extensions.Commands.Validation;
 /// </summary>
 public static class ValidationExtensions
 {
+    /// <summary>
+    /// Default timeout applied to <see cref="Matches"/> when the caller
+    /// doesn't supply one. One second matches the
+    /// <c>System.Text.RegularExpressions</c> guidance for caps that prevent
+    /// pathological pattern × input combinations from stalling a request.
+    /// </summary>
+    public static readonly TimeSpan DefaultMatchTimeout = TimeSpan.FromSeconds(1);
+
     private const string Required = "required";
     private const string Blank = "blank";
     private const string OutOfRange = "out_of_range";
@@ -182,20 +190,33 @@ public static class ValidationExtensions
         return context;
     }
 
-    /// <summary>Adds an <c>invalid_format</c> error if <paramref name="value"/> does not match <paramref name="pattern"/>.</summary>
+    /// <summary>
+    /// Adds an <c>invalid_format</c> error if <paramref name="value"/> does
+    /// not match <paramref name="pattern"/>.
+    /// </summary>
+    /// <param name="context">The validation context.</param>
+    /// <param name="value">The value to match.</param>
+    /// <param name="pattern">The regular-expression pattern.</param>
+    /// <param name="timeout">
+    /// Per-call timeout for the regex match, capping catastrophic-backtracking
+    /// ReDoS exposure when <paramref name="value"/> comes from user input.
+    /// Defaults to <see cref="DefaultMatchTimeout"/> (1&#160;second) — pass an
+    /// explicit value when a known-slow pattern needs more headroom.
+    /// </param>
+    /// <param name="detail">Optional human-readable detail. Defaults to a generic message.</param>
+    /// <param name="field">Auto-captured field name from the caller's argument expression.</param>
     public static IValidationContext Matches(
         this IValidationContext context,
         string? value,
         string pattern,
+        TimeSpan? timeout = null,
         string? detail = null,
         [CallerArgumentExpression(nameof(value))] string? field = null)
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(pattern);
 
-        // 1s timeout caps catastrophic-backtracking ReDoS — the pattern is
-        // developer-supplied but `value` typically comes from user input.
-        if (value is not null && !Regex.IsMatch(value, pattern, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))
+        if (value is not null && !Regex.IsMatch(value, pattern, RegexOptions.CultureInvariant, timeout ?? DefaultMatchTimeout))
         {
             context.AddError(field, new OperationError(
                 InvalidFormat,
