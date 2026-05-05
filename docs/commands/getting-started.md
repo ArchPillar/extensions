@@ -19,7 +19,7 @@ public sealed record CreateOrder(string Customer, int Quantity) : ICommand<Guid>
 public sealed record CancelOrder(Guid OrderId)                  : ICommand;
 ```
 
-`ICommand` for fire-and-go (status only); `ICommand<TResult>` for commands that return a payload.
+`ICommand` when there's no payload to return (status only); `ICommand<TResult>` for commands that return one.
 
 ## 3. Write handlers
 
