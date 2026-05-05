@@ -25,7 +25,7 @@ public sealed class OperationException : Exception
     /// and wraps it.
     /// </summary>
     public OperationException(OperationStatus status, string detail)
-        : this(OperationResult.Failure(status, status.ToString().ToLowerInvariant(), OperationResult.StatusTitle(status), detail))
+        : this(OperationResult.Failure(status, status.Type(), status.Title(), detail))
     {
     }
 

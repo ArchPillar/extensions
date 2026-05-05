@@ -148,7 +148,7 @@ public class OperationResult
         IReadOnlyDictionary<string, IReadOnlyList<OperationError>>? errors = null,
         IReadOnlyDictionary<string, object?>? extensions = null,
         string? instance = null)
-        => Build(OperationStatus.BadRequest, type ?? "bad_request", detail, errors, extensions, instance);
+        => Build(OperationStatus.BadRequest, type, detail, errors, extensions, instance);
 
     /// <summary>Creates an <see cref="OperationStatus.Unauthorized"/> failure.</summary>
     public static OperationFailure Unauthorized(
@@ -156,7 +156,7 @@ public class OperationResult
         string? type = null,
         IReadOnlyDictionary<string, object?>? extensions = null,
         string? instance = null)
-        => Build(OperationStatus.Unauthorized, type ?? "unauthorized", detail, errors: null, extensions, instance);
+        => Build(OperationStatus.Unauthorized, type, detail, errors: null, extensions, instance);
 
     /// <summary>Creates a <see cref="OperationStatus.Forbidden"/> failure.</summary>
     public static OperationFailure Forbidden(
@@ -164,7 +164,7 @@ public class OperationResult
         string? type = null,
         IReadOnlyDictionary<string, object?>? extensions = null,
         string? instance = null)
-        => Build(OperationStatus.Forbidden, type ?? "forbidden", detail, errors: null, extensions, instance);
+        => Build(OperationStatus.Forbidden, type, detail, errors: null, extensions, instance);
 
     /// <summary>Creates a <see cref="OperationStatus.NotFound"/> failure.</summary>
     public static OperationFailure NotFound(
@@ -172,7 +172,7 @@ public class OperationResult
         string? type = null,
         IReadOnlyDictionary<string, object?>? extensions = null,
         string? instance = null)
-        => Build(OperationStatus.NotFound, type ?? "not_found", detail, errors: null, extensions, instance);
+        => Build(OperationStatus.NotFound, type, detail, errors: null, extensions, instance);
 
     /// <summary>Creates a <see cref="OperationStatus.Conflict"/> failure.</summary>
     public static OperationFailure Conflict(
@@ -181,7 +181,7 @@ public class OperationResult
         IReadOnlyDictionary<string, IReadOnlyList<OperationError>>? errors = null,
         IReadOnlyDictionary<string, object?>? extensions = null,
         string? instance = null)
-        => Build(OperationStatus.Conflict, type ?? "conflict", detail, errors, extensions, instance);
+        => Build(OperationStatus.Conflict, type, detail, errors, extensions, instance);
 
     /// <summary>Creates a failure result from an <see cref="System.Exception"/>.</summary>
     public static OperationFailure Failed(
@@ -195,8 +195,8 @@ public class OperationResult
             Exception = exception,
             Problem = new OperationProblem
             {
-                Type = "internal_error",
-                Title = StatusTitle(status),
+                Type = status.Type(),
+                Title = status.Title(),
                 Detail = exception.Message,
             },
         };
@@ -236,7 +236,7 @@ public class OperationResult
 
     private static OperationFailure Build(
         OperationStatus status,
-        string type,
+        string? type,
         string detail,
         IReadOnlyDictionary<string, IReadOnlyList<OperationError>>? errors,
         IReadOnlyDictionary<string, object?>? extensions,
@@ -248,8 +248,8 @@ public class OperationResult
             Status = status,
             Problem = new OperationProblem
             {
-                Type = type,
-                Title = StatusTitle(status),
+                Type = type ?? status.Type(),
+                Title = status.Title(),
                 Detail = detail,
                 Errors = errors,
                 Extensions = extensions,
@@ -257,22 +257,4 @@ public class OperationResult
             },
         };
     }
-
-    internal static string StatusTitle(OperationStatus status)
-        => status switch
-        {
-            OperationStatus.BadRequest => "Bad Request",
-            OperationStatus.Unauthorized => "Unauthorized",
-            OperationStatus.Forbidden => "Forbidden",
-            OperationStatus.NotFound => "Not Found",
-            OperationStatus.Conflict => "Conflict",
-            OperationStatus.Gone => "Gone",
-            OperationStatus.PreconditionFailed => "Precondition Failed",
-            OperationStatus.UnprocessableEntity => "Unprocessable Entity",
-            OperationStatus.TooManyRequests => "Too Many Requests",
-            OperationStatus.InternalServerError => "Internal Server Error",
-            OperationStatus.NotImplemented => "Not Implemented",
-            OperationStatus.ServiceUnavailable => "Service Unavailable",
-            _ => status.ToString(),
-        };
 }

@@ -82,8 +82,8 @@ public static class ValidationContextExtensions
         var problem = new OperationProblem
         {
             Type = topLevelDriver?.Error.Type
-                ?? (errorsDict is null ? StatusType(status) : "validation"),
-            Title = OperationResult.StatusTitle(status),
+                ?? (errorsDict is null ? status.Type() : "validation"),
+            Title = status.Title(),
             Detail = topLevelDriver?.Error.Detail
                 ?? (errorsDict is null ? null : "One or more validation errors occurred."),
             Errors = errorsDict,
@@ -104,18 +104,5 @@ public static class ValidationContextExtensions
             OperationStatus.BadRequest => 2,
             OperationStatus.UnprocessableEntity => 1,
             _ => 0,
-        };
-
-    private static string StatusType(OperationStatus status)
-        => status switch
-        {
-            OperationStatus.BadRequest => "bad_request",
-            OperationStatus.Unauthorized => "unauthorized",
-            OperationStatus.Forbidden => "forbidden",
-            OperationStatus.NotFound => "not_found",
-            OperationStatus.Conflict => "conflict",
-            OperationStatus.PreconditionFailed => "precondition_failed",
-            OperationStatus.UnprocessableEntity => "unprocessable_entity",
-            _ => "error",
         };
 }
