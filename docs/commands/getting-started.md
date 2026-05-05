@@ -181,13 +181,12 @@ Every dispatch becomes an `Activity` named `Commands.<CommandTypeName>` with a `
 
 ## 9. Validate handlers at startup (optional)
 
-Off by default to keep startup fast. Turn it on when you want missing-handler errors to surface up front:
+Off by default to keep startup fast. Turn it on when you want missing-handler errors to surface up front rather than at first dispatch:
 
 ```csharp
-services.AddCommands(o => o.ValidateHandlersAtStartup = true);
-
-// after building the host:
-host.Services.ValidateCommandRegistrations();
+using var host = builder.Build();
+host.Services.ValidateCommandRegistrations();   // throws on the first handler that can't resolve
+await host.RunAsync();
 ```
 
-The `ValidateCommandRegistrations()` extension forces the lazy registry to materialize every descriptor.
+The extension creates a scope and resolves every registered handler from DI, throwing `InvalidOperationException` with the offending command type's full name on the first failure. If every handler resolves cleanly, the call returns and the host continues to start.
