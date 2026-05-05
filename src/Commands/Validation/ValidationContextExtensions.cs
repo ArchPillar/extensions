@@ -9,7 +9,7 @@ namespace ArchPillar.Extensions.Commands.Validation;
 public static class ValidationContextExtensions
 {
     /// <summary>
-    /// Folds the accumulated entries into an <see cref="OperationResult"/>:
+    /// Folds the accumulated entries into an <see cref="OperationFailure"/>:
     /// field-bearing errors are grouped into <see cref="OperationProblem.Errors"/>,
     /// the result <see cref="OperationResult.Status"/> follows the precedence
     /// <c>401 &gt; 403 &gt; 404 &gt; 409 &gt; 412 &gt; 400 &gt; 422</c>, and the
@@ -20,10 +20,12 @@ public static class ValidationContextExtensions
     /// </summary>
     /// <param name="context">The validation context with accumulated entries.</param>
     /// <returns>
-    /// An <see cref="OperationResult"/> describing the failure, or <c>null</c>
-    /// when the context has no errors.
+    /// An <see cref="OperationFailure"/> describing the failure (the
+    /// concrete failure type, so callers can rely on the implicit conversion
+    /// onto <see cref="OperationResult{TValue}"/>), or <c>null</c> when the
+    /// context has no errors.
     /// </returns>
-    public static OperationResult? ToFailureResult(this IValidationContext context)
+    public static OperationFailure? ToFailureResult(this IValidationContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
 
@@ -90,7 +92,7 @@ public static class ValidationContextExtensions
             Extensions = topLevelDriver?.Error.Extensions,
         };
 
-        return new OperationResult { Status = status, Problem = problem };
+        return new OperationFailure { Status = status, Problem = problem };
     }
 
     private static int PrecedenceRank(OperationStatus status)

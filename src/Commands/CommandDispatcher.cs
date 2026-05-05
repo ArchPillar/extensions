@@ -47,10 +47,13 @@ internal sealed class CommandDispatcher : ICommandDispatcher
         var context = new CommandContext(command);
         await _pipeline.ExecuteAsync(context, cancellationToken).ConfigureAwait(false);
 
+        // Failure paths (validation, exception middleware) all produce
+        // OperationFailure, which implicitly converts to OperationResult<TResult>.
+        // Success path is OperationResult<TResult> straight from the handler.
         return context.Result switch
         {
             OperationResult<TResult> typed => typed,
-            OperationResult untyped => Coerce<TResult>(untyped),
+            OperationFailure failure => failure,
             _ => OperationResult.Failure(
                 OperationStatus.InternalServerError,
                 "internal_error",
@@ -107,7 +110,18 @@ internal sealed class CommandDispatcher : ICommandDispatcher
             var typed = new OperationResult<TResult>[raw.Count];
             for (var i = 0; i < raw.Count; i++)
             {
-                typed[i] = raw[i] is OperationResult<TResult> t ? t : Coerce<TResult>(raw[i]);
+                // RunBatchAsync only writes OperationResult<TResult> (handler success)
+                // or OperationFailure (validation failure / fallback) into each slot.
+                typed[i] = raw[i] switch
+                {
+                    OperationResult<TResult> t => t,
+                    OperationFailure f => f,
+                    _ => OperationResult.Failure(
+                        OperationStatus.InternalServerError,
+                        "internal_error",
+                        "Internal Server Error",
+                        "Batch produced an unexpected non-typed, non-failure result."),
+                };
             }
 
             return typed;
@@ -141,7 +155,7 @@ internal sealed class CommandDispatcher : ICommandDispatcher
             var validation = new Validation.ValidationContext();
             await descriptor.ValidateAsync(_services, command, validation, cancellationToken).ConfigureAwait(false);
 
-            OperationResult? failure = Validation.ValidationContextExtensions.ToFailureResult(validation);
+            OperationFailure? failure = Validation.ValidationContextExtensions.ToFailureResult(validation);
             if (failure is not null)
             {
                 preliminary[i] = failure;
@@ -183,12 +197,4 @@ internal sealed class CommandDispatcher : ICommandDispatcher
 
         return final;
     }
-
-    private static OperationResult<TResult> Coerce<TResult>(OperationResult source)
-        => new()
-        {
-            Status = source.Status,
-            Problem = source.Problem,
-            Exception = source.Exception,
-        };
 }

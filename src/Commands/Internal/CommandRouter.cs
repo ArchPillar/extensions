@@ -37,7 +37,7 @@ internal sealed class CommandRouter : IPipelineHandler<CommandContext>
         // writes against — no TOCTOU between validation read and handler
         // write.
         await descriptor.ValidateAsync(_services, context.Command, context.Validation, cancellationToken).ConfigureAwait(false);
-        OperationResult? failure = context.Validation.ToFailureResult();
+        OperationFailure? failure = context.Validation.ToFailureResult();
         if (failure is not null)
         {
             context.Result = failure;
