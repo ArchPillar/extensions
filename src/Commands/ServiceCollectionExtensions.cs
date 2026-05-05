@@ -1,8 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
 using ArchPillar.Extensions.Commands.Internal;
 using ArchPillar.Extensions.Commands.Middlewares;
-using ArchPillar.Extensions.Pipelines;
 using ArchPillar.Extensions.Operations;
+using ArchPillar.Extensions.Pipelines;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -20,17 +20,10 @@ public static class ServiceCollectionExtensions
     /// dispatcher expects.
     /// </summary>
     /// <param name="services">The service collection.</param>
-    /// <param name="configure">Optional configuration callback.</param>
     /// <returns>The service collection, for chaining.</returns>
-    public static IServiceCollection AddCommands(
-        this IServiceCollection services,
-        Action<CommandsOptions>? configure = null)
+    public static IServiceCollection AddCommands(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
-
-        var options = new CommandsOptions();
-        configure?.Invoke(options);
-        services.TryAddSingleton(options);
 
         services.TryAddSingleton<CommandInvokerRegistry>();
         services.TryAddScoped<ICommandDispatcher, CommandDispatcher>();
@@ -74,7 +67,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(new CommandInvokerDescriptor(
             typeof(TCommand),
             ValidateAsync,
-            InvokeAsync));
+            InvokeAsync,
+            ResolveHandler));
 
         return services;
 
@@ -88,6 +82,11 @@ public static class ServiceCollectionExtensions
         {
             ICommandHandler<TCommand> handler = sp.GetRequiredService<ICommandHandler<TCommand>>();
             return await handler.HandleAsync((TCommand)command, ct).ConfigureAwait(false);
+        }
+
+        static void ResolveHandler(IServiceProvider sp)
+        {
+            sp.GetRequiredService<ICommandHandler<TCommand>>();
         }
     }
 
@@ -119,7 +118,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(new CommandInvokerDescriptor(
             typeof(TCommand),
             ValidateAsync,
-            InvokeAsync));
+            InvokeAsync,
+            ResolveHandler));
 
         return services;
 
@@ -133,6 +133,11 @@ public static class ServiceCollectionExtensions
         {
             ICommandHandler<TCommand, TResult> handler = sp.GetRequiredService<ICommandHandler<TCommand, TResult>>();
             return await handler.HandleAsync((TCommand)command, ct).ConfigureAwait(false);
+        }
+
+        static void ResolveHandler(IServiceProvider sp)
+        {
+            sp.GetRequiredService<ICommandHandler<TCommand, TResult>>();
         }
     }
 
@@ -235,17 +240,42 @@ public static class ServiceCollectionExtensions
     }
 
     /// <summary>
-    /// Forces eager resolution of every registered command descriptor. Call
-    /// this once after building the service provider when
-    /// <see cref="CommandsOptions.ValidateHandlersAtStartup"/> is enabled (or
-    /// any time you want missing-handler errors to surface up front).
+    /// Resolves every registered command handler from a freshly-created scope
+    /// to verify constructor dependencies are satisfied. Throws on the first
+    /// handler that fails to resolve, with the offending command type in the
+    /// message.
     /// </summary>
+    /// <remarks>
+    /// Call this once after building the service provider when you want
+    /// missing-handler errors to surface up front rather than at first
+    /// dispatch. Off by default — host startup stays proportional to commands
+    /// actually invoked.
+    /// </remarks>
     /// <param name="services">A service provider built from the configured collection.</param>
     /// <returns>The service provider, for chaining.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when any handler fails to resolve.</exception>
     public static IServiceProvider ValidateCommandRegistrations(this IServiceProvider services)
     {
         ArgumentNullException.ThrowIfNull(services);
-        services.GetRequiredService<CommandInvokerRegistry>().ValidateAll();
+
+        CommandInvokerRegistry registry = services.GetRequiredService<CommandInvokerRegistry>();
+        using IServiceScope scope = services.CreateScope();
+
+        foreach (CommandInvokerDescriptor descriptor in registry.Descriptors)
+        {
+            try
+            {
+                descriptor.ResolveHandler(scope.ServiceProvider);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    $"Cannot resolve handler for command '{descriptor.CommandType.FullName}'. "
+                    + $"See inner exception for the missing dependency.",
+                    ex);
+            }
+        }
+
         return services;
     }
 }

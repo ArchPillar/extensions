@@ -21,8 +21,11 @@ public interface ICommandHandler<in TCommand> : IRequestHandler
 {
     /// <summary>
     /// Validates the command before <see cref="HandleAsync"/> runs. Errors
-    /// accumulated on <paramref name="context"/> short-circuit the pipeline
-    /// with <see cref="OperationStatus.UnprocessableEntity"/>.
+    /// accumulated on <paramref name="context"/> short-circuit the pipeline;
+    /// the resulting <see cref="OperationResult.Status"/> is the
+    /// highest-precedence status across the accumulated entries (auth-class
+    /// failures win over shape failures), defaulting to
+    /// <see cref="OperationStatus.BadRequest"/> for shape errors.
     /// </summary>
     /// <param name="command">The command to validate.</param>
     /// <param name="context">A context for accumulating validation errors.</param>

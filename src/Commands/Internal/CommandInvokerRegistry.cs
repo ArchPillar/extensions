@@ -11,7 +11,6 @@ namespace ArchPillar.Extensions.Commands.Internal;
 /// </summary>
 internal sealed class CommandInvokerRegistry
 {
-    private readonly IEnumerable<CommandInvokerDescriptor> _descriptors;
     private readonly IEnumerable<BatchInvokerEntry> _batches;
     private readonly ConcurrentDictionary<Type, CommandInvokerDescriptor?> _cache = new();
 
@@ -21,9 +20,11 @@ internal sealed class CommandInvokerRegistry
     {
         ArgumentNullException.ThrowIfNull(descriptors);
         ArgumentNullException.ThrowIfNull(batches);
-        _descriptors = descriptors;
+        Descriptors = descriptors;
         _batches = batches;
     }
+
+    public IEnumerable<CommandInvokerDescriptor> Descriptors { get; }
 
     public bool TryGet(Type commandType, out CommandInvokerDescriptor descriptor)
     {
@@ -51,18 +52,6 @@ internal sealed class CommandInvokerRegistry
         return descriptor;
     }
 
-    /// <summary>
-    /// Forces materialization of every registered descriptor. Used by the
-    /// opt-in startup validation extension.
-    /// </summary>
-    public void ValidateAll()
-    {
-        foreach (CommandInvokerDescriptor descriptor in _descriptors)
-        {
-            _cache.GetOrAdd(descriptor.CommandType, ResolveDescriptor);
-        }
-    }
-
     private CommandInvokerDescriptor? ResolveDescriptor(Type commandType)
     {
         CommandInvokerDescriptor? lastMatch = null;
@@ -71,7 +60,7 @@ internal sealed class CommandInvokerRegistry
         // Multiple registrations for the same type collapse to the most
         // recently registered descriptor (matches IServiceCollection semantics
         // where the latest registration wins for resolved-by-type lookups).
-        foreach (CommandInvokerDescriptor descriptor in _descriptors)
+        foreach (CommandInvokerDescriptor descriptor in Descriptors)
         {
             if (descriptor.CommandType == commandType)
             {
@@ -100,6 +89,7 @@ internal sealed class CommandInvokerRegistry
                 lastMatch.CommandType,
                 lastMatch.ValidateAsync,
                 lastMatch.InvokeAsync,
+                lastMatch.ResolveHandler,
                 batch.InvokeBatchAsync);
         }
 

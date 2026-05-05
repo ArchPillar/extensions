@@ -43,7 +43,7 @@ public class CommandDispatcherTests
     }
 
     [Fact]
-    public async Task SendAsync_ValidationFails_ReturnsUnprocessableEntityAsync()
+    public async Task SendAsync_ValidationFails_ReturnsBadRequestAsync()
     {
         ServiceProvider provider = BuildProvider(s =>
         {

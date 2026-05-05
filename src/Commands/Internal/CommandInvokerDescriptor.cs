@@ -15,11 +15,13 @@ internal sealed class CommandInvokerDescriptor
         Type commandType,
         Func<IServiceProvider, IRequest, IValidationContext, CancellationToken, Task> validateAsync,
         Func<IServiceProvider, IRequest, CancellationToken, Task<OperationResult>> invokeAsync,
+        Action<IServiceProvider> resolveHandler,
         Func<IServiceProvider, IReadOnlyList<IRequest>, CancellationToken, Task<IReadOnlyList<OperationResult>>>? invokeBatchAsync = null)
     {
         CommandType = commandType;
         ValidateAsync = validateAsync;
         InvokeAsync = invokeAsync;
+        ResolveHandler = resolveHandler;
         InvokeBatchAsync = invokeBatchAsync;
     }
 
@@ -28,6 +30,13 @@ internal sealed class CommandInvokerDescriptor
     public Func<IServiceProvider, IRequest, IValidationContext, CancellationToken, Task> ValidateAsync { get; }
 
     public Func<IServiceProvider, IRequest, CancellationToken, Task<OperationResult>> InvokeAsync { get; }
+
+    /// <summary>
+    /// Resolves the registered handler instance from the supplied service
+    /// provider so callers can verify constructor dependencies are satisfied.
+    /// Used by <c>ValidateCommandRegistrations()</c>.
+    /// </summary>
+    public Action<IServiceProvider> ResolveHandler { get; }
 
     public Func<IServiceProvider, IReadOnlyList<IRequest>, CancellationToken, Task<IReadOnlyList<OperationResult>>>? InvokeBatchAsync { get; }
 }

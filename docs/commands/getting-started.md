@@ -118,7 +118,7 @@ public sealed class OrdersEndpoints(ICommandDispatcher dispatcher)
         OperationResult<Guid> result = await dispatcher.SendAsync(cmd);
         return result.IsSuccess
             ? Results.Created($"/orders/{result.Value}", null)
-            : Results.Json(new { result.Status, result.Errors }, statusCode: (int)result.Status);
+            : Results.Json(result.Problem, statusCode: (int)result.Status);
     }
 
     public async Task<IResult> Cancel(Guid id)
@@ -126,7 +126,7 @@ public sealed class OrdersEndpoints(ICommandDispatcher dispatcher)
         OperationResult result = await dispatcher.SendAsync(new CancelOrder(id));
         return result.IsSuccess
             ? Results.NoContent()
-            : Results.Json(new { result.Status, result.Errors }, statusCode: (int)result.Status);
+            : Results.Json(result.Problem, statusCode: (int)result.Status);
     }
 }
 ```

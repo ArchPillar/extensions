@@ -37,8 +37,8 @@ public sealed class CreateOrderHandler(IOrderRepository repository)
 {
     public override Task ValidateAsync(CreateOrder cmd, IValidationContext ctx, CancellationToken ct)
     {
-        ctx.NotEmpty(cmd.CustomerId, nameof(cmd.CustomerId))
-           .Range(cmd.Quantity, 1, 100, nameof(cmd.Quantity));
+        ctx.NotEmpty(cmd.CustomerId)
+           .Range(cmd.Quantity, 1, 100);
         return Task.CompletedTask;
     }
 

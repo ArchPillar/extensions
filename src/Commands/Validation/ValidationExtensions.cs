@@ -193,7 +193,9 @@ public static class ValidationExtensions
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(pattern);
 
-        if (value is not null && !Regex.IsMatch(value, pattern, RegexOptions.CultureInvariant))
+        // 1s timeout caps catastrophic-backtracking ReDoS — the pattern is
+        // developer-supplied but `value` typically comes from user input.
+        if (value is not null && !Regex.IsMatch(value, pattern, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)))
         {
             context.AddError(field, new OperationError(
                 InvalidFormat,

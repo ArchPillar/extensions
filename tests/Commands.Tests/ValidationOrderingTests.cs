@@ -21,7 +21,7 @@ public class ValidationOrderingTests
         public override Task ValidateAsync(DoThing command, IValidationContext context, CancellationToken cancellationToken)
         {
             _log.Events.Add("validate");
-            context.NotEmpty(command.Value, nameof(command.Value));
+            context.NotEmpty(command.Value);
             return Task.CompletedTask;
         }
 
