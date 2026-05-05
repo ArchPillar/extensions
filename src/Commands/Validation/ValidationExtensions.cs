@@ -283,7 +283,7 @@ public static class ValidationExtensions
         {
             context.AddError(null, new OperationError(
                 "forbidden",
-                detail ?? $"Not authorized: {rule}.",
+                detail ?? (rule is null ? "Not authorized." : $"Not authorized: {rule}."),
                 OperationStatus.Forbidden,
                 rule is null ? null : new Dictionary<string, object?> { ["rule"] = rule }));
         }
