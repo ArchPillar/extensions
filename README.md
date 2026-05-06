@@ -47,7 +47,8 @@ A small, in-process command dispatcher built on Pipelines and Primitives. `IComm
 │   │   ├── Pipeline.BuilderSample/        # Direct (no-DI) Pipeline<T> sample
 │   │   └── Pipeline.HostSample/           # Host-builder + AddPipeline<T>() sample
 │   └── Commands/
-│       └── Command.HostSample/            # Host-builder dispatcher sample
+│       ├── Command.HostSample/            # Host-builder dispatcher sample
+│       └── Command.WebApiSample/          # ASP.NET Core Minimal-API sample
 ├── docs/
 │   ├── mapper/                            # Mapper documentation and spec
 │   ├── pipelines/                         # Pipelines documentation and spec

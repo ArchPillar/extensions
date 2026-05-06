@@ -10,7 +10,7 @@ A small, in-process command dispatcher built on `ArchPillar.Extensions.Pipelines
 - **Lazy router.** Handler descriptors are resolved on first dispatch of a given command type, then cached. Startup cost is proportional to commands actually used.
 - **Result-first.** Every dispatch returns an `OperationResult` / `OperationResult<TResult>`. Exceptions can be raised via the implicit `throw OperationResult.NotFound(...)` form and are unwrapped by the built-in exception middleware.
 
-See [`SPEC.md`](./SPEC.md) for the design contract and [`getting-started.md`](./getting-started.md) for a walkthrough.
+See [`SPEC.md`](./SPEC.md) for the design contract, [`getting-started.md`](./getting-started.md) for a walkthrough, and [`recommendations.md`](./recommendations.md) for production patterns (Minimal-API wiring, transaction middleware, error projection, batching). A runnable Minimal-API service lives in [`samples/Commands/Command.WebApiSample/`](../../samples/Commands/Command.WebApiSample/).
 
 ## TL;DR
 

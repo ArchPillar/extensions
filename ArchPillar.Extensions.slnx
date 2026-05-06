@@ -18,6 +18,9 @@
   <Folder Name="/samples/Commands/Command.HostSample/">
     <Project Path="samples/Commands/Command.HostSample/Command.HostSample.csproj" />
   </Folder>
+  <Folder Name="/samples/Commands/Command.WebApiSample/">
+    <Project Path="samples/Commands/Command.WebApiSample/Command.WebApiSample.csproj" />
+  </Folder>
   <Folder Name="/benchmarks/" />
   <Folder Name="/benchmarks/Mapper.Benchmarks/">
     <Project Path="benchmarks/Mapper.Benchmarks/ArchPillar.Extensions.Mapper.Benchmarks.csproj" />
