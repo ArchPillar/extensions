@@ -30,7 +30,7 @@ using ArchPillar.Extensions.Commands;
 using ArchPillar.Extensions.Commands.Validation;
 using ArchPillar.Extensions.Operations;
 
-public sealed class CreateOrderHandler(IOrderRepository repo)
+public sealed class CreateOrderHandler(OrderContext context)
     : CommandHandlerBase<CreateOrder, Guid>
 {
     public override Task ValidateAsync(CreateOrder cmd, IValidationContext ctx, CancellationToken ct)
@@ -44,11 +44,13 @@ public sealed class CreateOrderHandler(IOrderRepository repo)
 
     public override async Task<OperationResult<Guid>> HandleAsync(CreateOrder cmd, CancellationToken ct)
     {
-        var customer = await repo.FindAsync(cmd.Customer, ct);
+        var customer = await context.Customers.FindAsync([cmd.Customer], ct);
         EnsureFound(customer, "Customer not found.");
 
-        var id = await repo.CreateAsync(customer, cmd.Quantity, ct);
-        return Created(id);             // helper returns OperationResult<Guid>
+        var order = new Order(customer, cmd.Quantity);
+        context.Orders.Add(order);
+        await context.SaveChangesAsync(ct);
+        return Created(order.Id);       // helper returns OperationResult<Guid>
     }
 }
 
@@ -56,13 +58,16 @@ public sealed class CreateOrderHandler(IOrderRepository repo)
 // (the implicit conversion lifts to the typed result) or throw them:
 public override async Task<OperationResult<Guid>> HandleAsync(CreateOrder cmd, CancellationToken ct)
 {
-    if (await repo.ExistsAsync(cmd, ct))
+    if (await context.Orders.AnyAsync(o => o.Customer == cmd.Customer, ct))
         return Conflict("Order already exists.");                    // OperationFailure → OperationResult<Guid>
 
-    return Created(await repo.CreateAsync(cmd, ct));
+    var order = new Order(cmd.Customer, cmd.Quantity);
+    context.Orders.Add(order);
+    await context.SaveChangesAsync(ct);
+    return Created(order.Id);
 }
 
-public sealed class CancelOrderHandler(IOrderRepository repo) : CommandHandlerBase<CancelOrder>
+public sealed class CancelOrderHandler(OrderContext context) : CommandHandlerBase<CancelOrder>
 {
     public override Task ValidateAsync(CancelOrder cmd, IValidationContext ctx, CancellationToken ct)
     {
@@ -74,10 +79,11 @@ public sealed class CancelOrderHandler(IOrderRepository repo) : CommandHandlerBa
 
     public override async Task<OperationResult> HandleAsync(CancelOrder cmd, CancellationToken ct)
     {
-        var order = await repo.FindOrderAsync(cmd.OrderId, ct);
+        var order = await context.Orders.FindAsync([cmd.OrderId], ct);
         EnsureFound(order, "Order missing.");
 
-        await repo.CancelAsync(order, ct);
+        order.Cancel();
+        await context.SaveChangesAsync(ct);
         return NoContent();
     }
 }
@@ -136,11 +142,11 @@ public sealed class OrdersEndpoints(ICommandDispatcher dispatcher)
 Cross-cutting concerns are middlewares on the shared `Pipeline<CommandContext>`. They're not "behaviors" — there's no second mechanism to learn:
 
 ```csharp
-public sealed class TransactionMiddleware(IDbContext db) : IPipelineMiddleware<CommandContext>
+public sealed class TransactionMiddleware(OrderContext context) : IPipelineMiddleware<CommandContext>
 {
     public async Task InvokeAsync(CommandContext ctx, PipelineDelegate<CommandContext> next, CancellationToken ct)
     {
-        await using var tx = await db.BeginTransactionAsync(ct);
+        await using var tx = await context.Database.BeginTransactionAsync(ct);
         await next(ctx, ct);
         if (ctx.Result is { IsSuccess: true })
             await tx.CommitAsync(ct);
@@ -157,11 +163,16 @@ services.AddPipelineMiddleware<CommandContext, TransactionMiddleware>();
 When you want bulk inserts to actually be one round-trip, opt into batching:
 
 ```csharp
-public sealed class CreateOrderBatchHandler(IOrderRepository repo) : IBatchCommandHandler<CreateOrder, Guid>
+public sealed class CreateOrderBatchHandler(OrderContext context) : IBatchCommandHandler<CreateOrder, Guid>
 {
-    public Task<IReadOnlyList<OperationResult<Guid>>> HandleBatchAsync(
+    public async Task<IReadOnlyList<OperationResult<Guid>>> HandleBatchAsync(
         IReadOnlyList<CreateOrder> commands, CancellationToken ct)
-        => repo.CreateManyAsync(commands, ct);
+    {
+        var orders = commands.Select(c => new Order(c.Customer, c.Quantity)).ToArray();
+        context.Orders.AddRange(orders);
+        await context.SaveChangesAsync(ct);
+        return orders.Select(o => OperationResult.Created(o.Id)).ToArray();
+    }
 }
 
 services.AddBatchCommandHandler<CreateOrder, Guid, CreateOrderBatchHandler>();

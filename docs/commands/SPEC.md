@@ -156,7 +156,6 @@ The `CommandInvokerRegistry` stores the `IEnumerable<CommandInvokerDescriptor>` 
 
 | Lifetime | Registration |
 | --- | --- |
-| Singleton | `CommandsOptions` |
 | Singleton | `CommandInvokerRegistry` |
 | Scoped    | `ICommandDispatcher` → `CommandDispatcher` |
 | Scoped    | `Pipeline<CommandContext>` (via `AddPipeline<...>()`) |

@@ -17,7 +17,7 @@ See [`SPEC.md`](./SPEC.md) for the design contract and [`getting-started.md`](./
 ```csharp
 public sealed record CreateOrder(string Customer, int Quantity) : ICommand<Guid>;
 
-public sealed class CreateOrderHandler(IOrderRepository repo) : CommandHandlerBase<CreateOrder, Guid>
+public sealed class CreateOrderHandler(OrderContext context) : CommandHandlerBase<CreateOrder, Guid>
 {
     public override Task ValidateAsync(CreateOrder cmd, IValidationContext ctx, CancellationToken ct)
     {
@@ -28,11 +28,13 @@ public sealed class CreateOrderHandler(IOrderRepository repo) : CommandHandlerBa
 
     public override async Task<OperationResult<Guid>> HandleAsync(CreateOrder cmd, CancellationToken ct)
     {
-        var customer = await repo.FindAsync(cmd.Customer, ct);
+        var customer = await context.Customers.FindAsync([cmd.Customer], ct);
         EnsureFound(customer, "Customer not found");
 
-        var id = await repo.CreateAsync(customer, cmd.Quantity, ct);
-        return Created(id);
+        var order = new Order(customer, cmd.Quantity);
+        context.Orders.Add(order);
+        await context.SaveChangesAsync(ct);
+        return Created(order.Id);
     }
 }
 ```
