@@ -185,7 +185,7 @@ For delegate-backed handlers, wrap the delegate with `PipelineHandler.FromDelega
 
 ```csharp
 services.AddPipeline<OrderContext>(
-    PipelineHandler.FromDelegate<OrderContext>((ctx, ct) => Task.CompletedTask));
+    PipelineHandler.FromDelegate<OrderContext>((context, cancellationToken) => Task.CompletedTask));
 ```
 
 ### `AddPipelineMiddleware<T, TMiddleware>`
@@ -400,7 +400,7 @@ These are the guarantees `Pipeline<T>` makes. Each is covered by a unit test.
 ### Cancellation
 
 - The `CancellationToken` passed to `ExecuteAsync` is delivered to every middleware and the handler.
-- Middlewares are expected to honour it and pass it forward when they call `next(ctx, ct)`.
+- Middlewares are expected to honour it and pass it forward when they call `next(context, cancellationToken)`.
 
 ### Reuse and concurrency
 

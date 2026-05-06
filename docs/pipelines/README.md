@@ -34,18 +34,18 @@ using ArchPillar.Extensions.Pipelines;
 
 var pipeline = Pipeline
     .For<OrderContext>()
-    .Use(async (ctx, next, ct) =>
+    .Use(async (context, next, cancellationToken) =>
     {
-        Console.WriteLine($"start {ctx.OrderId}");
-        await next(ctx, ct);
-        Console.WriteLine($"done  {ctx.OrderId}");
+        Console.WriteLine($"start {context.OrderId}");
+        await next(context, cancellationToken);
+        Console.WriteLine($"done  {context.OrderId}");
     })
-    .Use(async (ctx, next, ct) =>
+    .Use(async (context, next, cancellationToken) =>
     {
-        if (ctx.OrderId <= 0) return;   // short-circuit
-        await next(ctx, ct);
+        if (context.OrderId <= 0) return;   // short-circuit
+        await next(context, cancellationToken);
     })
-    .Handle(ctx => Console.WriteLine($"handler: {ctx.OrderId}"))
+    .Handle(context => Console.WriteLine($"handler: {context.OrderId}"))
     .Build();
 
 await pipeline.ExecuteAsync(new OrderContext { OrderId = 42 });
@@ -65,8 +65,8 @@ services.AddPipelineMiddleware<OrderContext, TransactionMiddleware>();
 // Inject Pipeline<OrderContext> anywhere:
 public sealed class OrderEndpoint(Pipeline<OrderContext> pipeline)
 {
-    public Task Handle(OrderContext ctx, CancellationToken ct)
-        => pipeline.ExecuteAsync(ctx, ct);
+    public Task Handle(OrderContext context, CancellationToken cancellationToken)
+        => pipeline.ExecuteAsync(context, cancellationToken);
 }
 ```
 
@@ -75,11 +75,11 @@ A class-based middleware looks exactly like the ASP.NET Core middleware you are 
 ```csharp
 public sealed class LoggingMiddleware(ILogger<LoggingMiddleware> logger) : IPipelineMiddleware<OrderContext>
 {
-    public async Task InvokeAsync(OrderContext ctx, PipelineDelegate<OrderContext> next, CancellationToken ct)
+    public async Task InvokeAsync(OrderContext context, PipelineDelegate<OrderContext> next, CancellationToken cancellationToken)
     {
-        logger.LogInformation("start {OrderId}", ctx.OrderId);
-        await next(ctx, ct);
-        logger.LogInformation("done  {OrderId}", ctx.OrderId);
+        logger.LogInformation("start {OrderId}", context.OrderId);
+        await next(context, cancellationToken);
+        logger.LogInformation("done  {OrderId}", context.OrderId);
     }
 }
 ```

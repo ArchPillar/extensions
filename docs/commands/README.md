@@ -19,21 +19,21 @@ public sealed record CreateOrder(string Customer, int Quantity) : ICommand<Guid>
 
 public sealed class CreateOrderHandler(OrderContext context) : CommandHandlerBase<CreateOrder, Guid>
 {
-    public override Task ValidateAsync(CreateOrder cmd, IValidationContext ctx, CancellationToken ct)
+    public override Task ValidateAsync(CreateOrder command, IValidationContext validation, CancellationToken cancellationToken)
     {
-        ctx.NotEmpty(cmd.Customer)
-           .Range(cmd.Quantity, 1, 100);
+        validation.NotEmpty(command.Customer)
+                  .Range(command.Quantity, 1, 100);
         return Task.CompletedTask;
     }
 
-    public override async Task<OperationResult<Guid>> HandleAsync(CreateOrder cmd, CancellationToken ct)
+    public override async Task<OperationResult<Guid>> HandleAsync(CreateOrder command, CancellationToken cancellationToken)
     {
-        var customer = await context.Customers.FindAsync([cmd.Customer], ct);
+        var customer = await context.Customers.FindAsync([command.Customer], cancellationToken);
         EnsureFound(customer, "Customer not found");
 
-        var order = new Order(customer, cmd.Quantity);
+        var order = new Order(customer, command.Quantity);
         context.Orders.Add(order);
-        await context.SaveChangesAsync(ct);
+        await context.SaveChangesAsync(cancellationToken);
         return Created(order.Id);
     }
 }

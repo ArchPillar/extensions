@@ -117,9 +117,9 @@ Then inject it wherever you need mapping:
 ```csharp
 public class OrderService(AppMappers mappers)
 {
-    public async Task<List<OrderDto>> GetOrdersAsync(AppDbContext db)
+    public async Task<List<OrderDto>> GetOrdersAsync(AppDbContext context)
     {
-        return await db.Orders
+        return await context.Orders
             .Project(mappers.Order)
             .ToListAsync();
     }

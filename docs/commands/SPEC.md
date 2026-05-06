@@ -39,7 +39,7 @@ Explicit non-goals:
                                   ICommandHandler<TCommand>[, TResult]
 ```
 
-A single shared pipeline means cross-cutting middlewares (transactions, logging, authorization) are written once and apply to every command. Per-command targeting, when needed, happens via `if (ctx.Command is CreateOrder)` checks inside the middleware.
+A single shared pipeline means cross-cutting middlewares (transactions, logging, authorization) are written once and apply to every command. Per-command targeting, when needed, happens via `if (context.Command is CreateOrder)` checks inside the middleware.
 
 **Validation runs inside the router**, not as a separate middleware. This is deliberate: validation that touches storage ("is this order still cancellable?") needs to read on the same transactional snapshot the handler will write against. By running validation as the first thing the terminal handler does, every user-added wrapping middleware (a transaction, a unit-of-work, a retry-with-backoff, a distributed lock) is in scope for both the validation read and the handler's write — no TOCTOU race between them.
 

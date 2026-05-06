@@ -33,57 +33,57 @@ using ArchPillar.Extensions.Operations;
 public sealed class CreateOrderHandler(OrderContext context)
     : CommandHandlerBase<CreateOrder, Guid>
 {
-    public override Task ValidateAsync(CreateOrder cmd, IValidationContext ctx, CancellationToken ct)
+    public override Task ValidateAsync(CreateOrder command, IValidationContext validation, CancellationToken cancellationToken)
     {
         // Field name is auto-captured from the argument expression — pass it
-        // explicitly only if you want a friendlier label than "cmd.Customer".
-        ctx.NotEmpty(cmd.Customer)
-           .Range(cmd.Quantity, 1, 100);
+        // explicitly only if you want a friendlier label than "command.Customer".
+        validation.NotEmpty(command.Customer)
+                  .Range(command.Quantity, 1, 100);
         return Task.CompletedTask;
     }
 
-    public override async Task<OperationResult<Guid>> HandleAsync(CreateOrder cmd, CancellationToken ct)
+    public override async Task<OperationResult<Guid>> HandleAsync(CreateOrder command, CancellationToken cancellationToken)
     {
-        var customer = await context.Customers.FindAsync([cmd.Customer], ct);
+        var customer = await context.Customers.FindAsync([command.Customer], cancellationToken);
         EnsureFound(customer, "Customer not found.");
 
-        var order = new Order(customer, cmd.Quantity);
+        var order = new Order(customer, command.Quantity);
         context.Orders.Add(order);
-        await context.SaveChangesAsync(ct);
+        await context.SaveChangesAsync(cancellationToken);
         return Created(order.Id);       // helper returns OperationResult<Guid>
     }
 }
 
 // Failure helpers return OperationFailure. Either return them directly
 // (the implicit conversion lifts to the typed result) or throw them:
-public override async Task<OperationResult<Guid>> HandleAsync(CreateOrder cmd, CancellationToken ct)
+public override async Task<OperationResult<Guid>> HandleAsync(CreateOrder command, CancellationToken cancellationToken)
 {
-    if (await context.Orders.AnyAsync(o => o.Customer == cmd.Customer, ct))
+    if (await context.Orders.AnyAsync(o => o.Customer == command.Customer, cancellationToken))
         return Conflict("Order already exists.");                    // OperationFailure → OperationResult<Guid>
 
-    var order = new Order(cmd.Customer, cmd.Quantity);
+    var order = new Order(command.Customer, command.Quantity);
     context.Orders.Add(order);
-    await context.SaveChangesAsync(ct);
+    await context.SaveChangesAsync(cancellationToken);
     return Created(order.Id);
 }
 
 public sealed class CancelOrderHandler(OrderContext context) : CommandHandlerBase<CancelOrder>
 {
-    public override Task ValidateAsync(CancelOrder cmd, IValidationContext ctx, CancellationToken ct)
+    public override Task ValidateAsync(CancelOrder command, IValidationContext validation, CancellationToken cancellationToken)
     {
-        ctx.Must(cmd.OrderId != Guid.Empty, "required", "OrderId is required.", nameof(cmd.OrderId));
+        validation.Must(command.OrderId != Guid.Empty, "required", "OrderId is required.", nameof(command.OrderId));
         // Validate persisted state alongside shape — runs in the same scope as
         // the handler's write, so any wrapping transaction is in effect.
         return Task.CompletedTask;
     }
 
-    public override async Task<OperationResult> HandleAsync(CancelOrder cmd, CancellationToken ct)
+    public override async Task<OperationResult> HandleAsync(CancelOrder command, CancellationToken cancellationToken)
     {
-        var order = await context.Orders.FindAsync([cmd.OrderId], ct);
+        var order = await context.Orders.FindAsync([command.OrderId], cancellationToken);
         EnsureFound(order, "Order missing.");
 
         order.Cancel();
-        await context.SaveChangesAsync(ct);
+        await context.SaveChangesAsync(cancellationToken);
         return NoContent();
     }
 }
@@ -99,7 +99,7 @@ A few patterns to notice:
 
 - `EnsureFound(...)` throws an `OperationException(OperationStatus.NotFound, ...)`. The built-in `ExceptionMiddleware` catches it and writes the carried result back into the dispatch outcome — no need to write the early-return path manually.
 
-- `ctx.NotEmpty(...).Range(...)` chains; every helper returns the context so multiple checks accumulate.
+- `validation.NotEmpty(...).Range(...)` chains; every helper returns the context so multiple checks accumulate.
 
 ## 4. Wire DI
 
@@ -119,9 +119,9 @@ services.AddCommandHandler<CancelOrder, CancelOrderHandler>();
 ```csharp
 public sealed class OrdersEndpoints(ICommandDispatcher dispatcher)
 {
-    public async Task<IResult> Create(CreateOrder cmd)
+    public async Task<IResult> Create(CreateOrder command)
     {
-        OperationResult<Guid> result = await dispatcher.SendAsync(cmd);
+        OperationResult<Guid> result = await dispatcher.SendAsync(command);
         return result.IsSuccess
             ? Results.Created($"/orders/{result.Value}", null)
             : Results.Json(result.Problem, statusCode: (int)result.Status);
@@ -142,16 +142,16 @@ public sealed class OrdersEndpoints(ICommandDispatcher dispatcher)
 Cross-cutting concerns are middlewares on the shared `Pipeline<CommandContext>` — there's no second mechanism to learn:
 
 ```csharp
-public sealed class TransactionMiddleware(OrderContext context) : IPipelineMiddleware<CommandContext>
+public sealed class TransactionMiddleware(OrderContext orderContext) : IPipelineMiddleware<CommandContext>
 {
-    public async Task InvokeAsync(CommandContext ctx, PipelineDelegate<CommandContext> next, CancellationToken ct)
+    public async Task InvokeAsync(CommandContext context, PipelineDelegate<CommandContext> next, CancellationToken cancellationToken)
     {
-        await using var tx = await context.Database.BeginTransactionAsync(ct);
-        await next(ctx, ct);
-        if (ctx.Result is { IsSuccess: true })
-            await tx.CommitAsync(ct);
+        await using var transaction = await orderContext.Database.BeginTransactionAsync(cancellationToken);
+        await next(context, cancellationToken);
+        if (context.Result is { IsSuccess: true })
+            await transaction.CommitAsync(cancellationToken);
         else
-            await tx.RollbackAsync(ct);
+            await transaction.RollbackAsync(cancellationToken);
     }
 }
 
@@ -166,11 +166,11 @@ When you want bulk inserts to actually be one round-trip, opt into batching:
 public sealed class CreateOrderBatchHandler(OrderContext context) : IBatchCommandHandler<CreateOrder, Guid>
 {
     public async Task<IReadOnlyList<OperationResult<Guid>>> HandleBatchAsync(
-        IReadOnlyList<CreateOrder> commands, CancellationToken ct)
+        IReadOnlyList<CreateOrder> commands, CancellationToken cancellationToken)
     {
         var orders = commands.Select(c => new Order(c.Customer, c.Quantity)).ToArray();
         context.Orders.AddRange(orders);
-        await context.SaveChangesAsync(ct);
+        await context.SaveChangesAsync(cancellationToken);
         return orders.Select(o => OperationResult.Created(o.Id)).ToArray();
     }
 }

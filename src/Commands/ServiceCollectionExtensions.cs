@@ -72,21 +72,21 @@ public static class ServiceCollectionExtensions
 
         return services;
 
-        static async Task ValidateAsync(IServiceProvider sp, IRequest command, Validation.IValidationContext ctx, CancellationToken ct)
+        static async Task ValidateAsync(IServiceProvider services, IRequest command, Validation.IValidationContext validation, CancellationToken cancellationToken)
         {
-            ICommandHandler<TCommand> handler = sp.GetRequiredService<ICommandHandler<TCommand>>();
-            await handler.ValidateAsync((TCommand)command, ctx, ct).ConfigureAwait(false);
+            ICommandHandler<TCommand> handler = services.GetRequiredService<ICommandHandler<TCommand>>();
+            await handler.ValidateAsync((TCommand)command, validation, cancellationToken).ConfigureAwait(false);
         }
 
-        static async Task<OperationResult> InvokeAsync(IServiceProvider sp, IRequest command, CancellationToken ct)
+        static async Task<OperationResult> InvokeAsync(IServiceProvider services, IRequest command, CancellationToken cancellationToken)
         {
-            ICommandHandler<TCommand> handler = sp.GetRequiredService<ICommandHandler<TCommand>>();
-            return await handler.HandleAsync((TCommand)command, ct).ConfigureAwait(false);
+            ICommandHandler<TCommand> handler = services.GetRequiredService<ICommandHandler<TCommand>>();
+            return await handler.HandleAsync((TCommand)command, cancellationToken).ConfigureAwait(false);
         }
 
-        static void ResolveHandler(IServiceProvider sp)
+        static void ResolveHandler(IServiceProvider services)
         {
-            sp.GetRequiredService<ICommandHandler<TCommand>>();
+            services.GetRequiredService<ICommandHandler<TCommand>>();
         }
     }
 
@@ -123,21 +123,21 @@ public static class ServiceCollectionExtensions
 
         return services;
 
-        static async Task ValidateAsync(IServiceProvider sp, IRequest command, Validation.IValidationContext ctx, CancellationToken ct)
+        static async Task ValidateAsync(IServiceProvider services, IRequest command, Validation.IValidationContext validation, CancellationToken cancellationToken)
         {
-            ICommandHandler<TCommand, TResult> handler = sp.GetRequiredService<ICommandHandler<TCommand, TResult>>();
-            await handler.ValidateAsync((TCommand)command, ctx, ct).ConfigureAwait(false);
+            ICommandHandler<TCommand, TResult> handler = services.GetRequiredService<ICommandHandler<TCommand, TResult>>();
+            await handler.ValidateAsync((TCommand)command, validation, cancellationToken).ConfigureAwait(false);
         }
 
-        static async Task<OperationResult> InvokeAsync(IServiceProvider sp, IRequest command, CancellationToken ct)
+        static async Task<OperationResult> InvokeAsync(IServiceProvider services, IRequest command, CancellationToken cancellationToken)
         {
-            ICommandHandler<TCommand, TResult> handler = sp.GetRequiredService<ICommandHandler<TCommand, TResult>>();
-            return await handler.HandleAsync((TCommand)command, ct).ConfigureAwait(false);
+            ICommandHandler<TCommand, TResult> handler = services.GetRequiredService<ICommandHandler<TCommand, TResult>>();
+            return await handler.HandleAsync((TCommand)command, cancellationToken).ConfigureAwait(false);
         }
 
-        static void ResolveHandler(IServiceProvider sp)
+        static void ResolveHandler(IServiceProvider services)
         {
-            sp.GetRequiredService<ICommandHandler<TCommand, TResult>>();
+            services.GetRequiredService<ICommandHandler<TCommand, TResult>>();
         }
     }
 
@@ -172,18 +172,18 @@ public static class ServiceCollectionExtensions
         return services;
 
         static async Task<IReadOnlyList<OperationResult>> InvokeBatchAsync(
-            IServiceProvider sp,
+            IServiceProvider services,
             IReadOnlyList<IRequest> commands,
-            CancellationToken ct)
+            CancellationToken cancellationToken)
         {
-            IBatchCommandHandler<TCommand> handler = sp.GetRequiredService<IBatchCommandHandler<TCommand>>();
+            IBatchCommandHandler<TCommand> handler = services.GetRequiredService<IBatchCommandHandler<TCommand>>();
             var typed = new TCommand[commands.Count];
             for (var i = 0; i < commands.Count; i++)
             {
                 typed[i] = (TCommand)commands[i];
             }
 
-            return await handler.HandleBatchAsync(typed, ct).ConfigureAwait(false);
+            return await handler.HandleBatchAsync(typed, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -217,18 +217,18 @@ public static class ServiceCollectionExtensions
         return services;
 
         static async Task<IReadOnlyList<OperationResult>> InvokeBatchAsync(
-            IServiceProvider sp,
+            IServiceProvider services,
             IReadOnlyList<IRequest> commands,
-            CancellationToken ct)
+            CancellationToken cancellationToken)
         {
-            IBatchCommandHandler<TCommand, TResult> handler = sp.GetRequiredService<IBatchCommandHandler<TCommand, TResult>>();
+            IBatchCommandHandler<TCommand, TResult> handler = services.GetRequiredService<IBatchCommandHandler<TCommand, TResult>>();
             var typed = new TCommand[commands.Count];
             for (var i = 0; i < commands.Count; i++)
             {
                 typed[i] = (TCommand)commands[i];
             }
 
-            IReadOnlyList<OperationResult<TResult>> handled = await handler.HandleBatchAsync(typed, ct).ConfigureAwait(false);
+            IReadOnlyList<OperationResult<TResult>> handled = await handler.HandleBatchAsync(typed, cancellationToken).ConfigureAwait(false);
             var erased = new OperationResult[handled.Count];
             for (var i = 0; i < handled.Count; i++)
             {

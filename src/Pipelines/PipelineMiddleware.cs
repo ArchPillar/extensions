@@ -12,8 +12,8 @@ public static class PipelineMiddleware
     /// </summary>
     /// <param name="invoke">
     /// A delegate invoked with the context, a <c>next</c> continuation, and
-    /// a cancellation token. Call <c>next(ctx, ct)</c> to continue the
-    /// pipeline; skip it to short-circuit.
+    /// a cancellation token. Call <c>next(context, cancellationToken)</c> to
+    /// continue the pipeline; skip it to short-circuit.
     /// </param>
     /// <typeparam name="T">The context type.</typeparam>
     /// <returns>An <see cref="IPipelineMiddleware{T}"/> that invokes <paramref name="invoke"/>.</returns>
@@ -29,14 +29,14 @@ public static class PipelineMiddleware
     /// <param name="invoke">
     /// A delegate invoked with the context and a <c>next</c> continuation that
     /// forwards the pipeline's <see cref="CancellationToken"/> automatically.
-    /// Call <c>next(ctx)</c> to continue the pipeline; skip it to short-circuit.
+    /// Call <c>next(context)</c> to continue the pipeline; skip it to short-circuit.
     /// </param>
     /// <typeparam name="T">The context type.</typeparam>
     /// <returns>An <see cref="IPipelineMiddleware{T}"/> that invokes <paramref name="invoke"/>.</returns>
     public static IPipelineMiddleware<T> FromDelegate<T>(Func<T, Func<T, Task>, Task> invoke)
     {
         ArgumentNullException.ThrowIfNull(invoke);
-        return new DelegateMiddleware<T>((ctx, next, ct) => invoke(ctx, c => next(c, ct)));
+        return new DelegateMiddleware<T>((context, next, cancellationToken) => invoke(context, c => next(c, cancellationToken)));
     }
 
     private sealed class DelegateMiddleware<T>(Func<T, PipelineDelegate<T>, CancellationToken, Task> invoke) : IPipelineMiddleware<T>
