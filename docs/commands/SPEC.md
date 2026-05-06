@@ -5,17 +5,18 @@
 Provide an in-process command dispatcher that:
 
 - Has a tiny, hard-to-misuse public surface.
-- Builds on `ArchPillar.Extensions.Pipelines` for cross-cutting concerns instead of inventing a parallel "behaviors" mechanism.
+- Builds on `ArchPillar.Extensions.Pipelines` for cross-cutting concerns instead of inventing a parallel mechanism.
 - Returns a uniform `OperationResult` / `OperationResult<TResult>` from every dispatch — every command is awaited, never queued or discarded.
 - Stays AOT/trim-safe and reflection-free at dispatch time.
 - Supports validation, exceptions-as-results, telemetry, and optional batching out of the box.
 
 Explicit non-goals:
 
-- **No queries.** Read paths use `ArchPillar.Extensions.Mapper`.
-- **No events.** Domain events use `ArchPillar.Extensions.EventBus`.
+- **No queries or events.** This is a write-only command dispatcher; reads and notifications are outside its scope.
 - **No remote/transport providers.** Commands are dispatched in-process.
 - **No source generators (yet).** Handler discovery is intentionally manual via DI registrations. A future `ArchPillar.Extensions.Commands.Analyzers` package will emit static registration calls.
+
+> Despite the surface similarity, this is a focused command dispatcher — not a general-purpose request/notification mediator.
 
 ## Conceptual model
 
@@ -181,6 +182,6 @@ User-added middlewares append to the chain. The order is significant: telemetry 
 
 ## What this library deliberately does not do
 
-- **No request/query types.** Adding `IQuery<TResult>` would invite the same library to grow a second pipeline and become MediatR.
+- **No request/query types.** This library is command-only by design; introducing query types would push it toward a generic request dispatcher with a much broader surface — an explicit non-goal.
 - **No streams or generators.** Commands are unary. Streaming belongs in domain-specific code or in a Pulse channel.
 - **No `Send` overload that ignores the result.** Every dispatch produces an outcome; ignoring it is the caller's choice.

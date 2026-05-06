@@ -4,7 +4,7 @@ A small, in-process command dispatcher built on `ArchPillar.Extensions.Pipelines
 
 ## At a glance
 
-- **Commands only.** The library dispatches `ICommand` and `ICommand<TResult>` — writes that mutate state and return an outcome. Queries belong in `ArchPillar.Extensions.Mapper` (EF Core `IQueryable` projections); events in `ArchPillar.Extensions.EventBus`.
+- **Commands only.** The library dispatches `ICommand` and `ICommand<TResult>` — writes that mutate state and return an outcome. Reads and events are out of scope.
 - **Single shared pipeline.** All commands flow through one `Pipeline<CommandContext>`. Cross-cutting concerns (validation, transactions, logging, idempotency) plug in as middlewares.
 - **AOT/trim-safe.** No `MakeGenericMethod`, no runtime assembly scanning, no source generators required. Each `AddCommandHandler<TCommand, THandler>` call captures its generic types at the registration site.
 - **Lazy router.** Handler descriptors are resolved on first dispatch of a given command type, then cached. Startup cost is proportional to commands actually used.

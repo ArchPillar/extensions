@@ -280,7 +280,7 @@ public interface IPipelineContext
 
 - **`OperationName`** — required. The display name used for the activity.
   Typically a short, hierarchical string (`"Orders.Place"`,
-  `"Mediator.GetCustomerByIdQuery"`).
+  `"Inventory.Reserve"`).
 - **`ActivityKind`** — default `Internal`. Override to `Server` for inbound
   request handlers, `Consumer` for queue handlers, `Producer` for
   outbound-message pipelines, `Client` for outbound-call pipelines.

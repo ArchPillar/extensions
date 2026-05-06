@@ -139,7 +139,7 @@ public sealed class OrdersEndpoints(ICommandDispatcher dispatcher)
 
 ## 6. Add a cross-cutting concern
 
-Cross-cutting concerns are middlewares on the shared `Pipeline<CommandContext>`. They're not "behaviors" — there's no second mechanism to learn:
+Cross-cutting concerns are middlewares on the shared `Pipeline<CommandContext>` — there's no second mechanism to learn:
 
 ```csharp
 public sealed class TransactionMiddleware(OrderContext context) : IPipelineMiddleware<CommandContext>

@@ -15,7 +15,7 @@ Depends on `Microsoft.Extensions.DependencyInjection.Abstractions` and nothing e
 
 ## Why?
 
-Middleware pipelines are everywhere — ASP.NET Core, MediatR behaviours, MassTransit filters — but they are usually tied to a specific framework. `Pipeline<T>` lifts the pattern out into a small, framework-independent class you can use for anything: request handlers, background jobs, domain workflows, data import steps, retry/logging wrappers.
+Middleware pipelines are everywhere — ASP.NET Core middleware, MassTransit filters, and similar — but they are usually tied to a specific framework. `Pipeline<T>` lifts the pattern out into a small, framework-independent class you can use for anything: request handlers, background jobs, domain workflows, data import steps, retry/logging wrappers.
 
 ## Design highlights
 
