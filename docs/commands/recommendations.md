@@ -40,36 +40,111 @@ group.MapPost("/", async (CreateNote command, ICommandDispatcher dispatcher, Can
 The split keeps the dispatcher's job clear: every command that flows through
 it represents intent to change the world. Reads stay where they're cheap.
 
-## Bind commands directly from the request body
+## Keep commands internal; map at the API boundary
 
-Minimal APIs bind the request body to whichever parameter type isn't a route,
-query, or service. Make that parameter the command record itself — the
-dispatcher then sees the fully-bound command without any DTO-to-command
-translation step.
+Commands are the internal service contract. The HTTP wire shape is a separate
+concern: it gets versioned for clients, accumulates serialization quirks, and
+needs to evolve without dragging the domain along. Don't bind a command record
+straight from the request body — bind a request DTO and map it into the
+command inside the endpoint.
 
 ```csharp
-public sealed record CreateNote(string Title, string Body) : ICommand<Guid>;
+// API layer — versioned with the wire contract.
+public sealed record CreateNoteRequest(string? Title, string? Body);
 
-group.MapPost("/", async (CreateNote command, ICommandDispatcher dispatcher, CancellationToken cancellationToken) =>
-    await dispatcher.SendAsync(command, cancellationToken) is { IsSuccess: true } result
-        ? Results.Created(...)
-        : ...);
+// Domain layer — versioned with the service.
+internal sealed record CreateNote(string Title, string Body) : ICommand<Guid>;
+
+group.MapPost("/", async (
+    CreateNoteRequest request,
+    ICommandDispatcher dispatcher,
+    CancellationToken cancellationToken) =>
+{
+    var command = new CreateNote(request.Title ?? string.Empty, request.Body ?? string.Empty);
+    OperationResult<Guid> result = await dispatcher.SendAsync(command, cancellationToken);
+    return result.IsSuccess
+        ? Results.Created($"/notes/{result.Value}", new { id = result.Value })
+        : result.ToProblemResult();
+});
 ```
 
-When the URL carries identity (PATCH, DELETE, archive-style endpoints), prefer
-a small request-body type and have the endpoint compose the command from the
-route value plus the body — keeps the route parameter authoritative and avoids
-clients spoofing IDs.
+Three reasons the seam matters:
+
+1. **Stability.** A REST client serializes against the request DTO. If a
+   downstream domain refactor renames a command property or splits one command
+   into two, only the mapper inside the endpoint changes.
+2. **Reach.** The dispatcher is reachable from non-HTTP callers — background
+   workers, scheduled jobs, internal services that hold an
+   `ICommandDispatcher`. Tying the command to a wire DTO leaks JSON-shaped
+   nullability, validation attributes, and binding annotations into a
+   contract those callers shouldn't see.
+3. **Identity safety.** When the URL carries identity (`PUT /notes/{id}`,
+   `POST /notes/{id}/archive`), composing the command from the route value
+   keeps the route authoritative and prevents a client spoofing the ID via
+   the body.
 
 ```csharp
-public sealed record UpdateNoteBody(string Title, string Body);
+public sealed record UpdateNoteRequest(string? Title, string? Body);
 
-group.MapPut("/{id:guid}", async (Guid id, UpdateNoteBody body, ICommandDispatcher dispatcher, CancellationToken cancellationToken) =>
+group.MapPut("/{id:guid}", async (
+    Guid id,
+    UpdateNoteRequest request,
+    ICommandDispatcher dispatcher,
+    CancellationToken cancellationToken) =>
 {
-    var result = await dispatcher.SendAsync(new UpdateNote(id, body.Title, body.Body), cancellationToken);
+    var command = new UpdateNote(id, request.Title ?? string.Empty, request.Body ?? string.Empty);
+    OperationResult result = await dispatcher.SendAsync(command, cancellationToken);
     return result.IsSuccess ? Results.NoContent() : result.ToProblemResult();
 });
 ```
+
+### Where validation lives
+
+The command's `ValidateAsync` is the authoritative validator — it sees the
+same persisted state the handler sees, runs inside the same transaction, and
+applies whether the dispatch came from HTTP, a job, or a test. Don't move
+domain rules out of it.
+
+API-layer validation is still useful as a *front guard* — a wire-shape check
+that short-circuits malformed requests before they cost a dispatch:
+
+- A request DTO with `[Required]` / `[MaxLength]` attributes plus an endpoint
+  filter (or a FluentValidation validator on the DTO) gives clients a 400 for
+  obviously broken payloads.
+- It does not replace the command validator — it complements it. The command
+  validator is what runs in non-HTTP paths.
+
+When the two would say the same thing (`NotBlank`, `MaxLength`), pick one
+layer and own the rule there. Defer to the command validator unless the
+front guard buys something the dispatcher can't.
+
+## Authentication and authorization at the right layer
+
+Two flavors of "auth" show up in a typical service. They live in different
+places:
+
+| Concern | Where it lives | How |
+| --- | --- | --- |
+| Is the request authenticated? Does the principal hold the right role/scope? | API layer | ASP.NET authentication middleware, `RequireAuthorization()`, `[Authorize]` |
+| Does *this* user have permission to operate on *this* entity? | Command layer | `validation.Authorize(...)` / `validation.Authenticate(...)` inside `ValidateAsync` |
+
+```csharp
+// HTTP-level — protocol concern, settled before the dispatcher is touched.
+group.MapPost("/{id:guid}/archive", ArchiveAsync)
+     .RequireAuthorization("notes.write");
+
+// Domain-level — runs inside the transaction, sees the entity.
+public override async Task ValidateAsync(ArchiveNote command, IValidationContext validation, CancellationToken cancellationToken)
+{
+    var note = await context.Notes.FindAsync([command.Id], cancellationToken);
+    validation.Exists(note);
+    validation.Authorize(note is null || note.OwnerId == currentUser.Id, "Only the owner can archive a note.");
+}
+```
+
+Keeping the split is what lets the same command work from a job runner that
+has no HTTP principal: the API gate is gone, but the domain check still
+fires because it's part of the command's own contract.
 
 ## Project failures to RFC 7807 with one helper
 

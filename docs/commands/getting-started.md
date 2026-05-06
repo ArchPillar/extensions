@@ -137,6 +137,8 @@ public sealed class OrdersEndpoints(ICommandDispatcher dispatcher)
 }
 ```
 
+> The snippet above takes a `CreateOrder` directly to keep the walkthrough short. In production code, keep commands internal and map them from a wire-shape request DTO at the API boundary — see [`recommendations.md`](./recommendations.md) for the layered pattern.
+
 ## 6. Add a cross-cutting concern
 
 Cross-cutting concerns are middlewares on the shared `Pipeline<CommandContext>` — there's no second mechanism to learn:

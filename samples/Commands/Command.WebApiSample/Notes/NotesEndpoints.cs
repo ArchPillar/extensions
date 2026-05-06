@@ -34,33 +34,60 @@ internal static class NotesEndpoints
             return note is null ? Results.NotFound() : Results.Ok(note);
         });
 
-        // Writes go through the dispatcher — validation, transaction middleware,
-        // telemetry, and the exception-to-result middleware all run in scope.
-        group.MapPost("/", async (CreateNote command, ICommandDispatcher dispatcher, CancellationToken cancellationToken) =>
+        // Writes accept a wire-shape DTO from the body, then map it into the
+        // internal command. The command type is never part of the public API
+        // contract, so the two can evolve independently and the same command
+        // is reachable from non-HTTP callers without the DTO tagging along.
+        group.MapPost("/", async (
+            NoteRequests.CreateNoteRequest request,
+            ICommandDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
         {
+            ArgumentNullException.ThrowIfNull(request);
+
+            var command = new CreateNote(request.Title ?? string.Empty, request.Body ?? string.Empty);
             OperationResult<Guid> result = await dispatcher.SendAsync(command, cancellationToken);
             return result.IsSuccess
                 ? Results.Created($"/notes/{result.Value}", new { id = result.Value })
                 : result.ToProblemResult();
         });
 
-        group.MapPut("/{id:guid}", async (Guid id, UpdateNoteBody body, ICommandDispatcher dispatcher, CancellationToken cancellationToken) =>
+        group.MapPut("/{id:guid}", async (
+            Guid id,
+            NoteRequests.UpdateNoteRequest request,
+            ICommandDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
         {
-            ArgumentNullException.ThrowIfNull(body);
-            OperationResult result = await dispatcher.SendAsync(new UpdateNote(id, body.Title, body.Body), cancellationToken);
+            ArgumentNullException.ThrowIfNull(request);
+
+            var command = new UpdateNote(id, request.Title ?? string.Empty, request.Body ?? string.Empty);
+            OperationResult result = await dispatcher.SendAsync(command, cancellationToken);
             return result.IsSuccess ? Results.NoContent() : result.ToProblemResult();
         });
 
-        group.MapPost("/{id:guid}/archive", async (Guid id, ICommandDispatcher dispatcher, CancellationToken cancellationToken) =>
+        group.MapPost("/{id:guid}/archive", async (
+            Guid id,
+            ICommandDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
         {
             OperationResult result = await dispatcher.SendAsync(new ArchiveNote(id), cancellationToken);
             return result.IsSuccess ? Results.NoContent() : result.ToProblemResult();
         });
 
         // Batch — one round-trip, per-item results stitched back in input order.
-        group.MapPost("/batch", async (CreateNote[] commands, ICommandDispatcher dispatcher, CancellationToken cancellationToken) =>
+        group.MapPost("/batch", async (
+            NoteRequests.CreateNoteRequest[] requests,
+            ICommandDispatcher dispatcher,
+            CancellationToken cancellationToken) =>
         {
-            ArgumentNullException.ThrowIfNull(commands);
+            ArgumentNullException.ThrowIfNull(requests);
+
+            var commands = new CreateNote[requests.Length];
+            for (var i = 0; i < requests.Length; i++)
+            {
+                commands[i] = new CreateNote(requests[i].Title ?? string.Empty, requests[i].Body ?? string.Empty);
+            }
+
             IReadOnlyList<OperationResult<Guid>> results =
                 await dispatcher.SendBatchAsync<CreateNote, Guid>(commands, cancellationToken);
             return Results.Ok(results.Select(result => new BatchItemResponse(
@@ -79,8 +106,6 @@ internal static class NotesEndpoints
         bool IsArchived,
         DateTime CreatedAt,
         DateTime? UpdatedAt);
-
-    internal sealed record UpdateNoteBody(string Title, string Body);
 
     internal sealed record BatchItemResponse(int Status, Guid Id, string? Detail);
 }
