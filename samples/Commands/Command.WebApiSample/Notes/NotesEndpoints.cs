@@ -1,6 +1,8 @@
 using ArchPillar.Extensions.Commands;
 using ArchPillar.Extensions.Operations;
 using Command.WebApiSample.Infrastructure;
+using Command.WebApiSample.Notes.Commands;
+using Command.WebApiSample.Notes.Requests;
 using Microsoft.EntityFrameworkCore;
 
 namespace Command.WebApiSample.Notes;
@@ -39,7 +41,7 @@ internal static class NotesEndpoints
         // contract, so the two can evolve independently and the same command
         // is reachable from non-HTTP callers without the DTO tagging along.
         group.MapPost("/", async (
-            NoteRequests.CreateNoteRequest request,
+            CreateNoteRequest request,
             ICommandDispatcher dispatcher,
             CancellationToken cancellationToken) =>
         {
@@ -54,7 +56,7 @@ internal static class NotesEndpoints
 
         group.MapPut("/{id:guid}", async (
             Guid id,
-            NoteRequests.UpdateNoteRequest request,
+            UpdateNoteRequest request,
             ICommandDispatcher dispatcher,
             CancellationToken cancellationToken) =>
         {
@@ -76,7 +78,7 @@ internal static class NotesEndpoints
 
         // Batch — one round-trip, per-item results stitched back in input order.
         group.MapPost("/batch", async (
-            NoteRequests.CreateNoteRequest[] requests,
+            CreateNoteRequest[] requests,
             ICommandDispatcher dispatcher,
             CancellationToken cancellationToken) =>
         {
@@ -98,14 +100,4 @@ internal static class NotesEndpoints
 
         return routes;
     }
-
-    internal sealed record NoteResponse(
-        Guid Id,
-        string Title,
-        string Body,
-        bool IsArchived,
-        DateTime CreatedAt,
-        DateTime? UpdatedAt);
-
-    internal sealed record BatchItemResponse(int Status, Guid Id, string? Detail);
 }

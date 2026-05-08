@@ -1,7 +1,8 @@
 using System.Diagnostics;
 using ArchPillar.Extensions.Commands;
-using ArchPillar.Extensions.Commands.Validation;
 using ArchPillar.Extensions.Operations;
+using Command.HostSample.Orders;
+using Command.HostSample.Orders.Commands;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -24,6 +25,8 @@ using Microsoft.Extensions.Logging;
 //     CommandActivitySource.Name.
 //   - Optional batch handler: CreateOrderBatchHandler implements
 //     IBatchCommandHandler<CreateOrder, Guid> for bulk inserts.
+//
+// Domain types live under Orders/ — one file per class.
 // ---------------------------------------------------------------------------
 
 using var listener = new ActivityListener
@@ -81,92 +84,4 @@ IReadOnlyList<OperationResult<Guid>> batchResults = await dispatcher.SendBatchAs
 for (var i = 0; i < batchResults.Count; i++)
 {
     Console.WriteLine($"  [{i}] status={batchResults[i].Status} value={batchResults[i].Value}");
-}
-
-// ---------------------------------------------------------------------------
-// Domain
-// ---------------------------------------------------------------------------
-
-internal sealed record CreateOrder(string Customer, int Quantity) : ICommand<Guid>;
-
-internal sealed record CancelOrder(Guid OrderId) : ICommand;
-
-internal sealed class InMemoryOrderStore
-{
-    private readonly Dictionary<Guid, (string Customer, int Quantity)> _orders = [];
-
-    public Guid Create(string customer, int quantity)
-    {
-        var id = Guid.NewGuid();
-        _orders[id] = (customer, quantity);
-        return id;
-    }
-
-    public bool TryGet(Guid id, out (string Customer, int Quantity) order)
-        => _orders.TryGetValue(id, out order);
-
-    public bool Remove(Guid id) => _orders.Remove(id);
-}
-
-internal sealed class CreateOrderHandler(InMemoryOrderStore store, ILogger<CreateOrderHandler> logger)
-    : CommandHandlerBase<CreateOrder, Guid>
-{
-    public override Task ValidateAsync(CreateOrder command, IValidationContext context, CancellationToken cancellationToken)
-    {
-        context
-            .NotEmpty(command.Customer)
-            .Range(command.Quantity, 1, 100);
-        return Task.CompletedTask;
-    }
-
-    public override Task<OperationResult<Guid>> HandleAsync(CreateOrder command, CancellationToken cancellationToken)
-    {
-        var id = store.Create(command.Customer, command.Quantity);
-        logger.LogInformation("Created order {OrderId} for {Customer}", id, command.Customer);
-        return Created(id);
-    }
-}
-
-internal sealed class CancelOrderHandler(InMemoryOrderStore store, ILogger<CancelOrderHandler> logger)
-    : CommandHandlerBase<CancelOrder>
-{
-    public override Task ValidateAsync(CancelOrder command, IValidationContext context, CancellationToken cancellationToken)
-    {
-        context.Must(command.OrderId != Guid.Empty, "required", "OrderId is required.", nameof(command.OrderId));
-        return Task.CompletedTask;
-    }
-
-    public override Task<OperationResult> HandleAsync(CancelOrder command, CancellationToken cancellationToken)
-    {
-        if (!store.TryGet(command.OrderId, out _))
-        {
-            // Implicit conversion: OperationResult -> Exception (OperationException carrying the result).
-            // ExceptionMiddleware unwraps it back into the dispatcher's returned result.
-            throw OperationResult.NotFound($"Order {command.OrderId} not found.");
-        }
-
-        store.Remove(command.OrderId);
-        logger.LogInformation("Cancelled order {OrderId}", command.OrderId);
-        return NoContent();
-    }
-}
-
-internal sealed class CreateOrderBatchHandler(InMemoryOrderStore store, ILogger<CreateOrderBatchHandler> logger)
-    : IBatchCommandHandler<CreateOrder, Guid>
-{
-    public Task<IReadOnlyList<OperationResult<Guid>>> HandleBatchAsync(
-        IReadOnlyList<CreateOrder> commands,
-        CancellationToken cancellationToken)
-    {
-        OperationResult<Guid>[] results = new OperationResult<Guid>[commands.Count];
-        for (var i = 0; i < commands.Count; i++)
-        {
-            CreateOrder command = commands[i];
-            var id = store.Create(command.Customer, command.Quantity);
-            results[i] = OperationResult.Created(id);
-        }
-
-        logger.LogInformation("Inserted batch of {Count} orders", commands.Count);
-        return Task.FromResult<IReadOnlyList<OperationResult<Guid>>>(results);
-    }
 }

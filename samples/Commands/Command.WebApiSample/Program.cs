@@ -3,6 +3,7 @@ using ArchPillar.Extensions.Commands;
 using ArchPillar.Extensions.Pipelines;
 using Command.WebApiSample.Infrastructure;
 using Command.WebApiSample.Notes;
+using Command.WebApiSample.Notes.Commands;
 using Microsoft.EntityFrameworkCore;
 
 // ---------------------------------------------------------------------------
