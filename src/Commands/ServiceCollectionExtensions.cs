@@ -66,6 +66,7 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton(new CommandInvokerDescriptor(
             typeof(TCommand),
+            producesResult: false,
             ValidateAsync,
             InvokeAsync,
             ResolveHandler));
@@ -117,6 +118,7 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton(new CommandInvokerDescriptor(
             typeof(TCommand),
+            producesResult: true,
             ValidateAsync,
             InvokeAsync,
             ResolveHandler));
@@ -144,8 +146,11 @@ public static class ServiceCollectionExtensions
     /// <summary>
     /// Registers an optional batch handler for <typeparamref name="TCommand"/>.
     /// Requires a single-command handler to also be registered for the same
-    /// command type — the batch path validates per command and forwards
-    /// only the valid ones to <see cref="IBatchCommandHandler{TCommand}"/>.
+    /// command type — the registry composes the batch leg onto the existing
+    /// descriptor on first lookup. When dispatched as a batch, the batch
+    /// handler owns validation across the whole list and is invoked
+    /// all-or-nothing: if any validation entry was added, the handler is not
+    /// called and the batch returns the validation failure.
     /// </summary>
     /// <typeparam name="TCommand">The command type.</typeparam>
     /// <typeparam name="THandler">The batch handler implementation.</typeparam>
@@ -205,6 +210,12 @@ public static class ServiceCollectionExtensions
 
     /// <summary>
     /// Registers an optional batch handler for a result-bearing command.
+    /// Requires a single-command handler to also be registered for the same
+    /// command type — the registry composes the batch leg onto the existing
+    /// descriptor on first lookup. When dispatched as a batch, the batch
+    /// handler owns validation across the whole list and is invoked
+    /// all-or-nothing: if any validation entry was added, the handler is not
+    /// called and the batch returns the validation failure.
     /// </summary>
     /// <typeparam name="TCommand">The command type.</typeparam>
     /// <typeparam name="TResult">The payload type returned on success.</typeparam>

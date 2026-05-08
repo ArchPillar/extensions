@@ -111,9 +111,12 @@ internal sealed class CommandRouter : IPipelineHandler<CommandContext>
         // No batch handler — iterate the input list and run the per-command
         // ICommandHandler<TCommand> for each item: validation, then handler.
         // Bail on the first failure (validation OR handler) and surface that
-        // failure verbatim. On full success, expose the per-item results so
-        // the typed dispatcher can compose the IReadOnlyList<TResult>.
-        var perItem = new OperationResult[commands.Count];
+        // failure verbatim. On full success, the typed dispatcher needs the
+        // per-item OperationResult<TResult>s to compose the
+        // IReadOnlyList<TResult>; non-result commands don't, so skip the
+        // O(N) allocation in that case.
+        var perItem = descriptor.ProducesResult ? new OperationResult[commands.Count] : null;
+
         for (var i = 0; i < commands.Count; i++)
         {
             var validation = new ValidationContext();
@@ -133,7 +136,7 @@ internal sealed class CommandRouter : IPipelineHandler<CommandContext>
                 return;
             }
 
-            perItem[i] = itemResult;
+            perItem?[i] = itemResult;
         }
 
         context.BatchResults = perItem;

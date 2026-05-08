@@ -13,6 +13,7 @@ internal sealed class CommandInvokerDescriptor
 {
     public CommandInvokerDescriptor(
         Type commandType,
+        bool producesResult,
         Func<IServiceProvider, IRequest, IValidationContext, CancellationToken, Task> validateAsync,
         Func<IServiceProvider, IRequest, CancellationToken, Task<OperationResult>> invokeAsync,
         Action<IServiceProvider> resolveHandler,
@@ -20,6 +21,7 @@ internal sealed class CommandInvokerDescriptor
         Func<IServiceProvider, IReadOnlyList<IRequest>, CancellationToken, Task<OperationResult>>? invokeBatchAsync = null)
     {
         CommandType = commandType;
+        ProducesResult = producesResult;
         ValidateAsync = validateAsync;
         InvokeAsync = invokeAsync;
         ResolveHandler = resolveHandler;
@@ -28,6 +30,15 @@ internal sealed class CommandInvokerDescriptor
     }
 
     public Type CommandType { get; }
+
+    /// <summary>
+    /// <c>true</c> when the command implements <c>ICommand&lt;TResult&gt;</c>.
+    /// The router uses this to decide whether to populate
+    /// <see cref="CommandContext.BatchResults"/> on the iterate-batch
+    /// success path — non-result batches don't need it, since the dispatcher
+    /// returns a plain <see cref="OperationResult"/> regardless.
+    /// </summary>
+    public bool ProducesResult { get; }
 
     public Func<IServiceProvider, IRequest, IValidationContext, CancellationToken, Task> ValidateAsync { get; }
 

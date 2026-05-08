@@ -87,6 +87,7 @@ internal sealed class CommandInvokerRegistry
         {
             return new CommandInvokerDescriptor(
                 lastMatch.CommandType,
+                lastMatch.ProducesResult,
                 lastMatch.ValidateAsync,
                 lastMatch.InvokeAsync,
                 lastMatch.ResolveHandler,

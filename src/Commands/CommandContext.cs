@@ -79,10 +79,18 @@ public sealed class CommandContext : IPipelineContext
     public Type CommandType { get; }
 
     /// <summary>
-    /// The accumulated validation context. Populated when the router invokes
-    /// the handler's <c>ValidateAsync</c> immediately before dispatch. Unused
-    /// in batch mode — per-item validation accumulators are tracked
-    /// internally by the router.
+    /// The accumulated validation context populated by the router immediately
+    /// before dispatch.
+    /// <list type="bullet">
+    /// <item><description><b>Single mode</b> — receives the per-command
+    /// <c>ICommandHandler.ValidateAsync</c> output.</description></item>
+    /// <item><description><b>Batch mode with a batch handler registered</b> —
+    /// receives the batch handler's <c>IBatchCommandHandler.ValidateAsync</c>
+    /// output (one shared accumulator across the whole list).</description></item>
+    /// <item><description><b>Batch mode without a batch handler</b> — left
+    /// untouched. The router runs per-item validation in scoped accumulators
+    /// internally and bails on the first failure, so this slot is not used.</description></item>
+    /// </list>
     /// </summary>
     public IValidationContext Validation { get; }
 
