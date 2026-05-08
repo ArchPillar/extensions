@@ -52,6 +52,19 @@ public sealed class CommandActivityMiddleware : IPipelineMiddleware<CommandConte
                 context.EnrichActivity(activity);
 
                 await next(context, cancellationToken).ConfigureAwait(false);
+
+                // ExceptionMiddleware (registered inside this one) absorbs
+                // OperationException / unhandled throws into context.Result.
+                // From this middleware's perspective the call returned
+                // normally — so we have to consult the result slot to know
+                // whether the dispatch actually succeeded.
+                if (context.Result is { IsFailure: true } failure)
+                {
+                    activity.SetTag("command.status", (int)failure.Status);
+                    activity.SetStatus(
+                        ActivityStatusCode.Error,
+                        failure.Problem?.Detail ?? failure.Status.ToString());
+                }
             }
             catch (Exception ex)
             {

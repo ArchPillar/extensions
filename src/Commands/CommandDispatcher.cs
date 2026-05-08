@@ -8,19 +8,15 @@ internal sealed class CommandDispatcher : ICommandDispatcher
 {
     private readonly Pipeline<CommandContext> _pipeline;
     private readonly CommandInvokerRegistry _registry;
-    private readonly IServiceProvider _services;
 
     public CommandDispatcher(
         Pipeline<CommandContext> pipeline,
-        CommandInvokerRegistry registry,
-        IServiceProvider services)
+        CommandInvokerRegistry registry)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         ArgumentNullException.ThrowIfNull(registry);
-        ArgumentNullException.ThrowIfNull(services);
         _pipeline = pipeline;
         _registry = registry;
-        _services = services;
     }
 
     public async Task<OperationResult> SendAsync(ICommand command, CancellationToken cancellationToken = default)
@@ -76,18 +72,33 @@ internal sealed class CommandDispatcher : ICommandDispatcher
 
         CommandInvokerDescriptor descriptor = _registry.Get(typeof(TCommand));
 
-        if (descriptor.InvokeBatchAsync is { } batch)
+        if (descriptor.InvokeBatchAsync is null)
         {
-            return await RunBatchAsync(commands, descriptor, batch, cancellationToken).ConfigureAwait(false);
+            // No batch handler — fan out as independent dispatches so each
+            // command flows through its own pipeline pass (per-item
+            // middleware, per-item transaction).
+            var fanned = new OperationResult[commands.Count];
+            for (var i = 0; i < commands.Count; i++)
+            {
+                fanned[i] = await SendAsync(commands[i], cancellationToken).ConfigureAwait(false);
+            }
+
+            return fanned;
         }
 
-        var results = new OperationResult[commands.Count];
+        var requests = new IRequest[commands.Count];
         for (var i = 0; i < commands.Count; i++)
         {
-            results[i] = await SendAsync(commands[i], cancellationToken).ConfigureAwait(false);
+            ArgumentNullException.ThrowIfNull(commands[i]);
+            requests[i] = commands[i]!;
         }
 
-        return results;
+        var context = new CommandContext(requests, typeof(TCommand));
+        await _pipeline.ExecuteAsync(context, cancellationToken).ConfigureAwait(false);
+
+        return context.BatchResults
+            ?? throw new InvalidOperationException(
+                $"Batch dispatch for {typeof(TCommand).FullName} produced no per-item results.");
     }
 
     public async Task<IReadOnlyList<OperationResult<TResult>>> SendBatchAsync<TCommand, TResult>(
@@ -104,97 +115,46 @@ internal sealed class CommandDispatcher : ICommandDispatcher
 
         CommandInvokerDescriptor descriptor = _registry.Get(typeof(TCommand));
 
-        if (descriptor.InvokeBatchAsync is { } batch)
+        if (descriptor.InvokeBatchAsync is null)
         {
-            IReadOnlyList<OperationResult> raw = await RunBatchAsync(commands, descriptor, batch, cancellationToken).ConfigureAwait(false);
-            var typed = new OperationResult<TResult>[raw.Count];
-            for (var i = 0; i < raw.Count; i++)
+            var fanned = new OperationResult<TResult>[commands.Count];
+            for (var i = 0; i < commands.Count; i++)
             {
-                // RunBatchAsync only writes OperationResult<TResult> (handler success)
-                // or OperationFailure (validation failure / fallback) into each slot.
-                typed[i] = raw[i] switch
-                {
-                    OperationResult<TResult> t => t,
-                    OperationFailure f => f,
-                    _ => OperationResult.Failure(
-                        OperationStatus.InternalServerError,
-                        "internal_error",
-                        "Internal Server Error",
-                        "Batch produced an unexpected non-typed, non-failure result."),
-                };
+                fanned[i] = await SendAsync(commands[i], cancellationToken).ConfigureAwait(false);
             }
 
-            return typed;
+            return fanned;
         }
 
-        var results = new OperationResult<TResult>[commands.Count];
+        var requests = new IRequest[commands.Count];
         for (var i = 0; i < commands.Count; i++)
         {
-            results[i] = await SendAsync(commands[i], cancellationToken).ConfigureAwait(false);
+            ArgumentNullException.ThrowIfNull(commands[i]);
+            requests[i] = commands[i]!;
         }
 
-        return results;
-    }
+        var context = new CommandContext(requests, typeof(TCommand));
+        await _pipeline.ExecuteAsync(context, cancellationToken).ConfigureAwait(false);
 
-    private async Task<IReadOnlyList<OperationResult>> RunBatchAsync<TCommand>(
-        IReadOnlyList<TCommand> commands,
-        CommandInvokerDescriptor descriptor,
-        Func<IServiceProvider, IReadOnlyList<IRequest>, CancellationToken, Task<IReadOnlyList<OperationResult>>> batch,
-        CancellationToken cancellationToken)
-        where TCommand : IRequest
-    {
-        var preliminary = new OperationResult?[commands.Count];
-        List<TCommand>? valid = null;
-        List<int>? validIndices = null;
+        IReadOnlyList<OperationResult> raw = context.BatchResults
+            ?? throw new InvalidOperationException(
+                $"Batch dispatch for {typeof(TCommand).FullName} produced no per-item results.");
 
-        for (var i = 0; i < commands.Count; i++)
+        var typed = new OperationResult<TResult>[raw.Count];
+        for (var i = 0; i < raw.Count; i++)
         {
-            TCommand command = commands[i];
-            ArgumentNullException.ThrowIfNull(command);
-
-            var validation = new Validation.ValidationContext();
-            await descriptor.ValidateAsync(_services, command, validation, cancellationToken).ConfigureAwait(false);
-
-            OperationFailure? failure = Validation.ValidationContextExtensions.ToFailureResult(validation);
-            if (failure is not null)
+            typed[i] = raw[i] switch
             {
-                preliminary[i] = failure;
-            }
-            else
-            {
-                (valid ??= new List<TCommand>(commands.Count)).Add(command);
-                (validIndices ??= new List<int>(commands.Count)).Add(i);
-            }
+                OperationResult<TResult> t => t,
+                OperationFailure f => f,
+                _ => OperationResult.Failure(
+                    OperationStatus.InternalServerError,
+                    "internal_error",
+                    "Internal Server Error",
+                    "Batch produced an unexpected non-typed, non-failure result."),
+            };
         }
 
-        if (valid is { Count: > 0 })
-        {
-            var payload = new IRequest[valid.Count];
-            for (var i = 0; i < valid.Count; i++)
-            {
-                payload[i] = valid[i];
-            }
-
-            IReadOnlyList<OperationResult> handled = await batch(_services, payload, cancellationToken).ConfigureAwait(false);
-            if (handled.Count != valid.Count)
-            {
-                throw new InvalidOperationException(
-                    $"Batch handler for {typeof(TCommand).FullName} returned {handled.Count} results for {valid.Count} commands.");
-            }
-
-            for (var i = 0; i < valid.Count; i++)
-            {
-                preliminary[validIndices![i]] = handled[i];
-            }
-        }
-
-        var final = new OperationResult[commands.Count];
-        for (var i = 0; i < commands.Count; i++)
-        {
-            final[i] = preliminary[i]
-                ?? OperationResult.Failure(OperationStatus.InternalServerError, "internal_error", "Internal Server Error", "Batch produced no result for command.");
-        }
-
-        return final;
+        return typed;
     }
 }

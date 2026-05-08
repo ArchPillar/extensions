@@ -180,7 +180,9 @@ public sealed class CreateOrderBatchHandler(OrderContext context) : IBatchComman
 services.AddBatchCommandHandler<CreateOrder, Guid, CreateOrderBatchHandler>();
 ```
 
-`SendBatchAsync` will validate each command (per-handler `ValidateAsync`), forward only the valid ones to the batch handler, and stitch the per-command results back together in input order.
+`SendBatchAsync` is **all-or-nothing at the validation gate**: it validates every command first, and if any one fails the whole batch is rejected without invoking the handler. When validation passes for every command, the handler receives the full input list; results come back in input order.
+
+The batch runs through the pipeline as a **single dispatch** — wrapping middleware (transactions, retry, telemetry) sees one outer pass covering the whole group, so a transaction middleware commits or rolls back the entire batch atomically. Without a registered batch handler, `SendBatchAsync` instead loops `SendAsync` per command, giving each item its own pipeline pass and its own outcome.
 
 ## 8. Observe with OpenTelemetry
 

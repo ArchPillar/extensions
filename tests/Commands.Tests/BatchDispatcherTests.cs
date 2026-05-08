@@ -1,5 +1,6 @@
 using ArchPillar.Extensions.Commands.Validation;
 using ArchPillar.Extensions.Operations;
+using ArchPillar.Extensions.Pipelines;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace ArchPillar.Extensions.Commands.Tests;
@@ -92,7 +93,7 @@ public class BatchDispatcherTests
     }
 
     [Fact]
-    public async Task SendBatchAsync_FiltersInvalidBeforeBatchCallAsync()
+    public async Task SendBatchAsync_AnyValidationFails_RejectsWholeBatchAsync()
     {
         var log = new BatchInvocationLog();
 
@@ -111,13 +112,105 @@ public class BatchDispatcherTests
         IReadOnlyList<OperationResult> results = await dispatcher.SendBatchAsync(batch);
 
         Assert.Equal(3, results.Count);
-        Assert.Equal(OperationStatus.NoContent, results[0].Status);
+        // Items that would have passed get PreconditionFailed/batch_rejected,
+        // distinguishable from the item that failed its own validation.
+        Assert.Equal(OperationStatus.PreconditionFailed, results[0].Status);
+        Assert.Equal("batch_rejected", results[0].Problem?.Type);
         Assert.Equal(OperationStatus.BadRequest, results[1].Status);
-        Assert.Equal(OperationStatus.NoContent, results[2].Status);
+        Assert.NotEqual("batch_rejected", results[1].Problem?.Type);
+        Assert.Equal(OperationStatus.PreconditionFailed, results[2].Status);
+        Assert.Equal("batch_rejected", results[2].Problem?.Type);
 
-        Assert.Equal(2, log.Received.Count);
-        Assert.Contains(log.Received, c => c.Name == "ok");
-        Assert.Contains(log.Received, c => c.Name == "also-ok");
+        Assert.Empty(log.Received);
+    }
+
+    [Fact]
+    public async Task SendBatchAsync_AllValid_HandlerReceivesFullListAsync()
+    {
+        var log = new BatchInvocationLog();
+
+        using ServiceProvider provider = BuildProvider(s =>
+        {
+            s.AddSingleton(log);
+            s.AddCommands();
+            s.AddCommandHandler<AddItem, AddItemHandler>();
+            s.AddBatchCommandHandler<AddItem, TrackingBatchHandler>();
+        });
+
+        using IServiceScope scope = provider.CreateScope();
+        ICommandDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ICommandDispatcher>();
+
+        AddItem[] batch = [new("a"), new("b"), new("c")];
+        IReadOnlyList<OperationResult> results = await dispatcher.SendBatchAsync(batch);
+
+        Assert.Equal(3, results.Count);
+        Assert.All(results, r => Assert.Equal(OperationStatus.NoContent, r.Status));
+        Assert.Equal(3, log.Received.Count);
+        Assert.Equal(["a", "b", "c"], log.Received.Select(item => item.Name));
+    }
+
+    private sealed class CountingMiddleware : IPipelineMiddleware<CommandContext>
+    {
+        public int Invocations { get; private set; }
+        public int? LastBatchSize { get; private set; }
+
+        public async Task InvokeAsync(CommandContext context, PipelineDelegate<CommandContext> next, CancellationToken cancellationToken = default)
+        {
+            ArgumentNullException.ThrowIfNull(context);
+            ArgumentNullException.ThrowIfNull(next);
+
+            Invocations++;
+            LastBatchSize = context.BatchCommands?.Count;
+            await next(context, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    [Fact]
+    public async Task SendBatchAsync_BatchHandlerRegistered_RunsThroughPipelineOnceAsync()
+    {
+        var middleware = new CountingMiddleware();
+        var log = new BatchInvocationLog();
+
+        using ServiceProvider provider = BuildProvider(s =>
+        {
+            s.AddSingleton(log);
+            s.AddCommands();
+            s.AddCommandHandler<AddItem, AddItemHandler>();
+            s.AddBatchCommandHandler<AddItem, TrackingBatchHandler>();
+            s.AddSingleton<IPipelineMiddleware<CommandContext>>(middleware);
+        });
+
+        using IServiceScope scope = provider.CreateScope();
+        ICommandDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ICommandDispatcher>();
+
+        AddItem[] batch = [new("a"), new("b"), new("c")];
+        IReadOnlyList<OperationResult> results = await dispatcher.SendBatchAsync(batch);
+
+        Assert.Equal(3, results.Count);
+        Assert.Equal(1, middleware.Invocations);
+        Assert.Equal(3, middleware.LastBatchSize);
+    }
+
+    [Fact]
+    public async Task SendBatchAsync_NoBatchHandler_FansOutThroughPipelinePerCommandAsync()
+    {
+        var middleware = new CountingMiddleware();
+
+        using ServiceProvider provider = BuildProvider(s =>
+        {
+            s.AddCommands();
+            s.AddCommandHandler<AddItem, AddItemHandler>();
+            s.AddSingleton<IPipelineMiddleware<CommandContext>>(middleware);
+        });
+
+        using IServiceScope scope = provider.CreateScope();
+        ICommandDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ICommandDispatcher>();
+
+        AddItem[] batch = [new("a"), new("b"), new("c")];
+        await dispatcher.SendBatchAsync(batch);
+
+        Assert.Equal(3, middleware.Invocations);
+        Assert.Null(middleware.LastBatchSize);
     }
 
     [Fact]

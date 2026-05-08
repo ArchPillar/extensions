@@ -10,20 +10,30 @@ namespace ArchPillar.Extensions.Commands;
 /// </summary>
 /// <typeparam name="TCommand">The command type.</typeparam>
 /// <remarks>
-/// Per-command <see cref="ICommandHandler{TCommand}.ValidateAsync"/> still
-/// runs first; only the commands that pass validation are forwarded to
-/// <see cref="HandleBatchAsync"/>. The returned list aligns 1:1 with the input
-/// list — entries for invalid commands carry the validation result.
+/// Batch dispatch is all-or-nothing at the validation gate. The dispatcher
+/// runs <see cref="ICommandHandler{TCommand}.ValidateAsync"/> for every input
+/// command first; if <em>any</em> command fails validation, the whole batch
+/// is rejected and <see cref="HandleBatchAsync"/> is never invoked. When
+/// validation passes for every command, the handler receives the full input
+/// list in the original order.
 /// </remarks>
 public interface IBatchCommandHandler<in TCommand> : IRequestHandler
     where TCommand : ICommand
 {
     /// <summary>
-    /// Processes a batch of commands.
+    /// Processes a batch of commands. Only invoked when every command in the
+    /// batch passed validation — the handler can assume each input is
+    /// individually valid.
     /// </summary>
-    /// <param name="commands">The commands that passed validation.</param>
+    /// <param name="commands">
+    /// The full set of commands the caller passed to <c>SendBatchAsync</c>,
+    /// in the same order.
+    /// </param>
     /// <param name="cancellationToken">Cancellation propagated from the dispatcher.</param>
-    /// <returns>A task producing one outcome per command, in input order.</returns>
+    /// <returns>
+    /// One outcome per element of <paramref name="commands"/>, in the same
+    /// order.
+    /// </returns>
     Task<IReadOnlyList<OperationResult>> HandleBatchAsync(
         IReadOnlyList<TCommand> commands,
         CancellationToken cancellationToken);
@@ -38,11 +48,19 @@ public interface IBatchCommandHandler<in TCommand, TResult> : IRequestHandler
     where TCommand : ICommand<TResult>
 {
     /// <summary>
-    /// Processes a batch of commands.
+    /// Processes a batch of commands. Only invoked when every command in the
+    /// batch passed validation — the handler can assume each input is
+    /// individually valid.
     /// </summary>
-    /// <param name="commands">The commands that passed validation.</param>
+    /// <param name="commands">
+    /// The full set of commands the caller passed to <c>SendBatchAsync</c>,
+    /// in the same order.
+    /// </param>
     /// <param name="cancellationToken">Cancellation propagated from the dispatcher.</param>
-    /// <returns>A task producing one outcome per command, in input order.</returns>
+    /// <returns>
+    /// One outcome per element of <paramref name="commands"/>, in the same
+    /// order.
+    /// </returns>
     Task<IReadOnlyList<OperationResult<TResult>>> HandleBatchAsync(
         IReadOnlyList<TCommand> commands,
         CancellationToken cancellationToken);

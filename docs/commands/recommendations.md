@@ -261,18 +261,38 @@ returning is clearer than throwing.
 
 ## Use batching for actual bulk operations
 
-`SendBatchAsync<TCommand[, TResult]>` validates each command, forwards the
-valid ones to a registered `IBatchCommandHandler<TCommand[, TResult]>`, and
-stitches per-command results back into input order. Two cases call for it:
+`SendBatchAsync<TCommand[, TResult]>` is **all-or-nothing at the validation
+gate**: it validates every command first, and if any one fails the whole
+batch is rejected without invoking the handler. When validation passes for
+every command, the registered `IBatchCommandHandler<TCommand[, TResult]>`
+receives the full input list and can assume each command is individually
+valid. Two cases call for it:
 
 - **Bulk inserts.** A batch handler can do one `SaveChangesAsync` for the
   whole input instead of N round-trips.
 - **External APIs that take arrays.** Mirror their shape so you don't pay
   the per-call overhead.
 
-For "small N" cases, dispatching individual commands in a loop is fine and
-keeps the handler simpler. Reach for batching when the per-command cost
-actually matters.
+When a batch handler is registered, the batch goes through the pipeline as a
+**single dispatch**. Wrapping middleware (transaction, retry, telemetry)
+sees one outer pass covering the entire group — so a transaction middleware
+commits or rolls back the whole batch atomically, and the activity records
+the batch size as a tag. The aggregate result is success only when every
+item succeeded; per-item details live on `CommandContext.BatchResults`.
+
+The all-or-nothing rule means callers always know up front whether anything
+ran. When validation rejects the batch, items that *would* have passed
+their own validation come back with a `PreconditionFailed (412)`,
+`type = "batch_rejected"` failure — distinguishable from items that failed
+their own validation. Surface those to clients as "this is fine, but the
+batch it was in was rejected because of other items."
+
+If no batch handler is registered, `SendBatchAsync` falls back to looping
+`SendAsync` per command, which gives each item its own pipeline pass and
+its own transaction. The all-or-nothing rule **does not** apply in that
+mode — items are independent dispatches. Use it when items are genuinely
+independent and you're using batching only as a calling convenience. For
+"small N" cases, an explicit loop in your endpoint is just as clear.
 
 ## Validate handler registrations at startup
 

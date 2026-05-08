@@ -111,7 +111,7 @@ so an authorization failure wins over an input-shape failure. Top-level (non-fie
 | --- | --- | --- | --- |
 | `NotNull` / `NotEmpty` / `NotBlank` | `BadRequest` | yes (via `[CallerArgumentExpression]`) | shape |
 | `Range` / `MaxLength` / `MinLength` / `Matches` | `BadRequest` | yes | shape; populates `Extensions` (`min`/`max`/`actual`/`pattern`/`length`) |
-| `Exists<T>` | `NotFound` | yes | top-level |
+| `Exists<T>` | `NotFound` | no | top-level — emits a non-field error so `Problem.Title`/`Detail` carry the message |
 | `Authenticate` | `Unauthorized` | — | top-level, captures rule expression |
 | `Authorize` | `Forbidden` | — | top-level |
 | `Conflict` | `Conflict` | — | top-level |
@@ -149,6 +149,24 @@ The `CommandInvokerRegistry` stores the `IEnumerable<CommandInvokerDescriptor>` 
 
 `AddBatchCommandHandler<TCommand, THandler>` adds a `BatchInvokerEntry` alongside its typed handler registration. The registry composes the entry into the descriptor on first lookup.
 
+## Batch dispatch
+
+`SendBatchAsync<TCommand[, TResult]>(commands)` is **all-or-nothing at the validation gate**. The dispatcher runs `ValidateAsync` for every input command first. If *any* command fails validation, the whole batch is rejected before the handler is reached; no partial processing is ever performed.
+
+Behaviour depends on whether a batch handler is registered for the command type:
+
+- **Batch handler registered.** The dispatcher constructs a single `CommandContext` carrying the whole array (`BatchCommands` populated, `Command` `null`) and runs it through `Pipeline<CommandContext>` once. The router validates every command up front:
+  - If validation fails for any item, the handler is *not* invoked. Every position in the returned array becomes an `OperationFailure`: items that failed their own validation carry their concrete validator errors; items that would have passed get a `PreconditionFailed (412)` failure with `type = "batch_rejected"`, distinguishing "I was wrong" from "the batch I was in was rejected because of someone else."
+  - If validation passes for every item, the batch handler is invoked once with the full input list — the handler can assume each command is individually valid. Its per-item outcomes are placed in the returned array in input order.
+- **No batch handler.** `SendBatchAsync` falls back to looping `SendAsync(command)` so each item gets its own pipeline pass and its own per-item middleware execution. The all-or-nothing rule does not apply here — items are independent dispatches.
+
+The `Result` slot on `CommandContext` reflects the aggregate outcome when the dispatch went through the pipeline as a batch:
+- Success when every per-item result is successful.
+- `BadRequest` with `type = "batch_rejected"` when validation rejected the batch.
+- `BadRequest` with `type = "batch_failed"` when validation passed but the handler reported per-item failures.
+
+Per-item details live on `BatchResults`. Middlewares deciding commit/rollback (transactions) can read `Result`; callers that need per-item shape read `BatchResults`. Wrapping middleware (transactions, retry, telemetry) sees one dispatch covering the entire batch — one transaction commits or rolls back the whole group, one activity records `command.batch.size`, the exception middleware catches any throw from across the batch.
+
 `ValidateCommandRegistrations()` (extension on `IServiceProvider`) forces eager population — opt-in startup validation.
 
 ## Default DI registrations
@@ -168,7 +186,7 @@ User-added middlewares append to the chain. The order is significant: telemetry 
 
 ## Telemetry
 
-`CommandActivitySource.Name = "ArchPillar.Extensions.Commands"`. Activities are started by `CommandActivityMiddleware` on the Commands-owned `ActivitySource` so subscribers can opt in to command dispatches without also receiving every other pipeline's activities. The activity gets `command.type` as a tag. When no listener is attached the middleware is a zero-allocation pass-through.
+`CommandActivitySource.Name = "ArchPillar.Extensions.Commands"`. Activities are started by `CommandActivityMiddleware` on the Commands-owned `ActivitySource` so subscribers can opt in to command dispatches without also receiving every other pipeline's activities. The activity always carries `command.type` and, in batch dispatches, `command.batch.size`. Failures are recorded back onto the activity: when the inner `ExceptionMiddleware` absorbs a throw or the router writes a failure result, the activity middleware reads `context.Result` after the inner chain returns and marks the activity as `Error` with the failure detail (plus a `command.status` tag). When no listener is attached the middleware is a zero-allocation pass-through.
 
 ## Cancellation
 
