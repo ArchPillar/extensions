@@ -53,11 +53,11 @@ public class BatchDispatcherBenchmarks
     }
 
     [Benchmark(Baseline = true)]
-    public Task<IReadOnlyList<OperationResult>> SendBatchAsync_FanOutAsync()
+    public Task<OperationResult> SendBatchAsync_FanOutAsync()
         => _fanOutDispatcher.SendBatchAsync(_commands);
 
     [Benchmark]
-    public Task<IReadOnlyList<OperationResult>> SendBatchAsync_BatchHandlerAsync()
+    public Task<OperationResult> SendBatchAsync_BatchHandlerAsync()
         => _batchDispatcher.SendBatchAsync(_commands);
 
     public sealed record NoopCommand : ICommand;
@@ -70,17 +70,9 @@ public class BatchDispatcherBenchmarks
 
     public sealed class NoopBatchHandler : IBatchCommandHandler<NoopCommand>
     {
-        public Task<IReadOnlyList<OperationResult>> HandleBatchAsync(
+        public Task<OperationResult> HandleBatchAsync(
             IReadOnlyList<NoopCommand> commands,
             CancellationToken cancellationToken)
-        {
-            var results = new OperationResult[commands.Count];
-            for (var i = 0; i < commands.Count; i++)
-            {
-                results[i] = OperationResult.Ok();
-            }
-
-            return Task.FromResult<IReadOnlyList<OperationResult>>(results);
-        }
+            => OperationResult.Ok();
     }
 }

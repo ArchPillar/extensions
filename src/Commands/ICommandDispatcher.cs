@@ -32,32 +32,51 @@ public interface ICommandDispatcher
     Task<OperationResult<TResult>> SendAsync<TResult>(ICommand<TResult> command, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Dispatches a batch of no-result commands. If a
-    /// <see cref="IBatchCommandHandler{TCommand}"/> is registered for
-    /// <typeparamref name="TCommand"/> it is used; otherwise the dispatcher
-    /// fans out to the single-command handler.
+    /// Dispatches a batch of no-result commands as a single atomic operation.
     /// </summary>
     /// <typeparam name="TCommand">The command type.</typeparam>
     /// <param name="commands">The commands to dispatch.</param>
     /// <param name="cancellationToken">Cancellation propagated to middleware and the handler.</param>
-    /// <returns>One outcome per command, in input order.</returns>
-    Task<IReadOnlyList<OperationResult>> SendBatchAsync<TCommand>(
+    /// <returns>
+    /// A single <see cref="OperationResult"/>: success when the batch
+    /// completed, otherwise the failure that aborted it.
+    /// </returns>
+    /// <remarks>
+    /// When an <see cref="IBatchCommandHandler{TCommand}"/> is registered the
+    /// batch goes through the pipeline as one dispatch and the batch handler
+    /// owns both validation and processing. Without a batch handler the
+    /// dispatcher fans out via <see cref="SendAsync(ICommand, CancellationToken)"/>
+    /// per item, validating and handling each before moving on, and stops on
+    /// the first failure.
+    /// </remarks>
+    Task<OperationResult> SendBatchAsync<TCommand>(
         IReadOnlyList<TCommand> commands,
         CancellationToken cancellationToken = default)
         where TCommand : ICommand;
 
     /// <summary>
-    /// Dispatches a batch of result-bearing commands. If a
-    /// <see cref="IBatchCommandHandler{TCommand, TResult}"/> is registered for
-    /// <typeparamref name="TCommand"/> it is used; otherwise the dispatcher
-    /// fans out to the single-command handler.
+    /// Dispatches a batch of result-bearing commands as a single atomic
+    /// operation.
     /// </summary>
     /// <typeparam name="TCommand">The command type.</typeparam>
     /// <typeparam name="TResult">The payload type.</typeparam>
     /// <param name="commands">The commands to dispatch.</param>
     /// <param name="cancellationToken">Cancellation propagated to middleware and the handler.</param>
-    /// <returns>One outcome per command, in input order.</returns>
-    Task<IReadOnlyList<OperationResult<TResult>>> SendBatchAsync<TCommand, TResult>(
+    /// <returns>
+    /// A single <see cref="OperationResult{TValue}"/>: success carrying the
+    /// per-command payloads in input order, otherwise the failure that
+    /// aborted the batch.
+    /// </returns>
+    /// <remarks>
+    /// When an <see cref="IBatchCommandHandler{TCommand, TResult}"/> is
+    /// registered the batch goes through the pipeline as one dispatch and the
+    /// batch handler owns both validation and processing. Without a batch
+    /// handler the dispatcher fans out via
+    /// <see cref="SendAsync{TResult}(ICommand{TResult}, CancellationToken)"/>
+    /// per item, validating and handling each before moving on, and stops on
+    /// the first failure.
+    /// </remarks>
+    Task<OperationResult<IReadOnlyList<TResult>>> SendBatchAsync<TCommand, TResult>(
         IReadOnlyList<TCommand> commands,
         CancellationToken cancellationToken = default)
         where TCommand : ICommand<TResult>;

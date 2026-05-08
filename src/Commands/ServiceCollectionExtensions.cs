@@ -167,11 +167,27 @@ public static class ServiceCollectionExtensions
             typeof(THandler),
             lifetime));
 
-        services.AddSingleton(new BatchInvokerEntry(typeof(TCommand), InvokeBatchAsync));
+        services.AddSingleton(new BatchInvokerEntry(typeof(TCommand), ValidateBatchAsync, InvokeBatchAsync));
 
         return services;
 
-        static async Task<IReadOnlyList<OperationResult>> InvokeBatchAsync(
+        static async Task ValidateBatchAsync(
+            IServiceProvider services,
+            IReadOnlyList<IRequest> commands,
+            Validation.IValidationContext validation,
+            CancellationToken cancellationToken)
+        {
+            IBatchCommandHandler<TCommand> handler = services.GetRequiredService<IBatchCommandHandler<TCommand>>();
+            var typed = new TCommand[commands.Count];
+            for (var i = 0; i < commands.Count; i++)
+            {
+                typed[i] = (TCommand)commands[i];
+            }
+
+            await handler.ValidateAsync(typed, validation, cancellationToken).ConfigureAwait(false);
+        }
+
+        static async Task<OperationResult> InvokeBatchAsync(
             IServiceProvider services,
             IReadOnlyList<IRequest> commands,
             CancellationToken cancellationToken)
@@ -212,11 +228,27 @@ public static class ServiceCollectionExtensions
             typeof(THandler),
             lifetime));
 
-        services.AddSingleton(new BatchInvokerEntry(typeof(TCommand), InvokeBatchAsync));
+        services.AddSingleton(new BatchInvokerEntry(typeof(TCommand), ValidateBatchAsync, InvokeBatchAsync));
 
         return services;
 
-        static async Task<IReadOnlyList<OperationResult>> InvokeBatchAsync(
+        static async Task ValidateBatchAsync(
+            IServiceProvider services,
+            IReadOnlyList<IRequest> commands,
+            Validation.IValidationContext validation,
+            CancellationToken cancellationToken)
+        {
+            IBatchCommandHandler<TCommand, TResult> handler = services.GetRequiredService<IBatchCommandHandler<TCommand, TResult>>();
+            var typed = new TCommand[commands.Count];
+            for (var i = 0; i < commands.Count; i++)
+            {
+                typed[i] = (TCommand)commands[i];
+            }
+
+            await handler.ValidateAsync(typed, validation, cancellationToken).ConfigureAwait(false);
+        }
+
+        static async Task<OperationResult> InvokeBatchAsync(
             IServiceProvider services,
             IReadOnlyList<IRequest> commands,
             CancellationToken cancellationToken)
@@ -228,14 +260,7 @@ public static class ServiceCollectionExtensions
                 typed[i] = (TCommand)commands[i];
             }
 
-            IReadOnlyList<OperationResult<TResult>> handled = await handler.HandleBatchAsync(typed, cancellationToken).ConfigureAwait(false);
-            var erased = new OperationResult[handled.Count];
-            for (var i = 0; i < handled.Count; i++)
-            {
-                erased[i] = handled[i];
-            }
-
-            return erased;
+            return await handler.HandleBatchAsync(typed, cancellationToken).ConfigureAwait(false);
         }
     }
 

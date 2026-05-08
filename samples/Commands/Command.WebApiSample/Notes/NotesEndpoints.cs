@@ -76,7 +76,8 @@ internal static class NotesEndpoints
             return result.IsSuccess ? Results.NoContent() : result.ToProblemResult();
         });
 
-        // Batch — one round-trip, per-item results stitched back in input order.
+        // Batch — atomic. Either all succeed (returning the list of new IDs)
+        // or the whole batch is rejected with a single problem response.
         group.MapPost("/batch", async (
             CreateNoteRequest[] requests,
             ICommandDispatcher dispatcher,
@@ -90,12 +91,11 @@ internal static class NotesEndpoints
                 commands[i] = new CreateNote(requests[i].Title ?? string.Empty, requests[i].Body ?? string.Empty);
             }
 
-            IReadOnlyList<OperationResult<Guid>> results =
+            OperationResult<IReadOnlyList<Guid>> result =
                 await dispatcher.SendBatchAsync<CreateNote, Guid>(commands, cancellationToken);
-            return Results.Ok(results.Select(result => new BatchItemResponse(
-                (int)result.Status,
-                result.Value,
-                result.Problem?.Detail)));
+            return result.IsSuccess
+                ? Results.Ok(result.Value)
+                : result.ToProblemResult();
         });
 
         return routes;

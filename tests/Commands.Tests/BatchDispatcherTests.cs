@@ -30,18 +30,31 @@ public class BatchDispatcherTests
             _log = log;
         }
 
-        public Task<IReadOnlyList<OperationResult>> HandleBatchAsync(
+        public Task ValidateAsync(IReadOnlyList<AddItem> commands, IValidationContext validation, CancellationToken cancellationToken)
+        {
+            ArgumentNullException.ThrowIfNull(commands);
+            ArgumentNullException.ThrowIfNull(validation);
+
+            for (var i = 0; i < commands.Count; i++)
+            {
+                if (string.IsNullOrEmpty(commands[i].Name))
+                {
+                    validation.AddError($"commands[{i}].Name", new OperationError(
+                        "required",
+                        $"commands[{i}].Name is required.",
+                        OperationStatus.BadRequest));
+                }
+            }
+
+            return Task.CompletedTask;
+        }
+
+        public Task<OperationResult> HandleBatchAsync(
             IReadOnlyList<AddItem> commands,
             CancellationToken cancellationToken)
         {
             _log.Received.AddRange(commands);
-            var results = new OperationResult[commands.Count];
-            for (var i = 0; i < commands.Count; i++)
-            {
-                results[i] = OperationResult.NoContent();
-            }
-
-            return Task.FromResult<IReadOnlyList<OperationResult>>(results);
+            return Task.FromResult(OperationResult.NoContent());
         }
     }
 
@@ -51,7 +64,7 @@ public class BatchDispatcherTests
     }
 
     [Fact]
-    public async Task SendBatchAsync_NoBatchHandler_FansOutAsync()
+    public async Task SendBatchAsync_NoBatchHandler_FansOutAndReturnsSuccessAsync()
     {
         using ServiceProvider provider = BuildProvider(s =>
         {
@@ -63,14 +76,32 @@ public class BatchDispatcherTests
         ICommandDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ICommandDispatcher>();
 
         AddItem[] batch = [new("a"), new("b"), new("c")];
-        IReadOnlyList<OperationResult> results = await dispatcher.SendBatchAsync(batch);
+        OperationResult result = await dispatcher.SendBatchAsync(batch);
 
-        Assert.Equal(3, results.Count);
-        Assert.All(results, r => Assert.Equal(OperationStatus.NoContent, r.Status));
+        Assert.True(result.IsSuccess);
     }
 
     [Fact]
-    public async Task SendBatchAsync_WithBatchHandler_UsesBatchHandlerAsync()
+    public async Task SendBatchAsync_NoBatchHandler_FailFastOnFirstFailureAsync()
+    {
+        using ServiceProvider provider = BuildProvider(s =>
+        {
+            s.AddCommands();
+            s.AddCommandHandler<AddItem, AddItemHandler>();
+        });
+
+        using IServiceScope scope = provider.CreateScope();
+        ICommandDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ICommandDispatcher>();
+
+        AddItem[] batch = [new("a"), new(""), new("c")];
+        OperationResult result = await dispatcher.SendBatchAsync(batch);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(OperationStatus.BadRequest, result.Status);
+    }
+
+    [Fact]
+    public async Task SendBatchAsync_BatchHandlerRegistered_AllValid_RunsHandlerOnFullListAsync()
     {
         var log = new BatchInvocationLog();
 
@@ -85,15 +116,16 @@ public class BatchDispatcherTests
         using IServiceScope scope = provider.CreateScope();
         ICommandDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ICommandDispatcher>();
 
-        AddItem[] batch = [new("a"), new("b")];
-        IReadOnlyList<OperationResult> results = await dispatcher.SendBatchAsync(batch);
+        AddItem[] batch = [new("a"), new("b"), new("c")];
+        OperationResult result = await dispatcher.SendBatchAsync(batch);
 
-        Assert.Equal(2, results.Count);
-        Assert.Equal(2, log.Received.Count);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(3, log.Received.Count);
+        Assert.Equal(["a", "b", "c"], log.Received.Select(item => item.Name));
     }
 
     [Fact]
-    public async Task SendBatchAsync_AnyValidationFails_RejectsWholeBatchAsync()
+    public async Task SendBatchAsync_BatchHandlerRegistered_ValidationFails_HandlerNotInvokedAsync()
     {
         var log = new BatchInvocationLog();
 
@@ -109,44 +141,14 @@ public class BatchDispatcherTests
         ICommandDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ICommandDispatcher>();
 
         AddItem[] batch = [new("ok"), new(""), new("also-ok")];
-        IReadOnlyList<OperationResult> results = await dispatcher.SendBatchAsync(batch);
+        OperationResult result = await dispatcher.SendBatchAsync(batch);
 
-        Assert.Equal(3, results.Count);
-        // Items that would have passed get PreconditionFailed/batch_rejected,
-        // distinguishable from the item that failed its own validation.
-        Assert.Equal(OperationStatus.PreconditionFailed, results[0].Status);
-        Assert.Equal("batch_rejected", results[0].Problem?.Type);
-        Assert.Equal(OperationStatus.BadRequest, results[1].Status);
-        Assert.NotEqual("batch_rejected", results[1].Problem?.Type);
-        Assert.Equal(OperationStatus.PreconditionFailed, results[2].Status);
-        Assert.Equal("batch_rejected", results[2].Problem?.Type);
-
+        Assert.True(result.IsFailure);
+        Assert.Equal(OperationStatus.BadRequest, result.Status);
+        Assert.NotNull(result.Problem);
+        Assert.NotNull(result.Problem!.Errors);
+        Assert.Contains("commands[1].Name", result.Problem.Errors!);
         Assert.Empty(log.Received);
-    }
-
-    [Fact]
-    public async Task SendBatchAsync_AllValid_HandlerReceivesFullListAsync()
-    {
-        var log = new BatchInvocationLog();
-
-        using ServiceProvider provider = BuildProvider(s =>
-        {
-            s.AddSingleton(log);
-            s.AddCommands();
-            s.AddCommandHandler<AddItem, AddItemHandler>();
-            s.AddBatchCommandHandler<AddItem, TrackingBatchHandler>();
-        });
-
-        using IServiceScope scope = provider.CreateScope();
-        ICommandDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ICommandDispatcher>();
-
-        AddItem[] batch = [new("a"), new("b"), new("c")];
-        IReadOnlyList<OperationResult> results = await dispatcher.SendBatchAsync(batch);
-
-        Assert.Equal(3, results.Count);
-        Assert.All(results, r => Assert.Equal(OperationStatus.NoContent, r.Status));
-        Assert.Equal(3, log.Received.Count);
-        Assert.Equal(["a", "b", "c"], log.Received.Select(item => item.Name));
     }
 
     private sealed class CountingMiddleware : IPipelineMiddleware<CommandContext>
@@ -184,9 +186,8 @@ public class BatchDispatcherTests
         ICommandDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ICommandDispatcher>();
 
         AddItem[] batch = [new("a"), new("b"), new("c")];
-        IReadOnlyList<OperationResult> results = await dispatcher.SendBatchAsync(batch);
+        await dispatcher.SendBatchAsync(batch);
 
-        Assert.Equal(3, results.Count);
         Assert.Equal(1, middleware.Invocations);
         Assert.Equal(3, middleware.LastBatchSize);
     }
@@ -214,7 +215,7 @@ public class BatchDispatcherTests
     }
 
     [Fact]
-    public async Task SendBatchAsync_EmptyBatch_ReturnsEmptyAsync()
+    public async Task SendBatchAsync_EmptyBatch_ReturnsSuccessAsync()
     {
         using ServiceProvider provider = BuildProvider(s =>
         {
@@ -225,9 +226,9 @@ public class BatchDispatcherTests
         using IServiceScope scope = provider.CreateScope();
         ICommandDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ICommandDispatcher>();
 
-        IReadOnlyList<OperationResult> results = await dispatcher.SendBatchAsync(Array.Empty<AddItem>());
+        OperationResult result = await dispatcher.SendBatchAsync(Array.Empty<AddItem>());
 
-        Assert.Empty(results);
+        Assert.True(result.IsSuccess);
     }
 
     private static ServiceProvider BuildProvider(Action<IServiceCollection> configure)

@@ -162,27 +162,38 @@ services.AddPipelineMiddleware<CommandContext, TransactionMiddleware>();
 
 ## 7. Optional batch handler
 
-When you want bulk inserts to actually be one round-trip, opt into batching:
+When you want bulk inserts to actually be one round-trip, opt into batching. The batch handler is a self-contained unit: it owns both validation and processing for the batch — the per-command `ICommandHandler<CreateOrder>` is not consulted on the batch path.
 
 ```csharp
 public sealed class CreateOrderBatchHandler(OrderContext context) : IBatchCommandHandler<CreateOrder, Guid>
 {
-    public async Task<IReadOnlyList<OperationResult<Guid>>> HandleBatchAsync(
+    public Task ValidateAsync(IReadOnlyList<CreateOrder> commands, IValidationContext validation, CancellationToken cancellationToken)
+    {
+        for (var i = 0; i < commands.Count; i++)
+        {
+            validation
+                .NotEmpty(commands[i].Customer, field: $"commands[{i}].Customer")
+                .Range(commands[i].Quantity, 1, 100, field: $"commands[{i}].Quantity");
+        }
+        return Task.CompletedTask;
+    }
+
+    public async Task<OperationResult<IReadOnlyList<Guid>>> HandleBatchAsync(
         IReadOnlyList<CreateOrder> commands, CancellationToken cancellationToken)
     {
         var orders = commands.Select(c => new Order(c.Customer, c.Quantity)).ToArray();
         context.Orders.AddRange(orders);
         await context.SaveChangesAsync(cancellationToken);
-        return orders.Select(o => OperationResult.Created(o.Id)).ToArray();
+        return OperationResult.Ok<IReadOnlyList<Guid>>(orders.Select(o => o.Id).ToArray());
     }
 }
 
 services.AddBatchCommandHandler<CreateOrder, Guid, CreateOrderBatchHandler>();
 ```
 
-`SendBatchAsync` is **all-or-nothing at the validation gate**: it validates every command first, and if any one fails the whole batch is rejected without invoking the handler. When validation passes for every command, the handler receives the full input list; results come back in input order.
+`SendBatchAsync` returns a single `OperationResult<IReadOnlyList<Guid>>`. The batch handler's `ValidateAsync` runs on the whole list first; if any error is recorded, the handler is not invoked and the call returns the validation failure. When validation passes, the handler runs and its return value is what the caller sees.
 
-The batch runs through the pipeline as a **single dispatch** — wrapping middleware (transactions, retry, telemetry) sees one outer pass covering the whole group, so a transaction middleware commits or rolls back the entire batch atomically. Without a registered batch handler, `SendBatchAsync` instead loops `SendAsync` per command, giving each item its own pipeline pass and its own outcome.
+The batch runs through the pipeline as a **single dispatch** — wrapping middleware (transactions, retry, telemetry) covers the whole group, so a transaction middleware commits or rolls back the entire batch atomically. Without a registered batch handler, `SendBatchAsync` instead loops `SendAsync` per item, validating and handling each through its own pipeline pass, and stops on the first failure.
 
 ## 8. Observe with OpenTelemetry
 

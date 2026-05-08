@@ -78,10 +78,17 @@ OperationResult cancel = await dispatcher.SendAsync(new CancelOrder(Guid.NewGuid
 Console.WriteLine($"  status={cancel.Status} detail={cancel.Problem?.Detail}");
 
 Console.WriteLine();
-Console.WriteLine("== batch insert (3 commands, 1 invalid) ==");
-CreateOrder[] batch = [new("bob", 1), new("", 0), new("carol", 2)];
-IReadOnlyList<OperationResult<Guid>> batchResults = await dispatcher.SendBatchAsync<CreateOrder, Guid>(batch);
-for (var i = 0; i < batchResults.Count; i++)
+Console.WriteLine("== batch insert (3 valid commands) ==");
+CreateOrder[] validBatch = [new("bob", 1), new("carol", 2), new("dan", 3)];
+OperationResult<IReadOnlyList<Guid>> validBatchResult = await dispatcher.SendBatchAsync<CreateOrder, Guid>(validBatch);
+Console.WriteLine($"  status={validBatchResult.Status} count={validBatchResult.Value?.Count}");
+foreach (Guid id in validBatchResult.Value ?? [])
 {
-    Console.WriteLine($"  [{i}] status={batchResults[i].Status} value={batchResults[i].Value}");
+    Console.WriteLine($"    id={id}");
 }
+
+Console.WriteLine();
+Console.WriteLine("== batch insert (one item invalid — whole batch rejected) ==");
+CreateOrder[] mixedBatch = [new("eve", 1), new("", 0), new("frank", 2)];
+OperationResult<IReadOnlyList<Guid>> rejectedResult = await dispatcher.SendBatchAsync<CreateOrder, Guid>(mixedBatch);
+Console.WriteLine($"  status={rejectedResult.Status} detail={rejectedResult.Problem?.Detail}");

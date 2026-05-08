@@ -261,38 +261,37 @@ returning is clearer than throwing.
 
 ## Use batching for actual bulk operations
 
-`SendBatchAsync<TCommand[, TResult]>` is **all-or-nothing at the validation
-gate**: it validates every command first, and if any one fails the whole
-batch is rejected without invoking the handler. When validation passes for
-every command, the registered `IBatchCommandHandler<TCommand[, TResult]>`
-receives the full input list and can assume each command is individually
-valid. Two cases call for it:
+`SendBatchAsync<TCommand>` returns a single `OperationResult`;
+`SendBatchAsync<TCommand, TResult>` returns
+`OperationResult<IReadOnlyList<TResult>>`. The batch is one operation —
+either it ran and produced its results, or it produced one failure. Two
+cases call for it:
 
 - **Bulk inserts.** A batch handler can do one `SaveChangesAsync` for the
   whole input instead of N round-trips.
 - **External APIs that take arrays.** Mirror their shape so you don't pay
   the per-call overhead.
 
-When a batch handler is registered, the batch goes through the pipeline as a
-**single dispatch**. Wrapping middleware (transaction, retry, telemetry)
-sees one outer pass covering the entire group — so a transaction middleware
-commits or rolls back the whole batch atomically, and the activity records
-the batch size as a tag. The aggregate result is success only when every
-item succeeded; per-item details live on `CommandContext.BatchResults`.
+The batch handler is a self-contained unit: it owns both validation and
+processing for the batch. The single-command `ICommandHandler<TCommand>` is
+*not* consulted on the batch path. Per-item shape checks live inside
+`IBatchCommandHandler<TCommand>.ValidateAsync` (typically a loop over the
+list using index-keyed validator calls — `commands[i].Title` etc.). The
+handler runs only when no validation errors were recorded, so it can
+assume every input is acceptable.
 
-The all-or-nothing rule means callers always know up front whether anything
-ran. When validation rejects the batch, items that *would* have passed
-their own validation come back with a `PreconditionFailed (412)`,
-`type = "batch_rejected"` failure — distinguishable from items that failed
-their own validation. Surface those to clients as "this is fine, but the
-batch it was in was rejected because of other items."
+When a batch handler is registered, the batch goes through the pipeline as
+a single dispatch. Wrapping middleware (transaction, retry, telemetry)
+covers the whole group — so a transaction middleware commits or rolls back
+the entire batch atomically, and the activity records the batch size as a
+tag.
 
-If no batch handler is registered, `SendBatchAsync` falls back to looping
-`SendAsync` per command, which gives each item its own pipeline pass and
-its own transaction. The all-or-nothing rule **does not** apply in that
-mode — items are independent dispatches. Use it when items are genuinely
-independent and you're using batching only as a calling convenience. For
-"small N" cases, an explicit loop in your endpoint is just as clear.
+If no batch handler is registered, `SendBatchAsync` doesn't run a batch
+context at all — it loops `SendAsync` per item. Each item runs through its
+own pipeline pass with its own validation and middleware execution, and
+the call stops on the first failure. Use it when items are genuinely
+independent and batching is just a calling convenience. For "small N"
+cases, an explicit loop in your endpoint is just as clear.
 
 ## Validate handler registrations at startup
 

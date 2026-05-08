@@ -87,21 +87,15 @@ public sealed class CommandContext : IPipelineContext
     public IValidationContext Validation { get; }
 
     /// <summary>
-    /// The outcome of the dispatch. Populated by the router (single mode) or
-    /// the exception middleware. In batch mode this slot carries the
-    /// aggregate result — success when every item succeeded, otherwise a
-    /// failure summarising the batch (per-item details live on
-    /// <see cref="BatchResults"/>). The dispatcher reads this slot after
-    /// <see cref="Pipeline{T}.ExecuteAsync"/> completes so user middlewares
-    /// (transaction commit/rollback, retry) can branch on the overall outcome.
+    /// The outcome of the dispatch. In batch mode this carries the single
+    /// result returned by the batch handler — either the typed list of
+    /// per-command payloads on success or a failure that aborted the batch.
+    /// In single mode it carries the per-command outcome. The dispatcher
+    /// reads this slot after <see cref="Pipeline{T}.ExecuteAsync"/>
+    /// completes; wrapping middlewares (transaction commit/rollback, retry)
+    /// can branch on it.
     /// </summary>
     public OperationResult? Result { get; set; }
-
-    /// <summary>
-    /// Per-item outcomes for a batch dispatch, aligned 1:1 with
-    /// <see cref="BatchCommands"/>. <c>null</c> in single mode.
-    /// </summary>
-    public IReadOnlyList<OperationResult>? BatchResults { get; set; }
 
     /// <inheritdoc/>
     public string OperationName => "Commands." + CommandType.Name;

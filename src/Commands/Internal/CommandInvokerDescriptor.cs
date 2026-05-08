@@ -16,12 +16,14 @@ internal sealed class CommandInvokerDescriptor
         Func<IServiceProvider, IRequest, IValidationContext, CancellationToken, Task> validateAsync,
         Func<IServiceProvider, IRequest, CancellationToken, Task<OperationResult>> invokeAsync,
         Action<IServiceProvider> resolveHandler,
-        Func<IServiceProvider, IReadOnlyList<IRequest>, CancellationToken, Task<IReadOnlyList<OperationResult>>>? invokeBatchAsync = null)
+        Func<IServiceProvider, IReadOnlyList<IRequest>, IValidationContext, CancellationToken, Task>? validateBatchAsync = null,
+        Func<IServiceProvider, IReadOnlyList<IRequest>, CancellationToken, Task<OperationResult>>? invokeBatchAsync = null)
     {
         CommandType = commandType;
         ValidateAsync = validateAsync;
         InvokeAsync = invokeAsync;
         ResolveHandler = resolveHandler;
+        ValidateBatchAsync = validateBatchAsync;
         InvokeBatchAsync = invokeBatchAsync;
     }
 
@@ -38,5 +40,7 @@ internal sealed class CommandInvokerDescriptor
     /// </summary>
     public Action<IServiceProvider> ResolveHandler { get; }
 
-    public Func<IServiceProvider, IReadOnlyList<IRequest>, CancellationToken, Task<IReadOnlyList<OperationResult>>>? InvokeBatchAsync { get; }
+    public Func<IServiceProvider, IReadOnlyList<IRequest>, IValidationContext, CancellationToken, Task>? ValidateBatchAsync { get; }
+
+    public Func<IServiceProvider, IReadOnlyList<IRequest>, CancellationToken, Task<OperationResult>>? InvokeBatchAsync { get; }
 }

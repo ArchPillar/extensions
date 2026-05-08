@@ -1,4 +1,5 @@
 using ArchPillar.Extensions.Commands;
+using ArchPillar.Extensions.Commands.Validation;
 using ArchPillar.Extensions.Operations;
 
 namespace Command.WebApiSample.Notes.Commands;
@@ -6,7 +7,28 @@ namespace Command.WebApiSample.Notes.Commands;
 internal sealed class CreateNoteBatchHandler(NotesDbContext context, TimeProvider clock)
     : IBatchCommandHandler<CreateNote, Guid>
 {
-    public async Task<IReadOnlyList<OperationResult<Guid>>> HandleBatchAsync(
+    public Task ValidateAsync(
+        IReadOnlyList<CreateNote> commands,
+        IValidationContext validation,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(commands);
+        ArgumentNullException.ThrowIfNull(validation);
+
+        for (var i = 0; i < commands.Count; i++)
+        {
+            CreateNote command = commands[i];
+            validation
+                .NotBlank(command.Title, field: $"commands[{i}].Title")
+                .MaxLength(command.Title, 120, field: $"commands[{i}].Title")
+                .NotBlank(command.Body, field: $"commands[{i}].Body")
+                .MaxLength(command.Body, 4_000, field: $"commands[{i}].Body");
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public async Task<OperationResult<IReadOnlyList<Guid>>> HandleBatchAsync(
         IReadOnlyList<CreateNote> commands,
         CancellationToken cancellationToken)
     {
@@ -28,12 +50,12 @@ internal sealed class CreateNoteBatchHandler(NotesDbContext context, TimeProvide
         context.Notes.AddRange(notes);
         await context.SaveChangesAsync(cancellationToken);
 
-        var results = new OperationResult<Guid>[notes.Length];
+        var ids = new Guid[notes.Length];
         for (var i = 0; i < notes.Length; i++)
         {
-            results[i] = OperationResult.Created(notes[i].Id);
+            ids[i] = notes[i].Id;
         }
 
-        return results;
+        return OperationResult.Ok<IReadOnlyList<Guid>>(ids);
     }
 }

@@ -75,21 +75,25 @@ public interface ICommandHandler<in TCommand, TResult> : IRequestHandler
 }
 ```
 
-Optional batch handlers:
+Optional batch handlers — separate from the single-command handler and self-contained: the batch handler owns both validation and processing for the batch.
 
 ```csharp
 public interface IBatchCommandHandler<in TCommand> : IRequestHandler
     where TCommand : ICommand
 {
-    Task<IReadOnlyList<OperationResult>> HandleBatchAsync(
-        IReadOnlyList<TCommand> commands, CancellationToken cancellationToken);
+    Task ValidateAsync(IReadOnlyList<TCommand> commands, IValidationContext validation, CancellationToken cancellationToken)
+        => Task.CompletedTask;
+
+    Task<OperationResult> HandleBatchAsync(IReadOnlyList<TCommand> commands, CancellationToken cancellationToken);
 }
 
 public interface IBatchCommandHandler<in TCommand, TResult> : IRequestHandler
     where TCommand : ICommand<TResult>
 {
-    Task<IReadOnlyList<OperationResult<TResult>>> HandleBatchAsync(
-        IReadOnlyList<TCommand> commands, CancellationToken cancellationToken);
+    Task ValidateAsync(IReadOnlyList<TCommand> commands, IValidationContext validation, CancellationToken cancellationToken)
+        => Task.CompletedTask;
+
+    Task<OperationResult<IReadOnlyList<TResult>>> HandleBatchAsync(IReadOnlyList<TCommand> commands, CancellationToken cancellationToken);
 }
 ```
 
@@ -151,21 +155,13 @@ The `CommandInvokerRegistry` stores the `IEnumerable<CommandInvokerDescriptor>` 
 
 ## Batch dispatch
 
-`SendBatchAsync<TCommand[, TResult]>(commands)` is **all-or-nothing at the validation gate**. The dispatcher runs `ValidateAsync` for every input command first. If *any* command fails validation, the whole batch is rejected before the handler is reached; no partial processing is ever performed.
+`SendBatchAsync<TCommand[, TResult]>(commands)` returns a single `OperationResult` (or `OperationResult<IReadOnlyList<TResult>>` for the result-bearing form). Either the whole batch ran and succeeded, or it produced a single failure that aborted it. Two paths, decided by registration:
 
-Behaviour depends on whether a batch handler is registered for the command type:
-
-- **Batch handler registered.** The dispatcher constructs a single `CommandContext` carrying the whole array (`BatchCommands` populated, `Command` `null`) and runs it through `Pipeline<CommandContext>` once. The router validates every command up front:
-  - If validation fails for any item, the handler is *not* invoked. Every position in the returned array becomes an `OperationFailure`: items that failed their own validation carry their concrete validator errors; items that would have passed get a `PreconditionFailed (412)` failure with `type = "batch_rejected"`, distinguishing "I was wrong" from "the batch I was in was rejected because of someone else."
-  - If validation passes for every item, the batch handler is invoked once with the full input list — the handler can assume each command is individually valid. Its per-item outcomes are placed in the returned array in input order.
-- **No batch handler.** `SendBatchAsync` falls back to looping `SendAsync(command)` so each item gets its own pipeline pass and its own per-item middleware execution. The all-or-nothing rule does not apply here — items are independent dispatches.
-
-The `Result` slot on `CommandContext` reflects the aggregate outcome when the dispatch went through the pipeline as a batch:
-- Success when every per-item result is successful.
-- `BadRequest` with `type = "batch_rejected"` when validation rejected the batch.
-- `BadRequest` with `type = "batch_failed"` when validation passed but the handler reported per-item failures.
-
-Per-item details live on `BatchResults`. Middlewares deciding commit/rollback (transactions) can read `Result`; callers that need per-item shape read `BatchResults`. Wrapping middleware (transactions, retry, telemetry) sees one dispatch covering the entire batch — one transaction commits or rolls back the whole group, one activity records `command.batch.size`, the exception middleware catches any throw from across the batch.
+- **Batch handler registered.** The dispatcher constructs one `CommandContext` carrying the whole array (`BatchCommands` populated, `Command` `null`) and runs it through `Pipeline<CommandContext>` once. The router calls the **batch handler's** `ValidateAsync(IReadOnlyList<TCommand>, IValidationContext, …)` and then, if validation produced no errors, its `HandleBatchAsync(IReadOnlyList<TCommand>, …)`. The single-command `ICommandHandler<TCommand>.ValidateAsync` is *never* consulted on this path — the batch handler owns the rules. The handler is responsible for any per-item shape checks (typically by walking the list with index-keyed validator calls — the same `IValidationContext` accumulator surfaces them as field-keyed entries in the resulting `Problem.Errors`).
+  - All-or-nothing: if any validation entry was added, the handler is not invoked; the dispatcher returns the single validation `OperationFailure`.
+  - On success: the handler returns the typed list of payloads (or success for the no-result form). The dispatcher returns it as-is.
+  - Wrapping middleware (transactions, retry, telemetry, exception) sees one dispatch covering the whole batch — one transaction commits or rolls back the entire group, one activity records `command.batch.size`, the exception middleware catches any throw from across the batch.
+- **No batch handler.** `SendBatchAsync` doesn't construct a batch context at all — it loops `SendAsync(command)` per item. Each item runs through its own pipeline pass with its own validation and its own middleware execution. The dispatcher stops on the first item that fails and returns that failure; on success it returns the aggregate list of payloads (or success for the no-result form). There is no "batch atomicity" in this mode — items are independent dispatches that just happen to be invoked in a loop.
 
 `ValidateCommandRegistrations()` (extension on `IServiceProvider`) forces eager population — opt-in startup validation.
 

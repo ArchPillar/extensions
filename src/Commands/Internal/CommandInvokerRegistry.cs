@@ -90,6 +90,7 @@ internal sealed class CommandInvokerRegistry
                 lastMatch.ValidateAsync,
                 lastMatch.InvokeAsync,
                 lastMatch.ResolveHandler,
+                batch.ValidateBatchAsync,
                 batch.InvokeBatchAsync);
         }
 
