@@ -32,7 +32,7 @@ public interface ICommandDispatcher
     Task<OperationResult<TResult>> SendAsync<TResult>(ICommand<TResult> command, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Dispatches a batch of no-result commands as a single atomic operation.
+    /// Dispatches a batch of no-result commands.
     /// </summary>
     /// <typeparam name="TCommand">The command type.</typeparam>
     /// <param name="commands">The commands to dispatch.</param>
@@ -42,12 +42,22 @@ public interface ICommandDispatcher
     /// completed, otherwise the failure that aborted it.
     /// </returns>
     /// <remarks>
+    /// <para>
     /// When an <see cref="IBatchCommandHandler{TCommand}"/> is registered the
     /// batch goes through the pipeline as one dispatch and the batch handler
-    /// owns both validation and processing. Without a batch handler the
-    /// dispatcher fans out via <see cref="SendAsync(ICommand, CancellationToken)"/>
-    /// per item, validating and handling each before moving on, and stops on
-    /// the first failure.
+    /// owns both validation and processing — wrapping middleware
+    /// (transactions, retry, telemetry) covers the whole group.
+    /// </para>
+    /// <para>
+    /// When no batch handler is registered, the dispatcher iterates the
+    /// input list and calls
+    /// <see cref="SendAsync(ICommand, CancellationToken)"/> per item.
+    /// Each item runs its full pipeline pass — validation then handler —
+    /// before the next item is considered. The loop bails on the first
+    /// validation or handler failure and returns that failure; items
+    /// already processed are not rolled back. There is no batch-level
+    /// atomicity in this mode.
+    /// </para>
     /// </remarks>
     Task<OperationResult> SendBatchAsync<TCommand>(
         IReadOnlyList<TCommand> commands,
@@ -55,8 +65,7 @@ public interface ICommandDispatcher
         where TCommand : ICommand;
 
     /// <summary>
-    /// Dispatches a batch of result-bearing commands as a single atomic
-    /// operation.
+    /// Dispatches a batch of result-bearing commands.
     /// </summary>
     /// <typeparam name="TCommand">The command type.</typeparam>
     /// <typeparam name="TResult">The payload type.</typeparam>
@@ -68,13 +77,22 @@ public interface ICommandDispatcher
     /// aborted the batch.
     /// </returns>
     /// <remarks>
+    /// <para>
     /// When an <see cref="IBatchCommandHandler{TCommand, TResult}"/> is
-    /// registered the batch goes through the pipeline as one dispatch and the
-    /// batch handler owns both validation and processing. Without a batch
-    /// handler the dispatcher fans out via
+    /// registered the batch goes through the pipeline as one dispatch and
+    /// the batch handler owns both validation and processing — wrapping
+    /// middleware (transactions, retry, telemetry) covers the whole group.
+    /// </para>
+    /// <para>
+    /// When no batch handler is registered, the dispatcher iterates the
+    /// input list and calls
     /// <see cref="SendAsync{TResult}(ICommand{TResult}, CancellationToken)"/>
-    /// per item, validating and handling each before moving on, and stops on
-    /// the first failure.
+    /// per item. Each item runs its full pipeline pass — validation then
+    /// handler — before the next item is considered. The loop bails on
+    /// the first validation or handler failure and returns that failure;
+    /// items already processed are not rolled back. There is no
+    /// batch-level atomicity in this mode.
+    /// </para>
     /// </remarks>
     Task<OperationResult<IReadOnlyList<TResult>>> SendBatchAsync<TCommand, TResult>(
         IReadOnlyList<TCommand> commands,

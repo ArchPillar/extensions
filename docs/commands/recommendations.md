@@ -286,12 +286,15 @@ covers the whole group — so a transaction middleware commits or rolls back
 the entire batch atomically, and the activity records the batch size as a
 tag.
 
-If no batch handler is registered, `SendBatchAsync` doesn't run a batch
-context at all — it loops `SendAsync` per item. Each item runs through its
-own pipeline pass with its own validation and middleware execution, and
-the call stops on the first failure. Use it when items are genuinely
-independent and batching is just a calling convenience. For "small N"
-cases, an explicit loop in your endpoint is just as clear.
+If no batch handler is registered, `SendBatchAsync` doesn't construct a
+batch context. It iterates the input list and calls `SendAsync` per item;
+each iteration runs validation then the handler to completion before the
+next item is considered, and the loop bails on the first failure
+(validation *or* handler), returning that failure. Items already
+processed stay processed — there's no batch-level atomicity here. Use
+this mode when items are genuinely independent and batching is just a
+calling convenience. For "small N" cases, an explicit loop in your
+endpoint is just as clear.
 
 ## Validate handler registrations at startup
 
