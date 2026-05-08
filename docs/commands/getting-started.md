@@ -193,9 +193,9 @@ services.AddBatchCommandHandler<CreateOrder, Guid, CreateOrderBatchHandler>();
 
 `SendBatchAsync` returns a single `OperationResult<IReadOnlyList<Guid>>`. The batch handler's `ValidateAsync` runs on the whole list first; if any error is recorded, the handler is not invoked and the call returns the validation failure. When validation passes, the handler runs and its return value is what the caller sees.
 
-The batch runs through the pipeline as a **single dispatch** — wrapping middleware (transactions, retry, telemetry) covers the whole group, so a transaction middleware commits or rolls back the entire batch atomically.
+Every batch dispatch runs through the pipeline as a **single dispatch** — wrapping middleware (transactions, retry, telemetry) covers the whole group, so a transaction middleware commits or rolls back the entire batch atomically.
 
-Without a registered batch handler, `SendBatchAsync` doesn't construct a batch context — it iterates the input list and calls `SendAsync` per item. Each iteration runs validation then the handler to completion before the next item is considered, and the loop bails on the first failure (validation *or* handler) and returns that failure. There is no batch-level atomicity in this mode; items already processed stay processed.
+Inside the router, two paths are chosen by what's registered. With a batch handler, the router calls its `ValidateAsync` then `HandleBatchAsync`. Without one, the router iterates the input list and runs the per-command `ICommandHandler<CreateOrder>` for each item — validation, then handler — bailing on the first validation or handler failure. Items already processed stay processed unless your wrapping middleware rolls them back.
 
 ## 8. Observe with OpenTelemetry
 

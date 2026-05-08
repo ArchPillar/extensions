@@ -280,21 +280,30 @@ list using index-keyed validator calls — `commands[i].Title` etc.). The
 handler runs only when no validation errors were recorded, so it can
 assume every input is acceptable.
 
-When a batch handler is registered, the batch goes through the pipeline as
-a single dispatch. Wrapping middleware (transaction, retry, telemetry)
-covers the whole group — so a transaction middleware commits or rolls back
-the entire batch atomically, and the activity records the batch size as a
-tag.
+Every batch dispatch goes through the pipeline as a single dispatch.
+Wrapping middleware (transaction, retry, telemetry) covers the whole
+group — so a transaction middleware commits or rolls back the entire
+batch atomically, and the activity records the batch size as a tag.
 
-If no batch handler is registered, `SendBatchAsync` doesn't construct a
-batch context. It iterates the input list and calls `SendAsync` per item;
-each iteration runs validation then the handler to completion before the
-next item is considered, and the loop bails on the first failure
-(validation *or* handler), returning that failure. Items already
-processed stay processed — there's no batch-level atomicity here. Use
-this mode when items are genuinely independent and batching is just a
-calling convenience. For "small N" cases, an explicit loop in your
-endpoint is just as clear.
+Inside the router, two paths are chosen by what's registered:
+
+- **Batch handler registered** — the router calls the batch handler's
+  `ValidateAsync` then `HandleBatchAsync`. The handler decides what
+  validation to apply across the whole list (typically a loop with
+  index-keyed field arguments — `commands[0].Title` etc.) and produces
+  one result for the batch.
+- **No batch handler** — the router iterates the input list and runs the
+  per-command `ICommandHandler<TCommand>` for each item: validation
+  then handler, bailing on the first failure (validation or handler)
+  and surfacing it verbatim. On full success the dispatcher composes
+  the `IReadOnlyList<TResult>` payload from the per-item outcomes
+  (or returns success for the no-result form). Items already
+  processed are not rolled back unless your wrapping middleware does
+  it (a transaction middleware seeing the failed `OperationResult`
+  will roll the lot back).
+
+For "small N" cases where you don't need batch atomicity, an explicit
+loop calling `SendAsync` in your endpoint is just as clear.
 
 ## Validate handler registrations at startup
 

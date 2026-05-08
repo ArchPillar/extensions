@@ -87,15 +87,27 @@ public sealed class CommandContext : IPipelineContext
     public IValidationContext Validation { get; }
 
     /// <summary>
-    /// The outcome of the dispatch. In batch mode this carries the single
-    /// result returned by the batch handler — either the typed list of
-    /// per-command payloads on success or a failure that aborted the batch.
-    /// In single mode it carries the per-command outcome. The dispatcher
-    /// reads this slot after <see cref="Pipeline{T}.ExecuteAsync"/>
-    /// completes; wrapping middlewares (transaction commit/rollback, retry)
-    /// can branch on it.
+    /// The outcome of the dispatch. In single mode it carries the per-command
+    /// outcome. In batch mode with a registered batch handler it carries the
+    /// handler's return value (the typed list of payloads on success, or a
+    /// failure). In batch mode without a registered batch handler it carries
+    /// either the first per-item failure that aborted the batch, or a
+    /// generic success marker — the per-item results then live on
+    /// <see cref="BatchResults"/>. The dispatcher reads this slot after
+    /// <see cref="Pipeline{T}.ExecuteAsync"/> completes; wrapping
+    /// middlewares (transaction commit/rollback, retry) can branch on it.
     /// </summary>
     public OperationResult? Result { get; set; }
+
+    /// <summary>
+    /// Per-item outcomes from a no-batch-handler iteration in batch mode.
+    /// Populated by the router only on full success of the per-item loop;
+    /// the typed dispatcher reads it to compose the
+    /// <c>IReadOnlyList&lt;TResult&gt;</c> success payload. <c>null</c> when
+    /// not applicable (single dispatch, batch-handler dispatch, or the
+    /// iteration bailed on a failure).
+    /// </summary>
+    public IReadOnlyList<OperationResult>? BatchResults { get; set; }
 
     /// <inheritdoc/>
     public string OperationName => "Commands." + CommandType.Name;

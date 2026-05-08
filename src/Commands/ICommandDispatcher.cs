@@ -43,20 +43,25 @@ public interface ICommandDispatcher
     /// </returns>
     /// <remarks>
     /// <para>
-    /// When an <see cref="IBatchCommandHandler{TCommand}"/> is registered the
-    /// batch goes through the pipeline as one dispatch and the batch handler
-    /// owns both validation and processing — wrapping middleware
-    /// (transactions, retry, telemetry) covers the whole group.
+    /// The batch always runs through the pipeline once as a single dispatch,
+    /// so wrapping middleware (transactions, retry, telemetry, exception)
+    /// covers the whole group regardless of how the items are processed.
     /// </para>
     /// <para>
-    /// When no batch handler is registered, the dispatcher iterates the
-    /// input list and calls
-    /// <see cref="SendAsync(ICommand, CancellationToken)"/> per item.
-    /// Each item runs its full pipeline pass — validation then handler —
-    /// before the next item is considered. The loop bails on the first
-    /// validation or handler failure and returns that failure; items
-    /// already processed are not rolled back. There is no batch-level
-    /// atomicity in this mode.
+    /// When an <see cref="IBatchCommandHandler{TCommand}"/> is registered the
+    /// router calls its <c>ValidateAsync</c> over the whole list and, on
+    /// success, its <c>HandleBatchAsync</c>. The batch handler owns both
+    /// validation and processing.
+    /// </para>
+    /// <para>
+    /// When no batch handler is registered, the router iterates the input
+    /// list internally and runs the per-command
+    /// <see cref="ICommandHandler{TCommand}"/> for each item — validation,
+    /// then handler — before moving on. The loop bails on the first
+    /// validation or handler failure and surfaces that failure verbatim.
+    /// Items already processed are not rolled back unless your wrapping
+    /// middleware does so (e.g. a transaction middleware seeing the failed
+    /// <see cref="OperationResult"/>).
     /// </para>
     /// </remarks>
     Task<OperationResult> SendBatchAsync<TCommand>(
@@ -78,20 +83,24 @@ public interface ICommandDispatcher
     /// </returns>
     /// <remarks>
     /// <para>
-    /// When an <see cref="IBatchCommandHandler{TCommand, TResult}"/> is
-    /// registered the batch goes through the pipeline as one dispatch and
-    /// the batch handler owns both validation and processing — wrapping
-    /// middleware (transactions, retry, telemetry) covers the whole group.
+    /// The batch always runs through the pipeline once as a single dispatch,
+    /// so wrapping middleware (transactions, retry, telemetry, exception)
+    /// covers the whole group regardless of how the items are processed.
     /// </para>
     /// <para>
-    /// When no batch handler is registered, the dispatcher iterates the
-    /// input list and calls
-    /// <see cref="SendAsync{TResult}(ICommand{TResult}, CancellationToken)"/>
-    /// per item. Each item runs its full pipeline pass — validation then
-    /// handler — before the next item is considered. The loop bails on
-    /// the first validation or handler failure and returns that failure;
-    /// items already processed are not rolled back. There is no
-    /// batch-level atomicity in this mode.
+    /// When an <see cref="IBatchCommandHandler{TCommand, TResult}"/> is
+    /// registered the router calls its <c>ValidateAsync</c> over the whole
+    /// list and, on success, its <c>HandleBatchAsync</c>. The batch handler
+    /// owns both validation and processing.
+    /// </para>
+    /// <para>
+    /// When no batch handler is registered, the router iterates the input
+    /// list internally and runs the per-command
+    /// <see cref="ICommandHandler{TCommand, TResult}"/> for each item —
+    /// validation, then handler — before moving on. The loop bails on the
+    /// first validation or handler failure and surfaces that failure
+    /// verbatim. On full success the dispatcher composes the per-command
+    /// payloads into the returned <see cref="OperationResult{TValue}"/>.
     /// </para>
     /// </remarks>
     Task<OperationResult<IReadOnlyList<TResult>>> SendBatchAsync<TCommand, TResult>(

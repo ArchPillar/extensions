@@ -1,4 +1,3 @@
-using ArchPillar.Extensions.Commands.Internal;
 using ArchPillar.Extensions.Operations;
 using ArchPillar.Extensions.Pipelines;
 
@@ -7,16 +6,11 @@ namespace ArchPillar.Extensions.Commands;
 internal sealed class CommandDispatcher : ICommandDispatcher
 {
     private readonly Pipeline<CommandContext> _pipeline;
-    private readonly CommandInvokerRegistry _registry;
 
-    public CommandDispatcher(
-        Pipeline<CommandContext> pipeline,
-        CommandInvokerRegistry registry)
+    public CommandDispatcher(Pipeline<CommandContext> pipeline)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
-        ArgumentNullException.ThrowIfNull(registry);
         _pipeline = pipeline;
-        _registry = registry;
     }
 
     public async Task<OperationResult> SendAsync(ICommand command, CancellationToken cancellationToken = default)
@@ -67,26 +61,6 @@ internal sealed class CommandDispatcher : ICommandDispatcher
             return OperationResult.NoContent();
         }
 
-        CommandInvokerDescriptor descriptor = _registry.Get(typeof(TCommand));
-
-        if (descriptor.InvokeBatchAsync is null)
-        {
-            // No batch handler — fan out via SendAsync. Each item runs through
-            // its own pipeline pass (independent validation, independent
-            // transaction). Fail-fast on the first failure.
-            for (var i = 0; i < commands.Count; i++)
-            {
-                ArgumentNullException.ThrowIfNull(commands[i]);
-                OperationResult itemResult = await SendAsync(commands[i], cancellationToken).ConfigureAwait(false);
-                if (itemResult.IsFailure)
-                {
-                    return itemResult;
-                }
-            }
-
-            return OperationResult.NoContent();
-        }
-
         var requests = new IRequest[commands.Count];
         for (var i = 0; i < commands.Count; i++)
         {
@@ -117,32 +91,6 @@ internal sealed class CommandDispatcher : ICommandDispatcher
             return OperationResult.Ok<IReadOnlyList<TResult>>([]);
         }
 
-        CommandInvokerDescriptor descriptor = _registry.Get(typeof(TCommand));
-
-        if (descriptor.InvokeBatchAsync is null)
-        {
-            // Fan out via per-item SendAsync. Fail-fast on first failure.
-            var collected = new TResult[commands.Count];
-            for (var i = 0; i < commands.Count; i++)
-            {
-                ArgumentNullException.ThrowIfNull(commands[i]);
-                OperationResult<TResult> itemResult = await SendAsync(commands[i], cancellationToken).ConfigureAwait(false);
-                if (itemResult.IsFailure)
-                {
-                    return new OperationResult<IReadOnlyList<TResult>>
-                    {
-                        Status = itemResult.Status,
-                        Problem = itemResult.Problem,
-                        Exception = itemResult.Exception,
-                    };
-                }
-
-                collected[i] = itemResult.Value!;
-            }
-
-            return OperationResult.Ok<IReadOnlyList<TResult>>(collected);
-        }
-
         var requests = new IRequest[commands.Count];
         for (var i = 0; i < commands.Count; i++)
         {
@@ -153,15 +101,42 @@ internal sealed class CommandDispatcher : ICommandDispatcher
         var context = new CommandContext(requests, typeof(TCommand));
         await _pipeline.ExecuteAsync(context, cancellationToken).ConfigureAwait(false);
 
+        // Three success/failure shapes can land in context.Result:
+        //   1. Batch handler returned a typed result → cast straight through.
+        //   2. Any failure (validation, handler, exception middleware) → lift it.
+        //   3. The router iterated per-item and every item succeeded → it left
+        //      a generic Ok marker in Result and the per-item OperationResults
+        //      in BatchResults. Compose the typed list from those.
         return context.Result switch
         {
             OperationResult<IReadOnlyList<TResult>> typed => typed,
             OperationFailure failure => failure,
+            { IsSuccess: true } when context.BatchResults is { } perItem => ComposePerItem<TResult>(perItem),
             _ => OperationResult.Failure(
                 OperationStatus.InternalServerError,
                 "internal_error",
                 "Internal Server Error",
                 "Batch pipeline produced an unexpected result shape."),
         };
+    }
+
+    private static OperationResult<IReadOnlyList<TResult>> ComposePerItem<TResult>(IReadOnlyList<OperationResult> perItem)
+    {
+        var values = new TResult[perItem.Count];
+        for (var i = 0; i < perItem.Count; i++)
+        {
+            if (perItem[i] is not OperationResult<TResult> typedItem)
+            {
+                return OperationResult.Failure(
+                    OperationStatus.InternalServerError,
+                    "internal_error",
+                    "Internal Server Error",
+                    $"Batch per-item result at index {i} was not OperationResult<{typeof(TResult).Name}>.");
+            }
+
+            values[i] = typedItem.Value!;
+        }
+
+        return OperationResult.Ok<IReadOnlyList<TResult>>(values);
     }
 }

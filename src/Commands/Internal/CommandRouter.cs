@@ -68,27 +68,29 @@ internal sealed class CommandRouter : IPipelineHandler<CommandContext>
         context.Result = result;
     }
 
-    private async Task HandleBatchAsync(
+    private Task HandleBatchAsync(
         CommandInvokerDescriptor descriptor,
         CommandContext context,
         IReadOnlyList<IRequest> commands,
         CancellationToken cancellationToken)
     {
-        // The dispatcher only routes a batch context here when a batch
-        // handler is registered for the command type. The batch handler
-        // owns both validation and processing — the per-command
-        // ICommandHandler<TCommand> is never consulted on this path.
-        if (descriptor.ValidateBatchAsync is null || descriptor.InvokeBatchAsync is null)
-        {
-            context.Result = OperationResult.Failure(
-                OperationStatus.InternalServerError,
-                "internal_error",
-                "Internal Server Error",
-                $"Batch dispatch reached the router without a batch handler for {context.CommandType.FullName}.");
-            return;
-        }
+        // Two batch shapes — both terminate inside the router so wrapping
+        // middleware (transactions, retry, telemetry, exception) covers the
+        // whole batch as a single dispatch.
+        return descriptor.ValidateBatchAsync is not null && descriptor.InvokeBatchAsync is not null
+            ? HandleBatchHandlerAsync(descriptor, context, commands, cancellationToken)
+            : IterateBatchAsync(descriptor, context, commands, cancellationToken);
+    }
 
-        await descriptor.ValidateBatchAsync(_services, commands, context.Validation, cancellationToken).ConfigureAwait(false);
+    private async Task HandleBatchHandlerAsync(
+        CommandInvokerDescriptor descriptor,
+        CommandContext context,
+        IReadOnlyList<IRequest> commands,
+        CancellationToken cancellationToken)
+    {
+        // Batch handler path: the handler owns both validation and processing.
+        // The single-command ICommandHandler<TCommand> is not consulted.
+        await descriptor.ValidateBatchAsync!(_services, commands, context.Validation, cancellationToken).ConfigureAwait(false);
         OperationFailure? failure = context.Validation.ToFailureResult();
         if (failure is not null)
         {
@@ -96,7 +98,45 @@ internal sealed class CommandRouter : IPipelineHandler<CommandContext>
             return;
         }
 
-        OperationResult result = await descriptor.InvokeBatchAsync(_services, commands, cancellationToken).ConfigureAwait(false);
+        OperationResult result = await descriptor.InvokeBatchAsync!(_services, commands, cancellationToken).ConfigureAwait(false);
         context.Result = result;
+    }
+
+    private async Task IterateBatchAsync(
+        CommandInvokerDescriptor descriptor,
+        CommandContext context,
+        IReadOnlyList<IRequest> commands,
+        CancellationToken cancellationToken)
+    {
+        // No batch handler — iterate the input list and run the per-command
+        // ICommandHandler<TCommand> for each item: validation, then handler.
+        // Bail on the first failure (validation OR handler) and surface that
+        // failure verbatim. On full success, expose the per-item results so
+        // the typed dispatcher can compose the IReadOnlyList<TResult>.
+        var perItem = new OperationResult[commands.Count];
+        for (var i = 0; i < commands.Count; i++)
+        {
+            var validation = new ValidationContext();
+            await descriptor.ValidateAsync(_services, commands[i], validation, cancellationToken).ConfigureAwait(false);
+
+            OperationFailure? validationFailure = validation.ToFailureResult();
+            if (validationFailure is not null)
+            {
+                context.Result = validationFailure;
+                return;
+            }
+
+            OperationResult itemResult = await descriptor.InvokeAsync(_services, commands[i], cancellationToken).ConfigureAwait(false);
+            if (itemResult.IsFailure)
+            {
+                context.Result = itemResult;
+                return;
+            }
+
+            perItem[i] = itemResult;
+        }
+
+        context.BatchResults = perItem;
+        context.Result = OperationResult.Ok();
     }
 }

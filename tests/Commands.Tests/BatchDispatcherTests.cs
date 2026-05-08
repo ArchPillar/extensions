@@ -193,8 +193,12 @@ public class BatchDispatcherTests
     }
 
     [Fact]
-    public async Task SendBatchAsync_NoBatchHandler_FansOutThroughPipelinePerCommandAsync()
+    public async Task SendBatchAsync_NoBatchHandler_RunsThroughPipelineOnceWithBatchContextAsync()
     {
+        // Batch dispatch always runs through the pipeline once — even
+        // without a registered batch handler. The router takes care of the
+        // per-item iteration internally, so wrapping middleware sees a
+        // single batch context covering the whole group.
         var middleware = new CountingMiddleware();
 
         using ServiceProvider provider = BuildProvider(s =>
@@ -210,8 +214,8 @@ public class BatchDispatcherTests
         AddItem[] batch = [new("a"), new("b"), new("c")];
         await dispatcher.SendBatchAsync(batch);
 
-        Assert.Equal(3, middleware.Invocations);
-        Assert.Null(middleware.LastBatchSize);
+        Assert.Equal(1, middleware.Invocations);
+        Assert.Equal(3, middleware.LastBatchSize);
     }
 
     [Fact]
