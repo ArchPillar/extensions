@@ -29,6 +29,8 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="ArchPillar.Extensions.Primitives.Tests" />
+    <InternalsVisibleTo Include="ArchPillar.Extensions.Primitives.EntityFrameworkCore" />
+    <InternalsVisibleTo Include="ArchPillar.Extensions.Primitives.EntityFrameworkCore.Tests" />
   </ItemGroup>
 
   <ItemGroup>
