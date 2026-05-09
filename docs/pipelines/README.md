@@ -15,7 +15,7 @@ Depends on `Microsoft.Extensions.DependencyInjection.Abstractions` and nothing e
 
 ## Why?
 
-Middleware pipelines are everywhere — ASP.NET Core, MediatR behaviours, MassTransit filters — but they are usually tied to a specific framework. `Pipeline<T>` lifts the pattern out into a small, framework-independent class you can use for anything: request handlers, background jobs, domain workflows, data import steps, retry/logging wrappers.
+Middleware pipelines are everywhere — ASP.NET Core middleware, MassTransit filters, and similar — but they are usually tied to a specific framework. `Pipeline<T>` lifts the pattern out into a small, framework-independent class you can use for anything: request handlers, background jobs, domain workflows, data import steps, retry/logging wrappers.
 
 ## Design highlights
 
@@ -34,18 +34,18 @@ using ArchPillar.Extensions.Pipelines;
 
 var pipeline = Pipeline
     .For<OrderContext>()
-    .Use(async (ctx, next, ct) =>
+    .Use(async (context, next, cancellationToken) =>
     {
-        Console.WriteLine($"start {ctx.OrderId}");
-        await next(ctx, ct);
-        Console.WriteLine($"done  {ctx.OrderId}");
+        Console.WriteLine($"start {context.OrderId}");
+        await next(context, cancellationToken);
+        Console.WriteLine($"done  {context.OrderId}");
     })
-    .Use(async (ctx, next, ct) =>
+    .Use(async (context, next, cancellationToken) =>
     {
-        if (ctx.OrderId <= 0) return;   // short-circuit
-        await next(ctx, ct);
+        if (context.OrderId <= 0) return;   // short-circuit
+        await next(context, cancellationToken);
     })
-    .Handle(ctx => Console.WriteLine($"handler: {ctx.OrderId}"))
+    .Handle(context => Console.WriteLine($"handler: {context.OrderId}"))
     .Build();
 
 await pipeline.ExecuteAsync(new OrderContext { OrderId = 42 });
@@ -65,8 +65,8 @@ services.AddPipelineMiddleware<OrderContext, TransactionMiddleware>();
 // Inject Pipeline<OrderContext> anywhere:
 public sealed class OrderEndpoint(Pipeline<OrderContext> pipeline)
 {
-    public Task Handle(OrderContext ctx, CancellationToken ct)
-        => pipeline.ExecuteAsync(ctx, ct);
+    public Task Handle(OrderContext context, CancellationToken cancellationToken)
+        => pipeline.ExecuteAsync(context, cancellationToken);
 }
 ```
 
@@ -75,11 +75,11 @@ A class-based middleware looks exactly like the ASP.NET Core middleware you are 
 ```csharp
 public sealed class LoggingMiddleware(ILogger<LoggingMiddleware> logger) : IPipelineMiddleware<OrderContext>
 {
-    public async Task InvokeAsync(OrderContext ctx, PipelineDelegate<OrderContext> next, CancellationToken ct)
+    public async Task InvokeAsync(OrderContext context, PipelineDelegate<OrderContext> next, CancellationToken cancellationToken)
     {
-        logger.LogInformation("start {OrderId}", ctx.OrderId);
-        await next(ctx, ct);
-        logger.LogInformation("done  {OrderId}", ctx.OrderId);
+        logger.LogInformation("start {OrderId}", context.OrderId);
+        await next(context, cancellationToken);
+        logger.LogInformation("done  {OrderId}", context.OrderId);
     }
 }
 ```

@@ -185,7 +185,7 @@ For delegate-backed handlers, wrap the delegate with `PipelineHandler.FromDelega
 
 ```csharp
 services.AddPipeline<OrderContext>(
-    PipelineHandler.FromDelegate<OrderContext>((ctx, ct) => Task.CompletedTask));
+    PipelineHandler.FromDelegate<OrderContext>((context, cancellationToken) => Task.CompletedTask));
 ```
 
 ### `AddPipelineMiddleware<T, TMiddleware>`
@@ -280,7 +280,7 @@ public interface IPipelineContext
 
 - **`OperationName`** — required. The display name used for the activity.
   Typically a short, hierarchical string (`"Orders.Place"`,
-  `"Mediator.GetCustomerByIdQuery"`).
+  `"Inventory.Reserve"`).
 - **`ActivityKind`** — default `Internal`. Override to `Server` for inbound
   request handlers, `Consumer` for queue handlers, `Producer` for
   outbound-message pipelines, `Client` for outbound-call pipelines.
@@ -400,7 +400,7 @@ These are the guarantees `Pipeline<T>` makes. Each is covered by a unit test.
 ### Cancellation
 
 - The `CancellationToken` passed to `ExecuteAsync` is delivered to every middleware and the handler.
-- Middlewares are expected to honour it and pass it forward when they call `next(ctx, ct)`.
+- Middlewares are expected to honour it and pass it forward when they call `next(context, cancellationToken)`.
 
 ### Reuse and concurrency
 

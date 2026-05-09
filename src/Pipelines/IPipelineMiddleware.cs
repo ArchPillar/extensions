@@ -9,8 +9,7 @@ namespace ArchPillar.Extensions.Pipelines;
 /// <remarks>
 /// <para>
 /// Implementations are expected to be resolvable from a DI container, so that
-/// constructor-injected dependencies (loggers, repositories, etc.) can be
-/// supplied by the host.
+/// constructor-injected dependencies can be supplied by the host.
 /// </para>
 /// <para>
 /// The <c>next</c> delegate is a <see cref="PipelineDelegate{T}"/> — a
@@ -20,10 +19,10 @@ namespace ArchPillar.Extensions.Pipelines;
 /// allocate on the hot path.
 /// </para>
 /// <code>
-/// public async Task InvokeAsync(Ctx ctx, PipelineDelegate&lt;Ctx&gt; next, CancellationToken ct)
+/// public async Task InvokeAsync(TContext context, PipelineDelegate&lt;TContext&gt; next, CancellationToken cancellationToken)
 /// {
 ///     // before
-///     await next(ctx, ct);
+///     await next(context, cancellationToken);
 ///     // after
 /// }
 /// </code>

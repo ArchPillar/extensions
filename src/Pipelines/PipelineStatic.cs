@@ -11,10 +11,10 @@ namespace ArchPillar.Extensions.Pipelines;
 /// var pipeline = Pipeline
 ///     .For&lt;MyContext&gt;()
 ///     .Use(new LoggingMiddleware())
-///     .Use(async (ctx, next, ct) =&gt;
+///     .Use(async (context, next, cancellationToken) =&gt;
 ///     {
-///         if (ctx.ShouldSkip) return;
-///         await next(ctx, ct);
+///         if (context.ShouldSkip) return;
+///         await next(context, cancellationToken);
 ///     })
 ///     .Handle(new MyHandler())
 ///     .Build();

@@ -49,22 +49,22 @@ A middleware wraps the rest of the pipeline. Call `next(context, cancellationTok
 ```csharp
 public sealed class ValidationMiddleware : IPipelineMiddleware<OrderContext>
 {
-    public async Task InvokeAsync(OrderContext ctx, PipelineDelegate<OrderContext> next, CancellationToken ct)
+    public async Task InvokeAsync(OrderContext context, PipelineDelegate<OrderContext> next, CancellationToken cancellationToken)
     {
-        if (ctx.OrderId <= 0)
+        if (context.OrderId <= 0)
         {
             Console.WriteLine("invalid order");
             return; // short-circuit
         }
 
-        await next(ctx, ct);
+        await next(context, cancellationToken);
     }
 }
 ```
 
-### Why does `next` take `(ctx, ct)` explicitly?
+### Why does `next` take `(context, cancellationToken)` explicitly?
 
-Unlike ASP.NET Core's `Func<Task> next`, `Pipeline<T>`'s `PipelineDelegate<T> next` is a pre-built delegate that takes the context and cancellation token as arguments. The chain is composed **once** in the `Pipeline<T>` constructor; invoking `next(ctx, ct)` is a single delegate call, not a per-invocation allocation. This keeps the synchronous hot path allocation-free.
+Unlike ASP.NET Core's `Func<Task> next`, `Pipeline<T>`'s `PipelineDelegate<T> next` is a pre-built delegate that takes the context and cancellation token as arguments. The chain is composed **once** in the `Pipeline<T>` constructor; invoking `next(context, cancellationToken)` is a single delegate call, not a per-invocation allocation. This keeps the synchronous hot path allocation-free.
 
 ## 5a. Build a pipeline without DI
 
@@ -74,11 +74,11 @@ For tests, tools, or apps that manage their own dependencies, use the fluent `Pi
 var pipeline = Pipeline
     .For<OrderContext>()
     .Use(new ValidationMiddleware())
-    .Use(async (ctx, next, ct) =>                 // lambda middleware
+    .Use(async (context, next, cancellationToken) =>   // lambda middleware
     {
-        Console.WriteLine($"start {ctx.OrderId}");
-        await next(ctx, ct);
-        Console.WriteLine($"done  {ctx.OrderId}");
+        Console.WriteLine($"start {context.OrderId}");
+        await next(context, cancellationToken);
+        Console.WriteLine($"done  {context.OrderId}");
     })
     .Handle(new PlaceOrderHandler())
     .Build();
@@ -113,8 +113,8 @@ Now any component can take `Pipeline<OrderContext>` as a constructor dependency:
 ```csharp
 public sealed class OrderEndpoint(Pipeline<OrderContext> pipeline)
 {
-    public Task HandleAsync(OrderContext ctx, CancellationToken ct)
-        => pipeline.ExecuteAsync(ctx, ct);
+    public Task HandleAsync(OrderContext context, CancellationToken cancellationToken)
+        => pipeline.ExecuteAsync(context, cancellationToken);
 }
 ```
 
@@ -126,7 +126,7 @@ When a class handler is overkill (tests, adapters, trivial sinks), pass a pre-bu
 
 ```csharp
 services.AddPipeline<OrderContext>(
-    PipelineHandler.FromDelegate<OrderContext>((ctx, ct) => SomeTask(ctx, ct)));
+    PipelineHandler.FromDelegate<OrderContext>((context, cancellationToken) => SomeTask(context, cancellationToken)));
 ```
 
 `PipelineHandler.FromDelegate` has overloads for `Func<T, CancellationToken, Task>`, `Func<T, Task>`, and `Action<T>`. The instance overload registers the handler as a singleton and is always compatible with any pipeline lifetime.
@@ -143,9 +143,9 @@ To replace with a delegate-backed handler directly, use `IServiceCollection.Repl
 
 ```csharp
 services.Replace(ServiceDescriptor.Singleton<IPipelineHandler<OrderContext>>(
-    PipelineHandler.FromDelegate<OrderContext>((ctx, ct) =>
+    PipelineHandler.FromDelegate<OrderContext>((context, cancellationToken) =>
     {
-        ctx.Authorized = true;
+        context.Authorized = true;
         return Task.CompletedTask;
     })));
 ```
@@ -229,8 +229,8 @@ When no subscriber is attached, `ActivityMiddleware<T>` is a pass-through — no
 ## 6. Run it
 
 ```csharp
-var ctx = new OrderContext { OrderId = 42, UserId = 7 };
-await pipeline.ExecuteAsync(ctx);
+var context = new OrderContext { OrderId = 42, UserId = 7 };
+await pipeline.ExecuteAsync(context);
 ```
 
 That's the whole API surface. For the full design rationale, behaviour contract, and the zero-allocation guarantees, see the [specification](SPEC.md).

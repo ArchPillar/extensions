@@ -31,7 +31,7 @@ public static class PipelineHandler
     public static IPipelineHandler<T> FromDelegate<T>(Func<T, Task> handle)
     {
         ArgumentNullException.ThrowIfNull(handle);
-        return new DelegateHandler<T>((ctx, _) => handle(ctx));
+        return new DelegateHandler<T>((context, _) => handle(context));
     }
 
     /// <summary>
@@ -45,9 +45,9 @@ public static class PipelineHandler
     public static IPipelineHandler<T> FromDelegate<T>(Action<T> handle)
     {
         ArgumentNullException.ThrowIfNull(handle);
-        return new DelegateHandler<T>((ctx, _) =>
+        return new DelegateHandler<T>((context, _) =>
         {
-            handle(ctx);
+            handle(context);
             return Task.CompletedTask;
         });
     }

@@ -32,7 +32,7 @@ public interface IPipelineContext
     /// <summary>
     /// The operation name used when starting the <see cref="Activity"/>. Typically
     /// describes what the pipeline invocation represents
-    /// (e.g. <c>"Orders.Place"</c>, <c>"Mediator.GetCustomerByIdQuery"</c>).
+    /// (e.g. <c>"Orders.Place"</c>, <c>"Inventory.Reserve"</c>).
     /// </summary>
     string OperationName { get; }
 

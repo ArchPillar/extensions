@@ -117,10 +117,10 @@ List endpoints can skip the join:
 
 ```csharp
 // List — no Customer join
-var list = await db.Orders.Project(mappers.Order).ToListAsync();
+var list = await context.Orders.Project(mappers.Order).ToListAsync();
 
 // Detail — with Customer join
-var detail = await db.Orders
+var detail = await context.Orders
     .Where(o => o.Id == id)
     .Project(mappers.Order, o => o.Include(m => m.CustomerName))
     .FirstAsync();
@@ -272,10 +272,10 @@ For EF Core projection, use the in-memory provider:
 [Fact]
 public async Task Order_Project_TranslatesToQuery()
 {
-    using var db = CreateInMemoryDb();
+    using var context = CreateInMemoryDb();
     var mappers = new AppMappers();
 
-    List<OrderDto> results = await db.Orders
+    List<OrderDto> results = await context.Orders
         .Project(mappers.Order)
         .ToListAsync();
 
