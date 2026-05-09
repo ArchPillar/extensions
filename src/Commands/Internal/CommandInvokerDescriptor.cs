@@ -37,4 +37,3 @@ internal sealed class CommandInvokerDescriptor
 
     public Func<IServiceProvider, IReadOnlyList<IRequest>, CancellationToken, Task<OperationResult>>? InvokeBatchAsync { get; }
 }
-

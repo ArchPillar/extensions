@@ -107,7 +107,7 @@ internal sealed class CommandRouter : IPipelineHandler<CommandContext>
         // per-item OperationResult<TResult>s to compose the
         // IReadOnlyList<TResult>; non-result commands don't, so skip the
         // O(N) allocation in that case.
-        var perItem = descriptor.ProducesResult ? new OperationResult[commands.Count] : null;
+        OperationResult[]? perItem = descriptor.ProducesResult ? new OperationResult[commands.Count] : null;
 
         for (var i = 0; i < commands.Count; i++)
         {

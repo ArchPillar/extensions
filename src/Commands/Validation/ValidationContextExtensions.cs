@@ -74,7 +74,7 @@ public static class ValidationContextExtensions
         Dictionary<string, IReadOnlyList<OperationError>>? errorsDict = null;
         if (grouped is not null)
         {
-            errorsDict = new Dictionary<string, IReadOnlyList<OperationError>>(grouped.Count);
+            errorsDict = new(grouped.Count);
             foreach (KeyValuePair<string, List<OperationError>> kvp in grouped)
             {
                 errorsDict[kvp.Key] = kvp.Value;
