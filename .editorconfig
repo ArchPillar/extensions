@@ -644,6 +644,12 @@ dotnet_diagnostic.S3427.severity = none
 # We do not require XML documentation on test projects, as the tests should be self-explanatory and not part of the public API.
 dotnet_diagnostic.CS1591.severity = none
 
+# S2094: Empty phantom-type marker classes are intentional in identifier tests
+dotnet_diagnostic.S2094.severity = none
+
+# S2925: Thread.Sleep is intentional in time-ordering tests (e.g. UUIDv7 sort order)
+dotnet_diagnostic.S2925.severity = none
+
 # S3604: null! initializers on properties set in constructor are needed for lazy resolution patterns
 dotnet_diagnostic.S3604.severity = none
 
