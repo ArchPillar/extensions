@@ -11,6 +11,8 @@
     <Description>EF Core integration for ArchPillar.Extensions.Primitives. Automatically applies a ValueConverter, ValueComparer, and relational type mapping plugin for every Id&lt;T&gt; property, making typed identifiers a first-class SQL type in arbitrary LINQ queries.</Description>
     <PackageTags>archpillar;typed-id;ef-core;guid;uuid;primitives</PackageTags>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageReadmeFile>PACKAGE.md</PackageReadmeFile>
+    <IsAotCompatible>false</IsAotCompatible>
     <PackageProjectUrl>https://github.com/ArchPillar/extensions</PackageProjectUrl>
     <RepositoryUrl>https://github.com/ArchPillar/extensions</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
@@ -31,6 +33,7 @@
 
   <ItemGroup>
     <None Include="..\..\LICENSE" Pack="true" PackagePath="" />
+    <None Include="PACKAGE.md" Pack="true" PackagePath="" Condition="Exists('PACKAGE.md')" />
   </ItemGroup>
 
 </Project>
