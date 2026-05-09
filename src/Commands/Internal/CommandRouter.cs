@@ -4,14 +4,6 @@ using ArchPillar.Extensions.Pipelines;
 
 namespace ArchPillar.Extensions.Commands.Internal;
 
-/// <summary>
-/// Terminal handler for the command pipeline. Resolves the
-/// <see cref="CommandInvokerDescriptor"/> for the dispatched command type,
-/// runs validation, and invokes the handler. Both calls happen at the
-/// innermost point of the pipeline so any user-supplied wrapping middleware
-/// (transactions, unit-of-work, retry, distributed locks) is in scope for
-/// validation as well as execution.
-/// </summary>
 internal sealed class CommandRouter : IPipelineHandler<CommandContext>
 {
     private readonly CommandInvokerRegistry _registry;

@@ -2,13 +2,6 @@ using System.Collections.Concurrent;
 
 namespace ArchPillar.Extensions.Commands.Internal;
 
-/// <summary>
-/// Singleton registry of <see cref="CommandInvokerDescriptor"/>s. Population
-/// is lazy: descriptors are scanned from the DI-supplied
-/// <see cref="IEnumerable{T}"/> only on first lookup of each command type.
-/// This keeps host startup costs proportional to the number of commands
-/// actually dispatched, not to the number registered.
-/// </summary>
 internal sealed class CommandInvokerRegistry
 {
     private readonly IEnumerable<BatchInvokerEntry> _batches;
