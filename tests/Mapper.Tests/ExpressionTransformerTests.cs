@@ -1,7 +1,7 @@
 using System.Linq.Expressions;
 using System.Reflection;
 
-namespace ArchPillar.Extensions.Mapper.Tests;
+namespace ArchPillar.Extensions.Mapper;
 
 // ---------------------------------------------------------------------------
 // Test models — Money value object with implicit conversion

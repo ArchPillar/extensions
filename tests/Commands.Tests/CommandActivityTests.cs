@@ -3,7 +3,7 @@ using ArchPillar.Extensions.Commands.Validation;
 using ArchPillar.Extensions.Operations;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace ArchPillar.Extensions.Commands.Tests;
+namespace ArchPillar.Extensions.Commands;
 
 public class CommandActivityTests
 {

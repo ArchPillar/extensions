@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 
-namespace ArchPillar.Extensions.Models.EntityFrameworkCore.Tests;
+namespace ArchPillar.Extensions.Models.EntityFrameworkCore;
 
 [Collection("PostgreSQL")]
 public sealed class IdProjectionTests(PostgresFixture fixture) : IAsyncLifetime

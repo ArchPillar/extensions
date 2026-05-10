@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 
-namespace ArchPillar.Extensions.Models.EntityFrameworkCore.Tests;
+namespace ArchPillar.Extensions.Models.EntityFrameworkCore;
 
 // Used by IdConventionTests — no UseArchPillarTypedIds at all.
 internal sealed class IdNoConventionDbContext(DbContextOptions<IdNoConventionDbContext> options)

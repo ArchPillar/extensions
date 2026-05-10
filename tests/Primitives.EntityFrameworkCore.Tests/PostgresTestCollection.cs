@@ -2,7 +2,7 @@ using DotNet.Testcontainers.Builders;
 using Npgsql;
 using Testcontainers.PostgreSql;
 
-namespace ArchPillar.Extensions.Models.EntityFrameworkCore.Tests;
+namespace ArchPillar.Extensions.Models.EntityFrameworkCore;
 
 /// <summary>
 /// xUnit test collection that shares a single PostgreSQL container (or

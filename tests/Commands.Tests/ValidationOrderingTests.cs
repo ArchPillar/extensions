@@ -3,7 +3,7 @@ using ArchPillar.Extensions.Pipelines;
 using ArchPillar.Extensions.Operations;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace ArchPillar.Extensions.Commands.Tests;
+namespace ArchPillar.Extensions.Commands;
 
 public class ValidationOrderingTests
 {

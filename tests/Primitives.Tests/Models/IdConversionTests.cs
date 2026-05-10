@@ -1,5 +1,5 @@
 
-namespace ArchPillar.Extensions.Models.Tests;
+namespace ArchPillar.Extensions.Models;
 
 public sealed class IdConversionTests
 {

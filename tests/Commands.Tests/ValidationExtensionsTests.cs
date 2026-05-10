@@ -1,7 +1,7 @@
 using ArchPillar.Extensions.Commands.Validation;
 using ArchPillar.Extensions.Operations;
 
-namespace ArchPillar.Extensions.Commands.Tests;
+namespace ArchPillar.Extensions.Commands;
 
 public class ValidationExtensionsTests
 {

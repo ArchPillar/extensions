@@ -1,4 +1,4 @@
-namespace ArchPillar.Extensions.Pipelines.Tests;
+namespace ArchPillar.Extensions.Pipelines;
 
 public sealed class PipelineTests
 {

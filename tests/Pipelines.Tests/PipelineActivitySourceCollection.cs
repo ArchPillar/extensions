@@ -1,4 +1,4 @@
-namespace ArchPillar.Extensions.Pipelines.Tests;
+namespace ArchPillar.Extensions.Pipelines;
 
 /// <summary>
 /// xUnit collection used by tests that interact with the global

@@ -1,4 +1,4 @@
-namespace ArchPillar.Extensions.Mapper.Tests;
+namespace ArchPillar.Extensions.Mapper;
 
 /// <summary>
 /// Verifies that collection destination properties are wrapped with the

@@ -1,4 +1,4 @@
-namespace ArchPillar.Extensions.Mapper.Tests;
+namespace ArchPillar.Extensions.Mapper;
 
 /// <summary>
 /// Verifies that the builder's dictionary-based deduplication produces

@@ -2,7 +2,7 @@ using ArchPillar.Extensions.Commands.Internal;
 using ArchPillar.Extensions.Pipelines;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace ArchPillar.Extensions.Commands.Tests;
+namespace ArchPillar.Extensions.Commands;
 
 public class ServiceCollectionExtensionsTests
 {

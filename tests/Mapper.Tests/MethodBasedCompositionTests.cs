@@ -1,4 +1,4 @@
-namespace ArchPillar.Extensions.Mapper.Tests;
+namespace ArchPillar.Extensions.Mapper;
 
 /// <summary>
 /// Tests mapper composition via method calls (no arguments and constant arguments)
