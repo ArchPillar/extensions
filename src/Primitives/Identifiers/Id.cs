@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Serialization;
 
 namespace ArchPillar.Extensions.Identifiers;
 
@@ -9,6 +10,7 @@ namespace ArchPillar.Extensions.Identifiers;
 /// mixing identifiers of different entity types.
 /// </summary>
 [DebuggerDisplay("{Value}")]
+[JsonConverter(typeof(IdJsonConverterFactory))]
 public readonly struct Id<T>
     : IId,
       IEquatable<Id<T>>,
