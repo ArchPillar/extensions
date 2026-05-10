@@ -18,15 +18,11 @@ public sealed class IdJsonConverterFactory : JsonConverterFactory
 
     /// <inheritdoc />
     [UnconditionalSuppressMessage(
-        "AOT",
-        "IL3050:RequiresDynamicCode",
-        Justification = "CreateConverter is only reachable from JsonSerializer, which is already annotated [RequiresDynamicCode]. IdJsonConverter<T> has no static initializers or complex generic constraints.")]
+        "Trimming",
+        "IL2067:UnrecognizedReflectionPattern",
+        Justification = "CreateConverter is only invoked by JsonSerializer after CanConvert returns true, which guarantees typeToConvert is a closed Id<T>. Id<T>'s public constructors are preserved transitively through the Id<T> type reference in CanConvert and the [DynamicallyAccessedMembers] annotation on IdJsonConverter._idType.")]
     public override JsonConverter? CreateConverter(
         Type typeToConvert,
         JsonSerializerOptions options)
-    {
-        Type entityType = typeToConvert.GetGenericArguments()[0];
-        Type converterType = typeof(IdJsonConverter<>).MakeGenericType(entityType);
-        return (JsonConverter)Activator.CreateInstance(converterType)!;
-    }
+        => new IdJsonConverter(typeToConvert);
 }
