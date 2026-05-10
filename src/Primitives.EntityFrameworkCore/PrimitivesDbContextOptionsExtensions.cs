@@ -30,4 +30,17 @@ public static class PrimitivesDbContextOptionsExtensions
 
         return builder;
     }
+
+    /// <summary>
+    /// Generic overload of <see cref="UseArchPillarTypedIds(DbContextOptionsBuilder)"/>
+    /// that preserves the <typeparamref name="TContext"/> type parameter so it can be
+    /// chained alongside other typed builder extensions like <c>UseNpgsql&lt;TContext&gt;</c>.
+    /// </summary>
+    public static DbContextOptionsBuilder<TContext> UseArchPillarTypedIds<TContext>(
+        this DbContextOptionsBuilder<TContext> builder)
+        where TContext : DbContext
+    {
+        UseArchPillarTypedIds((DbContextOptionsBuilder)builder);
+        return builder;
+    }
 }
