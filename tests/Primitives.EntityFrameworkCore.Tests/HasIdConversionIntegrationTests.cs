@@ -1,7 +1,6 @@
-using ArchPillar.Extensions.Identifiers;
 using Microsoft.EntityFrameworkCore;
 
-namespace ArchPillar.Extensions.Primitives.EntityFrameworkCore.Tests;
+namespace ArchPillar.Extensions.Models.EntityFrameworkCore.Tests;
 
 [Collection("PostgreSQL")]
 public sealed class HasIdConversionIntegrationTests(PostgresFixture fixture) : IAsyncLifetime

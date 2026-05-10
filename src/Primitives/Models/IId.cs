@@ -1,4 +1,4 @@
-namespace ArchPillar.Extensions.Identifiers;
+namespace ArchPillar.Extensions.Models;
 
 /// <summary>
 /// Marker interface for all <see cref="Id{T}"/> values. Exposes the underlying

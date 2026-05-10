@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
-namespace ArchPillar.Extensions.Identifiers.EntityFrameworkCore.Internal;
+namespace ArchPillar.Extensions.Models.EntityFrameworkCore.Internal;
 
 internal sealed class IdValueConverter<T>()
     : ValueConverter<Id<T>, Guid>(

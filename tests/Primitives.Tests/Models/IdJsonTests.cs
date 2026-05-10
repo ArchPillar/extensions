@@ -1,7 +1,6 @@
 using System.Text.Json;
-using ArchPillar.Extensions.Identifiers;
 
-namespace ArchPillar.Extensions.Primitives.Tests.Identifiers;
+namespace ArchPillar.Extensions.Models.Tests;
 
 public sealed class IdJsonTests
 {

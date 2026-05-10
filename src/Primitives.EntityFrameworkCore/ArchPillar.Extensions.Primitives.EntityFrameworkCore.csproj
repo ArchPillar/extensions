@@ -3,7 +3,7 @@
   <PropertyGroup>
     <TargetFramework />
     <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
-    <RootNamespace>ArchPillar.Extensions.Identifiers.EntityFrameworkCore</RootNamespace>
+    <RootNamespace>ArchPillar.Extensions.Models.EntityFrameworkCore</RootNamespace>
   </PropertyGroup>
 
   <PropertyGroup>

@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
-namespace ArchPillar.Extensions.Identifiers.EntityFrameworkCore.Internal;
+namespace ArchPillar.Extensions.Models.EntityFrameworkCore.Internal;
 
 internal sealed class IdConvention : IModelFinalizingConvention
 {

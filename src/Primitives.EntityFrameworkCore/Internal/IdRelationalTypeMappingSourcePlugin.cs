@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace ArchPillar.Extensions.Identifiers.EntityFrameworkCore.Internal;
+namespace ArchPillar.Extensions.Models.EntityFrameworkCore.Internal;
 
 internal sealed class IdRelationalTypeMappingSourcePlugin : IRelationalTypeMappingSourcePlugin
 {

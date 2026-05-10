@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace ArchPillar.Extensions.Identifiers.EntityFrameworkCore.Internal;
+namespace ArchPillar.Extensions.Models.EntityFrameworkCore.Internal;
 
 internal sealed class ArchPillarPrimitivesOptionsExtension : IDbContextOptionsExtension
 {

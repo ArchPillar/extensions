@@ -1,7 +1,6 @@
-using ArchPillar.Extensions.Identifiers.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
-namespace ArchPillar.Extensions.Primitives.EntityFrameworkCore.Tests;
+namespace ArchPillar.Extensions.Models.EntityFrameworkCore.Tests;
 
 // Used by HasIdConversionTests — no auto-convention, converters applied explicitly.
 internal sealed class IdManualDbContext(DbContextOptions<IdManualDbContext> options) : DbContext(options)

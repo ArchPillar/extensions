@@ -1,4 +1,4 @@
-namespace ArchPillar.Extensions.Primitives.EntityFrameworkCore.Tests;
+namespace ArchPillar.Extensions.Models.EntityFrameworkCore.Tests;
 
 /// <summary>
 /// Manages an isolated PostgreSQL database for a single test class. Uses

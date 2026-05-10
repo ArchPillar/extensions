@@ -2,7 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace ArchPillar.Extensions.Identifiers;
+namespace ArchPillar.Extensions.Models;
 
 internal sealed class IdJsonConverter(
     [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicConstructors)] Type idType)

@@ -2,7 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace ArchPillar.Extensions.Identifiers;
+namespace ArchPillar.Extensions.Models;
 
 /// <summary>
 /// <see cref="JsonConverterFactory"/> that matches any closed <c>Id&lt;T&gt;</c>

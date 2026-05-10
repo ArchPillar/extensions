@@ -1,9 +1,9 @@
-using ArchPillar.Extensions.Identifiers.EntityFrameworkCore.Internal;
+using ArchPillar.Extensions.Models.EntityFrameworkCore.Internal;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
-namespace ArchPillar.Extensions.Identifiers.EntityFrameworkCore;
+namespace ArchPillar.Extensions.Models.EntityFrameworkCore;
 
 /// <summary>
 /// Extension methods on <see cref="PropertyBuilder{TProperty}"/> for

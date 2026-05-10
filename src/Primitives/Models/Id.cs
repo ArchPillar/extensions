@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Serialization;
 
-namespace ArchPillar.Extensions.Identifiers;
+namespace ArchPillar.Extensions.Models;
 
 /// <summary>
 /// A phantom-typed identifier wrapping a <see cref="Guid"/>.

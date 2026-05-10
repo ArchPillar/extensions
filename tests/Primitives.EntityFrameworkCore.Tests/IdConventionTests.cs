@@ -1,8 +1,7 @@
-using ArchPillar.Extensions.Identifiers.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 
-namespace ArchPillar.Extensions.Primitives.EntityFrameworkCore.Tests;
+namespace ArchPillar.Extensions.Models.EntityFrameworkCore.Tests;
 
 public sealed class IdConventionTests
 {

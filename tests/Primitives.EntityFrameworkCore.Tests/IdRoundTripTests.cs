@@ -1,9 +1,7 @@
-using ArchPillar.Extensions.Identifiers;
-using ArchPillar.Extensions.Identifiers.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 
-namespace ArchPillar.Extensions.Primitives.EntityFrameworkCore.Tests;
+namespace ArchPillar.Extensions.Models.EntityFrameworkCore.Tests;
 
 [Collection("PostgreSQL")]
 public sealed class IdRoundTripTests(PostgresFixture fixture) : IAsyncLifetime

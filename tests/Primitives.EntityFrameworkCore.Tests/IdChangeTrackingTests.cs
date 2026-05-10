@@ -1,9 +1,7 @@
-using ArchPillar.Extensions.Identifiers;
-using ArchPillar.Extensions.Identifiers.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 
-namespace ArchPillar.Extensions.Primitives.EntityFrameworkCore.Tests;
+namespace ArchPillar.Extensions.Models.EntityFrameworkCore.Tests;
 
 [Collection("PostgreSQL")]
 public sealed class IdChangeTrackingTests(PostgresFixture fixture) : IAsyncLifetime

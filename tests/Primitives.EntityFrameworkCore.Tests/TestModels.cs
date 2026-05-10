@@ -1,6 +1,5 @@
-using ArchPillar.Extensions.Identifiers;
 
-namespace ArchPillar.Extensions.Primitives.EntityFrameworkCore.Tests;
+namespace ArchPillar.Extensions.Models.EntityFrameworkCore.Tests;
 
 // Phantom type markers — not real entities, just compile-time tags.
 internal sealed class UserTag;

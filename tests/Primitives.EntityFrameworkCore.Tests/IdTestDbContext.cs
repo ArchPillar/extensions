@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 
-namespace ArchPillar.Extensions.Primitives.EntityFrameworkCore.Tests;
+namespace ArchPillar.Extensions.Models.EntityFrameworkCore.Tests;
 
 internal sealed class IdTestDbContext(DbContextOptions<IdTestDbContext> options) : DbContext(options)
 {

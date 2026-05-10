@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore.Metadata.Conventions;
 using Microsoft.EntityFrameworkCore.Metadata.Conventions.Infrastructure;
 
-namespace ArchPillar.Extensions.Identifiers.EntityFrameworkCore.Internal;
+namespace ArchPillar.Extensions.Models.EntityFrameworkCore.Internal;
 
 internal sealed class IdConventionSetPlugin : IConventionSetPlugin
 {
