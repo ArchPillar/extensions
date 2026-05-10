@@ -21,7 +21,25 @@ public static class PropertyBuilderExtensions
         this PropertyBuilder<TId> builder)
         where TId : struct, IId
     {
-        Type typeArg = typeof(TId).GetGenericArguments()[0];
+        ApplyIdConversion(builder, typeof(TId));
+        return builder;
+    }
+
+    /// <summary>
+    /// Nullable overload of <see cref="HasIdConversion{TId}(PropertyBuilder{TId})"/>
+    /// for properties whose CLR type is <c>Id&lt;T&gt;?</c>.
+    /// </summary>
+    public static PropertyBuilder<TId?> HasIdConversion<TId>(
+        this PropertyBuilder<TId?> builder)
+        where TId : struct, IId
+    {
+        ApplyIdConversion(builder, typeof(TId));
+        return builder;
+    }
+
+    private static void ApplyIdConversion(PropertyBuilder builder, Type idType)
+    {
+        Type typeArg = idType.GetGenericArguments()[0];
 
         var converter = (ValueConverter)Activator.CreateInstance(
             typeof(IdValueConverter<>).MakeGenericType(typeArg))!;
@@ -29,6 +47,5 @@ public static class PropertyBuilderExtensions
             typeof(IdValueComparer<>).MakeGenericType(typeArg))!;
 
         builder.HasConversion(converter, comparer);
-        return builder;
     }
 }
