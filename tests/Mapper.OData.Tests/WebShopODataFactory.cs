@@ -5,7 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using WebShop.OData.Data;
 using WebShop.OData.Models;
 
-namespace Mapper.OData.Tests;
+namespace WebShop.OData;
 
 /// <summary>
 /// Custom <see cref="WebApplicationFactory{TEntryPoint}"/> that replaces SQLite with

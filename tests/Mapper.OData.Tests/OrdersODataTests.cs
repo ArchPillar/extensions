@@ -2,7 +2,7 @@ using System.Net;
 using System.Text.Json;
 using WebShop.OData.Projections;
 
-namespace Mapper.OData.Tests;
+namespace WebShop.OData;
 
 /// <summary>
 /// Integration tests for the Orders OData endpoint — verifies that computed
