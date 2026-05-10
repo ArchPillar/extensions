@@ -9,12 +9,12 @@ public class ValidationExtensionsTests
     public void NotNull_NullValue_AddsRequiredError()
     {
         var ctx = new ValidationContext();
-        const string? value = null;
+        const string? Value = null;
 
-        ctx.NotNull(value);
+        ctx.NotNull(Value);
 
         ValidationEntry entry = Assert.Single(ctx.Entries);
-        Assert.Equal("value", entry.Field);
+        Assert.Equal("Value", entry.Field);
         Assert.Equal("required", entry.Error.Type);
         Assert.Equal(OperationStatus.BadRequest, entry.Error.Status);
     }
@@ -23,9 +23,9 @@ public class ValidationExtensionsTests
     public void NotEmpty_EmptyString_AddsRequiredError()
     {
         var ctx = new ValidationContext();
-        const string value = "";
+        const string Value = "";
 
-        ctx.NotEmpty(value);
+        ctx.NotEmpty(Value);
 
         ValidationEntry entry = Assert.Single(ctx.Entries);
         Assert.Equal("required", entry.Error.Type);
@@ -63,9 +63,9 @@ public class ValidationExtensionsTests
     public void Range_OutOfRange_AddsOutOfRangeErrorWithExtensions()
     {
         var ctx = new ValidationContext();
-        const int quantity = 150;
+        const int Quantity = 150;
 
-        ctx.Range(quantity, 1, 100);
+        ctx.Range(Quantity, 1, 100);
 
         ValidationEntry entry = Assert.Single(ctx.Entries);
         Assert.Equal("out_of_range", entry.Error.Type);
@@ -147,11 +147,11 @@ public class ValidationExtensionsTests
     public void Chained_AccumulatesAllErrors()
     {
         var ctx = new ValidationContext();
-        const string a = "";
-        const int b = 0;
+        const string A = "";
+        const int B = 0;
 
-        ctx.NotEmpty(a)
-           .Range(b, 1, 100)
+        ctx.NotEmpty(A)
+           .Range(B, 1, 100)
            .Must(false, "x", "y");
 
         Assert.Equal(3, ctx.Entries.Count);

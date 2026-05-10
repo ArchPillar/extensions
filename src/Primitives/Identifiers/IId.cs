@@ -8,5 +8,5 @@ namespace ArchPillar.Extensions.Identifiers;
 public interface IId
 {
     /// <summary>The underlying Guid value.</summary>
-    Guid Value { get; }
+    public Guid Value { get; }
 }

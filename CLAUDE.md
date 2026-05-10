@@ -141,6 +141,6 @@ Key severity overrides are configured in `.editorconfig`. When an analyzer fires
 - Do not emit `throw` expressions inside expression trees (EF Core cannot translate them)
 - Do not add external package dependencies — the library relies only on BCL types (`IQueryable`, `System.Linq.Expressions`)
 - Do not use `#pragma warning disable` — suppress warnings via `.editorconfig` scoped sections instead
-- Do not suppress analyzer warnings without discussing with the user first
+- **NEVER add, modify, or remove analyzer suppressions or severity overrides in `.editorconfig` without explicit user approval.** Always stop and ask, even if the suppression seems obvious or is needed to make the build pass. This applies to all diagnostics: Roslyn, Roslynator, SonarAnalyzer, and IDE rules.
 - Do not use `this.` qualifier on members
 - Do not create README.md or other documentation files unless explicitly asked

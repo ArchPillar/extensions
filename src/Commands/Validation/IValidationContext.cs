@@ -12,10 +12,10 @@ namespace ArchPillar.Extensions.Commands.Validation;
 public interface IValidationContext
 {
     /// <summary><c>true</c> when at least one error has been added.</summary>
-    bool HasErrors { get; }
+    public bool HasErrors { get; }
 
     /// <summary>The accumulated entries so far.</summary>
-    IReadOnlyList<ValidationEntry> Entries { get; }
+    public IReadOnlyList<ValidationEntry> Entries { get; }
 
     /// <summary>
     /// Adds an error to the context.
@@ -26,7 +26,7 @@ public interface IValidationContext
     /// and <see cref="OperationProblem.Detail"/> at the boundary.
     /// </param>
     /// <param name="error">The error to add.</param>
-    void AddError(string? field, OperationError error);
+    public void AddError(string? field, OperationError error);
 }
 
 /// <summary>

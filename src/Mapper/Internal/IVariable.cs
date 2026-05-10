@@ -9,5 +9,5 @@ internal interface IVariable
     /// <summary>
     /// Returns <see cref="Variable{T}.DefaultValue"/> boxed as <c>object?</c>.
     /// </summary>
-    object? GetDefaultValue();
+    public object? GetDefaultValue();
 }

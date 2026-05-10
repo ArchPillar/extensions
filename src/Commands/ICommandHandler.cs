@@ -31,7 +31,7 @@ public interface ICommandHandler<in TCommand> : IRequestHandler
     /// <param name="context">A context for accumulating validation errors.</param>
     /// <param name="cancellationToken">Cancellation propagated from the dispatcher.</param>
     /// <returns>A task that completes when validation is done.</returns>
-    Task ValidateAsync(TCommand command, IValidationContext context, CancellationToken cancellationToken)
+    public Task ValidateAsync(TCommand command, IValidationContext context, CancellationToken cancellationToken)
         => Task.CompletedTask;
 
     /// <summary>
@@ -43,7 +43,7 @@ public interface ICommandHandler<in TCommand> : IRequestHandler
     /// <param name="command">The command to execute.</param>
     /// <param name="cancellationToken">Cancellation propagated from the dispatcher.</param>
     /// <returns>A task producing the operation outcome.</returns>
-    Task<OperationResult> HandleAsync(TCommand command, CancellationToken cancellationToken);
+    public Task<OperationResult> HandleAsync(TCommand command, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -55,7 +55,7 @@ public interface ICommandHandler<in TCommand, TResult> : IRequestHandler
     where TCommand : ICommand<TResult>
 {
     /// <inheritdoc cref="ICommandHandler{TCommand}.ValidateAsync"/>
-    Task ValidateAsync(TCommand command, IValidationContext context, CancellationToken cancellationToken)
+    public Task ValidateAsync(TCommand command, IValidationContext context, CancellationToken cancellationToken)
         => Task.CompletedTask;
 
     /// <summary>
@@ -65,5 +65,5 @@ public interface ICommandHandler<in TCommand, TResult> : IRequestHandler
     /// <param name="command">The command to execute.</param>
     /// <param name="cancellationToken">Cancellation propagated from the dispatcher.</param>
     /// <returns>A task producing the operation outcome with payload.</returns>
-    Task<OperationResult<TResult>> HandleAsync(TCommand command, CancellationToken cancellationToken);
+    public Task<OperationResult<TResult>> HandleAsync(TCommand command, CancellationToken cancellationToken);
 }
