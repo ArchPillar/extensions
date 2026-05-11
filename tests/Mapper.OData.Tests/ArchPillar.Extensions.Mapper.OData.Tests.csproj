@@ -3,6 +3,7 @@
   <PropertyGroup>
     <!-- Must match WebShop.OData target framework (OData 9.x requires net8.0) -->
     <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>WebShop.OData</RootNamespace>
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);IDE0005</NoWarn>

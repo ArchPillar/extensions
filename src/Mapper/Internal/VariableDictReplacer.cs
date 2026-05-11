@@ -20,7 +20,7 @@ internal sealed class VariableDictReplacer(ParameterExpression bindingsParam) : 
 {
     internal static readonly Type BindingsType = typeof(List<ValueTuple<object, object?>>);
 
-    private static readonly MethodInfo GetVariableMethod =
+    private static readonly MethodInfo _getVariableMethod =
         typeof(VariableDictReplacer)
             .GetMethod(nameof(GetVariable), BindingFlags.Public | BindingFlags.Static)!;
 
@@ -55,7 +55,7 @@ internal sealed class VariableDictReplacer(ParameterExpression bindingsParam) : 
                 var defaultValue = ((IVariable)variable).GetDefaultValue();
 
                 return Expression.Call(
-                    GetVariableMethod.MakeGenericMethod(valueType),
+                    _getVariableMethod.MakeGenericMethod(valueType),
                     bindingsParam,
                     Expression.Constant(variable),
                     Expression.Constant(defaultValue, valueType));

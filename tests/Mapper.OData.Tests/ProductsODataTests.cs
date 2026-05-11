@@ -3,7 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using WebShop.OData.Projections;
 
-namespace Mapper.OData.Tests;
+namespace WebShop.OData;
 
 /// <summary>
 /// Integration tests verifying that mapper projections work correctly

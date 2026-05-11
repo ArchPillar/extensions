@@ -19,7 +19,7 @@ public interface ICommandDispatcher
     /// <param name="command">The command to dispatch.</param>
     /// <param name="cancellationToken">Cancellation propagated to middleware and the handler.</param>
     /// <returns>The operation outcome.</returns>
-    Task<OperationResult> SendAsync(ICommand command, CancellationToken cancellationToken = default);
+    public Task<OperationResult> SendAsync(ICommand command, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Dispatches a command that produces a payload of type
@@ -29,7 +29,7 @@ public interface ICommandDispatcher
     /// <param name="command">The command to dispatch.</param>
     /// <param name="cancellationToken">Cancellation propagated to middleware and the handler.</param>
     /// <returns>The operation outcome with payload.</returns>
-    Task<OperationResult<TResult>> SendAsync<TResult>(ICommand<TResult> command, CancellationToken cancellationToken = default);
+    public Task<OperationResult<TResult>> SendAsync<TResult>(ICommand<TResult> command, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Dispatches a batch of no-result commands.
@@ -64,7 +64,7 @@ public interface ICommandDispatcher
     /// <see cref="OperationResult"/>).
     /// </para>
     /// </remarks>
-    Task<OperationResult> SendBatchAsync<TCommand>(
+    public Task<OperationResult> SendBatchAsync<TCommand>(
         IReadOnlyList<TCommand> commands,
         CancellationToken cancellationToken = default)
         where TCommand : ICommand;
@@ -103,7 +103,7 @@ public interface ICommandDispatcher
     /// payloads into the returned <see cref="OperationResult{TValue}"/>.
     /// </para>
     /// </remarks>
-    Task<OperationResult<IReadOnlyList<TResult>>> SendBatchAsync<TCommand, TResult>(
+    public Task<OperationResult<IReadOnlyList<TResult>>> SendBatchAsync<TCommand, TResult>(
         IReadOnlyList<TCommand> commands,
         CancellationToken cancellationToken = default)
         where TCommand : ICommand<TResult>;

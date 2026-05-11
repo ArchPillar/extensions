@@ -30,7 +30,7 @@ public interface IBatchCommandHandler<in TCommand> : IRequestHandler
     /// <param name="commands">The full input list.</param>
     /// <param name="validation">The accumulator for validation errors.</param>
     /// <param name="cancellationToken">Cancellation propagated from the dispatcher.</param>
-    Task ValidateAsync(
+    public Task ValidateAsync(
         IReadOnlyList<TCommand> commands,
         IValidationContext validation,
         CancellationToken cancellationToken)
@@ -46,7 +46,7 @@ public interface IBatchCommandHandler<in TCommand> : IRequestHandler
     /// A single <see cref="OperationResult"/> describing whether the batch
     /// succeeded.
     /// </returns>
-    Task<OperationResult> HandleBatchAsync(
+    public Task<OperationResult> HandleBatchAsync(
         IReadOnlyList<TCommand> commands,
         CancellationToken cancellationToken);
 }
@@ -72,7 +72,7 @@ public interface IBatchCommandHandler<in TCommand, TResult> : IRequestHandler
     /// <param name="commands">The full input list.</param>
     /// <param name="validation">The accumulator for validation errors.</param>
     /// <param name="cancellationToken">Cancellation propagated from the dispatcher.</param>
-    Task ValidateAsync(
+    public Task ValidateAsync(
         IReadOnlyList<TCommand> commands,
         IValidationContext validation,
         CancellationToken cancellationToken)
@@ -88,7 +88,7 @@ public interface IBatchCommandHandler<in TCommand, TResult> : IRequestHandler
     /// A single <see cref="OperationResult{TValue}"/> wrapping per-command
     /// payloads in input order. Failure short-circuits the whole batch.
     /// </returns>
-    Task<OperationResult<IReadOnlyList<TResult>>> HandleBatchAsync(
+    public Task<OperationResult<IReadOnlyList<TResult>>> HandleBatchAsync(
         IReadOnlyList<TCommand> commands,
         CancellationToken cancellationToken);
 }

@@ -1,4 +1,4 @@
-namespace ArchPillar.Extensions.Mapper.Tests;
+namespace ArchPillar.Extensions.Mapper;
 
 /// <summary>
 /// Validates that shared mapper instances are safe for concurrent use

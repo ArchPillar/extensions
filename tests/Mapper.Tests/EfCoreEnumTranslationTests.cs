@@ -1,7 +1,7 @@
 using ArchPillar.Extensions.Mapper.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
-namespace ArchPillar.Extensions.Mapper.Tests;
+namespace ArchPillar.Extensions.Mapper;
 
 /// <summary>
 /// Verifies that <c>EnumMapper&lt;,&gt;.Map()</c> calls used directly in LINQ

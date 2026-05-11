@@ -29,7 +29,7 @@ internal sealed class NestedMapperInliner(IncludeSet includes, int depth = 0) : 
 {
     internal const int MaxNestingDepth = 32;
 
-    private static readonly MethodInfo EnumerableSelectMethod =
+    private static readonly MethodInfo _enumerableSelectMethod =
         typeof(Enumerable)
             .GetMethods()
             .First(m => m.Name == "Select" && m.GetParameters().Length == 2);
@@ -168,7 +168,7 @@ internal sealed class NestedMapperInliner(IncludeSet includes, int depth = 0) : 
             Type destType = nestedLambda.ReturnType;
 
             return Expression.Call(
-                EnumerableSelectMethod.MakeGenericMethod(srcType, destType),
+                _enumerableSelectMethod.MakeGenericMethod(srcType, destType),
                 srcExpr,
                 nestedLambda);
         }

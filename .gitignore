@@ -58,3 +58,6 @@ samples/WebShop/webshop.db-*
 
 # NuGet packages
 nupkgs/
+
+# Superpowers session artifacts (specs, plans, etc.)
+docs/superpowers/

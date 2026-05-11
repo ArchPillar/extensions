@@ -19,5 +19,5 @@ public interface IPipelineHandler<in T>
     /// <param name="context">The context flowing through the pipeline.</param>
     /// <param name="cancellationToken">The cancellation token for the execution.</param>
     /// <returns>A task that completes when the handler is done.</returns>
-    Task HandleAsync(T context, CancellationToken cancellationToken = default);
+    public Task HandleAsync(T context, CancellationToken cancellationToken = default);
 }

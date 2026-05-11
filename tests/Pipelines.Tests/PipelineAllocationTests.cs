@@ -1,4 +1,4 @@
-namespace ArchPillar.Extensions.Pipelines.Tests;
+namespace ArchPillar.Extensions.Pipelines;
 
 /// <summary>
 /// Locks in the allocation-free hot path of <see cref="Pipeline{T}"/>. On the

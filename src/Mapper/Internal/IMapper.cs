@@ -22,7 +22,7 @@ internal interface IMapper
     /// from circular mapper references.
     /// </para>
     /// </summary>
-    LambdaExpression GetRawExpression(IncludeSet includes, int depth = 0);
+    public LambdaExpression GetRawExpression(IncludeSet includes, int depth = 0);
 
     /// <summary>
     /// Forces expression assembly and delegate compilation with default
@@ -30,5 +30,5 @@ internal interface IMapper
     /// <see cref="MapperContext.EagerBuildAll"/> to surface mapping errors
     /// at startup and eliminate cold-start latency.
     /// </summary>
-    void Compile();
+    public void Compile();
 }

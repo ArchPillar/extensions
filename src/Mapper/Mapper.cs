@@ -272,12 +272,12 @@ public sealed class Mapper<TSource, TDest> : IMapper
             body, raw.Parameters[0], bindingsParam);
     }
 
-    private static readonly MethodInfo ReplaceContentsMethod =
+    private static readonly MethodInfo _replaceContentsMethod =
         typeof(CollectionUpdater).GetMethod(
             nameof(CollectionUpdater.ReplaceContents),
             BindingFlags.Static | BindingFlags.Public)!;
 
-    private static readonly MethodInfo MergeWithIdentityMethod =
+    private static readonly MethodInfo _mergeWithIdentityMethod =
         typeof(CollectionUpdater).GetMethod(
             nameof(CollectionUpdater.MergeWithIdentity),
             BindingFlags.Static | BindingFlags.Public)!;
@@ -357,7 +357,7 @@ public sealed class Mapper<TSource, TDest> : IMapper
     {
         Type collectionType = typeof(ICollection<>).MakeGenericType(elementType);
         Type enumerableType = typeof(IEnumerable<>).MakeGenericType(elementType);
-        MethodInfo replaceMethod = ReplaceContentsMethod.MakeGenericMethod(elementType);
+        MethodInfo replaceMethod = _replaceContentsMethod.MakeGenericMethod(elementType);
 
         // Guard the source expression: if the root collection is null, pass
         // null to ReplaceContents (which clears the dest) instead of letting
@@ -400,7 +400,7 @@ public sealed class Mapper<TSource, TDest> : IMapper
         Expression sourceCollection = new ParameterReplacer(sourceAccessor.Parameters[0], srcParam)
             .Visit(sourceAccessor.Body)!;
 
-        MethodInfo mergeMethod = MergeWithIdentityMethod.MakeGenericMethod(sourceItemType, destItemType, keyType);
+        MethodInfo mergeMethod = _mergeWithIdentityMethod.MakeGenericMethod(sourceItemType, destItemType, keyType);
         Type collectionType = typeof(ICollection<>).MakeGenericType(destItemType);
         Type enumerableType = typeof(IEnumerable<>).MakeGenericType(sourceItemType);
 

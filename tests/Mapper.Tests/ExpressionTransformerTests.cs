@@ -1,7 +1,7 @@
 using System.Linq.Expressions;
 using System.Reflection;
 
-namespace ArchPillar.Extensions.Mapper.Tests;
+namespace ArchPillar.Extensions.Mapper;
 
 // ---------------------------------------------------------------------------
 // Test models — Money value object with implicit conversion
@@ -9,7 +9,7 @@ namespace ArchPillar.Extensions.Mapper.Tests;
 
 public interface IAmount
 {
-    decimal Amount { get; }
+    public decimal Amount { get; }
 }
 
 public record Money(decimal Amount, string Currency) : IAmount
@@ -26,7 +26,7 @@ public record Fee(decimal Amount, string Description) : IAmount
 
 public interface IPositiveCheck
 {
-    bool IsPositive();
+    public bool IsPositive();
 }
 
 public record Quantity(decimal Value) : IPositiveCheck

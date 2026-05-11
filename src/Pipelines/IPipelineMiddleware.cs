@@ -41,5 +41,5 @@ public interface IPipelineMiddleware<T>
     /// </param>
     /// <param name="cancellationToken">The cancellation token for the execution.</param>
     /// <returns>A task that completes when this middleware and its downstream steps are done.</returns>
-    Task InvokeAsync(T context, PipelineDelegate<T> next, CancellationToken cancellationToken = default);
+    public Task InvokeAsync(T context, PipelineDelegate<T> next, CancellationToken cancellationToken = default);
 }

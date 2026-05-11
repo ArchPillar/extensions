@@ -47,6 +47,9 @@
   <Folder Name="/src/Commands/">
     <Project Path="src/Commands/ArchPillar.Extensions.Commands.csproj" />
   </Folder>
+  <Folder Name="/src/Primitives.EntityFrameworkCore/">
+    <Project Path="src/Primitives.EntityFrameworkCore/ArchPillar.Extensions.Primitives.EntityFrameworkCore.csproj" />
+  </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/Mapper.Tests/">
     <Project Path="tests/Mapper.Tests/ArchPillar.Extensions.Mapper.Tests.csproj" />
@@ -62,5 +65,8 @@
   </Folder>
   <Folder Name="/tests/Commands.Tests/">
     <Project Path="tests/Commands.Tests/ArchPillar.Extensions.Commands.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Primitives.EntityFrameworkCore.Tests/">
+    <Project Path="tests/Primitives.EntityFrameworkCore.Tests/ArchPillar.Extensions.Primitives.EntityFrameworkCore.Tests.csproj" />
   </Folder>
 </Solution>

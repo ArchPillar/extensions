@@ -18,5 +18,5 @@ public interface IExpressionTransformer
     /// Transforms the given expression tree, returning a rewritten tree or the
     /// original if no changes are needed.
     /// </summary>
-    Expression Transform(Expression expression);
+    public Expression Transform(Expression expression);
 }

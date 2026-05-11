@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace ArchPillar.Extensions.Pipelines.Tests;
+namespace ArchPillar.Extensions.Pipelines;
 
 [Collection(PipelineActivitySourceCollection.Name)]
 public sealed class ActivityMiddlewareTests

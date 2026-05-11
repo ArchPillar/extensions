@@ -34,7 +34,7 @@ public interface IPipelineContext
     /// describes what the pipeline invocation represents
     /// (e.g. <c>"Orders.Place"</c>, <c>"Inventory.Reserve"</c>).
     /// </summary>
-    string OperationName { get; }
+    public string OperationName { get; }
 
     /// <summary>
     /// The kind of <see cref="Activity"/> to start. Default: <see cref="ActivityKind.Internal"/>.
@@ -43,7 +43,7 @@ public interface IPipelineContext
     /// <see cref="ActivityKind.Producer"/> for outbound-message pipelines, or
     /// <see cref="ActivityKind.Client"/> for outbound-call pipelines.
     /// </summary>
-    ActivityKind ActivityKind => ActivityKind.Internal;
+    public ActivityKind ActivityKind => ActivityKind.Internal;
 
     /// <summary>
     /// Explicit parent for the started <see cref="Activity"/>. Default is
@@ -52,7 +52,7 @@ public interface IPipelineContext
     /// parsed from a queue message with
     /// <see cref="ActivityContext.TryParse(string, string, out ActivityContext)"/>.
     /// </summary>
-    ActivityContext ParentContext => default;
+    public ActivityContext ParentContext => default;
 
     /// <summary>
     /// Optional hook to enrich the started activity with context-specific tags, events,
@@ -60,5 +60,5 @@ public interface IPipelineContext
     /// <c>next(...)</c>. Default: no-op.
     /// </summary>
     /// <param name="activity">The started activity. Never <c>null</c>.</param>
-    void EnrichActivity(Activity activity) { }
+    public void EnrichActivity(Activity activity) { }
 }

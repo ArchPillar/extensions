@@ -1,4 +1,4 @@
-namespace ArchPillar.Extensions.Operations.Tests;
+namespace ArchPillar.Extensions.Operations;
 
 public class OperationResultOfTTests
 {
