@@ -13,6 +13,7 @@
     <PackageProjectUrl>https://github.com/ArchPillar/extensions</PackageProjectUrl>
     <RepositoryUrl>https://github.com/ArchPillar/extensions</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>PACKAGE.md</PackageReadmeFile>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <IncludeSymbols>true</IncludeSymbols>
@@ -30,6 +31,7 @@
 
   <ItemGroup>
     <None Include="..\..\LICENSE" Pack="true" PackagePath="" />
+    <None Include="PACKAGE.md" Pack="true" PackagePath="" />
   </ItemGroup>
 
 </Project>
