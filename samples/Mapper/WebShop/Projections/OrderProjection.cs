@@ -11,7 +11,10 @@ public sealed class OrderProjection
 
     public DateTime PlacedAt { get; set; }
 
-    /// <summary>Human-readable status string produced by the enum mapper.</summary>
+    /// <summary>
+    /// Human-readable status name (the enum's <c>ToString()</c>). For the typed,
+    /// SQL-<c>CASE</c>-translated enum mapping, see <c>OrderSummary.Status</c>.
+    /// </summary>
     public required string Status { get; set; }
 
     /// <summary>Sum of all line totals — computed as <c>Lines.Sum(l =&gt; l.Quantity * l.UnitPrice)</c>.</summary>

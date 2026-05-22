@@ -24,6 +24,10 @@ public static class OrderEndpoints
         group.MapGet("/", GetMyOrdersAsync)
              .WithSummary("List the current customer's orders. IsOwner is always true here.");
 
+        // Compact summaries assembled in a hand-written Select (EF Core integration).
+        group.MapGet("/summary", GetMyOrderSummariesAsync)
+             .WithSummary("List the current customer's orders as compact summaries. Showcases the EF Core mapper integration: a direct enum-mapper call (flat SQL CASE), a single property via a regular mapper, and a collection via Project — all in one hand-written Select, translated server-side.");
+
         // Get a single order with lines included.
         group.MapGet("/{id:guid}", GetByIdAsync)
              .WithSummary("Get order details including line items. IsOwner reflects ownership.");
@@ -58,6 +62,29 @@ public static class OrderEndpoints
             .ToListAsync();
 
         return Results.Ok(orders);
+    }
+
+    private static async Task<IResult> GetMyOrderSummariesAsync(
+        ClaimsPrincipal principal,
+        WebShopDbContext db,
+        WebShopMappers mappers)
+    {
+        Guid userId = GetUserId(principal);
+
+        // The enum mapper, the single nested mapper, and the collection Project()
+        // are all inlined and translated to SQL by UseArchPillarMapper — one round trip.
+        List<OrderSummary> summaries = await db.Orders
+            .Where(o => o.Customer.UserId == userId)
+            .Select(o => new OrderSummary
+            {
+                Id       = o.Id,
+                Status   = mappers.OrderStatusCode.Map(o.Status),
+                Customer = mappers.Customer.Map(o.Customer),
+                Lines    = o.Lines.Project(mappers.OrderLine).ToList(),
+            })
+            .ToListAsync();
+
+        return Results.Ok(summaries);
     }
 
     private static async Task<IResult> GetByIdAsync(
