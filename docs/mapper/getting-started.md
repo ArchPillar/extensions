@@ -10,6 +10,14 @@ dotnet add package ArchPillar.Extensions.Mapper
 
 > Requires .NET 9 and C# 13.
 
+For EF Core projection there is nothing extra to install — `Project(mapper)` works against any LINQ provider. The optional companion package adds direct mapper calls inside hand-written queries and flat SQL `CASE` for enums:
+
+```bash
+dotnet add package ArchPillar.Extensions.Mapper.EntityFrameworkCore
+```
+
+See [Features Guide — EF Core Integration](features.md#ef-core-integration).
+
 ## Your First Mapper
 
 Create a context class that inherits from `MapperContext`. Declare mappers as public properties and initialize them in the constructor.
@@ -102,6 +110,8 @@ var results = await dbContext.Orders
 ```
 
 Both use the same mapper definition. The LINQ provider sees a plain expression tree.
+
+To map only a single property with a mapper inside your own `Select` — rather than projecting the whole row — register the EF Core companion package with `UseArchPillarMapper(...)` and call `Map()` / `Project()` directly in the projection. See [Features Guide — EF Core Integration](features.md#ef-core-integration).
 
 ## Dependency Injection
 
