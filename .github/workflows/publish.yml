@@ -29,7 +29,9 @@ jobs:
         run: dotnet test -c Release --no-build --verbosity normal
 
       - name: Pack
-        run: dotnet pack src/Mapper/ArchPillar.Extensions.Mapper.csproj -c Release --no-build -o ./nupkgs -p:PackageVersion=${GITHUB_TAG#v}
+        run: |
+          dotnet pack src/Mapper/ArchPillar.Extensions.Mapper.csproj -c Release --no-build -o ./nupkgs -p:PackageVersion=${GITHUB_TAG#v}
+          dotnet pack src/Mapper.EntityFrameworkCore/ArchPillar.Extensions.Mapper.EntityFrameworkCore.csproj -c Release --no-build -o ./nupkgs -p:PackageVersion=${GITHUB_TAG#v}
         env:
           GITHUB_TAG: ${{ github.event.release.tag_name }}
 
