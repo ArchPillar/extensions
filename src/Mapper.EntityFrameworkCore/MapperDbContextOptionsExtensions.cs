@@ -22,21 +22,14 @@ public static class MapperDbContextOptionsExtensions
     /// <c>EnumMapper&lt;,&gt;.Map()</c> calls as well as inlining of regular
     /// <c>Mapper&lt;,&gt;.Map()</c> / <c>Project()</c> calls in LINQ queries.
     /// <para>
-    /// All <see cref="EnumMapper{TSource,TDest}"/> properties discovered on
-    /// the supplied <paramref name="contexts"/> are pre-registered so their
-    /// mapping tables are available at query translation time.
+    /// No mappers need to be declared up front: every mapper is resolved from
+    /// the constant it appears as in the query expression. Enum mapper tables
+    /// are computed on demand the first time a given mapper is used in a query.
     /// </para>
     /// </summary>
     /// <param name="builder">The options builder to configure.</param>
-    /// <param name="contexts">
-    /// One or more <see cref="MapperContext"/> instances whose
-    /// <see cref="EnumMapper{TSource,TDest}"/> properties will be registered
-    /// for flat SQL CASE translation.
-    /// </param>
     /// <returns>The same builder instance for chaining.</returns>
-    public static DbContextOptionsBuilder UseArchPillarMapper(
-        this DbContextOptionsBuilder builder,
-        params MapperContext[] contexts)
+    public static DbContextOptionsBuilder UseArchPillarMapper(this DbContextOptionsBuilder builder)
     {
         ArchPillarMapperOptionsExtension? existing =
             builder.Options.FindExtension<ArchPillarMapperOptionsExtension>();
@@ -46,17 +39,10 @@ public static class MapperDbContextOptionsExtensions
             return builder;
         }
 
-        var store = new EnumMappingStore();
-
-        foreach (MapperContext context in contexts)
-        {
-            store.RegisterFromContext(context);
-        }
-
         builder.AddInterceptors(new EnumMapperQueryInterceptor(), new MapperInliningInterceptor());
 
         ((IDbContextOptionsBuilderInfrastructure)builder)
-            .AddOrUpdateExtension(new ArchPillarMapperOptionsExtension(store));
+            .AddOrUpdateExtension(new ArchPillarMapperOptionsExtension());
 
         return builder;
     }

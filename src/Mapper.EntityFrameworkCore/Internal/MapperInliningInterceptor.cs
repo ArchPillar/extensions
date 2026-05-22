@@ -48,7 +48,7 @@ internal sealed class MapperInliningInterceptor : IQueryExpressionInterceptor
             if (IsRegularMapWithOptionsCall(node))
             {
                 Type[] typeArgs = node.Method.GetGenericArguments();
-                var configure = Evaluate(node.Arguments[2]);
+                var configure = MapperConstantEvaluator.Evaluate(node.Arguments[2]);
                 LambdaExpression projection = GetProjection(node.Arguments[0], typeArgs[0], typeArgs[1], configure);
                 return InlineScalar(projection, Visit(node.Arguments[1])!);
             }
@@ -65,7 +65,7 @@ internal sealed class MapperInliningInterceptor : IQueryExpressionInterceptor
             if (IsRegularProjectWithOptionsCall(node))
             {
                 Type[] typeArgs = node.Method.GetGenericArguments();
-                var configure = Evaluate(node.Arguments[2]);
+                var configure = MapperConstantEvaluator.Evaluate(node.Arguments[2]);
                 LambdaExpression projection = GetProjection(node.Arguments[1], typeArgs[0], typeArgs[1], configure);
                 return InlineCollection(projection, Visit(node.Arguments[0])!, typeArgs[0], typeArgs[1]);
             }
@@ -81,7 +81,7 @@ internal sealed class MapperInliningInterceptor : IQueryExpressionInterceptor
         private static LambdaExpression GetProjection(
             Expression mapperAccessor, Type sourceType, Type destType, object? configure)
         {
-            var mapper = Evaluate(mapperAccessor)!;
+            var mapper = MapperConstantEvaluator.Evaluate(mapperAccessor)!;
             Type mapperType = typeof(Mapper<,>).MakeGenericType(sourceType, destType);
             MethodInfo toExpression = mapperType.GetMethod(nameof(Mapper<int, int>.ToExpression))!;
             return (LambdaExpression)toExpression.Invoke(mapper, [configure])!;
@@ -114,24 +114,6 @@ internal sealed class MapperInliningInterceptor : IQueryExpressionInterceptor
                 _enumerableSelectMethod.MakeGenericMethod(sourceType, destType),
                 source,
                 projection);
-        }
-
-        /// <summary>
-        /// Evaluates an expression that references no query parameters (a mapper
-        /// accessor or an options lambda captured from the surrounding closure) by
-        /// compiling and invoking it.
-        /// </summary>
-        private static object? Evaluate(Expression expression)
-        {
-            if (expression is ConstantExpression constant)
-            {
-                return constant.Value;
-            }
-
-            Func<object?> accessor = Expression
-                .Lambda<Func<object?>>(Expression.Convert(expression, typeof(object)))
-                .Compile();
-            return accessor();
         }
 
         private static bool IsRegularMapCall(MethodCallExpression node)

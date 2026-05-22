@@ -19,7 +19,7 @@ public sealed class EfCoreMapperInliningTests : IDisposable
     {
         DbContextOptionsBuilder<MapperInliningDbContext> builder = new DbContextOptionsBuilder<MapperInliningDbContext>()
             .UseSqlite("DataSource=:memory:");
-        builder.UseArchPillarMapper(_mappers);
+        builder.UseArchPillarMapper();
         DbContextOptions<MapperInliningDbContext> options = builder.Options;
 
         _db = new MapperInliningDbContext(options);

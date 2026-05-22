@@ -111,7 +111,7 @@ var results = await dbContext.Orders
 
 Both use the same mapper definition. The LINQ provider sees a plain expression tree.
 
-To map only a single property with a mapper inside your own `Select` — rather than projecting the whole row — register the EF Core companion package with `UseArchPillarMapper(...)` and call `Map()` / `Project()` directly in the projection. See [Features Guide — EF Core Integration](features.md#ef-core-integration).
+To map only a single property with a mapper inside your own `Select` — rather than projecting the whole row — register the EF Core companion package with `UseArchPillarMapper()` and call `Map()` / `Project()` directly in the projection. See [Features Guide — EF Core Integration](features.md#ef-core-integration).
 
 ## Dependency Injection
 

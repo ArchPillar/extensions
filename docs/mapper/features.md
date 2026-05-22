@@ -703,13 +703,15 @@ dotnet add package ArchPillar.Extensions.Mapper.EntityFrameworkCore
 
 ```csharp
 // Program.cs
-builder.Services.AddDbContext<AppDbContext>((sp, options) =>
+builder.Services.AddDbContext<AppDbContext>(options =>
     options
         .UseNpgsql(connectionString)
-        .UseArchPillarMapper(sp.GetRequiredService<AppMappers>()));
+        .UseArchPillarMapper());
 ```
 
-`UseArchPillarMapper` takes one or more `MapperContext` instances.
+`UseArchPillarMapper` takes no arguments. Mappers are never declared up front:
+every mapper is resolved from the constant it appears as in the query, and enum
+mapper tables are computed on demand the first time a given mapper is used.
 
 ### Direct mapper calls in hand-written queries
 

@@ -671,10 +671,10 @@ Order = CreateMapper<Order, OrderDto>(src => new OrderDto { ... })
 The core library is provider-agnostic: `Project(mapper)` and `ToExpression()` emit plain expression trees any LINQ provider can consume. The companion package `ArchPillar.Extensions.Mapper.EntityFrameworkCore` adds query-time support that requires EF Core internals. It is registered once on the `DbContextOptionsBuilder`:
 
 ```csharp
-options.UseArchPillarMapper(appMappers);
+options.UseArchPillarMapper();
 ```
 
-`UseArchPillarMapper` accepts one or more `MapperContext` instances and provides two capabilities.
+`UseArchPillarMapper` takes no arguments and provides two capabilities. Mappers are never declared up front; each is resolved from the constant it appears as in the query expression.
 
 #### Direct mapper calls in hand-written queries
 
@@ -702,7 +702,7 @@ o.Lines.Project(mappers.OrderLine, c => c.Include(m => m.SupplierName));
 
 #### Enum mappers → flat SQL CASE
 
-`EnumMapper.Map()` and `SymmetricEnumMapper.Map()` / `.MapReverse()` calls used directly in a query are translated by a custom `IMethodCallTranslator` into a flat SQL `CASE operand WHEN … THEN … END` with one branch per enum value, rather than the nested conditional chain emitted by the provider-agnostic path. This keeps SQL nesting shallow for enums with many values. Enum mapper tables are pre-computed from the registered contexts at `UseArchPillarMapper` time.
+`EnumMapper.Map()` and `SymmetricEnumMapper.Map()` / `.MapReverse()` calls used directly in a query are translated by a custom `IMethodCallTranslator` into a flat SQL `CASE operand WHEN … THEN … END` with one branch per enum value, rather than the nested conditional chain emitted by the provider-agnostic path. This keeps SQL nesting shallow for enums with many values. Enum mapper tables are computed on demand the first time a given enum mapper is used in a query.
 
 **Limitations**: the integration recognizes mappers reached through the `context.Mapper` access pattern; mappers reached only through a non-`MapperContext` facade are not inlined. Variable values bound at an inline call site bake in as constants captured at compile time.
 
