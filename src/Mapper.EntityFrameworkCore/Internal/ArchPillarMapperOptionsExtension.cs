@@ -8,7 +8,7 @@ namespace ArchPillar.Extensions.Mapper.EntityFrameworkCore.Internal;
 /// <see cref="IDbContextOptionsExtension"/> that registers the
 /// <see cref="EnumMapperTranslatorPlugin"/> with EF Core's service provider.
 /// </summary>
-internal sealed class ArchPillarMapperOptionsExtension(EnumMappingStore store) : IDbContextOptionsExtension
+internal sealed class ArchPillarMapperOptionsExtension : IDbContextOptionsExtension
 {
     private ExtensionInfo? _info;
 
@@ -17,8 +17,9 @@ internal sealed class ArchPillarMapperOptionsExtension(EnumMappingStore store) :
 
     public void ApplyServices(IServiceCollection services)
     {
-        services.AddSingleton(store);
+        services.AddSingleton<EnumMappingStore>();
         services.AddScoped<IMethodCallTranslatorPlugin, EnumMapperTranslatorPlugin>();
+        services.AddSingleton<IEvaluatableExpressionFilterPlugin, MapperEvaluatableExpressionFilterPlugin>();
     }
 
     public void Validate(IDbContextOptions options)

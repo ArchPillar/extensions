@@ -1,3 +1,4 @@
+using ArchPillar.Extensions.Mapper.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.EntityFrameworkCore;
@@ -22,6 +23,7 @@ if (postgresConnectionString is not null)
     {
         options.UseNpgsql(postgresConnectionString);
         options.UseOpenIddict();
+        options.UseArchPillarMapper();
     });
 }
 else
@@ -33,6 +35,7 @@ else
     {
         options.UseSqlite(sqliteConnectionString);
         options.UseOpenIddict();
+        options.UseArchPillarMapper();
     });
 }
 

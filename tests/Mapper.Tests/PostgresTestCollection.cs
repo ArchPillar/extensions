@@ -1,4 +1,3 @@
-using DotNet.Testcontainers.Builders;
 using Npgsql;
 using Testcontainers.PostgreSql;
 
@@ -98,10 +97,11 @@ public sealed class PostgresFixture : IAsyncLifetime
     {
         try
         {
-            container = new PostgreSqlBuilder()
-                .WithWaitStrategy(Wait.ForUnixContainer()
-                    .UntilMessageIsLogged("database system is ready to accept connections"))
-                .Build();
+            // Use the module's default readiness probe (pg_isready). A custom
+            // "ready" log-message wait matches PostgreSQL's first startup line and
+            // connects during its init-time restart, which surfaces as intermittent
+            // EndOfStreamException on connection open.
+            container = new PostgreSqlBuilder().Build();
 
             if (Environment.GetEnvironmentVariable("CLAUDE_CLOUD") == "true")
             {

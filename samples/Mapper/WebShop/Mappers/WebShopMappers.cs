@@ -28,9 +28,26 @@ public sealed class WebShopMappers : MapperContext
 
     public Mapper<WebShopUser, UserProjection> User { get; }
 
+    /// <summary>
+    /// Maps the domain <see cref="OrderStatus"/> to the API-facing
+    /// <see cref="OrderStatusDto"/>. Used directly in a query, it is translated
+    /// to a flat SQL <c>CASE</c> by the EF Core integration.
+    /// </summary>
+    public EnumMapper<OrderStatus, OrderStatusDto> OrderStatusCode { get; }
+
     public WebShopMappers()
     {
         CurrentUserId = CreateVariable<Guid>(nameof(CurrentUserId));
+
+        OrderStatusCode = CreateEnumMapper<OrderStatus, OrderStatusDto>(status => status switch
+        {
+            OrderStatus.Pending    => OrderStatusDto.Open,
+            OrderStatus.Processing => OrderStatusDto.InProgress,
+            OrderStatus.Shipped    => OrderStatusDto.Dispatched,
+            OrderStatus.Delivered  => OrderStatusDto.Completed,
+            OrderStatus.Cancelled  => OrderStatusDto.Voided,
+            _                      => OrderStatusDto.Unknown,
+        });
 
         // Leaf mappers first — no dependencies on other mappers.
 

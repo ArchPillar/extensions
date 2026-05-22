@@ -78,6 +78,7 @@ Both paths use the same mapper definition. The LINQ provider sees a plain expres
 | **Nested mapper inlining** | `Map()` and `Project()` calls are inlined into the parent expression at build time |
 | **Optional properties** | Opt-in properties with typed `Include()` or string-path `Include("Lines.Product")` |
 | **Runtime variables** | Typed `Variable<T>` properties substituted at call time — no magic strings |
+| **EF Core integration** | `UseArchPillarMapper()` inlines `Map()`/`Project()` calls used inside hand-written queries and translates enum mappers to flat SQL `CASE` |
 | **Enum mapping** | `EnumMapper<TSource, TDest>` generates EF Core-translatable conditional expressions with nullable support |
 | **Symmetric enum mapping** | `SymmetricEnumMapper<TLeft, TRight>` provides bidirectional mapping from a single definition |
 | **Clone mapper** | `CreateCloneMapper<T>()` auto-wires identity mappings for shallow cloning |

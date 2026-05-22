@@ -692,3 +692,72 @@ builder.Services.AddSingleton<AppMappers>();
 ```
 
 This is a plain C# pattern — the library imposes no constraint on how contexts are organized or composed.
+
+## EF Core Integration
+
+The core library is provider-agnostic — `Project(mapper)` and `ToExpression()` produce plain expression trees that EF Core translates. The companion package **`ArchPillar.Extensions.Mapper.EntityFrameworkCore`** adds extra query support, enabled by a single call:
+
+```bash
+dotnet add package ArchPillar.Extensions.Mapper.EntityFrameworkCore
+```
+
+```csharp
+// Program.cs
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options
+        .UseNpgsql(connectionString)
+        .UseArchPillarMapper());
+```
+
+`UseArchPillarMapper` takes no arguments. Mappers are never declared up front:
+every mapper is resolved from the constant it appears as in the query, and enum
+mapper tables are computed on demand the first time a given mapper is used.
+
+### Direct mapper calls in hand-written queries
+
+`Project(mapper)` projects a whole row. Sometimes you instead want a custom `Select` and to map only *one* property with a mapper. Without the integration, EF Core cannot translate a `Mapper.Map()` / `Project()` call sitting inside your own projection — it is a delegate call. With it, those calls are inlined into the mapper's projection expression at query-compilation time, so the whole query is still translated server-side:
+
+```csharp
+var rows = await db.Orders
+    .Where(o => o.IsActive)
+    .Select(o => new OrderRow
+    {
+        OrderId       = o.Id,                                        // your own projection
+        CustomerEmail = o.Customer.Email,                           // your own projection
+        Order         = mappers.Order.Map(o),                       // one property via a mapper
+        Lines         = o.Lines.Project(mappers.OrderLine).ToList(), // a collection via a mapper
+    })
+    .ToListAsync();
+```
+
+Both scalar `Map()` and collection `Project()` are inlined; nested mappers, enum mappers, and variables inside them resolve exactly as they do for a top-level `Project(mapper)`.
+
+### Requesting optional properties at the call site
+
+The plain `Map(src)` / `Project(mapper)` overloads project the required properties only. To pull in optional properties, use the options overloads from the `ArchPillar.Extensions.Mapper.EntityFrameworkCore` namespace:
+
+```csharp
+using ArchPillar.Extensions.Mapper.EntityFrameworkCore;
+
+db.Orders.Select(o => mappers.Order.Map(o, c => c.Include(m => m.CustomerName)));
+
+db.Orders.Select(o => new OrderRow
+{
+    OrderId = o.Id,
+    Lines   = o.Lines.Project(mappers.OrderLine, c => c.Include(m => m.SupplierName)).ToList(),
+});
+```
+
+### Enum mappers → flat SQL CASE
+
+`EnumMapper.Map()` and `SymmetricEnumMapper.Map()` / `.MapReverse()` calls used directly in a query are translated to a flat SQL `CASE … WHEN … END` with one branch per enum value, instead of the nested conditional chain the provider-agnostic path emits. This keeps SQL nesting shallow (important for providers with nesting limits) for enums with many values:
+
+```csharp
+db.Orders.Select(o => mappers.OrderStatusMapper.Map(o.Status)); // → CASE o.Status WHEN 0 THEN … END
+```
+
+### Notes
+
+- The integration resolves mappers through the `context.Mapper` access pattern (the same way registered contexts are scanned). Mappers reached only through a non-`MapperContext` facade are not recognized.
+- Variable values bound at an inline call site bake in as constants captured at compile time; prefer `Include()` for optional properties.
+- `Map()` / `Project()` used inside a **mapper definition** are always inlined by the core library and do not need this package — it is only for direct calls inside your own queries.

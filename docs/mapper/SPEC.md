@@ -666,6 +666,46 @@ Order = CreateMapper<Order, OrderDto>(src => new OrderDto { ... })
 
 **Implementation**: builds a compiled `Action<TSource, TDest>` using a `BlockExpression` of `Expression.Assign` calls — one per mapped property — rather than the `MemberInitExpression` used by `Map`. Collection properties use runtime helpers (`CollectionUpdater.ReplaceContents` for Deep, `CollectionUpdater.MergeWithIdentity` for DeepWithIdentity) called from the compiled delegate.
 
+### 14. EF Core Integration
+
+The core library is provider-agnostic: `Project(mapper)` and `ToExpression()` emit plain expression trees any LINQ provider can consume. The companion package `ArchPillar.Extensions.Mapper.EntityFrameworkCore` adds query-time support that requires EF Core internals. It is registered once on the `DbContextOptionsBuilder`:
+
+```csharp
+options.UseArchPillarMapper();
+```
+
+`UseArchPillarMapper` takes no arguments and provides two capabilities. Mappers are never declared up front; each is resolved from the constant it appears as in the query expression.
+
+#### Direct mapper calls in hand-written queries
+
+`Project(mapper)` projects an entire row. To produce a custom projection where only some properties come from a mapper, call `Map()` / `Project()` directly inside a `Select`:
+
+```csharp
+db.Orders.Select(o => new OrderRow
+{
+    OrderId = o.Id,                                        // hand-written
+    Order   = mappers.Order.Map(o),                       // scalar mapper call
+    Lines   = o.Lines.Project(mappers.OrderLine).ToList(), // collection mapper call
+});
+```
+
+An `IQueryExpressionInterceptor` rewrites these calls at query-compilation time, replacing each `Map(src)` with the mapper's `ToExpression()` body (parameter-substituted with `src`, reference-type navigations null-guarded) and each `src.Project(mapper)` with `Enumerable.Select(src, projection)`. The LINQ provider then sees a single inlined `MemberInitExpression` — no delegate calls — and translates the whole query server-side. This mirrors the build-time inlining the core library performs inside mapper definitions (§4), extended to arbitrary user queries.
+
+Because EF Core's funcletizer parameterizes captured closures before query compilation, an `IEvaluatableExpressionFilterPlugin` keeps mapper accessors (and their `MapperContext`) from being parameterized so the interceptor can resolve the mapper instance.
+
+Optional properties and variables are requested at the call site via `ProjectionOptions`-aware overloads in the EF Core package:
+
+```csharp
+mappers.Order.Map(o, c => c.Include(m => m.CustomerName));
+o.Lines.Project(mappers.OrderLine, c => c.Include(m => m.SupplierName));
+```
+
+#### Enum mappers → flat SQL CASE
+
+`EnumMapper.Map()` and `SymmetricEnumMapper.Map()` / `.MapReverse()` calls used directly in a query are translated by a custom `IMethodCallTranslator` into a flat SQL `CASE operand WHEN … THEN … END` with one branch per enum value, rather than the nested conditional chain emitted by the provider-agnostic path. This keeps SQL nesting shallow for enums with many values. Enum mapper tables are computed on demand the first time a given enum mapper is used in a query.
+
+**Limitations**: the integration recognizes mappers reached through the `context.Mapper` access pattern; mappers reached only through a non-`MapperContext` facade are not inlined. Variable values bound at an inline call site bake in as constants captured at compile time.
+
 ---
 
 ## API Surface
@@ -1026,3 +1066,4 @@ Mapper/
 | **Constructor-based mapping** | Not supported — destination types must have a public parameterless constructor. The library's core guarantee is "one definition, two modes": the same mapper drives both in-memory mapping and LINQ/EF Core expression projection. Parameterized constructors cannot be translated by EF Core, so allowing them would create mappers that silently fail at query time. If a use case does not need expression projection, a plain constructor call is simpler and more explicit than a mapper. |
 | **Mapper inheritance** | Supported via `Inherit(baseMapper).For<TDerived>()` — copies base property mappings into a derived builder. Keeps DRY without hidden coupling; the inherited mappings are visible in the base mapper's definition. |
 | **Expression transformers** | Three-level pipeline (global → per-context → per-mapper) with built-in `MethodCallTransformer` and `CastTransformer<TSource, TTarget>` base classes. Runs after inlining, before variable substitution. Must preserve `MemberInit` structure. |
+| **EF Core integration** | Opt-in companion package (`ArchPillar.Extensions.Mapper.EntityFrameworkCore`, registered via `UseArchPillarMapper`). Inlines direct `Map()`/`Project()` calls inside hand-written queries and translates enum mapper calls to flat SQL `CASE` (see §14). The core library stays provider-agnostic and dependency-free. |

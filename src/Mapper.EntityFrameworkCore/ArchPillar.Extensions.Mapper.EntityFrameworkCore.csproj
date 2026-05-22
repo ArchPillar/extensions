@@ -7,7 +7,7 @@
 
   <PropertyGroup>
     <PackageId>ArchPillar.Extensions.Mapper.EntityFrameworkCore</PackageId>
-    <Description>EF Core integration for ArchPillar.Extensions.Mapper. Translates EnumMapper.Map() calls into flat SQL CASE expressions via a custom IMethodCallTranslator.</Description>
+    <Description>EF Core integration for ArchPillar.Extensions.Mapper. Translates EnumMapper.Map() calls into flat SQL CASE expressions and inlines direct Mapper.Map()/Project() calls inside hand-written query projections for full server-side translation.</Description>
     <PackageTags>mapper;ef-core;enum;case;sql;translation</PackageTags>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageProjectUrl>https://github.com/ArchPillar/extensions</PackageProjectUrl>

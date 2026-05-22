@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore.Diagnostics;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace ArchPillar.Extensions.Mapper.EntityFrameworkCore.Internal;
 
@@ -8,10 +9,14 @@ internal sealed class EnumMapperQueryInterceptor : IQueryExpressionInterceptor
 {
     public Expression QueryCompilationStarting(Expression queryExpression, QueryExpressionEventData eventData)
     {
-        return new EnumMapperCallRewriter().Visit(queryExpression);
+        EnumMappingStore? store = eventData.Context?.GetService<EnumMappingStore>();
+
+        return store is null
+            ? queryExpression
+            : new EnumMapperCallRewriter(store).Visit(queryExpression);
     }
 
-    private sealed class EnumMapperCallRewriter : ExpressionVisitor
+    private sealed class EnumMapperCallRewriter(EnumMappingStore store) : ExpressionVisitor
     {
         protected override Expression VisitMethodCall(MethodCallExpression node)
         {
@@ -25,6 +30,7 @@ internal sealed class EnumMapperQueryInterceptor : IQueryExpressionInterceptor
                 if (node.Method.Name == "Map" && IsEnumMapperType(declaringType))
                 {
                     Type[] typeArgs = declaringType!.GetGenericArguments();
+                    EnsureRegistered(node.Object, typeArgs[0], typeArgs[1]);
                     return RewriteMapCall(node, typeArgs[0], typeArgs[1]);
                 }
 
@@ -32,6 +38,7 @@ internal sealed class EnumMapperQueryInterceptor : IQueryExpressionInterceptor
                 if (node.Method.Name == "Map" && IsSymmetricEnumMapperType(declaringType))
                 {
                     Type[] typeArgs = declaringType!.GetGenericArguments();
+                    EnsureSymmetricRegistered(node.Object, typeArgs[0], typeArgs[1], "Forward");
                     return RewriteMapCall(node, typeArgs[0], typeArgs[1]);
                 }
 
@@ -40,11 +47,45 @@ internal sealed class EnumMapperQueryInterceptor : IQueryExpressionInterceptor
                 if (node.Method.Name == "MapReverse" && IsSymmetricEnumMapperType(declaringType))
                 {
                     Type[] typeArgs = declaringType!.GetGenericArguments();
+                    EnsureSymmetricRegistered(node.Object, typeArgs[1], typeArgs[0], "Reverse");
                     return RewriteMapCall(node, typeArgs[1], typeArgs[0]);
                 }
             }
 
             return base.VisitMethodCall(node);
+        }
+
+        /// <summary>
+        /// Resolves the <see cref="EnumMapper{TSource,TDest}"/> instance from its
+        /// accessor constant and registers its value table, unless already present.
+        /// </summary>
+        private void EnsureRegistered(Expression mapperAccessor, Type sourceType, Type destType)
+        {
+            if (store.GetMappings(sourceType, destType) is not null)
+            {
+                return;
+            }
+
+            var mapper = MapperConstantEvaluator.Evaluate(mapperAccessor)!;
+            store.RegisterDynamic(mapper, sourceType, destType);
+        }
+
+        /// <summary>
+        /// Resolves the <see cref="SymmetricEnumMapper{TLeft,TRight}"/> instance from
+        /// its accessor constant and registers the value table of its inner
+        /// <paramref name="innerProperty"/> (<c>Forward</c> or <c>Reverse</c>) mapper.
+        /// </summary>
+        private void EnsureSymmetricRegistered(
+            Expression mapperAccessor, Type sourceType, Type destType, string innerProperty)
+        {
+            if (store.GetMappings(sourceType, destType) is not null)
+            {
+                return;
+            }
+
+            var symmetric = MapperConstantEvaluator.Evaluate(mapperAccessor)!;
+            PropertyInfo? inner = symmetric.GetType().GetProperty(innerProperty);
+            store.RegisterDynamic(inner!.GetValue(symmetric)!, sourceType, destType);
         }
 
         private Expression RewriteMapCall(MethodCallExpression node, Type sourceType, Type destType)
