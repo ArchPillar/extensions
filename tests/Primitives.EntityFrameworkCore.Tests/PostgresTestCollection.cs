@@ -1,4 +1,3 @@
-using DotNet.Testcontainers.Builders;
 using Npgsql;
 using Testcontainers.PostgreSql;
 
@@ -32,12 +31,12 @@ public sealed class PostgresFixture : IAsyncLifetime
         {
             _container = container;
             await _container.StartAsync();
-            _baseConnectionString = NormalizeConnectionString(_container.GetConnectionString());
+            _baseConnectionString = _container.GetConnectionString();
             return;
         }
 
         // Fallback: host-local PostgreSQL (cloud environments without Docker).
-        _baseConnectionString = NormalizeConnectionString(string.Format(LocalConnectionTemplate, "postgres"));
+        _baseConnectionString = string.Format(LocalConnectionTemplate, "postgres");
     }
 
     public async Task DisposeAsync()
@@ -94,24 +93,15 @@ public sealed class PostgresFixture : IAsyncLifetime
         return builder.ConnectionString;
     }
 
-    // The Testcontainers/host-local PostgreSQL has no TLS, so Npgsql's default
-    // SslMode=Prefer starts an SSL negotiation that the server occasionally
-    // resets under a burst of connection opens, surfacing as an
-    // EndOfStreamException in SetupEncryption. Disabling SSL removes that handshake.
-    private static string NormalizeConnectionString(string connectionString)
-    {
-        NpgsqlConnectionStringBuilder builder = new(connectionString) { SslMode = SslMode.Disable };
-        return builder.ConnectionString;
-    }
-
     private static bool TryBuildContainer(out PostgreSqlContainer? container)
     {
         try
         {
-            container = new PostgreSqlBuilder()
-                .WithWaitStrategy(Wait.ForUnixContainer()
-                    .UntilMessageIsLogged("database system is ready to accept connections"))
-                .Build();
+            // Use the module's default readiness probe (pg_isready). A custom
+            // "ready" log-message wait matches PostgreSQL's first startup line and
+            // connects during its init-time restart, which surfaces as intermittent
+            // EndOfStreamException on connection open.
+            container = new PostgreSqlBuilder().Build();
 
             if (Environment.GetEnvironmentVariable("CLAUDE_CLOUD") == "true")
             {
