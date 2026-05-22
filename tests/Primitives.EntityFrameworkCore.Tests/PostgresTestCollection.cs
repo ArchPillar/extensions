@@ -32,12 +32,12 @@ public sealed class PostgresFixture : IAsyncLifetime
         {
             _container = container;
             await _container.StartAsync();
-            _baseConnectionString = _container.GetConnectionString();
+            _baseConnectionString = NormalizeConnectionString(_container.GetConnectionString());
             return;
         }
 
         // Fallback: host-local PostgreSQL (cloud environments without Docker).
-        _baseConnectionString = string.Format(LocalConnectionTemplate, "postgres");
+        _baseConnectionString = NormalizeConnectionString(string.Format(LocalConnectionTemplate, "postgres"));
     }
 
     public async Task DisposeAsync()
@@ -91,6 +91,16 @@ public sealed class PostgresFixture : IAsyncLifetime
     private static string ReplaceDatabaseName(string connectionString, string databaseName)
     {
         NpgsqlConnectionStringBuilder builder = new(connectionString) { Database = databaseName };
+        return builder.ConnectionString;
+    }
+
+    // The Testcontainers/host-local PostgreSQL has no TLS, so Npgsql's default
+    // SslMode=Prefer starts an SSL negotiation that the server occasionally
+    // resets under a burst of connection opens, surfacing as an
+    // EndOfStreamException in SetupEncryption. Disabling SSL removes that handshake.
+    private static string NormalizeConnectionString(string connectionString)
+    {
+        NpgsqlConnectionStringBuilder builder = new(connectionString) { SslMode = SslMode.Disable };
         return builder.ConnectionString;
     }
 
