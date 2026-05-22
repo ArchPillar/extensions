@@ -6,12 +6,11 @@ EF Core integration for [`ArchPillar.Extensions.Mapper`](https://www.nuget.org/p
 
 - **Direct `Map()` / `Project()` in your own queries** — call a mapper for a single property (or a child collection) inside a hand-written `Select`, and it is inlined into the mapper's projection expression so the whole query is still translated server-side.
 - **Flat SQL `CASE` for enum mappers** — `EnumMapper.Map()` / `SymmetricEnumMapper.Map()` calls used directly in a query are translated to a single flat `CASE … WHEN … END` instead of a nested conditional chain.
-- **Nothing to declare up front** — every mapper is resolved from the query expression itself. `UseArchPillarMapper()` takes no arguments.
 
 ## Quick Start
 
 ```csharp
-// 1. Register the integration on the DbContext (no arguments needed)
+// 1. Register the integration on the DbContext
 builder.Services.AddDbContext<AppDbContext>(options =>
     options
         .UseNpgsql(connectionString)
