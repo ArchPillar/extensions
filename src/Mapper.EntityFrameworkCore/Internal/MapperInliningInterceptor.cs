@@ -98,9 +98,13 @@ internal sealed class MapperInliningInterceptor : IQueryExpressionInterceptor
 
             if (!source.Type.IsValueType && source is not ParameterExpression)
             {
+                // Compare against a typed null constant rather than a DefaultExpression
+                // so EF Core's entity-equality rewrite folds it into an FK IS NULL check
+                // instead of attempting EF.Property<TKey>(default(Nav), "Id"), which fails
+                // when the navigation's key uses a value converter.
                 return Expression.Condition(
-                    Expression.Equal(source, Expression.Default(source.Type)),
-                    Expression.Default(body.Type),
+                    Expression.Equal(source, Expression.Constant(null, source.Type)),
+                    Expression.Constant(null, body.Type),
                     body);
             }
 
