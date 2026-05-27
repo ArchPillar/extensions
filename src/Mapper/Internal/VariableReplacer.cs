@@ -22,6 +22,8 @@ namespace ArchPillar.Extensions.Mapper.Internal;
 internal sealed class VariableReplacer(Dictionary<object, object?> variableBindings)
     : ExpressionVisitor
 {
+    private readonly Dictionary<object, ConstantExpression> _boxConstants = [];
+
     protected override Expression VisitUnary(UnaryExpression node)
     {
         if (node.NodeType == ExpressionType.Convert && VariableHelper.IsVariableType(node.Operand.Type))
@@ -30,20 +32,33 @@ internal sealed class VariableReplacer(Dictionary<object, object?> variableBindi
             if (variable != null)
             {
                 Type valueType = node.Type;
-
-                var value = variableBindings.TryGetValue(variable, out var boundValue)
-                    ? boundValue
-                    : ((IVariable)variable).GetDefaultValue();
-
-                Type boxType = typeof(VariableValueBox<>).MakeGenericType(valueType);
-                var box = Activator.CreateInstance(boxType, value)!;
+                ConstantExpression boxConstant = GetOrCreateBoxConstant(variable, valueType);
 
                 return Expression.Property(
-                    Expression.Constant(box, boxType),
-                    boxType.GetProperty(nameof(VariableValueBox<object>.Value))!);
+                    boxConstant,
+                    boxConstant.Type.GetProperty(nameof(VariableValueBox<object>.Value))!);
             }
         }
 
         return base.VisitUnary(node);
+    }
+
+    private ConstantExpression GetOrCreateBoxConstant(object variable, Type valueType)
+    {
+        if (_boxConstants.TryGetValue(variable, out ConstantExpression? cached))
+        {
+            return cached;
+        }
+
+        var value = variableBindings.TryGetValue(variable, out var boundValue)
+            ? boundValue
+            : ((IVariable)variable).GetDefaultValue();
+
+        Type boxType = typeof(VariableValueBox<>).MakeGenericType(valueType);
+        var box = Activator.CreateInstance(boxType, value)!;
+        ConstantExpression boxConstant = Expression.Constant(box, boxType);
+
+        _boxConstants[variable] = boxConstant;
+        return boxConstant;
     }
 }
