@@ -4,13 +4,19 @@ namespace ArchPillar.Extensions.Mapper.Internal;
 
 /// <summary>
 /// An expression visitor that replaces every <see cref="Variable{T}"/> conversion node
-/// with a <see cref="ConstantExpression"/> containing the bound value (or the variable's
-/// default value when no binding is present).
+/// with a property-access expression that reads the bound value (or the variable's
+/// default value when no binding is present) from a <see cref="VariableValueBox{T}"/>.
 /// <para>
 /// When a <see cref="Variable{T}"/> is used inside a mapping expression, the compiler
 /// emits a <c>Convert</c> <see cref="System.Linq.Expressions.UnaryExpression"/> via the
 /// implicit operator. This visitor intercepts those nodes and swaps them out before the
 /// expression is compiled or sent to a query provider.
+/// </para>
+/// <para>
+/// The replacement is <c>((VariableValueBox&lt;T&gt;)box).Value</c> — a captured-closure
+/// pattern that EF Core translates to a SQL parameter rather than an inline literal.
+/// This preserves query-plan reuse and removes any chance of the value appearing in
+/// the SQL text itself.
 /// </para>
 /// </summary>
 internal sealed class VariableReplacer(Dictionary<object, object?> variableBindings)
@@ -25,13 +31,16 @@ internal sealed class VariableReplacer(Dictionary<object, object?> variableBindi
             {
                 Type valueType = node.Type;
 
-                if (variableBindings.TryGetValue(variable, out var boundValue))
-                {
-                    return Expression.Constant(boundValue, valueType);
-                }
+                var value = variableBindings.TryGetValue(variable, out var boundValue)
+                    ? boundValue
+                    : ((IVariable)variable).GetDefaultValue();
 
-                // Variable is not set at the call site — fall back to its default value.
-                return Expression.Constant(((IVariable)variable).GetDefaultValue(), valueType);
+                Type boxType = typeof(VariableValueBox<>).MakeGenericType(valueType);
+                var box = Activator.CreateInstance(boxType, value)!;
+
+                return Expression.Property(
+                    Expression.Constant(box, boxType),
+                    boxType.GetProperty(nameof(VariableValueBox<object>.Value))!);
             }
         }
 
