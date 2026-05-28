@@ -325,7 +325,7 @@ public class ReadOnlyMemberDto
 {
     public required string ProductName { get; set; }
     public string DisplayName { get; } = "";   // read-only value property — no setter
-    public ProductDto? Detail { get; }          // read-only navigation property — no setter
+    public Product? Detail { get; }             // read-only navigation property — no setter
 }
 
 // Destination with both parameterless and parameterized constructors

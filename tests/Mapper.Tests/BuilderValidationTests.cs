@@ -471,13 +471,13 @@ file class ReadOnlyPropertyContext : MapperContext
     public Mapper<OrderLine, ReadOnlyMemberDto> BuildMappingReadOnlyNavigation() =>
         CreateMapper<OrderLine, ReadOnlyMemberDto>()
             .Map(d => d.ProductName, s => s.ProductName)
-            .Map(d => d.Detail, s => (ProductDto?)null)
+            .Map(d => d.Detail, s => s.Product)
             .Build();
 
     public Mapper<OrderLine, ReadOnlyMemberDto> BuildOptionalReadOnlyNavigation() =>
         CreateMapper<OrderLine, ReadOnlyMemberDto>()
             .Map(d => d.ProductName, s => s.ProductName)
-            .Optional(d => d.Detail, s => (ProductDto?)null)
+            .Optional(d => d.Detail, s => s.Product)
             .Build();
 }
 
