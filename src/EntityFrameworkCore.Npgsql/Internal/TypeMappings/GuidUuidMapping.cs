@@ -1,27 +1,28 @@
-using System.Globalization;
 using Microsoft.EntityFrameworkCore.Storage;
-using NpgsqlTypes;
 
 namespace ArchPillar.Extensions.EntityFrameworkCore.Npgsql.Internal.TypeMappings;
 
 /// <summary>
-/// Relational type mapping for <see cref="Guid"/> that overrides
-/// <see cref="RelationalTypeMapping.GenerateNonNullSqlLiteral(object)"/> to emit
-/// <c>'…'::uuid</c> instead of a bare <c>'…'</c> string literal. The cast forces
-/// PostgreSQL to type the constant as <c>uuid</c> rather than <c>text</c>, which
-/// makes uuid constants safe to project as a read column.
+/// EF Core <see cref="GuidTypeMapping"/> for PostgreSQL <c>uuid</c> that changes only
+/// the SQL literal form, appending a <c>::uuid</c> cast (<c>'…'::uuid</c>). The cast
+/// forces PostgreSQL to type the constant as <c>uuid</c> rather than <c>text</c>, so a
+/// uuid constant projected as a read column comes back as <see cref="Guid"/>.
 /// </summary>
-internal sealed class GuidUuidMapping : RelationalTypeMapping
+/// <remarks>
+/// Npgsql has no provider-specific Guid mapping; it uses EF Core's base
+/// <see cref="GuidTypeMapping"/>. Subclassing it (rather than re-deriving a
+/// <see cref="RelationalTypeMapping"/> from scratch) keeps all of the base behaviour and
+/// limits the change to the literal. Value formatting is delegated to the base
+/// <see cref="RelationalTypeMapping.SqlLiteralFormatString"/> mechanism, so a custom
+/// Guid-wrapper struct whose <c>ToString()</c> yields the bare guid still works. Parameters
+/// and column reads are untouched.
+/// </remarks>
+internal sealed class GuidUuidMapping : GuidTypeMapping
 {
-    public static GuidUuidMapping Default { get; } = new();
+    public static new GuidUuidMapping Default { get; } = new();
 
     private GuidUuidMapping()
-        : base(
-            new RelationalTypeMappingParameters(
-                new CoreTypeMappingParameters(typeof(Guid)),
-                storeType: "uuid",
-                storeTypePostfix: StoreTypePostfix.None,
-                dbType: System.Data.DbType.Guid))
+        : base("uuid", System.Data.DbType.Guid)
     {
     }
 
@@ -30,23 +31,8 @@ internal sealed class GuidUuidMapping : RelationalTypeMapping
     {
     }
 
+    protected override string SqlLiteralFormatString => "'{0}'::uuid";
+
     protected override RelationalTypeMapping Clone(RelationalTypeMappingParameters parameters)
         => new GuidUuidMapping(parameters);
-
-    protected override string GenerateNonNullSqlLiteral(object value)
-    {
-        var guid = (Guid)value;
-        return string.Create(
-            CultureInfo.InvariantCulture,
-            $"'{guid}'::uuid");
-    }
-
-    protected override void ConfigureParameter(System.Data.Common.DbParameter parameter)
-    {
-        base.ConfigureParameter(parameter);
-        if (parameter is global::Npgsql.NpgsqlParameter npg)
-        {
-            npg.NpgsqlDbType = NpgsqlDbType.Uuid;
-        }
-    }
 }

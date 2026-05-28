@@ -172,6 +172,63 @@ public sealed class NpgsqlImprovementsIntegrationTests(PostgresFixture fixture) 
     }
 
     [Fact]
+    public async Task JsonbBuildObject_SinglePairOverload_TranslatesAsync()
+    {
+        (NpgsqlDataSource ds, TestDbContext ctx) = TestContextFactory.Create(_database.ConnectionString);
+        try
+        {
+            await ctx.Database.EnsureCreatedAsync();
+            ctx.Rows.Add(NewRow(Guid.NewGuid(), name: "bob"));
+            await ctx.SaveChangesAsync();
+            ctx.ChangeTracker.Clear();
+
+            var json = await ctx.Rows
+                .Select(r => EF.Functions.JsonbBuildObject("name", r.Name))
+                .SingleAsync();
+
+            Assert.Contains("\"name\"", json, StringComparison.Ordinal);
+            Assert.Contains("bob", json, StringComparison.Ordinal);
+        }
+        finally
+        {
+            await ctx.DisposeAsync();
+            await ds.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task JsonbBuildObject_ParamsOverload_TranslatesAsync()
+    {
+        (NpgsqlDataSource ds, TestDbContext ctx) = TestContextFactory.Create(_database.ConnectionString);
+        try
+        {
+            await ctx.Database.EnsureCreatedAsync();
+            ctx.Rows.Add(NewRow(Guid.NewGuid(), name: "carol", priority: TestPriority.High));
+            await ctx.SaveChangesAsync();
+            ctx.ChangeTracker.Clear();
+
+            // Four pairs exceeds the fixed-arity overloads, so this binds to params object?[].
+            var json = await ctx.Rows
+                .Select(r => EF.Functions.JsonbBuildObject(
+                    "name", r.Name,
+                    "priority", (int)r.Priority,
+                    "id", r.Id,
+                    "created", r.CreatedAt))
+                .SingleAsync();
+
+            Assert.Contains("\"name\"", json, StringComparison.Ordinal);
+            Assert.Contains("carol", json, StringComparison.Ordinal);
+            Assert.Contains("\"id\"", json, StringComparison.Ordinal);
+            Assert.Contains("\"created\"", json, StringComparison.Ordinal);
+        }
+        finally
+        {
+            await ctx.DisposeAsync();
+            await ds.DisposeAsync();
+        }
+    }
+
+    [Fact]
     public void JsonbBuildObject_InvokedDirectly_Throws()
     {
         Assert.Throws<InvalidOperationException>(

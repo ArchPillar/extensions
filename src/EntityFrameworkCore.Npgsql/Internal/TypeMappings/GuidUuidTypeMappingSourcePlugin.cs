@@ -11,7 +11,15 @@ internal sealed class GuidUuidTypeMappingSourcePlugin : IRelationalTypeMappingSo
 {
     public RelationalTypeMapping? FindMapping(in RelationalTypeMappingInfo mappingInfo)
     {
+        // EF Core unwraps Nullable<T> before consulting type-mapping plugins (the mapping
+        // for Guid? and Guid is the same instance), but unwrap defensively so the match
+        // holds regardless of how this plugin is reached.
         Type? clrType = mappingInfo.ClrType;
+        if (clrType is not null)
+        {
+            clrType = Nullable.GetUnderlyingType(clrType) ?? clrType;
+        }
+
         var storeType = mappingInfo.StoreTypeNameBase;
 
         var isGuid = clrType == typeof(Guid);

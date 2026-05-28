@@ -35,11 +35,31 @@ public sealed class GuidUuidMappingTests
     }
 
     [Fact]
+    public void Plugin_ReturnsMapping_ForNullableGuid()
+    {
+        var plugin = new GuidUuidTypeMappingSourcePlugin();
+        var info = new RelationalTypeMappingInfo(typeof(Guid?));
+
+        RelationalTypeMapping? mapping = plugin.FindMapping(in info);
+
+        Assert.NotNull(mapping);
+        Assert.Equal("uuid", mapping.StoreType);
+    }
+
+    [Fact]
     public void Plugin_IgnoresNonGuid()
     {
         var plugin = new GuidUuidTypeMappingSourcePlugin();
         var info = new RelationalTypeMappingInfo(typeof(string));
 
         Assert.Null(plugin.FindMapping(in info));
+    }
+
+    [Fact]
+    public void Mapping_DerivesFromEfGuidTypeMapping()
+    {
+        // Subclassing EF Core's base GuidTypeMapping (which Npgsql also uses) keeps the
+        // base behaviour; only the literal form changes.
+        Assert.IsAssignableFrom<GuidTypeMapping>(GuidUuidMapping.Default);
     }
 }

@@ -10,14 +10,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Query.Expressions.Internal;
 namespace ArchPillar.Extensions.EntityFrameworkCore.Npgsql.Internal.Functions;
 
 /// <summary>
-/// Translates calls to <see cref="JsonbBuildObjectDbFunctions.JsonbBuildObject(Microsoft.EntityFrameworkCore.DbFunctions, object?[])"/>
-/// into the PostgreSQL <c>jsonb_build_object(...)</c> SQL function.
+/// Translates calls to any <c>JsonbBuildObjectDbFunctions.JsonbBuildObject(...)</c>
+/// overload into the PostgreSQL <c>jsonb_build_object(...)</c> SQL function.
 /// </summary>
 internal sealed class JsonbBuildObjectTranslator : IMethodCallTranslator
 {
-    private static readonly MethodInfo _method = typeof(JsonbBuildObjectDbFunctions)
-        .GetMethod(nameof(JsonbBuildObjectDbFunctions.JsonbBuildObject))!;
-
     private readonly ISqlExpressionFactory _sql;
     private readonly RelationalTypeMapping _textMapping;
     private readonly RelationalTypeMapping _jsonbMapping;
@@ -39,18 +36,15 @@ internal sealed class JsonbBuildObjectTranslator : IMethodCallTranslator
         IReadOnlyList<SqlExpression> arguments,
         IDiagnosticsLogger<DbLoggerCategory.Query> logger)
     {
-        if (method != _method)
+        if (method.DeclaringType != typeof(JsonbBuildObjectDbFunctions)
+            || method.Name != nameof(JsonbBuildObjectDbFunctions.JsonbBuildObject))
         {
             return null;
         }
 
-        IReadOnlyList<SqlExpression>? items = ExtractArrayItems(arguments);
-        if (items is null)
-        {
-            return null;
-        }
+        IReadOnlyList<SqlExpression> items = ExtractArrayItems(arguments);
 
-        if ((items.Count % 2) != 0)
+        if (items.Count == 0 || (items.Count % 2) != 0)
         {
             return null;
         }
@@ -61,11 +55,9 @@ internal sealed class JsonbBuildObjectTranslator : IMethodCallTranslator
             mapped[i] = PrepareArgument(items[i]);
         }
 
+        // jsonb_build_object returns a non-null jsonb even when values are null, so no
+        // argument propagates nullability to the result.
         var nullability = new bool[mapped.Length];
-        for (var i = 0; i < nullability.Length; i++)
-        {
-            nullability[i] = false;
-        }
 
         return _sql.Function(
             "jsonb_build_object",
@@ -76,7 +68,7 @@ internal sealed class JsonbBuildObjectTranslator : IMethodCallTranslator
             _jsonbMapping);
     }
 
-    private static IReadOnlyList<SqlExpression>? ExtractArrayItems(
+    private static IReadOnlyList<SqlExpression> ExtractArrayItems(
         IReadOnlyList<SqlExpression> arguments)
     {
         var start = (arguments.Count > 0 && IsDbFunctionsInstance(arguments[0])) ? 1 : 0;
