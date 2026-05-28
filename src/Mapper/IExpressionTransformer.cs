@@ -28,11 +28,11 @@ public interface IExpressionTransformer
     /// <summary>
     /// The compilation path(s) this transformer applies to. Defaults to
     /// <see cref="TransformTarget.Both"/>. Override to confine the rewrite to the
-    /// LINQ projection (<see cref="TransformTarget.ExpressionOnly"/>) or the
-    /// in-memory delegate (<see cref="TransformTarget.InMemoryOnly"/>) — for
-    /// example, to rewrite a domain method into a SQL-function call only on the
-    /// EF Core path while the original method runs in memory. The two paths must
-    /// stay semantically equivalent.
+    /// LINQ projection (<see cref="TransformTarget.Expression"/>) or the
+    /// in-memory delegate (<see cref="TransformTarget.InMemory"/>) — for example,
+    /// to rewrite a domain method into a SQL-function call only on the EF Core
+    /// path while the original method runs in memory. The two paths must stay
+    /// semantically equivalent.
     /// </summary>
     public TransformTarget Target => TransformTarget.Both;
 }

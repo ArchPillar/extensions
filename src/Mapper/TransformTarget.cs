@@ -4,7 +4,8 @@ namespace ArchPillar.Extensions.Mapper;
 /// Selects which compilation path(s) an <see cref="IExpressionTransformer"/>
 /// applies to. A single mapper definition is compiled into two forms — an
 /// in-memory delegate (<c>Map</c>) and a LINQ projection (<c>ToExpression</c>) —
-/// and a transformer may target one or both.
+/// each represented by a flag. A transformer's <see cref="IExpressionTransformer.Target"/>
+/// is the set of paths it runs on; combine flags to target more than one.
 /// <para>
 /// Path targeting exists for cases where the same logical operation needs a
 /// different <em>encoding</em> per execution engine — for example, a domain
@@ -13,25 +14,28 @@ namespace ArchPillar.Extensions.Mapper;
 /// paths: targeting changes only the encoding, never the observable result.
 /// </para>
 /// </summary>
+[Flags]
 public enum TransformTarget
 {
     /// <summary>
-    /// Applies to both the in-memory delegate and the LINQ projection.
-    /// This is the default.
+    /// No path. A transformer with this target never runs.
     /// </summary>
-    Both,
+    None = 0,
 
     /// <summary>
-    /// Applies only to the LINQ projection produced by <c>ToExpression</c>
-    /// (the EF Core / <see cref="System.Linq.IQueryable"/> path). The transformer
-    /// is skipped when compiling the in-memory delegate, leaving the original
-    /// expression to execute as real CLR code.
+    /// The LINQ projection produced by <c>ToExpression</c> (the EF Core /
+    /// <see cref="System.Linq.IQueryable"/> path).
     /// </summary>
-    ExpressionOnly,
+    Expression = 1,
 
     /// <summary>
-    /// Applies only to the in-memory delegate produced for <c>Map</c>.
-    /// The transformer is skipped when building the LINQ projection.
+    /// The in-memory delegate produced for <c>Map</c>, executed as CLR code.
     /// </summary>
-    InMemoryOnly,
+    InMemory = 2,
+
+    /// <summary>
+    /// Both the LINQ projection and the in-memory delegate. This is the default
+    /// for a transformer that does not override its target.
+    /// </summary>
+    Both = Expression | InMemory,
 }

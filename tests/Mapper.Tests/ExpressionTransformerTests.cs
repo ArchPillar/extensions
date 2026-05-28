@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using System.Reflection;
+using ArchPillar.Extensions.Mapper.Internal;
 
 namespace ArchPillar.Extensions.Mapper;
 
@@ -753,6 +754,16 @@ public class ExpressionTransformerTests
         Func<Outer, OuterDto> projection = mappers.Outer.ToExpression().Compile();
         Assert.Equal("base-expr", projection(source).Inner.Name);
     }
+
+    [Fact]
+    public void GetRawExpression_BothAsBuildPath_ThrowsArgumentOutOfRange()
+    {
+        var mappers = new PathTargetMappers();
+        IMapper mapper = mappers.Both;
+
+        Assert.Throws<ArgumentOutOfRangeException>(
+            () => mapper.GetRawExpression(IncludeSet.Empty, TransformTarget.Both));
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -972,10 +983,10 @@ public class PathTargetMappers : MapperContext
     public PathTargetMappers()
     {
         ExpressionOnly = CreateMapper<LabelSource, LabelDest>(_ => new LabelDest { Tag = "base" })
-            .WithTransformers(new PathStringSuffixTransformer("-expr", TransformTarget.ExpressionOnly));
+            .WithTransformers(new PathStringSuffixTransformer("-expr", TransformTarget.Expression));
 
         InMemoryOnly = CreateMapper<LabelSource, LabelDest>(_ => new LabelDest { Tag = "base" })
-            .WithTransformers(new PathStringSuffixTransformer("-mem", TransformTarget.InMemoryOnly));
+            .WithTransformers(new PathStringSuffixTransformer("-mem", TransformTarget.InMemory));
 
         Both = CreateMapper<LabelSource, LabelDest>(_ => new LabelDest { Tag = "base" })
             .WithTransformers(new PathStringSuffixTransformer("-both", TransformTarget.Both));
@@ -990,7 +1001,7 @@ public class NestedPathMappers : MapperContext
     public NestedPathMappers()
     {
         InnerMapper = CreateMapper<Inner, InnerDto>(_ => new InnerDto { Name = "base" })
-            .WithTransformers(new PathStringSuffixTransformer("-expr", TransformTarget.ExpressionOnly));
+            .WithTransformers(new PathStringSuffixTransformer("-expr", TransformTarget.Expression));
 
         Outer = CreateMapper<Outer, OuterDto>(src => new OuterDto
         {

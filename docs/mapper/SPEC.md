@@ -621,7 +621,7 @@ A mapper definition compiles into two forms — an in-memory delegate (`Map`) an
 public sealed class RiskScoreSqlTransformer : MethodCallTransformer
 {
     // Only rewrite on the EF Core path; the real CLR method runs in memory.
-    public override TransformTarget Target => TransformTarget.ExpressionOnly;
+    public override TransformTarget Target => TransformTarget.Expression;
 
     protected override MethodInfo Method { get; }
         = typeof(Risk).GetMethod(nameof(Risk.Score))!;
@@ -632,9 +632,9 @@ public sealed class RiskScoreSqlTransformer : MethodCallTransformer
 }
 ```
 
-This is for operations whose **encoding** differs per execution engine — for example, a domain method that runs as real CLR code in memory but maps to a SQL function in the database. The two paths must remain **semantically equivalent**: targeting changes only how a value is computed, never the resulting value. `TransformTarget` has three members: `Both` (default), `ExpressionOnly`, and `InMemoryOnly`. The selected path propagates through nested-mapper inlining, so a path-targeted transformer on a nested mapper is honoured according to the path the parent is being built for.
+This is for operations whose **encoding** differs per execution engine — for example, a domain method that runs as real CLR code in memory but maps to a SQL function in the database. The two paths must remain **semantically equivalent**: targeting changes only how a value is computed, never the resulting value. `TransformTarget` is a `[Flags]` enum — `Expression` and `InMemory` are the individual paths, `Both` (default) is their union, and `None` runs on neither. The selected path propagates through nested-mapper inlining, so a path-targeted transformer on a nested mapper is honoured according to the path the parent is being built for.
 
-> **Tip:** If the method can be made `static` (or moved onto the `DbContext`), prefer EF Core's native `HasDbFunction` mapping — the real method then runs in memory and EF translates the call in SQL, with no transformer needed. Reach for `ExpressionOnly` only when the call site cannot be made natively translatable (e.g. an instance method on a domain type). Note that EF Core cannot compose a **stored procedure** into a projection at all; the composable analog is a scalar function.
+> **Tip:** If the method can be made `static` (or moved onto the `DbContext`), prefer EF Core's native `HasDbFunction` mapping — the real method then runs in memory and EF translates the call in SQL, with no transformer needed. Reach for `Expression` only when the call site cannot be made natively translatable (e.g. an instance method on a domain type). Note that EF Core cannot compose a **stored procedure** into a projection at all; the composable analog is a scalar function.
 
 ### 13. MapTo — Mapping onto an Existing Object
 
@@ -963,11 +963,13 @@ public interface IExpressionTransformer
 ### TransformTarget
 
 ```csharp
+[Flags]
 public enum TransformTarget
 {
-    Both,           // in-memory delegate + LINQ projection (default)
-    ExpressionOnly, // LINQ projection (ToExpression) only
-    InMemoryOnly,   // in-memory delegate (Map) only
+    None       = 0,            // neither path (transformer never runs)
+    Expression = 1,            // LINQ projection (ToExpression)
+    InMemory   = 2,            // in-memory delegate (Map)
+    Both       = Expression | InMemory, // default
 }
 ```
 

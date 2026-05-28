@@ -179,7 +179,7 @@ globalOptions.AddTransformer(new CastTransformer());
 
 Register transformers at the narrowest scope possible — prefer per-mapper over per-context, and per-context over global.
 
-If a transformer only needs to fix the SQL translation, confine it to that path with `Target => TransformTarget.ExpressionOnly` so the in-memory `Map` keeps running the original code. Before reaching for a path-targeted transformer, check whether the method can be a `static` (or `DbContext`) method registered via EF Core's `HasDbFunction` — that needs no transformer at all. Keep the in-memory and projected results semantically equivalent regardless of path.
+If a transformer only needs to fix the SQL translation, confine it to that path with `Target => TransformTarget.Expression` so the in-memory `Map` keeps running the original code. Before reaching for a path-targeted transformer, check whether the method can be a `static` (or `DbContext`) method registered via EF Core's `HasDbFunction` — that needs no transformer at all. Keep the in-memory and projected results semantically equivalent regardless of path.
 
 ## Use SymmetricEnumMapper for Bidirectional Enums
 

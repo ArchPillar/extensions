@@ -101,6 +101,15 @@ public sealed class Mapper<TSource, TDest> : IMapper
     private Expression<Func<TSource, TDest>> BuildExpression(
         IncludeSet includes, TransformTarget path, int depth = 0, bool guardNullOptionalCollections = false)
     {
+        if (path is not (TransformTarget.Expression or TransformTarget.InMemory))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(path), path,
+                "The build path must be a single path (Expression or InMemory). Combined or " +
+                "empty targets (Both, None) are only valid as a transformer's Target, not as " +
+                "the path being built.");
+        }
+
         if (depth > NestedMapperInliner.MaxNestingDepth)
         {
             throw new InvalidOperationException(
@@ -146,7 +155,7 @@ public sealed class Mapper<TSource, TDest> : IMapper
         // Path-targeted transformers run only on the matching compilation path.
         foreach (IExpressionTransformer transformer in _transformers)
         {
-            if (transformer.Target is not TransformTarget.Both && transformer.Target != path)
+            if ((transformer.Target & path) is TransformTarget.None)
             {
                 continue;
             }
@@ -271,7 +280,7 @@ public sealed class Mapper<TSource, TDest> : IMapper
     {
         ParameterExpression bindingsParam = Expression.Parameter(VariableDictReplacer.BindingsType, "vars");
         Expression<Func<TSource, TDest>> raw = BuildExpression(
-            IncludeSet.All, TransformTarget.InMemoryOnly, guardNullOptionalCollections: true);
+            IncludeSet.All, TransformTarget.InMemory, guardNullOptionalCollections: true);
         Expression withLookups = new VariableDictReplacer(bindingsParam).Visit(raw)!;
         Expression body = new SelectorCompiler(bindingsParam).Visit(((LambdaExpression)withLookups).Body);
         return Expression.Lambda<Func<TSource, List<(object, object?)>?, TDest>>(
@@ -528,7 +537,7 @@ public sealed class Mapper<TSource, TDest> : IMapper
 
         return (Expression<Func<TSource, TDest>>)
             new VariableReplacer(new Dictionary<object, object?>(variableBindings))
-                .Visit(BuildExpression(includes, TransformTarget.ExpressionOnly))!;
+                .Visit(BuildExpression(includes, TransformTarget.Expression))!;
     }
 
     LambdaExpression IMapper.GetRawExpression(IncludeSet includes, TransformTarget path, int depth)
@@ -538,7 +547,7 @@ public sealed class Mapper<TSource, TDest> : IMapper
 
     void IMapper.Compile()
     {
-        _ = BuildExpression(IncludeSet.Empty, TransformTarget.ExpressionOnly);
-        _ = BuildExpression(IncludeSet.Empty, TransformTarget.InMemoryOnly);
+        _ = BuildExpression(IncludeSet.Empty, TransformTarget.Expression);
+        _ = BuildExpression(IncludeSet.Empty, TransformTarget.InMemory);
     }
 }
