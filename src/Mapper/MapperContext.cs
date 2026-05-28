@@ -65,6 +65,7 @@ public abstract class MapperContext
 {
     private readonly IReadOnlyList<IExpressionTransformer> _globalTransformers;
     private readonly List<IExpressionTransformer>          _contextTransformers = [];
+    private readonly CoverageValidation                    _globalCoverageValidation;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MapperContext"/> class
@@ -83,7 +84,8 @@ public abstract class MapperContext
     /// </summary>
     protected MapperContext(GlobalMapperOptions? globalOptions)
     {
-        _globalTransformers = globalOptions?.Transformers ?? [];
+        _globalTransformers       = globalOptions?.Transformers ?? [];
+        _globalCoverageValidation = globalOptions?.DefaultCoverageValidation ?? CoverageValidation.NonNullableProperties;
     }
 
     // -------------------------------------------------------------------------
@@ -95,9 +97,15 @@ public abstract class MapperContext
     /// mappers created by this context. Override in a subclass to change the
     /// default for all mappers in the context. Individual mappers can further
     /// override via <see cref="MapperBuilder{TSource,TDest}.SetCoverageValidation"/>.
+    /// <para>
+    /// When not overridden, this falls back to the
+    /// <see cref="GlobalMapperOptions.DefaultCoverageValidation"/> supplied to the
+    /// constructor, or <see cref="CoverageValidation.NonNullableProperties"/> when no
+    /// global options were provided.
+    /// </para>
     /// </summary>
     protected virtual CoverageValidation DefaultCoverageValidation
-        => CoverageValidation.NonNullableProperties;
+        => _globalCoverageValidation;
 
     // -------------------------------------------------------------------------
     // Expression transformers

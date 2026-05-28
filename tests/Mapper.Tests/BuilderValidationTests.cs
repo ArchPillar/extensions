@@ -197,6 +197,53 @@ public class BuilderValidationTests
     }
 
     // -----------------------------------------------------------------------
+    // Global coverage validation via GlobalMapperOptions
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void Build_GlobalAllProperties_UnmappedNullableProperty_ThrowsInvalidOperationException()
+    {
+        GlobalMapperOptions options = new GlobalMapperOptions().SetCoverageValidation(CoverageValidation.AllProperties);
+        var context = new GlobalCoverageContext(options);
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+            () => context.BuildMissingNullable());
+
+        Assert.Contains("SupplierName", ex.Message);
+    }
+
+    [Fact]
+    public void Build_GlobalDefault_UnmappedNullableProperty_DoesNotThrow()
+    {
+        // No SetCoverageValidation call → global default stays NonNullableProperties.
+        var context = new GlobalCoverageContext(new GlobalMapperOptions());
+
+        Exception? exception = Record.Exception(() => context.BuildMissingNullable());
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public void Build_MapperOverride_BeatsGlobalAllProperties_DoesNotThrow()
+    {
+        GlobalMapperOptions options = new GlobalMapperOptions().SetCoverageValidation(CoverageValidation.AllProperties);
+        var context = new GlobalCoverageContext(options);
+
+        Exception? exception = Record.Exception(() => context.BuildMissingNullableMapperOverride());
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public void Build_ContextOverride_BeatsGlobalAllProperties_DoesNotThrow()
+    {
+        // Context overrides DefaultCoverageValidation to None, beating the global AllProperties.
+        GlobalMapperOptions options = new GlobalMapperOptions().SetCoverageValidation(CoverageValidation.AllProperties);
+        var context = new NoneOverrideContext(options);
+
+        Exception? exception = Record.Exception(() => context.BuildMissingNullable());
+        Assert.Null(exception);
+    }
+
+    // -----------------------------------------------------------------------
     // Constructor validation — parameterized constructor expression rejected
     // -----------------------------------------------------------------------
 
@@ -444,6 +491,38 @@ file class AllPropertiesDefaultContext : MapperContext
             .Map(d => d.Quantity, s => s.Quantity)
             .Map(d => d.UnitPrice, s => s.UnitPrice)
             // SupplierName is nullable — but context default is AllProperties, so it must be covered
+            .Build();
+}
+
+file sealed class GlobalCoverageContext(GlobalMapperOptions options) : MapperContext(options)
+{
+    // SupplierName and Product are nullable — covered only under AllProperties.
+    public Mapper<OrderLine, OrderLineDto> BuildMissingNullable() =>
+        CreateMapper<OrderLine, OrderLineDto>()
+            .Map(d => d.ProductName, s => s.ProductName)
+            .Map(d => d.Quantity, s => s.Quantity)
+            .Map(d => d.UnitPrice, s => s.UnitPrice)
+            .Build();
+
+    public Mapper<OrderLine, OrderLineDto> BuildMissingNullableMapperOverride() =>
+        CreateMapper<OrderLine, OrderLineDto>()
+            .SetCoverageValidation(CoverageValidation.NonNullableProperties)
+            .Map(d => d.ProductName, s => s.ProductName)
+            .Map(d => d.Quantity, s => s.Quantity)
+            .Map(d => d.UnitPrice, s => s.UnitPrice)
+            .Build();
+}
+
+file sealed class NoneOverrideContext(GlobalMapperOptions options) : MapperContext(options)
+{
+    protected override CoverageValidation DefaultCoverageValidation
+        => CoverageValidation.None;
+
+    public Mapper<OrderLine, OrderLineDto> BuildMissingNullable() =>
+        CreateMapper<OrderLine, OrderLineDto>()
+            .Map(d => d.ProductName, s => s.ProductName)
+            .Map(d => d.Quantity, s => s.Quantity)
+            .Map(d => d.UnitPrice, s => s.UnitPrice)
             .Build();
 }
 
