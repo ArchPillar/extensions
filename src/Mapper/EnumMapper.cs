@@ -70,7 +70,7 @@ public sealed class EnumMapper<TSource, TDest>(Func<TSource, TDest> mappingMetho
     public Expression<Func<TSource?, TDest?>> ToNullableExpression()
         => _nullableExpression.Value;
 
-    LambdaExpression IMapper.GetRawExpression(IncludeSet includes, int depth)
+    LambdaExpression IMapper.GetRawExpression(IncludeSet includes, TransformTarget path, int depth)
     {
         return ToExpression();
     }

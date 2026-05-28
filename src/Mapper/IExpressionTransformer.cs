@@ -11,6 +11,11 @@ namespace ArchPillar.Extensions.Mapper;
 /// Transformers run after nested mapper inlining and before variable
 /// substitution, in the order: global → per-context → per-mapper.
 /// </para>
+/// <para>
+/// By default a transformer runs on both compilation paths (in-memory and LINQ
+/// projection). Override <see cref="Target"/> to confine it to a single path —
+/// see <see cref="TransformTarget"/>.
+/// </para>
 /// </summary>
 public interface IExpressionTransformer
 {
@@ -19,4 +24,15 @@ public interface IExpressionTransformer
     /// original if no changes are needed.
     /// </summary>
     public Expression Transform(Expression expression);
+
+    /// <summary>
+    /// The compilation path(s) this transformer applies to. Defaults to
+    /// <see cref="TransformTarget.Both"/>. Override to confine the rewrite to the
+    /// LINQ projection (<see cref="TransformTarget.ExpressionOnly"/>) or the
+    /// in-memory delegate (<see cref="TransformTarget.InMemoryOnly"/>) — for
+    /// example, to rewrite a domain method into a SQL-function call only on the
+    /// EF Core path while the original method runs in memory. The two paths must
+    /// stay semantically equivalent.
+    /// </summary>
+    public TransformTarget Target => TransformTarget.Both;
 }

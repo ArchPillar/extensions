@@ -84,7 +84,7 @@ Both paths use the same mapper definition. The LINQ provider sees a plain expres
 | **Clone mapper** | `CreateCloneMapper<T>()` auto-wires identity mappings for shallow cloning |
 | **MapTo** | Update an existing object in-place with configurable collection update modes (Shallow, Deep, DeepWithIdentity) |
 | **Mapper inheritance** | `Inherit(baseMapper).For<TDerived>()` reuses base mappings for destination type hierarchies |
-| **Expression transformers** | `IExpressionTransformer` pipeline with built-in `MethodCallTransformer` and `CastTransformer<,>` base classes |
+| **Expression transformers** | `IExpressionTransformer` pipeline with built-in `MethodCallTransformer` and `CastTransformer<,>` base classes; `TransformTarget` confines a transformer to the in-memory path, the LINQ projection, or both |
 | **Coverage validation** | Unmapped destination properties throw at build time, not at runtime |
 | **Eager compilation** | `EagerBuildAll()` front-loads all compilation at startup |
 | **Circular reference detection** | Self-referencing mapper chains throw a clear error instead of stack overflow |

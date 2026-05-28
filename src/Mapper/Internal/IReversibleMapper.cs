@@ -12,6 +12,8 @@ internal interface IReversibleMapper
 {
     /// <summary>
     /// Returns the reverse mapping expression with no variable replacement applied.
+    /// The <paramref name="path"/> parameter is propagated from the parent build
+    /// so that path-targeted transformers run only on the matching compilation path.
     /// </summary>
-    public LambdaExpression GetReverseRawExpression(IncludeSet includes, int depth = 0);
+    public LambdaExpression GetReverseRawExpression(IncludeSet includes, TransformTarget path, int depth = 0);
 }

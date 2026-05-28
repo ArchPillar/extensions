@@ -37,6 +37,9 @@ public abstract class MethodCallTransformer : ExpressionVisitor, IExpressionTran
         return Visit(expression);
     }
 
+    /// <inheritdoc />
+    public virtual TransformTarget Target => TransformTarget.Both;
+
     /// <summary>
     /// The method to match. For generic methods, return the open generic
     /// definition — closed instantiations are matched automatically.

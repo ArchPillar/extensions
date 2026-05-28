@@ -159,6 +159,32 @@ public sealed class StringSuffixTransformer(string suffix) : ExpressionVisitor, 
     }
 }
 
+/// <summary>
+/// Appends a suffix to string constants like <see cref="StringSuffixTransformer"/>,
+/// but applies only to the compilation path given by <see cref="Target"/>. Used to
+/// verify path-targeted transformer behaviour.
+/// </summary>
+public sealed class PathStringSuffixTransformer(string suffix, TransformTarget target)
+    : ExpressionVisitor, IExpressionTransformer
+{
+    public TransformTarget Target => target;
+
+    public Expression Transform(Expression expression)
+    {
+        return Visit(expression);
+    }
+
+    protected override Expression VisitConstant(ConstantExpression node)
+    {
+        if (node.Type == typeof(string) && node.Value is string value)
+        {
+            return Expression.Constant(value + suffix);
+        }
+
+        return base.VisitConstant(node);
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Test transformers using abstract base classes
 // ---------------------------------------------------------------------------
@@ -289,6 +315,32 @@ public class LabelSource
 public class LabelDest
 {
     public string Tag { get; set; } = "";
+}
+
+// ---------------------------------------------------------------------------
+// Source/dest for nested-mapper path-propagation test
+// ---------------------------------------------------------------------------
+
+public class Inner
+{
+    public required string Name { get; set; }
+}
+
+public class InnerDto
+{
+    public string Name { get; set; } = "";
+}
+
+public class Outer
+{
+    public required int Id { get; set; }
+    public required Inner Inner { get; set; }
+}
+
+public class OuterDto
+{
+    public int Id { get; set; }
+    public InnerDto Inner { get; set; } = new();
 }
 
 public class TransformerOrderMappers : MapperContext
@@ -639,6 +691,68 @@ public class ExpressionTransformerTests
         Assert.Contains("MethodCallBodyTransformer", ex.Message);
         Assert.Contains("MemberInit", ex.Message);
     }
+
+    // -----------------------------------------------------------------------
+    // Path-targeted transformers (TransformTarget)
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void Transformer_ExpressionOnly_AppliesToProjectionAndSkipsInMemory()
+    {
+        var mappers = new PathTargetMappers();
+        var source = new LabelSource { Tag = "ignored" };
+
+        // In-memory path: ExpressionOnly transformer is skipped.
+        LabelDest mapped = mappers.ExpressionOnly.Map(source)!;
+        Assert.Equal("base", mapped.Tag);
+
+        // Projection path: ExpressionOnly transformer runs.
+        Func<LabelSource, LabelDest> projection = mappers.ExpressionOnly.ToExpression().Compile();
+        Assert.Equal("base-expr", projection(source).Tag);
+    }
+
+    [Fact]
+    public void Transformer_InMemoryOnly_AppliesInMemoryAndSkipsProjection()
+    {
+        var mappers = new PathTargetMappers();
+        var source = new LabelSource { Tag = "ignored" };
+
+        // In-memory path: InMemoryOnly transformer runs.
+        LabelDest mapped = mappers.InMemoryOnly.Map(source)!;
+        Assert.Equal("base-mem", mapped.Tag);
+
+        // Projection path: InMemoryOnly transformer is skipped.
+        Func<LabelSource, LabelDest> projection = mappers.InMemoryOnly.ToExpression().Compile();
+        Assert.Equal("base", projection(source).Tag);
+    }
+
+    [Fact]
+    public void Transformer_DefaultTarget_AppliesToBothPaths()
+    {
+        var mappers = new PathTargetMappers();
+        var source = new LabelSource { Tag = "ignored" };
+
+        LabelDest mapped = mappers.Both.Map(source)!;
+        Assert.Equal("base-both", mapped.Tag);
+
+        Func<LabelSource, LabelDest> projection = mappers.Both.ToExpression().Compile();
+        Assert.Equal("base-both", projection(source).Tag);
+    }
+
+    [Fact]
+    public void Transformer_PathTarget_PropagatesThroughNestedMapperInlining()
+    {
+        var mappers = new NestedPathMappers();
+        var source = new Outer { Id = 1, Inner = new Inner { Name = "ignored" } };
+
+        // The nested mapper's ExpressionOnly transformer is skipped in-memory.
+        OuterDto mapped = mappers.Outer.Map(source)!;
+        Assert.Equal("base", mapped.Inner.Name);
+
+        // ...and applied when the parent is projected.
+        Func<Outer, OuterDto> projection = mappers.Outer.ToExpression().Compile();
+        Assert.Equal("base-expr", projection(source).Inner.Name);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -841,6 +955,47 @@ public class MethodCallBodyTransformerMappers : MapperContext
             Id    = src.Id,
             Total = (decimal)src.Total,
             Tax   = (decimal)src.Tax,
+        });
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Path-targeted transformer contexts
+// ---------------------------------------------------------------------------
+
+public class PathTargetMappers : MapperContext
+{
+    public Mapper<LabelSource, LabelDest> ExpressionOnly { get; }
+    public Mapper<LabelSource, LabelDest> InMemoryOnly { get; }
+    public Mapper<LabelSource, LabelDest> Both { get; }
+
+    public PathTargetMappers()
+    {
+        ExpressionOnly = CreateMapper<LabelSource, LabelDest>(_ => new LabelDest { Tag = "base" })
+            .WithTransformers(new PathStringSuffixTransformer("-expr", TransformTarget.ExpressionOnly));
+
+        InMemoryOnly = CreateMapper<LabelSource, LabelDest>(_ => new LabelDest { Tag = "base" })
+            .WithTransformers(new PathStringSuffixTransformer("-mem", TransformTarget.InMemoryOnly));
+
+        Both = CreateMapper<LabelSource, LabelDest>(_ => new LabelDest { Tag = "base" })
+            .WithTransformers(new PathStringSuffixTransformer("-both", TransformTarget.Both));
+    }
+}
+
+public class NestedPathMappers : MapperContext
+{
+    public Mapper<Inner, InnerDto> InnerMapper { get; }
+    public Mapper<Outer, OuterDto> Outer { get; }
+
+    public NestedPathMappers()
+    {
+        InnerMapper = CreateMapper<Inner, InnerDto>(_ => new InnerDto { Name = "base" })
+            .WithTransformers(new PathStringSuffixTransformer("-expr", TransformTarget.ExpressionOnly));
+
+        Outer = CreateMapper<Outer, OuterDto>(src => new OuterDto
+        {
+            Id    = src.Id,
+            Inner = InnerMapper.Map(src.Inner),
         });
     }
 }

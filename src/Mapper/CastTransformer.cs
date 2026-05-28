@@ -36,6 +36,9 @@ public abstract class CastTransformer<TSource, TTarget> : ExpressionVisitor, IEx
         return Visit(expression);
     }
 
+    /// <inheritdoc />
+    public virtual TransformTarget Target => TransformTarget.Both;
+
     /// <summary>
     /// Returns the expression to substitute for the matched cast.
     /// The returned expression must be of type <typeparamref name="TTarget"/>.
