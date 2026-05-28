@@ -687,6 +687,7 @@ public sealed class RiskScoreSqlTransformer : MethodCallTransformer
 - Transformers must return an expression of the same type as their input
 - The expression body must remain a `MemberInitExpression`
 - A transformer runs only on the compilation path(s) selected by its `Target`
+- `Target` must be a combination of `Expression` and `InMemory` (`None` and `Both` are also valid); any other value throws
 - Violations throw `InvalidOperationException` with a clear message identifying the offending transformer
 
 ## Composing Contexts

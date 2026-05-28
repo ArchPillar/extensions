@@ -764,6 +764,32 @@ public class ExpressionTransformerTests
         Assert.Throws<ArgumentOutOfRangeException>(
             () => mapper.GetRawExpression(IncludeSet.Empty, TransformTarget.Both));
     }
+
+    [Fact]
+    public void Transformer_NoneTarget_SkippedOnBothPaths()
+    {
+        var mappers = new NoneTargetMappers();
+        var source = new LabelSource { Tag = "ignored" };
+
+        LabelDest mapped = mappers.Label.Map(source)!;
+        Assert.Equal("base", mapped.Tag);
+
+        Func<LabelSource, LabelDest> projection = mappers.Label.ToExpression().Compile();
+        Assert.Equal("base", projection(source).Tag);
+    }
+
+    [Fact]
+    public void Transformer_InvalidTarget_ThrowsWithTransformerName()
+    {
+        var mappers = new InvalidTargetMappers();
+        var source = new LabelSource { Tag = "ignored" };
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+            () => mappers.Label.Map(source));
+
+        Assert.Contains("PathStringSuffixTransformer", ex.Message);
+        Assert.Contains("Target", ex.Message);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -990,6 +1016,28 @@ public class PathTargetMappers : MapperContext
 
         Both = CreateMapper<LabelSource, LabelDest>(_ => new LabelDest { Tag = "base" })
             .WithTransformers(new PathStringSuffixTransformer("-both", TransformTarget.Both));
+    }
+}
+
+public class NoneTargetMappers : MapperContext
+{
+    public Mapper<LabelSource, LabelDest> Label { get; }
+
+    public NoneTargetMappers()
+    {
+        Label = CreateMapper<LabelSource, LabelDest>(_ => new LabelDest { Tag = "base" })
+            .WithTransformers(new PathStringSuffixTransformer("-none", TransformTarget.None));
+    }
+}
+
+public class InvalidTargetMappers : MapperContext
+{
+    public Mapper<LabelSource, LabelDest> Label { get; }
+
+    public InvalidTargetMappers()
+    {
+        Label = CreateMapper<LabelSource, LabelDest>(_ => new LabelDest { Tag = "base" })
+            .WithTransformers(new PathStringSuffixTransformer("-bad", (TransformTarget)99));
     }
 }
 

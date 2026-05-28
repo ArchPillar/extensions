@@ -155,7 +155,18 @@ public sealed class Mapper<TSource, TDest> : IMapper
         // Path-targeted transformers run only on the matching compilation path.
         foreach (IExpressionTransformer transformer in _transformers)
         {
-            if ((transformer.Target & path) is TransformTarget.None)
+            TransformTarget target = transformer.Target;
+
+            if ((target & ~TransformTarget.Both) is not TransformTarget.None)
+            {
+                throw new InvalidOperationException(
+                    $"Expression transformer '{transformer.GetType().Name}' declared an invalid " +
+                    $"Target value '{target}'. Target must be a combination of " +
+                    "TransformTarget.Expression and TransformTarget.InMemory " +
+                    "(TransformTarget.None and TransformTarget.Both are also valid).");
+            }
+
+            if ((target & path) is TransformTarget.None)
             {
                 continue;
             }
