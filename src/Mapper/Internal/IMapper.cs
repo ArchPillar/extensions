@@ -21,8 +21,13 @@ internal interface IMapper
     /// <see cref="InvalidOperationException"/> to prevent infinite recursion
     /// from circular mapper references.
     /// </para>
+    /// <para>
+    /// The <paramref name="path"/> parameter is propagated from the parent build
+    /// so that path-targeted transformers on this nested mapper run only on the
+    /// matching compilation path.
+    /// </para>
     /// </summary>
-    public LambdaExpression GetRawExpression(IncludeSet includes, int depth = 0);
+    public LambdaExpression GetRawExpression(IncludeSet includes, TransformTarget path, int depth = 0);
 
     /// <summary>
     /// Forces expression assembly and delegate compilation with default

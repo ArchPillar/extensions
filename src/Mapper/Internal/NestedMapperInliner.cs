@@ -25,7 +25,7 @@ namespace ArchPillar.Extensions.Mapper.Internal;
 /// inside <c>ToDictionary</c> value selectors, ternary expressions, and so on.
 /// </para>
 /// </summary>
-internal sealed class NestedMapperInliner(IncludeSet includes, int depth = 0) : ExpressionVisitor
+internal sealed class NestedMapperInliner(IncludeSet includes, TransformTarget path, int depth = 0) : ExpressionVisitor
 {
     internal const int MaxNestingDepth = 32;
 
@@ -57,7 +57,7 @@ internal sealed class NestedMapperInliner(IncludeSet includes, int depth = 0) : 
                 IncludeSet memberIncludes = includes.IncludeAll
                     ? IncludeSet.All
                     : includes.Nested.GetValueOrDefault(memberName, IncludeSet.Empty);
-                Expression visited = new NestedMapperInliner(memberIncludes, depth).Visit(assignment.Expression)!;
+                Expression visited = new NestedMapperInliner(memberIncludes, path, depth).Visit(assignment.Expression)!;
                 newBindings.Add(Expression.Bind(assignment.Member, visited));
             }
             else
@@ -111,8 +111,8 @@ internal sealed class NestedMapperInliner(IncludeSet includes, int depth = 0) : 
         if (IsScalarMapCall(node) || IsReverseMapCall(node))
         {
             LambdaExpression nestedLambda = node.Method.Name == "MapReverse"
-                ? CompileReversibleMapperAccessor(node.Object!).GetReverseRawExpression(includes, depth + 1)
-                : CompileMapperAccessor(node.Object!).GetRawExpression(includes, depth + 1);
+                ? CompileReversibleMapperAccessor(node.Object!).GetReverseRawExpression(includes, path, depth + 1)
+                : CompileMapperAccessor(node.Object!).GetRawExpression(includes, path, depth + 1);
             Expression srcExpr = Visit(node.Arguments[0])!;
 
             // Nullable value type source (e.g. TSource?) — unwrap via .Value,
@@ -167,7 +167,7 @@ internal sealed class NestedMapperInliner(IncludeSet includes, int depth = 0) : 
         if (IsProjectCall(node))
         {
             IMapper nestedMapper = CompileMapperAccessor(node.Arguments[1]);
-            LambdaExpression nestedLambda = nestedMapper.GetRawExpression(includes, depth + 1);
+            LambdaExpression nestedLambda = nestedMapper.GetRawExpression(includes, path, depth + 1);
             Expression srcExpr = Visit(node.Arguments[0])!;
             Type srcType  = nestedLambda.Parameters[0].Type;
             Type destType = nestedLambda.ReturnType;

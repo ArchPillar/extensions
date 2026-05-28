@@ -613,6 +613,29 @@ keeping the core library dependency-free.
 
 Transformers must preserve the `MemberInit` structure of the expression body and return an expression of the same type. Violations throw `InvalidOperationException` with a clear message.
 
+**Targeting a compilation path.**
+
+A mapper definition compiles into two forms — an in-memory delegate (`Map`) and a LINQ projection (`ToExpression`). By default a transformer runs on both. Override `Target` to confine it to one path:
+
+```csharp
+public sealed class RiskScoreSqlTransformer : MethodCallTransformer
+{
+    // Only rewrite on the EF Core path; the real CLR method runs in memory.
+    public override TransformTarget Target => TransformTarget.Expression;
+
+    protected override MethodInfo Method { get; }
+        = typeof(Risk).GetMethod(nameof(Risk.Score))!;
+
+    protected override Expression Replacement(
+        Expression? instance, IReadOnlyList<Expression> arguments)
+        => /* SqlFunctionExpression / DbFunction call EF Core can translate */;
+}
+```
+
+This is for operations whose **encoding** differs per execution engine — for example, a domain method that runs as real CLR code in memory but maps to a SQL function in the database. The two paths must remain **semantically equivalent**: targeting changes only how a value is computed, never the resulting value. `TransformTarget` is a `[Flags]` enum — `Expression` and `InMemory` are the individual paths, `Both` (default) is their union, and `None` runs on neither. The selected path propagates through nested-mapper inlining, so a path-targeted transformer on a nested mapper is honoured according to the path the parent is being built for.
+
+> **Tip:** If the method can be made `static` (or moved onto the `DbContext`), prefer EF Core's native `HasDbFunction` mapping — the real method then runs in memory and EF translates the call in SQL, with no transformer needed. Reach for `Expression` only when the call site cannot be made natively translatable (e.g. an instance method on a domain type). Note that EF Core cannot compose a **stored procedure** into a projection at all; the composable analog is a scalar function.
+
 ### 13. MapTo — Mapping onto an Existing Object
 
 `MapTo` assigns mapped properties onto a **pre-existing** destination instance rather than creating a new one. This is useful for:
@@ -933,6 +956,20 @@ public sealed class SymmetricEnumMapper<TLeft, TRight>
 public interface IExpressionTransformer
 {
     Expression Transform(Expression expression);
+    TransformTarget Target => TransformTarget.Both; // default: both paths
+}
+```
+
+### TransformTarget
+
+```csharp
+[Flags]
+public enum TransformTarget
+{
+    None       = 0,            // neither path (transformer never runs)
+    Expression = 1,            // LINQ projection (ToExpression)
+    InMemory   = 2,            // in-memory delegate (Map)
+    Both       = Expression | InMemory, // default
 }
 ```
 
@@ -942,6 +979,7 @@ public interface IExpressionTransformer
 public abstract class MethodCallTransformer : ExpressionVisitor, IExpressionTransformer
 {
     public Expression Transform(Expression expression);
+    public virtual TransformTarget Target { get; } // override to confine to one path
     protected abstract MethodInfo Method { get; }
     protected abstract Expression Replacement(
         Expression? instance, IReadOnlyList<Expression> arguments);
@@ -954,6 +992,7 @@ public abstract class MethodCallTransformer : ExpressionVisitor, IExpressionTran
 public abstract class CastTransformer<TSource, TTarget> : ExpressionVisitor, IExpressionTransformer
 {
     public Expression Transform(Expression expression);
+    public virtual TransformTarget Target { get; } // override to confine to one path
     protected abstract Expression Replacement(Expression operand);
 }
 ```
@@ -990,7 +1029,7 @@ The pipeline applied before handing the expression to the LINQ provider:
 
 1. **Nested mapper inlining** — `ExpressionVisitor` finds `Mapper<T,T>.Map()` calls and replaces them with the nested mapper's full expression tree (parameter-substituted).
 2. **Optional property injection** — requested optional `MemberBinding`s are appended to the `MemberInitExpression`.
-3. **Expression transformers** — global, per-context, and per-mapper `IExpressionTransformer` instances rewrite the expression tree (e.g., replacing implicit conversions with EF Core-translatable equivalents).
+3. **Expression transformers** — global, per-context, and per-mapper `IExpressionTransformer` instances rewrite the expression tree (e.g., replacing implicit conversions with EF Core-translatable equivalents). Each transformer's `Target` decides whether it runs on the in-memory delegate, the LINQ projection, or both; the active path is propagated through nested-mapper inlining.
 4. **Variable substitution** — `Variable<T>` nodes are replaced with `ConstantExpression` for the provided value, or `Expression.Default(typeof(T))` if not set.
 
 ---
@@ -1065,5 +1104,5 @@ Mapper/
 | **Null inputs** | All mappers return `null` for a null source. No configuration needed (see §10). |
 | **Constructor-based mapping** | Not supported — destination types must have a public parameterless constructor. The library's core guarantee is "one definition, two modes": the same mapper drives both in-memory mapping and LINQ/EF Core expression projection. Parameterized constructors cannot be translated by EF Core, so allowing them would create mappers that silently fail at query time. If a use case does not need expression projection, a plain constructor call is simpler and more explicit than a mapper. |
 | **Mapper inheritance** | Supported via `Inherit(baseMapper).For<TDerived>()` — copies base property mappings into a derived builder. Keeps DRY without hidden coupling; the inherited mappings are visible in the base mapper's definition. |
-| **Expression transformers** | Three-level pipeline (global → per-context → per-mapper) with built-in `MethodCallTransformer` and `CastTransformer<TSource, TTarget>` base classes. Runs after inlining, before variable substitution. Must preserve `MemberInit` structure. |
+| **Expression transformers** | Three-level pipeline (global → per-context → per-mapper) with built-in `MethodCallTransformer` and `CastTransformer<TSource, TTarget>` base classes. Runs after inlining, before variable substitution. Must preserve `MemberInit` structure. `TransformTarget` confines a transformer to the in-memory path, the LINQ projection, or both (default). |
 | **EF Core integration** | Opt-in companion package (`ArchPillar.Extensions.Mapper.EntityFrameworkCore`, registered via `UseArchPillarMapper`). Inlines direct `Map()`/`Project()` calls inside hand-written queries and translates enum mapper calls to flat SQL `CASE` (see §14). The core library stays provider-agnostic and dependency-free. |
