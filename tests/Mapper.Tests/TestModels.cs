@@ -320,6 +320,14 @@ public class CatalogItemDto { public required string Label { get; set; } }
 public class TreeNode    { public required string Name { get; set; } public TreeNode? Child { get; set; } }
 public class TreeNodeDto { public required string Name { get; set; } public TreeNodeDto? Child { get; set; } }
 
+// Destination with read-only (getter-only) members that cannot be assigned via mapping
+public class ReadOnlyMemberDto
+{
+    public required string ProductName { get; set; }
+    public string DisplayName { get; } = "";   // read-only value property — no setter
+    public Product? Detail { get; }             // read-only navigation property — no setter
+}
+
 // Destination with both parameterless and parameterized constructors
 public class DualConstructorDto
 {
