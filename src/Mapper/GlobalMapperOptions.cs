@@ -20,6 +20,15 @@ public sealed class GlobalMapperOptions
     public IReadOnlyList<IExpressionTransformer> Transformers => _transformers;
 
     /// <summary>
+    /// Gets the global default coverage-validation mode applied to every mapper
+    /// across all <see cref="MapperContext"/> instances, unless a context overrides
+    /// <see cref="MapperContext.DefaultCoverageValidation"/> or an individual mapper
+    /// calls <see cref="MapperBuilder{TSource,TDest}.SetCoverageValidation"/>.
+    /// Defaults to <see cref="CoverageValidation.NonNullableProperties"/>.
+    /// </summary>
+    public CoverageValidation DefaultCoverageValidation { get; private set; } = CoverageValidation.NonNullableProperties;
+
+    /// <summary>
     /// Registers a global expression transformer that will run on every mapper
     /// expression tree during compilation.
     /// </summary>
@@ -27,6 +36,19 @@ public sealed class GlobalMapperOptions
     {
         ArgumentNullException.ThrowIfNull(transformer);
         _transformers.Add(transformer);
+        return this;
+    }
+
+    /// <summary>
+    /// Sets the global default coverage-validation mode for every mapper across all
+    /// contexts. A context-level <see cref="MapperContext.DefaultCoverageValidation"/>
+    /// override or a per-mapper
+    /// <see cref="MapperBuilder{TSource,TDest}.SetCoverageValidation"/> call still
+    /// takes precedence over this value.
+    /// </summary>
+    public GlobalMapperOptions SetCoverageValidation(CoverageValidation mode)
+    {
+        DefaultCoverageValidation = mode;
         return this;
     }
 }
