@@ -5,17 +5,14 @@ using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Query;
 using Microsoft.EntityFrameworkCore.Query.SqlExpressions;
 using Microsoft.EntityFrameworkCore.Storage;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Query.Expressions.Internal;
 
 namespace ArchPillar.Extensions.EntityFrameworkCore.Npgsql.Internal.Functions;
 
 /// <summary>
-/// Translates the <c>JsonbBuildObjectDbFunctions</c> markers into the PostgreSQL
-/// <c>jsonb_build_object(...)</c> SQL function. Handles both the fixed-arity
-/// <c>JsonbBuildObject(...)</c> overloads and the fluent
-/// <c>JsonbObject().Add(...).Build()</c> builder chain. The chain is folded one node at a
-/// time as EF translates the expression tree bottom-up: the seed becomes an empty
-/// <c>jsonb_build_object()</c>, each <c>Add</c> appends its key/value to the accumulated
-/// function, and <c>Build</c> yields the result as text.
+/// Translates the flat <see cref="JsonbDbFunctions.JsonbBuildObjectCore(object?[])"/> marker
+/// (produced from <c>EF.Functions.ToJsonb(shape)</c> by <see cref="JsonbShapeInterceptor"/>)
+/// into the PostgreSQL <c>jsonb_build_object(...)</c> SQL function.
 /// </summary>
 internal sealed class JsonbBuildObjectTranslator : IMethodCallTranslator
 {
@@ -42,86 +39,41 @@ internal sealed class JsonbBuildObjectTranslator : IMethodCallTranslator
         IReadOnlyList<SqlExpression> arguments,
         IDiagnosticsLogger<DbLoggerCategory.Query> logger)
     {
-        if (method.DeclaringType != typeof(JsonbBuildObjectDbFunctions))
+        if (method.DeclaringType != typeof(JsonbDbFunctions)
+            || method.Name != nameof(JsonbDbFunctions.JsonbBuildObjectCore))
         {
             return null;
         }
 
-        return method.Name switch
-        {
-            // Seed carries [DbFunctions, key, value]; flat overloads carry [DbFunctions, key, value, …].
-            nameof(JsonbBuildObjectDbFunctions.JsonbObject) => TranslateFlat(arguments),
-            nameof(JsonbBuildObjectDbFunctions.Add) => TranslateAdd(arguments),
-            nameof(JsonbBuildObjectDbFunctions.Build) => TranslateBuild(arguments),
-            nameof(JsonbBuildObjectDbFunctions.JsonbBuildObject) => TranslateFlat(arguments),
-            _ => null,
-        };
-    }
-
-    private SqlExpression? TranslateAdd(IReadOnlyList<SqlExpression> arguments)
-    {
-        // arguments: [accumulated jsonb_build_object(...), key, value]
-        if (arguments.Count != 3 || arguments[0] is not SqlFunctionExpression { Name: FunctionName } current)
+        // The single argument is the desugared object?[] of alternating keys/values, which EF
+        // translates to a PgNewArrayExpression.
+        if (arguments.Count != 1 || arguments[0] is not PgNewArrayExpression array)
         {
             return null;
         }
 
-        IReadOnlyList<SqlExpression> existing = current.Arguments ?? [];
-        var next = new SqlExpression[existing.Count + 2];
-        for (var i = 0; i < existing.Count; i++)
-        {
-            next[i] = existing[i];
-        }
-
-        next[existing.Count] = PrepareArgument(arguments[1]);
-        next[existing.Count + 1] = PrepareArgument(arguments[2]);
-
-        return CreateFunction(next);
-    }
-
-    private static SqlExpression? TranslateBuild(IReadOnlyList<SqlExpression> arguments)
-    {
-        // arguments: [accumulated jsonb_build_object(...)]
-        if (arguments.Count != 1 || arguments[0] is not SqlFunctionExpression { Name: FunctionName } current)
+        IReadOnlyList<SqlExpression> items = array.Expressions;
+        if (items.Count == 0 || (items.Count % 2) != 0)
         {
             return null;
         }
 
-        return current;
-    }
-
-    private SqlExpression? TranslateFlat(IReadOnlyList<SqlExpression> arguments)
-    {
-        var start = (arguments.Count > 0 && IsDbFunctionsInstance(arguments[0])) ? 1 : 0;
-        var count = arguments.Count - start;
-
-        if (count == 0 || (count % 2) != 0)
+        var mapped = new SqlExpression[items.Count];
+        for (var i = 0; i < items.Count; i++)
         {
-            return null;
+            mapped[i] = PrepareArgument(items[i]);
         }
 
-        var mapped = new SqlExpression[count];
-        for (var i = 0; i < count; i++)
-        {
-            mapped[i] = PrepareArgument(arguments[start + i]);
-        }
-
-        return CreateFunction(mapped);
-    }
-
-    private SqlExpression CreateFunction(IReadOnlyList<SqlExpression> mapped)
         // jsonb_build_object returns a non-null jsonb even when values are null, so no
         // argument propagates nullability to the result.
-        => _sql.Function(
+        return _sql.Function(
             FunctionName,
             mapped,
             nullable: true,
-            argumentsPropagateNullability: new bool[mapped.Count],
+            argumentsPropagateNullability: new bool[mapped.Length],
             typeof(string),
             _jsonbMapping);
-
-    private static bool IsDbFunctionsInstance(SqlExpression expression)
-        => expression.Type == typeof(DbFunctions);
+    }
 
     private SqlExpression PrepareArgument(SqlExpression argument)
     {

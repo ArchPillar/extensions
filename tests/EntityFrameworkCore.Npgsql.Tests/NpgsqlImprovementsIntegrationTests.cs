@@ -143,7 +143,7 @@ public sealed class NpgsqlImprovementsIntegrationTests(PostgresFixture fixture) 
     }
 
     [Fact]
-    public async Task JsonbBuildObject_TranslatesAndReturnsJsonStringAsync()
+    public async Task ToJsonb_AnonymousShape_TranslatesAndReturnsJsonStringAsync()
     {
         (NpgsqlDataSource ds, TestDbContext ctx) = TestContextFactory.Create(_database.ConnectionString);
         try
@@ -154,71 +154,19 @@ public sealed class NpgsqlImprovementsIntegrationTests(PostgresFixture fixture) 
             ctx.ChangeTracker.Clear();
 
             var json = await ctx.Rows
-                .Select(r => EF.Functions.JsonbBuildObject(
-                    "name", r.Name,
-                    "priority", (int)r.Priority))
+                .Select(r => EF.Functions.ToJsonb(new
+                {
+                    name = r.Name,
+                    priority = (int)r.Priority,
+                    id = r.Id,
+                    created = r.CreatedAt,
+                }))
                 .SingleAsync();
 
             Assert.Contains("\"name\"", json, StringComparison.Ordinal);
             Assert.Contains("alice", json, StringComparison.Ordinal);
             Assert.Contains("\"priority\"", json, StringComparison.Ordinal);
             Assert.Contains("9", json, StringComparison.Ordinal);
-        }
-        finally
-        {
-            await ctx.DisposeAsync();
-            await ds.DisposeAsync();
-        }
-    }
-
-    [Fact]
-    public async Task JsonbBuildObject_SinglePairOverload_TranslatesAsync()
-    {
-        (NpgsqlDataSource ds, TestDbContext ctx) = TestContextFactory.Create(_database.ConnectionString);
-        try
-        {
-            await ctx.Database.EnsureCreatedAsync();
-            ctx.Rows.Add(NewRow(Guid.NewGuid(), name: "bob"));
-            await ctx.SaveChangesAsync();
-            ctx.ChangeTracker.Clear();
-
-            var json = await ctx.Rows
-                .Select(r => EF.Functions.JsonbBuildObject("name", r.Name))
-                .SingleAsync();
-
-            Assert.Contains("\"name\"", json, StringComparison.Ordinal);
-            Assert.Contains("bob", json, StringComparison.Ordinal);
-        }
-        finally
-        {
-            await ctx.DisposeAsync();
-            await ds.DisposeAsync();
-        }
-    }
-
-    [Fact]
-    public async Task JsonbBuildObject_Builder_TranslatesAsync()
-    {
-        (NpgsqlDataSource ds, TestDbContext ctx) = TestContextFactory.Create(_database.ConnectionString);
-        try
-        {
-            await ctx.Database.EnsureCreatedAsync();
-            ctx.Rows.Add(NewRow(Guid.NewGuid(), name: "carol", priority: TestPriority.High));
-            await ctx.SaveChangesAsync();
-            ctx.ChangeTracker.Clear();
-
-            // The fluent builder enforces string keys at compile time and handles an
-            // arbitrary number of pairs.
-            var json = await ctx.Rows
-                .Select(r => EF.Functions.JsonbObject("name", r.Name)
-                    .Add("priority", (int)r.Priority)
-                    .Add("id", r.Id)
-                    .Add("created", r.CreatedAt)
-                    .Build())
-                .SingleAsync();
-
-            Assert.Contains("\"name\"", json, StringComparison.Ordinal);
-            Assert.Contains("carol", json, StringComparison.Ordinal);
             Assert.Contains("\"id\"", json, StringComparison.Ordinal);
             Assert.Contains("\"created\"", json, StringComparison.Ordinal);
         }
@@ -230,10 +178,48 @@ public sealed class NpgsqlImprovementsIntegrationTests(PostgresFixture fixture) 
     }
 
     [Fact]
-    public void JsonbBuildObject_InvokedDirectly_Throws()
+    public async Task ToJsonb_NamedClassShape_TranslatesAsync()
+    {
+        (NpgsqlDataSource ds, TestDbContext ctx) = TestContextFactory.Create(_database.ConnectionString);
+        try
+        {
+            await ctx.Database.EnsureCreatedAsync();
+            ctx.Rows.Add(NewRow(Guid.NewGuid(), name: "bob"));
+            await ctx.SaveChangesAsync();
+            ctx.ChangeTracker.Clear();
+
+            // A named type with an object initializer works the same as an anonymous type.
+            var json = await ctx.Rows
+                .Select(r => EF.Functions.ToJsonb(new JsonShape
+                {
+                    Name = r.Name,
+                    Priority = (int)r.Priority,
+                }))
+                .SingleAsync();
+
+            Assert.Contains("\"Name\"", json, StringComparison.Ordinal);
+            Assert.Contains("bob", json, StringComparison.Ordinal);
+            Assert.Contains("\"Priority\"", json, StringComparison.Ordinal);
+        }
+        finally
+        {
+            await ctx.DisposeAsync();
+            await ds.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public void ToJsonb_InvokedDirectly_Throws()
     {
         Assert.Throws<InvalidOperationException>(
-            () => EF.Functions.JsonbBuildObject("k", "v"));
+            () => EF.Functions.ToJsonb(new { k = "v" }));
+    }
+
+    private sealed class JsonShape
+    {
+        public string Name { get; set; } = "";
+
+        public int Priority { get; set; }
     }
 
     private static TestRow NewRow(

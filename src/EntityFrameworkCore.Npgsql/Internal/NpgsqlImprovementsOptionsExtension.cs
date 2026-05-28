@@ -18,6 +18,7 @@ internal sealed class NpgsqlImprovementsOptionsExtension : IDbContextOptionsExte
     {
         services.AddScoped<IRelationalTypeMappingSourcePlugin, GuidUuidTypeMappingSourcePlugin>();
         services.AddScoped<IMethodCallTranslatorPlugin, JsonbBuildObjectMethodCallTranslatorPlugin>();
+        services.AddSingleton<IEvaluatableExpressionFilterPlugin, JsonbEvaluatableExpressionFilterPlugin>();
     }
 
     public void Validate(IDbContextOptions options)

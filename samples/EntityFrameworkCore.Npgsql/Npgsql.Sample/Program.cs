@@ -14,7 +14,7 @@ using Npgsql;
 //   2. DateTimeOffset → timestamptz, always stored as UTC.
 //   3. DateTime → timestamptz, UTC-enforcing (rejects Unspecified).
 //   4. CLR enum ↔ int4 on the wire.
-//   5. EF.Functions.JsonbBuildObject(...) → jsonb_build_object(...).
+//   5. EF.Functions.ToJsonb(shape) -> jsonb_build_object(...).
 //
 // Connection: set NPGSQL_SAMPLE_CONNECTION_STRING or run a local PostgreSQL at
 //             Host=localhost;Port=5432;Username=app;Password=postgres
@@ -97,31 +97,20 @@ foreach (var row in raw)
 }
 
 // ---------------------------------------------------------------------------
-// Feature 5 — EF.Functions.JsonbBuildObject inside a query.
+// Feature 5 — EF.Functions.ToJsonb(shape) inside a query.
 // ---------------------------------------------------------------------------
 Console.WriteLine();
-Console.WriteLine("== jsonb_build_object (fixed-arity) ==");
+Console.WriteLine("== ToJsonb (anonymous shape) ==");
 var jsons = await ctx.Tickets
-    .Select(t => EF.Functions.JsonbBuildObject(
-        "id", t.Id,
-        "title", t.Title,
-        "severity", (int)t.Severity))
+    .Select(t => EF.Functions.ToJsonb(new
+    {
+        id = t.Id,
+        title = t.Title,
+        severity = (int)t.Severity,
+        openedAt = t.OpenedAt,
+    }))
     .ToListAsync();
 foreach (var json in jsons)
-{
-    Console.WriteLine($"  {json}");
-}
-
-Console.WriteLine();
-Console.WriteLine("== jsonb_build_object (fluent builder) ==");
-var builtJsons = await ctx.Tickets
-    .Select(t => EF.Functions.JsonbObject("id", t.Id)
-        .Add("title", t.Title)
-        .Add("severity", (int)t.Severity)
-        .Add("openedAt", t.OpenedAt)
-        .Build())
-    .ToListAsync();
-foreach (var json in builtJsons)
 {
     Console.WriteLine($"  {json}");
 }

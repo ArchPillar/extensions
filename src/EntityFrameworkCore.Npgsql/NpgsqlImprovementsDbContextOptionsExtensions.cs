@@ -1,4 +1,5 @@
 using ArchPillar.Extensions.EntityFrameworkCore.Npgsql.Internal;
+using ArchPillar.Extensions.EntityFrameworkCore.Npgsql.Internal.Functions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
@@ -13,7 +14,7 @@ public static class NpgsqlImprovementsDbContextOptionsExtensions
     /// <summary>
     /// Registers the ArchPillar Npgsql EF Core integration. When enabled, the
     /// context gets the <c>'…'::uuid</c> Guid literal cast (fixes Guid projection),
-    /// and the <c>EF.Functions.JsonbBuildObject(...)</c> translator.
+    /// and the <c>EF.Functions.ToJsonb(...)</c> translator.
     /// </summary>
     /// <remarks>
     /// This is the EF-side wiring. The ADO-wire converters (date/time/enum) are
@@ -27,6 +28,8 @@ public static class NpgsqlImprovementsDbContextOptionsExtensions
         {
             return builder;
         }
+
+        builder.AddInterceptors(new JsonbShapeInterceptor());
 
         ((IDbContextOptionsBuilderInfrastructure)builder)
             .AddOrUpdateExtension(new NpgsqlImprovementsOptionsExtension());
