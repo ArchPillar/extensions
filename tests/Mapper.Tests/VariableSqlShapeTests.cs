@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 
 namespace ArchPillar.Extensions.Mapper;
@@ -73,6 +74,53 @@ public sealed class VariableSqlShapeTests : IDisposable
 
         Assert.True(results.Single(r => r.Id == 1).IsOwner);
         Assert.False(results.Single(r => r.Id == 2).IsOwner);
+    }
+
+    [Fact]
+    public void Project_VariableUsedManyTimes_EmitsSingleParameter()
+    {
+        var mappers = new MultiUseMappers();
+
+        IQueryable<MultiOwnerFlagsDto> query = _db.Orders
+            .Project(mappers.Order, o => o.Set(mappers.CurrentUserId, 42));
+
+        var sql = query.ToQueryString();
+
+        // The mapper compares OwnerId against the same variable three times.
+        // Each reference shares one captured box, so EF Core must collapse
+        // them into a single SQL parameter rather than one per use.
+        var parameters = Regex
+            .Matches(sql, "@[A-Za-z_][A-Za-z0-9_]*")
+            .Select(m => m.Value)
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        Assert.Single(parameters);
+    }
+}
+
+file sealed class MultiOwnerFlagsDto
+{
+    public required int Id { get; init; }
+    public required bool IsOwnerA { get; init; }
+    public required bool IsOwnerB { get; init; }
+    public required bool IsOwnerC { get; init; }
+}
+
+file sealed class MultiUseMappers : MapperContext
+{
+    public Variable<int> CurrentUserId { get; } = CreateVariable<int>();
+    public Mapper<Order, MultiOwnerFlagsDto> Order { get; }
+
+    public MultiUseMappers()
+    {
+        Order = CreateMapper<Order, MultiOwnerFlagsDto>(src => new MultiOwnerFlagsDto
+        {
+            Id       = src.Id,
+            IsOwnerA = src.OwnerId == CurrentUserId,
+            IsOwnerB = src.OwnerId == CurrentUserId,
+            IsOwnerC = src.OwnerId == CurrentUserId,
+        });
     }
 }
 
