@@ -1,5 +1,6 @@
 using System.Linq.Expressions;
 using System.Reflection;
+using ArchPillar.Extensions.Mapper.Internal;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace ArchPillar.Extensions.Mapper.EntityFrameworkCore.Internal;
@@ -77,6 +78,16 @@ internal sealed class MapperInliningInterceptor : IQueryExpressionInterceptor
         /// Resolves the mapper instance from <paramref name="mapperAccessor"/> and
         /// returns its projection expression (<c>ToExpression(configure)</c>), with
         /// nested mappers inlined and variables substituted.
+        /// <para>
+        /// <see cref="VariableReplacer"/> emits each variable as a property access
+        /// on a captured <see cref="VariableValueBox{T}"/> so EF Core's funcletizer
+        /// can lift it into a SQL parameter. In the inlining path, however, the
+        /// funcletizer has already run by the time this interceptor fires — any
+        /// box constants we introduce post-extraction would be flagged as client
+        /// projections. We collapse them here to plain
+        /// <see cref="ConstantExpression"/> nodes that the relational translator
+        /// can fold into the SQL directly (with provider-side literal escaping).
+        /// </para>
         /// </summary>
         private static LambdaExpression GetProjection(
             Expression mapperAccessor, Type sourceType, Type destType, object? configure)
@@ -84,7 +95,31 @@ internal sealed class MapperInliningInterceptor : IQueryExpressionInterceptor
             var mapper = MapperConstantEvaluator.Evaluate(mapperAccessor)!;
             Type mapperType = typeof(Mapper<,>).MakeGenericType(sourceType, destType);
             MethodInfo toExpression = mapperType.GetMethod(nameof(Mapper<int, int>.ToExpression))!;
-            return (LambdaExpression)toExpression.Invoke(mapper, [configure])!;
+            var projection = (LambdaExpression)toExpression.Invoke(mapper, [configure])!;
+            return (LambdaExpression)new VariableBoxFlattener().Visit(projection)!;
+        }
+
+        private sealed class VariableBoxFlattener : ExpressionVisitor
+        {
+            protected override Expression VisitMember(MemberExpression node)
+            {
+                if (node.Expression is ConstantExpression { Value: { } boxed } constant
+                    && IsVariableValueBox(constant.Type))
+                {
+                    PropertyInfo? property = constant.Type.GetProperty(
+                        nameof(VariableValueBox<object>.Value));
+                    if (property is not null && node.Member == property)
+                    {
+                        return Expression.Constant(property.GetValue(boxed), node.Type);
+                    }
+                }
+
+                return base.VisitMember(node);
+            }
+
+            private static bool IsVariableValueBox(Type type)
+                => type.IsGenericType
+                && type.GetGenericTypeDefinition() == typeof(VariableValueBox<>);
         }
 
         /// <summary>

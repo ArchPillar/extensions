@@ -25,6 +25,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="ArchPillar.Extensions.Mapper.EntityFrameworkCore" />
+    <InternalsVisibleTo Include="ArchPillar.Extensions.Mapper.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="..\..\LICENSE" Pack="true" PackagePath="" />
     <None Include="PACKAGE.md" Pack="true" PackagePath="" />
   </ItemGroup>
