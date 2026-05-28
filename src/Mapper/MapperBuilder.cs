@@ -218,6 +218,22 @@ public sealed class MapperBuilder<TSource, TDest>
             rawMappings[mapping.Destination.Name] = mapping;
         }
 
+        // Validate that every mapped destination member can actually be assigned.
+        // A read-only property (getter only, no set accessor) cannot be bound, so
+        // mapping it would fail when the projection expression is built. Catch it
+        // here so the failure surfaces at build time with a clear message.
+        foreach (PropertyMapping mapping in rawMappings.Values)
+        {
+            if (mapping.Kind != MappingKind.Ignored
+                && mapping.Destination is PropertyInfo { CanWrite: false } readOnlyProperty)
+            {
+                throw new InvalidOperationException(
+                    $"Property '{readOnlyProperty.Name}' of {typeof(TDest).Name} is read-only " +
+                    "(it has no set accessor) and cannot be mapped. " +
+                    "Remove the mapping or add a setter.");
+            }
+        }
+
         // Validate that every settable destination property is accounted for.
         if (_coverageValidation != CoverageValidation.None)
         {

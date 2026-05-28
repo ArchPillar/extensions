@@ -213,6 +213,54 @@ public class BuilderValidationTests
     }
 
     // -----------------------------------------------------------------------
+    // Read-only destination property — cannot be assigned, must fail at build
+    // -----------------------------------------------------------------------
+
+    [Fact]
+    public void Build_MapToReadOnlyValueProperty_ThrowsInvalidOperationException()
+    {
+        var context = new ReadOnlyPropertyContext();
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+            () => context.BuildMappingReadOnlyValue());
+
+        Assert.Contains("DisplayName", ex.Message);
+    }
+
+    [Fact]
+    public void Build_OptionalToReadOnlyValueProperty_ThrowsInvalidOperationException()
+    {
+        var context = new ReadOnlyPropertyContext();
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+            () => context.BuildOptionalReadOnlyValue());
+
+        Assert.Contains("DisplayName", ex.Message);
+    }
+
+    [Fact]
+    public void Build_MapToReadOnlyNavigationProperty_ThrowsInvalidOperationException()
+    {
+        var context = new ReadOnlyPropertyContext();
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+            () => context.BuildMappingReadOnlyNavigation());
+
+        Assert.Contains("Detail", ex.Message);
+    }
+
+    [Fact]
+    public void Build_OptionalToReadOnlyNavigationProperty_ThrowsInvalidOperationException()
+    {
+        var context = new ReadOnlyPropertyContext();
+
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+            () => context.BuildOptionalReadOnlyNavigation());
+
+        Assert.Contains("Detail", ex.Message);
+    }
+
+    // -----------------------------------------------------------------------
     // Circular mapper reference detection
     // -----------------------------------------------------------------------
 
@@ -403,6 +451,33 @@ file class ConstructorExpressionValidationContext : MapperContext
 {
     public Mapper<OrderLine, DualConstructorDto> BuildWithConstructorArgs() =>
         CreateMapper<OrderLine, DualConstructorDto>(s => new DualConstructorDto(s.ProductName, s.Quantity))
+            .Build();
+}
+
+file class ReadOnlyPropertyContext : MapperContext
+{
+    public Mapper<OrderLine, ReadOnlyMemberDto> BuildMappingReadOnlyValue() =>
+        CreateMapper<OrderLine, ReadOnlyMemberDto>()
+            .Map(d => d.ProductName, s => s.ProductName)
+            .Map(d => d.DisplayName, s => s.ProductName)
+            .Build();
+
+    public Mapper<OrderLine, ReadOnlyMemberDto> BuildOptionalReadOnlyValue() =>
+        CreateMapper<OrderLine, ReadOnlyMemberDto>()
+            .Map(d => d.ProductName, s => s.ProductName)
+            .Optional(d => d.DisplayName, s => s.ProductName)
+            .Build();
+
+    public Mapper<OrderLine, ReadOnlyMemberDto> BuildMappingReadOnlyNavigation() =>
+        CreateMapper<OrderLine, ReadOnlyMemberDto>()
+            .Map(d => d.ProductName, s => s.ProductName)
+            .Map(d => d.Detail, s => (ProductDto?)null)
+            .Build();
+
+    public Mapper<OrderLine, ReadOnlyMemberDto> BuildOptionalReadOnlyNavigation() =>
+        CreateMapper<OrderLine, ReadOnlyMemberDto>()
+            .Map(d => d.ProductName, s => s.ProductName)
+            .Optional(d => d.Detail, s => (ProductDto?)null)
             .Build();
 }
 
