@@ -100,7 +100,7 @@ foreach (var row in raw)
 // Feature 5 — EF.Functions.JsonbBuildObject inside a query.
 // ---------------------------------------------------------------------------
 Console.WriteLine();
-Console.WriteLine("== jsonb_build_object ==");
+Console.WriteLine("== jsonb_build_object (fixed-arity) ==");
 var jsons = await ctx.Tickets
     .Select(t => EF.Functions.JsonbBuildObject(
         "id", t.Id,
@@ -108,6 +108,20 @@ var jsons = await ctx.Tickets
         "severity", (int)t.Severity))
     .ToListAsync();
 foreach (var json in jsons)
+{
+    Console.WriteLine($"  {json}");
+}
+
+Console.WriteLine();
+Console.WriteLine("== jsonb_build_object (fluent builder) ==");
+var builtJsons = await ctx.Tickets
+    .Select(t => EF.Functions.JsonbObject("id", t.Id)
+        .Add("title", t.Title)
+        .Add("severity", (int)t.Severity)
+        .Add("openedAt", t.OpenedAt)
+        .Build())
+    .ToListAsync();
+foreach (var json in builtJsons)
 {
     Console.WriteLine($"  {json}");
 }

@@ -10,7 +10,7 @@ Provider-level fixes and extensions for [`Npgsql`](https://www.nuget.org/package
 | 2 | `DateTimeOffset ↔ timestamptz`, always stored as the UTC instant regardless of the input offset. `MinValue`/`MaxValue` map to PostgreSQL `±infinity`. | ADO wire |
 | 3 | `DateTime ↔ timestamptz`, UTC-enforcing — `Utc` and `Local` are accepted (Local converted to UTC), `Unspecified` is rejected with a clear error instead of silently storing the wrong instant. `MinValue`/`MaxValue` map to `±infinity`. | ADO wire |
 | 4 | Any CLR `enum` ↔ PostgreSQL `int4` (no enum column type required). Unknown integers read back as `default(TEnum)`. | ADO wire |
-| 5 | `EF.Functions.JsonbBuildObject(key1, val1, key2, val2, …)` translates to `jsonb_build_object(…)`. Boxing `Convert(...)` wrappers around values are stripped and a `text` type mapping is applied to any mapping-less argument so the function can be used inside a projection. | EF query translator |
+| 5 | `EF.Functions.JsonbBuildObject(key1, val1, …)` (fixed-arity) and the fluent `EF.Functions.JsonbObject(key, val).Add(key, val)….Build()` builder (arbitrary arity, typed string keys) translate to `jsonb_build_object(…)`. Boxing `Convert(...)` wrappers around values are stripped and a `text` type mapping is applied to any mapping-less argument so the function can be used inside a projection. | EF query translator |
 
 ## Quick Start
 

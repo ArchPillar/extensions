@@ -197,7 +197,7 @@ public sealed class NpgsqlImprovementsIntegrationTests(PostgresFixture fixture) 
     }
 
     [Fact]
-    public async Task JsonbBuildObject_ParamsOverload_TranslatesAsync()
+    public async Task JsonbBuildObject_Builder_TranslatesAsync()
     {
         (NpgsqlDataSource ds, TestDbContext ctx) = TestContextFactory.Create(_database.ConnectionString);
         try
@@ -207,13 +207,14 @@ public sealed class NpgsqlImprovementsIntegrationTests(PostgresFixture fixture) 
             await ctx.SaveChangesAsync();
             ctx.ChangeTracker.Clear();
 
-            // Four pairs exceeds the fixed-arity overloads, so this binds to params object?[].
+            // The fluent builder enforces string keys at compile time and handles an
+            // arbitrary number of pairs.
             var json = await ctx.Rows
-                .Select(r => EF.Functions.JsonbBuildObject(
-                    "name", r.Name,
-                    "priority", (int)r.Priority,
-                    "id", r.Id,
-                    "created", r.CreatedAt))
+                .Select(r => EF.Functions.JsonbObject("name", r.Name)
+                    .Add("priority", (int)r.Priority)
+                    .Add("id", r.Id)
+                    .Add("created", r.CreatedAt)
+                    .Build())
                 .SingleAsync();
 
             Assert.Contains("\"name\"", json, StringComparison.Ordinal);

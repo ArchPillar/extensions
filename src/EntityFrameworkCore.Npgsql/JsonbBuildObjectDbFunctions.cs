@@ -3,26 +3,48 @@ using Microsoft.EntityFrameworkCore;
 namespace ArchPillar.Extensions.EntityFrameworkCore.Npgsql;
 
 /// <summary>
-/// <c>EF.Functions</c> extensions translated by this package.
+/// <c>EF.Functions</c> extensions translated by this package, plus the fluent
+/// <see cref="IJsonbObjectBuilder"/> chain for building a <c>jsonb</c> object with
+/// compile-time-typed string keys.
 /// </summary>
 /// <remarks>
 /// All methods here are EF Core translation markers: they only run as part of a
 /// LINQ-to-Entities query that is translated to SQL. Invoking any of them directly
 /// throws <see cref="InvalidOperationException"/>.
-/// <para>
-/// The fixed-arity overloads pair each key with its value at compile time, which is the
-/// ergonomic choice for the common cases. A key/value tuple-array form
-/// (<c>params (string, object?)[]</c>) is intentionally not offered: EF Core cannot
-/// translate <c>ValueTuple</c> construction inside a query, so it would fail at query
-/// time rather than compile time. Use the <c>params object?[]</c> overload for an
-/// arbitrary number of pairs.
-/// </para>
 /// </remarks>
 public static class JsonbBuildObjectDbFunctions
 {
     private const string MarkerMessage =
-        "JsonbBuildObject is an EF Core translation marker and must not be called directly. " +
+        "This method is an EF Core translation marker and must not be called directly. " +
         "Register the integration with UseArchPillarNpgsqlImprovements() on your DbContext options.";
+
+    /// <summary>
+    /// Starts a fluent <c>jsonb</c> object with its first key/value pair. Chain
+    /// <see cref="Add(IJsonbObjectBuilder, string, object?)"/> for further pairs and finish
+    /// with <see cref="Build(IJsonbObjectBuilder)"/>. Keys are typed as <see cref="string"/>,
+    /// so a value can never be passed where a key is expected:
+    /// <code>
+    /// EF.Functions.JsonbObject("name", r.Name)
+    ///     .Add("priority", (int)r.Priority)
+    ///     .Build()
+    /// </code>
+    /// The first pair is part of the seed so the call references query data (an empty,
+    /// constant seed would be evaluated client-side by EF before translation).
+    /// </summary>
+    public static IJsonbObjectBuilder JsonbObject(this DbFunctions functions, string key, object? value)
+        => throw new InvalidOperationException(MarkerMessage);
+
+    /// <summary>
+    /// Adds a key/value pair to the <c>jsonb</c> object under construction.
+    /// </summary>
+    public static IJsonbObjectBuilder Add(this IJsonbObjectBuilder builder, string key, object? value)
+        => throw new InvalidOperationException(MarkerMessage);
+
+    /// <summary>
+    /// Completes the fluent chain, producing the <c>jsonb</c> object as a string.
+    /// </summary>
+    public static string Build(this IJsonbObjectBuilder builder)
+        => throw new InvalidOperationException(MarkerMessage);
 
     /// <summary>
     /// Builds a single-key PostgreSQL <c>jsonb</c> object,
@@ -58,17 +80,5 @@ public static class JsonbBuildObjectDbFunctions
         object? value2,
         string key3,
         object? value3)
-        => throw new InvalidOperationException(MarkerMessage);
-
-    /// <summary>
-    /// Builds a PostgreSQL <c>jsonb</c> object from an arbitrary number of alternating
-    /// key/value pairs, translated to <c>jsonb_build_object(...)</c>. The arguments must
-    /// alternate <c>key, value, key, value, …</c> with an even number of total elements.
-    /// </summary>
-    /// <param name="functions">The <see cref="DbFunctions"/> instance.</param>
-    /// <param name="keysAndValues">Alternating key/value arguments; total count must be even.</param>
-    public static string JsonbBuildObject(
-        this DbFunctions functions,
-        params object?[] keysAndValues)
         => throw new InvalidOperationException(MarkerMessage);
 }

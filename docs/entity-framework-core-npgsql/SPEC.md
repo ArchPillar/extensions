@@ -46,8 +46,9 @@ that carry no domain concepts and are safe to ship as a standalone library.
 ## 5. `EF.Functions.JsonbBuildObject(…) → jsonb_build_object(…)`
 
 - **Problem.** No first-class way to build a `jsonb` object in LINQ; also EF's tree validator requires every node to carry a type mapping.
-- **Mechanism.** Strips EF's boxing `Convert(..., object)` wrappers, forces a `text` mapping onto any mapping-less node (incl. compound `CASE`/`COALESCE`), emits `SqlFunctionExpression("jsonb_build_object", …)` with a `jsonb` mapping on the return.
-- **Files.** `Internal/Functions/JsonbBuildObjectTranslator.cs`, `Internal/Functions/JsonbBuildObjectMethodCallTranslatorPlugin.cs`. The `EF.Functions` stub lives at `JsonbBuildObjectDbFunctions.cs` and travels with the library.
+- **API.** Two shapes. Fixed-arity `EF.Functions.JsonbBuildObject(k, v, …)` overloads (1–3 pairs) for concise inline use, and a fluent `EF.Functions.JsonbObject(k, v).Add(k, v)….Build()` builder for arbitrary arity with compile-time-typed string keys. The builder's first pair lives on the `JsonbObject(...)` seed so the call references query data — an empty constant seed is funcletized (evaluated client-side) before translation. `.Build()` is the required terminal: it yields a `string` result type so EF can materialise the projection (a bare builder-typed projection can't be materialised from a scalar).
+- **Mechanism.** Matches every `JsonbBuildObjectDbFunctions` marker by name. The builder chain is folded one node at a time as EF translates bottom-up — each `Add` appends its prepared key/value to the accumulated `jsonb_build_object(...)`. Strips EF's boxing `Convert(..., object)` wrappers, forces a `text` mapping onto any mapping-less node (incl. compound `CASE`/`COALESCE`), emits `SqlFunctionExpression("jsonb_build_object", …)` with a `jsonb` mapping on the return. No dependency on Npgsql internals.
+- **Files.** `Internal/Functions/JsonbBuildObjectTranslator.cs`, `Internal/Functions/JsonbBuildObjectMethodCallTranslatorPlugin.cs`. The `EF.Functions` markers and `IJsonbObjectBuilder` live at `JsonbBuildObjectDbFunctions.cs` / `IJsonbObjectBuilder.cs` and travel with the library.
 
 ---
 
@@ -63,11 +64,11 @@ These are **leaf infrastructure** with no domain coupling:
 | `DateTimeTimestampTzConverter` | `PgBufferedConverter`, `PgReader`/`PgWriter` |
 | `ArchPillarTypeInfoResolverFactory` | `PgTypeInfoResolverFactory`, `IPgTypeInfoResolver`, `TypeInfoMappingCollection`, `TypeInfoMappingHelpers` |
 | `GuidUuidMapping` | EF Core's `RelationalTypeMapping` (public); Npgsql's `NpgsqlDbType` (public) for parameter binding |
-| `JsonbBuildObjectTranslator` | EF Core's `IMethodCallTranslator` (public); Npgsql's `PgNewArrayExpression` (internal `…Query.Expressions.Internal`) |
+| `JsonbBuildObjectTranslator` | EF Core's `IMethodCallTranslator` (public) only — no Npgsql internals |
 
-**Fragility note.** The wire converters and the `JsonbBuildObject` translator depend on Npgsql `*.Internal` namespaces. These are not part of Npgsql's public API and can change across major versions — pin/track versions deliberately. The library targets Npgsql 8 / 9 / 10 against EF Core 8 / 9 / 10. CI exercises all three.
+**Fragility note.** The wire converters depend on Npgsql `*.Internal` namespaces. These are not part of Npgsql's public API and can change across major versions — pin/track versions deliberately. The library targets Npgsql 8 / 9 / 10 against EF Core 8 / 9 / 10. CI exercises all three.
 
-The project sets `<NoWarn>$(NoWarn);EF1001</NoWarn>` because we are deliberately a provider extension; the diagnostic is aimed at application code that shouldn't reach for EF internals.
+The project sets `<NoWarn>$(NoWarn);EF1001</NoWarn>` as a guard for any future use of EF/Npgsql internal query-pipeline APIs by this provider extension; the diagnostic is aimed at application code that shouldn't reach for EF internals.
 
 ---
 

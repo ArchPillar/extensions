@@ -11,7 +11,7 @@ This document covers the public API surface, how to register the integration, an
 | `NpgsqlImprovementsDataSourceBuilderExtensions.UseArchPillarNpgsqlImprovements(this NpgsqlDataSourceBuilder)` | Installs the ADO-wire converters on a data source builder. |
 | `NpgsqlImprovementsDbContextOptionsExtensions.UseArchPillarNpgsqlImprovements(this DbContextOptionsBuilder)` | Registers the EF Core type-mapping and method-call-translator plugins on a `DbContext`. |
 | `NpgsqlImprovementsDbContextOptionsExtensions.UseArchPillarNpgsqlImprovements<TContext>(this DbContextOptionsBuilder<TContext>)` | Generic overload that preserves the `TContext` type parameter. |
-| `JsonbBuildObjectDbFunctions.JsonbBuildObject(this DbFunctions, params object?[])` | LINQ-translatable helper for PostgreSQL `jsonb_build_object(...)`. |
+| `JsonbBuildObjectDbFunctions.JsonbBuildObject(...)` / `JsonbObject(...).Add(...).Build()` | LINQ-translatable helpers for PostgreSQL `jsonb_build_object(...)` — fixed-arity overloads plus a fluent builder with typed string keys. |
 
 ## Wiring
 
@@ -85,9 +85,11 @@ public sealed class Ticket
 
 If you'd rather use PostgreSQL native enum types or `varchar` storage, register those as usual — this integration only ships the int4 path.
 
-### 5. `EF.Functions.JsonbBuildObject(...) → jsonb_build_object(...)`
+### 5. `jsonb_build_object(...)` in LINQ
 
-Builds a PostgreSQL `jsonb` object inside a LINQ query.
+Two ways to build a PostgreSQL `jsonb` object inside a query.
+
+**Fixed-arity overloads** — concise for one to three pairs:
 
 ```csharp
 var json = await ctx.Tickets
@@ -96,12 +98,24 @@ var json = await ctx.Tickets
         "title", t.Title,
         "severity", (int)t.Severity))
     .ToListAsync();
-// → SELECT jsonb_build_object('id', t.Id, 'title', t.Title, 'severity', t.Severity)::text FROM …
+// → SELECT jsonb_build_object('id', t.Id, 'title', t.Title, 'severity', t.Severity) FROM …
 ```
 
-The translator strips EF's boxing `Convert(..., object)` wrappers and applies a `text` type mapping to any mapping-less argument (e.g. compound `CASE`/`COALESCE` nodes) so the function can be used in projections without the EF tree validator complaining.
+**Fluent builder** — for an arbitrary number of pairs, with keys typed as `string` so a value can never land in a key position:
 
-Direct invocation throws — the method is a translator marker.
+```csharp
+var json = await ctx.Tickets
+    .Select(t => EF.Functions.JsonbObject("id", t.Id)
+        .Add("title", t.Title)
+        .Add("severity", (int)t.Severity)
+        .Add("openedAt", t.OpenedAt)
+        .Build())
+    .ToListAsync();
+```
+
+The first key/value pair is part of the `JsonbObject(...)` seed: that keeps the call referencing query data, otherwise EF would evaluate an empty constant seed client-side before translation. The terminal `.Build()` is required — it gives the projection a `string` result type (EF can't materialise the builder interface from a scalar column).
+
+Both forms strip EF's boxing `Convert(..., object)` wrappers and apply a `text` type mapping to any mapping-less argument (e.g. compound `CASE`/`COALESCE` nodes) so the function works in projections without the EF tree validator complaining. Direct invocation throws — the methods are translator markers.
 
 ## Cross-cutting design principle
 
