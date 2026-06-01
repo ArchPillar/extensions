@@ -183,6 +183,14 @@ internal sealed class NestedMapperInliner(
                 nestedLambda);
         }
 
+        // Any other call — including mapper.Invoke(src) — is left in place.
+        // Invoke is the deliberate opt-out from inlining: by NOT splicing the
+        // nested mapper's body into the projection, the call survives as
+        // `mapper.Invoke(src)`. The mapper reference is a member access, which a
+        // LINQ provider (EF Core) lifts to a query parameter rather than a
+        // captured constant, so the nested mapper is invoked on the materialised
+        // source instead of being translated. Arguments are still visited so
+        // nested Map()/Project() calls inside them are inlined.
         return base.VisitMethodCall(node);
     }
 
