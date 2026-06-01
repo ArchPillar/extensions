@@ -3,16 +3,21 @@ using Microsoft.EntityFrameworkCore;
 
 namespace ArchPillar.Extensions.Mapper;
 
-// DTOs for the ClientMap scenario.
-public sealed class CustomerClientDto
+// DTOs for the Invoke scenario.
+public sealed class InvokeCustomerDto
 {
     public string Name { get; set; } = "";
 }
 
-public sealed class OrderClientDto
+public sealed class InvokeOrderDto
 {
     public int Id { get; set; }
-    public CustomerClientDto? Customer { get; set; }
+    public InvokeCustomerDto? Customer { get; set; }
+}
+
+public sealed class InvokeWrapperDto
+{
+    public InvokeOrderDto? Inner { get; set; }
 }
 
 /// <summary>
@@ -20,63 +25,58 @@ public sealed class OrderClientDto
 /// <em>instance</em> method (capturing the context), used inside an outer
 /// mapper. Inlining the inner mapper embeds the instance call in the
 /// projection, which EF Core rejects ("constant expression ... through the
-/// instance method"). <c>ClientMap</c> opts the inner mapper out of inlining
-/// so EF materializes the source and runs it client-side instead.
+/// instance method"). <c>Invoke</c> opts the inner mapper out of inlining so
+/// the provider invokes it on the materialised source instead.
 /// </summary>
-public sealed class ClientMapMappers : MapperContext
+public sealed class InvokeMappers : MapperContext
 {
-    public Mapper<Customer, CustomerClientDto> Customer { get; }
+    public Mapper<Customer, InvokeCustomerDto> Customer { get; }
 
-    /// <summary>Outer mapper that opts out of inlining via <c>ClientMap</c>.</summary>
-    public Mapper<Order, OrderClientDto> OrderClient { get; }
+    /// <summary>Outer mapper that opts out of inlining via <c>Invoke</c>.</summary>
+    public Mapper<Order, InvokeOrderDto> OrderInvoke { get; }
 
     /// <summary>Outer mapper that inlines the inner mapper (reproduces the bug).</summary>
-    public Mapper<Order, OrderClientDto> OrderInlined { get; }
+    public Mapper<Order, InvokeOrderDto> OrderInlined { get; }
+
+    /// <summary>Grandparent that inlines <see cref="OrderInvoke"/> (which itself uses <c>Invoke</c>).</summary>
+    public Mapper<Order, InvokeWrapperDto> Wrapper { get; }
 
     // Instance method — captures `this`, untranslatable by EF Core.
-    private CustomerClientDto BuildCustomer(Customer c)
+    private InvokeCustomerDto BuildCustomer(Customer c)
         => new() { Name = new string(c.Name.Reverse().ToArray()) };
 
-    public ClientMapMappers()
+    public InvokeMappers()
     {
-        Customer = CreateMapper<Customer, CustomerClientDto>(src => new CustomerClientDto
+        Customer = CreateMapper<Customer, InvokeCustomerDto>(src => new InvokeCustomerDto
         {
             Name = BuildCustomer(src).Name,
         });
 
-        OrderClient = CreateMapper<Order, OrderClientDto>(src => new OrderClientDto
+        OrderInvoke = CreateMapper<Order, InvokeOrderDto>(src => new InvokeOrderDto
         {
             Id       = src.Id,
-            Customer = Customer.ClientMap(src.Customer),
+            Customer = Customer.Invoke(src.Customer),
         });
 
-        OrderInlined = CreateMapper<Order, OrderClientDto>(src => new OrderClientDto
+        OrderInlined = CreateMapper<Order, InvokeOrderDto>(src => new InvokeOrderDto
         {
             Id       = src.Id,
             Customer = Customer.Map(src.Customer),
         });
 
-        Wrapper = CreateMapper<Order, OrderWrapperDto>(src => new OrderWrapperDto
+        Wrapper = CreateMapper<Order, InvokeWrapperDto>(src => new InvokeWrapperDto
         {
-            Inner = OrderClient.Map(src),
+            Inner = OrderInvoke.Map(src),
         });
     }
-
-    /// <summary>Grandparent that inlines <see cref="OrderClient"/> (which itself uses <c>ClientMap</c>).</summary>
-    public Mapper<Order, OrderWrapperDto> Wrapper { get; }
 }
 
-public sealed class OrderWrapperDto
+public sealed class InvokeInMemoryTests
 {
-    public OrderClientDto? Inner { get; set; }
-}
-
-public sealed class ClientMapInMemoryTests
-{
-    private readonly ClientMapMappers _mappers = new();
+    private readonly InvokeMappers _mappers = new();
 
     [Fact]
-    public void ClientMap_InMemoryObjectMapping_MapsNestedObject()
+    public void Invoke_InMemoryObjectMapping_MapsNestedObject()
     {
         var order = new Order
         {
@@ -88,7 +88,7 @@ public sealed class ClientMapInMemoryTests
             Lines     = [],
         };
 
-        OrderClientDto? dto = _mappers.OrderClient.Map(order);
+        InvokeOrderDto? dto = _mappers.OrderInvoke.Map(order);
 
         Assert.NotNull(dto);
         Assert.Equal(1, dto.Id);
@@ -97,31 +97,33 @@ public sealed class ClientMapInMemoryTests
     }
 
     [Fact]
-    public void ClientMap_ToExpression_IsNotInlined()
+    public void Invoke_ToExpression_IsNotInlined()
     {
-        // Intent lock: unlike Map(), ClientMap must NOT be spliced into the
-        // projection. The call survives so the provider evaluates it client-side.
-        var expr = _mappers.OrderClient.ToExpression();
+        // Intent lock: unlike Map(), Invoke must NOT be spliced into the
+        // projection. The call survives so the provider invokes it at runtime.
+        var expr = _mappers.OrderInvoke.ToExpression();
 
         Assert.True(
-            ContainsClientMapCall(expr),
-            "ClientMap call should be preserved in the expression, not inlined.");
+            ContainsInvokeCall(expr),
+            "Invoke call should be preserved in the expression, not inlined.");
     }
 
-    private static bool ContainsClientMapCall(Expression expression)
+    private static bool ContainsInvokeCall(Expression expression)
     {
-        var finder = new ClientMapCallFinder();
+        var finder = new InvokeCallFinder();
         finder.Visit(expression);
         return finder.Found;
     }
 
-    private sealed class ClientMapCallFinder : ExpressionVisitor
+    private sealed class InvokeCallFinder : ExpressionVisitor
     {
         public bool Found { get; private set; }
 
         protected override Expression VisitMethodCall(MethodCallExpression node)
         {
-            if (node.Method.Name == "ClientMap")
+            if (node.Method.Name == "Invoke"
+                && node.Method.DeclaringType is { IsGenericType: true } declaring
+                && declaring.GetGenericTypeDefinition() == typeof(Mapper<,>))
             {
                 Found = true;
             }
@@ -131,7 +133,7 @@ public sealed class ClientMapInMemoryTests
     }
 
     [Fact]
-    public void ClientMap_NullSource_ReturnsNull()
+    public void Invoke_NullSource_ReturnsNull()
     {
         var order = new Order
         {
@@ -143,7 +145,7 @@ public sealed class ClientMapInMemoryTests
             Lines     = [],
         };
 
-        OrderClientDto? dto = _mappers.OrderClient.Map(order);
+        InvokeOrderDto? dto = _mappers.OrderInvoke.Map(order);
 
         Assert.NotNull(dto);
         Assert.Null(dto.Customer);
@@ -151,11 +153,11 @@ public sealed class ClientMapInMemoryTests
 }
 
 [Collection("PostgreSQL")]
-public sealed class ClientMapPostgresTests(PostgresFixture fixture) : IAsyncLifetime
+public sealed class InvokePostgresTests(PostgresFixture fixture) : IAsyncLifetime
 {
     private PostgresTestDatabase _postgres = null!;
     private PostgresTestDbContext _db = null!;
-    private readonly ClientMapMappers _mappers = new();
+    private readonly InvokeMappers _mappers = new();
 
     public async Task InitializeAsync()
     {
@@ -184,11 +186,11 @@ public sealed class ClientMapPostgresTests(PostgresFixture fixture) : IAsyncLife
     }
 
     [Fact]
-    public async Task ClientMap_Projection_TranslatesAndEvaluatesClientSideAsync()
+    public async Task Invoke_Projection_TranslatesAndEvaluatesAtRuntimeAsync()
     {
-        OrderClientDto result = await _db.Orders
+        InvokeOrderDto result = await _db.Orders
             .Where(o => o.Id == 1)
-            .Project(_mappers.OrderClient)
+            .Project(_mappers.OrderInvoke)
             .SingleAsync();
 
         Assert.Equal(1, result.Id);
@@ -197,11 +199,11 @@ public sealed class ClientMapPostgresTests(PostgresFixture fixture) : IAsyncLife
     }
 
     [Fact]
-    public async Task ClientMap_NestedInsideInlinedGrandparent_TranslatesAsync()
+    public async Task Invoke_NestedInsideInlinedGrandparent_TranslatesAsync()
     {
-        // The grandparent inlines OrderClient, which itself uses ClientMap. The
-        // ClientMap call must still be left for client evaluation at this depth.
-        OrderWrapperDto result = await _db.Orders
+        // The grandparent inlines OrderInvoke, which itself uses Invoke. The
+        // Invoke call must still be left for runtime evaluation at this depth.
+        InvokeWrapperDto result = await _db.Orders
             .Where(o => o.Id == 1)
             .Project(_mappers.Wrapper)
             .SingleAsync();
@@ -212,9 +214,9 @@ public sealed class ClientMapPostgresTests(PostgresFixture fixture) : IAsyncLife
     }
 
     [Fact]
-    public async Task InlinedInstanceMethod_Projection_ThrowsClientConstantAsync()
+    public async Task InlinedInstanceMethod_Projection_ThrowsCapturedConstantAsync()
     {
-        // Documents the bug ClientMap exists to avoid: inlining the inner mapper
+        // Documents the bug Invoke exists to avoid: inlining the inner mapper
         // embeds the instance method call in the SQL projection, which EF rejects.
         InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(
             () => _db.Orders
