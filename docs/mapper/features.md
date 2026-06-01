@@ -72,6 +72,8 @@ Order = CreateMapper<Order, OrderDto>(src => new OrderDto
 });
 ```
 
+If the source collection is `null`, an **optional** property maps to `null` (a guard is emitted for in-memory mapping, including when the mapper is inlined into a parent); a **required** collection property mapped from a `null` source throws `ArgumentNullException`. In EF Core projection the guard is omitted — collection navigations are never `null` in the database.
+
 ### Dictionaries
 
 Use standard `ToDictionary` with an inline `Map()` call in the value selector:

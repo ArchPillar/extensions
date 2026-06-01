@@ -129,7 +129,7 @@ public sealed class Mapper<TSource, TDest> : IMapper
                 ? IncludeSet.All
                 : includes.Nested.GetValueOrDefault(mapping.Destination.Name, IncludeSet.Empty);
 
-            body = new NestedMapperInliner(nestedIncludes, depth).Visit(body)!;
+            body = new NestedMapperInliner(nestedIncludes, depth, guardNullOptionalCollections).Visit(body)!;
 
             if (guardNullOptionalCollections && mapping.Kind == MappingKind.Optional)
             {
@@ -525,9 +525,10 @@ public sealed class Mapper<TSource, TDest> : IMapper
                 .Visit(BuildExpression(includes))!;
     }
 
-    LambdaExpression IMapper.GetRawExpression(IncludeSet includes, int depth)
+    LambdaExpression IMapper.GetRawExpression(
+        IncludeSet includes, int depth, bool guardNullOptionalCollections)
     {
-        return BuildExpression(includes, depth);
+        return BuildExpression(includes, depth, guardNullOptionalCollections);
     }
 
     void IMapper.Compile()
