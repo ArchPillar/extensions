@@ -183,6 +183,14 @@ internal sealed class NestedMapperInliner(
                 nestedLambda);
         }
 
+        // Any other call — including mapper.ClientMap(src) — is left in place.
+        // ClientMap is the deliberate opt-out from inlining: by NOT splicing the
+        // nested mapper's body into the projection, the call survives as
+        // `mapper.ClientMap(src)`. The mapper reference is a member access, which
+        // a LINQ provider (EF Core) lifts to a query parameter rather than a
+        // captured constant, so the nested mapper runs client-side after
+        // materialisation instead of being translated to SQL. Arguments are still
+        // visited so nested Map()/Project() calls inside them are inlined.
         return base.VisitMethodCall(node);
     }
 

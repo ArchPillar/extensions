@@ -497,6 +497,22 @@ public sealed class Mapper<TSource, TDest> : IMapper
         return _compiled.Value(source, null)!;
     }
 
+    /// <summary>
+    /// Maps a single item, opting this mapper <em>out</em> of expression-tree
+    /// inlining. Inside a LINQ projection, the parent mapper does not translate
+    /// this mapper into SQL; instead the source is materialised and this mapper
+    /// runs client-side. Use it when the nested mapping cannot (or should not) be
+    /// translated by the LINQ provider — for example when it routes through a
+    /// custom instance method that EF Core would reject.
+    /// <para>
+    /// Behaves identically to <see cref="Map(TSource)"/> for in-memory mapping;
+    /// returns <see langword="null"/> when <paramref name="source"/> is
+    /// <see langword="null"/>.
+    /// </para>
+    /// </summary>
+    [return: NotNullIfNotNull(nameof(source))]
+    public TDest? ClientMap(TSource? source) => Map(source);
+
     // -------------------------------------------------------------------------
     // LINQ / expression projection
     // -------------------------------------------------------------------------

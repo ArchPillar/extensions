@@ -257,6 +257,21 @@ Order = CreateMapper<Order, OrderDto>(src => new OrderDto
 
 In all cases the visitor inlines the nested mapper's full `MemberInitExpression` — the LINQ provider sees no delegate calls, only a plain expression tree, ensuring full server-side translation in EF Core (no N+1, no client-side evaluation). `OrderLine`, `TagMapper`, `ItemMapper` are all real C# property references, fully navigable by IDE tooling.
 
+#### Opting out of inlining — `ClientMap`
+
+Inlining requires the nested mapper to be translatable to SQL. When a nested mapping cannot (or should not) be translated — for example it routes through a custom instance method, or relies on logic the LINQ provider rejects — call `ClientMap(src.X)` instead of `Map(src.X)`:
+
+```csharp
+Order = CreateMapper<Order, OrderDto>(src => new OrderDto
+{
+    Form = FormMapper.ClientMap(src.Form),   // NOT inlined; evaluated client-side
+})
+```
+
+`ClientMap` is left in the expression tree rather than inlined. The provider materialises `src.Form` and runs `FormMapper` in memory on the result. This deliberately sidesteps the EF Core restriction that rejects a projection capturing a constant through an instance method (the "could potentially cause a memory leak; consider making the method static" error): an inlined nested mapper bakes its `MapperContext` in as a constant, whereas a surviving `mapper.ClientMap(src)` call exposes the mapper as a member access, which EF Core lifts to a query parameter. The call composes correctly even when the parent mapper is itself inlined into a grandparent.
+
+`ClientMap` behaves identically to `Map` for in-memory object mapping. It applies to single objects; for collections, the inlined `Project` path remains the translatable option.
+
 ### 5. Optional Properties
 
 Properties declared as optional are excluded from the default mapping and must be explicitly requested at the call site:
@@ -814,6 +829,10 @@ public sealed class Mapper<TSource, TDest>
     // Expression-safe single-item overload — no optional params, usable inside
     // member-init expressions and ToDictionary lambdas
     TDest? Map(TSource source);
+
+    // Like Map, but opts out of expression-tree inlining so the nested mapper is
+    // evaluated client-side in a projection instead of translated to SQL (see §4)
+    TDest? ClientMap(TSource? source);
 
     // Maps onto an existing destination; no-op if source is null (see §9)
     void MapTo(TSource? source, TDest destination, Action<MapOptions<TDest>>? options = null);
