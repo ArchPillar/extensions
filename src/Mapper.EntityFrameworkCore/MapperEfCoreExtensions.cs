@@ -83,7 +83,7 @@ public static class MapperEfCoreExtensions
     /// <code>
     /// var rows = await db.Orders
     ///     .Select(o => new Row { Id = o.Id, Dto = mappers.Order.Map(o)! })
-    ///     .InlineMappers()
+    ///     .ApplyMappers()
     ///     .ToListAsync();
     /// </code>
     /// </para>
@@ -91,7 +91,7 @@ public static class MapperEfCoreExtensions
     /// <typeparam name="TSource">The query element type.</typeparam>
     /// <param name="query">The query whose mapper calls should be inlined.</param>
     /// <returns>An equivalent query with mapper calls inlined into the projection.</returns>
-    public static IQueryable<TSource> InlineMappers<TSource>(this IQueryable<TSource> query)
+    public static IQueryable<TSource> ApplyMappers<TSource>(this IQueryable<TSource> query)
     {
         ArgumentNullException.ThrowIfNull(query);
 

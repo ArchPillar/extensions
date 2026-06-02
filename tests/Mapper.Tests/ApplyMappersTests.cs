@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 namespace ArchPillar.Extensions.Mapper;
 
 /// <summary>
-/// Verifies the explicit <see cref="MapperEfCoreExtensions.InlineMappers{TSource}"/>
+/// Verifies the explicit <see cref="MapperEfCoreExtensions.ApplyMappers{TSource}"/>
 /// path, which inlines mapper calls at query construction (before EF Core's
 /// parameter extraction) and therefore supports mappers that contain
 /// <see cref="Mapper{TSource,TDest}.Invoke(TSource)"/> in a hand-written
@@ -12,12 +12,12 @@ namespace ArchPillar.Extensions.Mapper;
 /// <see cref="IxMappers"/> context (its FormData mapping routes through an
 /// instance method, so it must run client-side).
 /// </summary>
-public sealed class InlineMappersTests : IDisposable
+public sealed class ApplyMappersTests : IDisposable
 {
     private readonly IxDbContext _db;
     private readonly IxMappers _mappers = new();
 
-    public InlineMappersTests()
+    public ApplyMappersTests()
     {
         DbContextOptionsBuilder<IxDbContext> builder = new DbContextOptionsBuilder<IxDbContext>()
             .UseSqlite("DataSource=:memory:");
@@ -40,24 +40,24 @@ public sealed class InlineMappersTests : IDisposable
     }
 
     [Fact]
-    public async Task InlineMappers_ScalarMapInSelect_RunsInvokeInMemoryAsync()
+    public async Task ApplyMappers_ScalarMapInSelect_RunsInvokeInMemoryAsync()
     {
         IxFormVm result = await _db.Forms
             .Where(f => f.Id == 1)
             .Select(f => _mappers.Form.Map(f)!)
-            .InlineMappers()
+            .ApplyMappers()
             .SingleAsync();
 
         Assert.Equal("olleh", result.Data!.Value);
     }
 
     [Fact]
-    public async Task InlineMappers_CustomSelectWithMapperProperty_RunsInvokeInMemoryAsync()
+    public async Task ApplyMappers_CustomSelectWithMapperProperty_RunsInvokeInMemoryAsync()
     {
         var result = await _db.Forms
             .Where(f => f.Id == 1)
             .Select(f => new { f.Id, Vm = _mappers.Form.Map(f)! })
-            .InlineMappers()
+            .ApplyMappers()
             .SingleAsync();
 
         Assert.Equal(1, result.Id);
@@ -65,16 +65,16 @@ public sealed class InlineMappersTests : IDisposable
     }
 
     [Fact]
-    public async Task DirectMapWithoutInlineMappers_ThrowsHelpfulErrorAsync()
+    public async Task DirectMapWithoutApplyMappers_ThrowsHelpfulErrorAsync()
     {
         // The automatic interceptor runs after parameter extraction, so it cannot
-        // inline an Invoke-containing mapper; it should fail fast pointing to InlineMappers.
+        // inline an Invoke-containing mapper; it should fail fast pointing to ApplyMappers.
         InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(
             () => _db.Forms
                 .Where(f => f.Id == 1)
                 .Select(f => _mappers.Form.Map(f)!)
                 .SingleAsync());
 
-        Assert.Contains("InlineMappers", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("ApplyMappers", ex.Message, StringComparison.Ordinal);
     }
 }

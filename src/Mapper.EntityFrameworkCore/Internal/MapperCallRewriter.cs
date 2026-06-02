@@ -16,7 +16,7 @@ namespace ArchPillar.Extensions.Mapper.EntityFrameworkCore.Internal;
 /// Shared by two callers with different timing relative to EF Core's funcletizer:
 /// <see cref="MapperInliningInterceptor"/> runs <em>after</em> parameter extraction
 /// (<paramref name="flattenVariableBoxes"/> = <see langword="true"/>), while the
-/// <c>InlineMappers</c> extension runs at query construction, <em>before</em>
+/// <c>ApplyMappers</c> extension runs at query construction, <em>before</em>
 /// parameter extraction (<paramref name="flattenVariableBoxes"/> = <see langword="false"/>),
 /// so the funcletizer lifts variable and invoke boxes into query parameters normally.
 /// </para>
@@ -80,7 +80,7 @@ internal sealed class MapperCallRewriter(bool flattenVariableBoxes) : Expression
     /// can no longer lift them. In that path a mapper containing an
     /// <see cref="Mapper{TSource,TDest}.Invoke(TSource)"/> cannot be supported —
     /// the invoke box would reach EF's client-projection verifier as a captured
-    /// constant — so a clear error directs the caller to <c>InlineMappers()</c>.
+    /// constant — so a clear error directs the caller to <c>ApplyMappers()</c>.
     /// </para>
     /// </summary>
     private LambdaExpression GetProjection(
@@ -101,7 +101,7 @@ internal sealed class MapperCallRewriter(bool flattenVariableBoxes) : Expression
             throw new InvalidOperationException(
                 $"The mapper for '{sourceType.Name}' -> '{destType.Name}' contains an Invoke(...) call, " +
                 "which cannot be inlined into a hand-written LINQ query by the EF Core integration " +
-                "(the mapper is expanded after EF's parameter extraction). Call .InlineMappers() on the " +
+                "(the mapper is expanded after EF's parameter extraction). Call .ApplyMappers() on the " +
                 "query, or project the whole row with .Project(mapper), so the mapper is inlined before " +
                 "parameter extraction.");
         }
