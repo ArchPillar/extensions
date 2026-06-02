@@ -717,6 +717,21 @@ mappers.Order.Map(o, c => c.Include(m => m.CustomerName));
 o.Lines.Project(mappers.OrderLine, c => c.Include(m => m.SupplierName));
 ```
 
+##### Hand-written queries with `Invoke` — `InlineMappers()`
+
+The interceptor runs **after** EF Core's parameter extraction, so it cannot inline a mapper that contains an `Invoke` call (§4): the invoke box would be spliced in too late to be lifted into a query parameter, and EF rejects it as a captured constant. The interceptor detects this and throws a clear error pointing here.
+
+For those queries, call `InlineMappers()` — the explicit, opt-in counterpart that runs the *same* rewrite at **query-construction time**, before parameter extraction, so the box (and any variable boxes) parameterize normally:
+
+```csharp
+var rows = await db.Orders
+    .Select(o => new OrderRow { OrderId = o.Id, Order = mappers.Order.Map(o)! })
+    .InlineMappers()   // inline before EF sees the query → Invoke-containing mappers work
+    .ToListAsync();
+```
+
+`InlineMappers()` and the automatic interceptor share one rewriter; the only difference is timing (and that `InlineMappers()` leaves variable substitutions as funcletizable boxes rather than folding them to constants). Projecting a whole row with `.Project(mapper)` already runs at construction time and so supports `Invoke` without the explicit call.
+
 #### Enum mappers → flat SQL CASE
 
 `EnumMapper.Map()` and `SymmetricEnumMapper.Map()` / `.MapReverse()` calls used directly in a query are translated by a custom `IMethodCallTranslator` into a flat SQL `CASE operand WHEN … THEN … END` with one branch per enum value, rather than the nested conditional chain emitted by the provider-agnostic path. This keeps SQL nesting shallow for enums with many values. Enum mapper tables are computed on demand the first time a given enum mapper is used in a query.
