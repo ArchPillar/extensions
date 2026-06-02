@@ -99,36 +99,41 @@ public sealed class InvokeInMemoryTests
     [Fact]
     public void Invoke_ToExpression_IsNotInlined()
     {
-        // Intent lock: unlike Map(), Invoke must NOT be spliced into the
-        // projection. The call survives so the provider invokes it at runtime.
+        // Intent lock: unlike Map(), Invoke must NOT splice the nested mapper's
+        // body into the projection. It is rewritten to a delegate invocation
+        // (the mapper's cached delegate, held in a MapperInvokeBox), so the
+        // nested mapping runs in memory rather than being translated.
         var expr = _mappers.OrderInvoke.ToExpression();
+        var finder = new ExpressionShapeFinder();
+        finder.Visit(expr);
 
         Assert.True(
-            ContainsInvokeCall(expr),
-            "Invoke call should be preserved in the expression, not inlined.");
+            finder.HasInvocation,
+            "Invoke should compile to a delegate invocation, not be inlined.");
+        Assert.False(
+            finder.InlinesNestedDto,
+            "The nested mapper body must not be spliced into the projection.");
     }
 
-    private static bool ContainsInvokeCall(Expression expression)
+    private sealed class ExpressionShapeFinder : ExpressionVisitor
     {
-        var finder = new InvokeCallFinder();
-        finder.Visit(expression);
-        return finder.Found;
-    }
+        public bool HasInvocation { get; private set; }
+        public bool InlinesNestedDto { get; private set; }
 
-    private sealed class InvokeCallFinder : ExpressionVisitor
-    {
-        public bool Found { get; private set; }
-
-        protected override Expression VisitMethodCall(MethodCallExpression node)
+        protected override Expression VisitInvocation(InvocationExpression node)
         {
-            if (node.Method.Name == "Invoke"
-                && node.Method.DeclaringType is { IsGenericType: true } declaring
-                && declaring.GetGenericTypeDefinition() == typeof(Mapper<,>))
+            HasInvocation = true;
+            return base.VisitInvocation(node);
+        }
+
+        protected override Expression VisitMemberInit(MemberInitExpression node)
+        {
+            if (node.Type == typeof(InvokeCustomerDto))
             {
-                Found = true;
+                InlinesNestedDto = true;
             }
 
-            return base.VisitMethodCall(node);
+            return base.VisitMemberInit(node);
         }
     }
 

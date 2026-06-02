@@ -55,7 +55,7 @@ namespace ArchPillar.Extensions.Mapper;
 ///     Product  = GetMapper&lt;Product, ProductDto&gt;("product").Map(src.Product),
 /// </code>
 /// </summary>
-public sealed class Mapper<TSource, TDest> : IMapper
+public sealed class Mapper<TSource, TDest> : IMapper, IInvokeExpressionBuilder
 {
     private readonly IReadOnlyList<IExpressionTransformer>                       _transformers;
     private readonly Lazy<Func<TSource?, List<(object, object?)>?, TDest?>>  _compiled;
@@ -499,20 +499,48 @@ public sealed class Mapper<TSource, TDest> : IMapper
 
     /// <summary>
     /// Maps a single item by <em>invoking</em> this mapper as a function rather
-    /// than inlining its expression tree. Inside a LINQ projection, the parent
-    /// mapper does not fold this mapper into the query; the call survives so the
-    /// provider evaluates it on the materialised source. Use it when the nested
-    /// mapping cannot (or should not) be translated by the LINQ provider — for
-    /// example when it routes through a custom instance method the provider would
-    /// reject.
+    /// than inlining its expression tree. Inside a LINQ projection the nested
+    /// mapper is not folded into the query; instead it is compiled to a delegate
+    /// call that the provider evaluates on the materialised source. Use it when
+    /// the nested mapping cannot (or should not) be translated by the LINQ
+    /// provider — for example when it routes through a custom instance method the
+    /// provider would reject.
     /// <para>
-    /// Behaves identically to <see cref="Map(TSource)"/> for in-memory mapping;
-    /// returns <see langword="null"/> when <paramref name="source"/> is
+    /// Works on the <c>Project</c> / <c>ToExpression</c> projection path, with or
+    /// without the EF Core integration (<c>UseArchPillarMapper</c>). Behaves
+    /// identically to <see cref="Map(TSource)"/> for in-memory mapping; returns
+    /// <see langword="null"/> when <paramref name="source"/> is
     /// <see langword="null"/>.
     /// </para>
     /// </summary>
     [return: NotNullIfNotNull(nameof(source))]
     public TDest? Invoke(TSource? source) => Map(source);
+
+    // The MapperInvokeBox.Map member, resolved once from a compiler-built
+    // expression (an ldtoken reference) rather than a string-based reflection
+    // lookup, so the member survives trimming and the code is AOT-safe.
+    private static readonly MemberInfo _invokeBoxMapMember = ResolveInvokeBoxMapMember();
+
+    private static MemberInfo ResolveInvokeBoxMapMember()
+    {
+        Expression<Func<MapperInvokeBox<TSource, TDest?>, Func<TSource, TDest?>>> accessor = box => box.Map;
+        return ((MemberExpression)accessor.Body).Member;
+    }
+
+    /// <summary>
+    /// Builds <c>box.Map.Invoke(source)</c>, where <c>box</c> carries this
+    /// mapper's cached <see cref="Map(TSource)"/> delegate in a non-mapper
+    /// <see cref="MapperInvokeBox{TSource,TResult}"/>. No reflection or generic
+    /// type construction is needed — the closed generic types are known here, so
+    /// a provider's funcletizer parameterizes <c>box.Map</c> and runs the mapping
+    /// in memory on the materialised source.
+    /// </summary>
+    Expression IInvokeExpressionBuilder.BuildInvokeExpression(Expression source)
+    {
+        var box = new MapperInvokeBox<TSource, TDest?>(Map);
+        Expression mapAccess = Expression.MakeMemberAccess(Expression.Constant(box), _invokeBoxMapMember);
+        return Expression.Invoke(mapAccess, source);
+    }
 
     // -------------------------------------------------------------------------
     // LINQ / expression projection
