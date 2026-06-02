@@ -201,39 +201,15 @@ internal sealed class NestedMapperInliner(
     }
 
     /// <summary>
-    /// Rewrites <c>mapper.Invoke(src)</c> into <c>box.Map.Invoke(src)</c>, where
-    /// <c>box</c> is a <see cref="MapperInvokeBox{TSource,TResult}"/> wrapping the
-    /// mapper's existing cached delegate. The mapper's expression is not
-    /// re-extracted; the box simply carries the mapper's <c>Invoke</c> method
-    /// group, so the nested mapping runs in memory exactly as a direct
-    /// <see cref="Mapper{TSource,TDest}.Invoke(TSource)"/> call would.
+    /// Rewrites <c>mapper.Invoke(src)</c> into an invocation of the mapper's
+    /// cached delegate, delegating the (strongly-typed, reflection-free)
+    /// expression construction to the mapper itself via
+    /// <see cref="IInvokeExpressionBuilder"/>.
     /// </summary>
     private Expression RewriteInvoke(MethodCallExpression node)
     {
-        Type mapperType = node.Object!.Type;
-        IMapper mapper  = CompileMapperAccessor(node.Object!);
-
-        MethodInfo invokeMethod = mapperType.GetMethods()
-            .Single(m => m.Name == nameof(Mapper<object, object>.Invoke)
-                && m.GetParameters().Length == 1);
-
-        Type sourceType = invokeMethod.GetParameters()[0].ParameterType;
-        Type resultType = invokeMethod.ReturnType;
-        Type funcType   = typeof(Func<,>).MakeGenericType(sourceType, resultType);
-
-        // Bind to the mapper's Invoke method group: this reuses the mapper's
-        // cached compiled delegate — nothing is recompiled here.
-        Delegate map = invokeMethod.CreateDelegate(funcType, mapper);
-
-        Type boxType   = typeof(MapperInvokeBox<,>).MakeGenericType(sourceType, resultType);
-        var box        = Activator.CreateInstance(boxType, map)!;
-        PropertyInfo mapProperty = boxType.GetProperty(nameof(MapperInvokeBox<object, object>.Map))!;
-
-        // box.Map is a member access on a non-mapper constant, so the provider's
-        // funcletizer parameterizes it rather than pinning it as a constant.
-        Expression mapAccess = Expression.Property(Expression.Constant(box, boxType), mapProperty);
-        Expression srcExpr   = Visit(node.Arguments[0])!;
-        return Expression.Invoke(mapAccess, srcExpr);
+        var builder = (IInvokeExpressionBuilder)CompileMapperAccessor(node.Object!);
+        return builder.BuildInvokeExpression(Visit(node.Arguments[0])!);
     }
 
     /// <summary>

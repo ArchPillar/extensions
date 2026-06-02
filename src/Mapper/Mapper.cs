@@ -55,7 +55,7 @@ namespace ArchPillar.Extensions.Mapper;
 ///     Product  = GetMapper&lt;Product, ProductDto&gt;("product").Map(src.Product),
 /// </code>
 /// </summary>
-public sealed class Mapper<TSource, TDest> : IMapper
+public sealed class Mapper<TSource, TDest> : IMapper, IInvokeExpressionBuilder
 {
     private readonly IReadOnlyList<IExpressionTransformer>                       _transformers;
     private readonly Lazy<Func<TSource?, List<(object, object?)>?, TDest?>>  _compiled;
@@ -515,6 +515,32 @@ public sealed class Mapper<TSource, TDest> : IMapper
     /// </summary>
     [return: NotNullIfNotNull(nameof(source))]
     public TDest? Invoke(TSource? source) => Map(source);
+
+    // The MapperInvokeBox.Map member, resolved once from a compiler-built
+    // expression (an ldtoken reference) rather than a string-based reflection
+    // lookup, so the member survives trimming and the code is AOT-safe.
+    private static readonly MemberInfo _invokeBoxMapMember = ResolveInvokeBoxMapMember();
+
+    private static MemberInfo ResolveInvokeBoxMapMember()
+    {
+        Expression<Func<MapperInvokeBox<TSource, TDest?>, Func<TSource, TDest?>>> accessor = box => box.Map;
+        return ((MemberExpression)accessor.Body).Member;
+    }
+
+    /// <summary>
+    /// Builds <c>box.Map.Invoke(source)</c>, where <c>box</c> carries this
+    /// mapper's cached <see cref="Invoke(TSource)"/> delegate in a non-mapper
+    /// <see cref="MapperInvokeBox{TSource,TResult}"/>. No reflection or generic
+    /// type construction is needed — the closed generic types are known here, so
+    /// a provider's funcletizer parameterizes <c>box.Map</c> and runs the mapping
+    /// in memory on the materialised source.
+    /// </summary>
+    Expression IInvokeExpressionBuilder.BuildInvokeExpression(Expression source)
+    {
+        var box = new MapperInvokeBox<TSource, TDest?>(Invoke);
+        Expression mapAccess = Expression.MakeMemberAccess(Expression.Constant(box), _invokeBoxMapMember);
+        return Expression.Invoke(mapAccess, source);
+    }
 
     // -------------------------------------------------------------------------
     // LINQ / expression projection
