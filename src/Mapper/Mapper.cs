@@ -529,7 +529,7 @@ public sealed class Mapper<TSource, TDest> : IMapper, IInvokeExpressionBuilder
 
     /// <summary>
     /// Builds <c>box.Map.Invoke(source)</c>, where <c>box</c> carries this
-    /// mapper's cached <see cref="Invoke(TSource)"/> delegate in a non-mapper
+    /// mapper's cached <see cref="Map(TSource)"/> delegate in a non-mapper
     /// <see cref="MapperInvokeBox{TSource,TResult}"/>. No reflection or generic
     /// type construction is needed — the closed generic types are known here, so
     /// a provider's funcletizer parameterizes <c>box.Map</c> and runs the mapping
@@ -537,7 +537,7 @@ public sealed class Mapper<TSource, TDest> : IMapper, IInvokeExpressionBuilder
     /// </summary>
     Expression IInvokeExpressionBuilder.BuildInvokeExpression(Expression source)
     {
-        var box = new MapperInvokeBox<TSource, TDest?>(Invoke);
+        var box = new MapperInvokeBox<TSource, TDest?>(Map);
         Expression mapAccess = Expression.MakeMemberAccess(Expression.Constant(box), _invokeBoxMapMember);
         return Expression.Invoke(mapAccess, source);
     }
