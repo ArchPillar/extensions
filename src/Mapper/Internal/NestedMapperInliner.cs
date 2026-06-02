@@ -183,15 +183,57 @@ internal sealed class NestedMapperInliner(
                 nestedLambda);
         }
 
-        // Any other call — including mapper.Invoke(src) — is left in place.
-        // Invoke is the deliberate opt-out from inlining: by NOT splicing the
-        // nested mapper's body into the projection, the call survives as
-        // `mapper.Invoke(src)`. The mapper reference is a member access, which a
-        // LINQ provider (EF Core) lifts to a query parameter rather than a
-        // captured constant, so the nested mapper is invoked on the materialised
-        // source instead of being translated. Arguments are still visited so
-        // nested Map()/Project() calls inside them are inlined.
+        // mapper.Invoke(src) — the deliberate opt-out from inlining. Rather than
+        // splice the nested mapper's body into the projection (which would force
+        // the LINQ provider to translate it to SQL), rewrite the call into an
+        // invocation of the mapper's already-compiled delegate, held in a plain
+        // MapperInvokeBox. The box is not a mapper type, so a provider (EF Core)
+        // lifts it to a query parameter and evaluates the nested mapper in memory
+        // on the materialised source instead of translating it.
+        if (IsInvokeCall(node))
+        {
+            return RewriteInvoke(node);
+        }
+
+        // Any other call is left in place; arguments are still visited so nested
+        // Map()/Project() calls inside them are inlined.
         return base.VisitMethodCall(node);
+    }
+
+    /// <summary>
+    /// Rewrites <c>mapper.Invoke(src)</c> into <c>box.Map.Invoke(src)</c>, where
+    /// <c>box</c> is a <see cref="MapperInvokeBox{TSource,TResult}"/> wrapping the
+    /// mapper's existing cached delegate. The mapper's expression is not
+    /// re-extracted; the box simply carries the mapper's <c>Invoke</c> method
+    /// group, so the nested mapping runs in memory exactly as a direct
+    /// <see cref="Mapper{TSource,TDest}.Invoke(TSource)"/> call would.
+    /// </summary>
+    private Expression RewriteInvoke(MethodCallExpression node)
+    {
+        Type mapperType = node.Object!.Type;
+        IMapper mapper  = CompileMapperAccessor(node.Object!);
+
+        MethodInfo invokeMethod = mapperType.GetMethods()
+            .Single(m => m.Name == nameof(Mapper<object, object>.Invoke)
+                && m.GetParameters().Length == 1);
+
+        Type sourceType = invokeMethod.GetParameters()[0].ParameterType;
+        Type resultType = invokeMethod.ReturnType;
+        Type funcType   = typeof(Func<,>).MakeGenericType(sourceType, resultType);
+
+        // Bind to the mapper's Invoke method group: this reuses the mapper's
+        // cached compiled delegate — nothing is recompiled here.
+        Delegate map = invokeMethod.CreateDelegate(funcType, mapper);
+
+        Type boxType   = typeof(MapperInvokeBox<,>).MakeGenericType(sourceType, resultType);
+        var box        = Activator.CreateInstance(boxType, map)!;
+        PropertyInfo mapProperty = boxType.GetProperty(nameof(MapperInvokeBox<object, object>.Map))!;
+
+        // box.Map is a member access on a non-mapper constant, so the provider's
+        // funcletizer parameterizes it rather than pinning it as a constant.
+        Expression mapAccess = Expression.Property(Expression.Constant(box, boxType), mapProperty);
+        Expression srcExpr   = Visit(node.Arguments[0])!;
+        return Expression.Invoke(mapAccess, srcExpr);
     }
 
     /// <summary>
@@ -226,6 +268,12 @@ internal sealed class NestedMapperInliner(
         && (IsClosedGenericOf(node.Object.Type, typeof(Mapper<,>))
          || IsClosedGenericOf(node.Object.Type, typeof(EnumMapper<,>))
          || IsClosedGenericOf(node.Object.Type, typeof(SymmetricEnumMapper<,>)));
+
+    private static bool IsInvokeCall(MethodCallExpression node)
+        => node.Object != null
+        && node.Method.Name == nameof(Mapper<object, object>.Invoke)
+        && node.Arguments.Count == 1
+        && IsClosedGenericOf(node.Object.Type, typeof(Mapper<,>));
 
     private static bool IsReverseMapCall(MethodCallExpression node)
         => node.Object != null

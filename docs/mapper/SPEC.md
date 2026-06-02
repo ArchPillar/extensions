@@ -268,9 +268,11 @@ Order = CreateMapper<Order, OrderDto>(src => new OrderDto
 })
 ```
 
-Where `Map(src.X)` is folded into the query and never actually called, `Invoke(src.X)` is left in the expression tree as a real method call. The provider materialises `src.Form` and invokes `FormMapper` on the result. This deliberately sidesteps the EF Core restriction that rejects a projection capturing a constant through an instance method (the "could potentially cause a memory leak; consider making the method static" error): an inlined nested mapper bakes its `MapperContext` in as a constant, whereas a surviving `mapper.Invoke(src)` call exposes the mapper as a member access, which EF Core lifts to a query parameter. The call composes correctly even when the parent mapper is itself inlined into a grandparent.
+Where `Map(src.X)` is folded into the query and never actually called, `Invoke(src.X)` is rewritten — during `ToExpression()` — into a call to the mapper's already-compiled delegate, held in a small non-mapper `MapperInvokeBox`. The provider materialises `src.Form`, lifts the box into a query parameter (its type is not a mapper, so it escapes both the entity-equality rules and the integration's mapper-pinning filter), and invokes the nested mapper in memory on the result. The mapper's expression is never re-extracted or recompiled — the box carries its cached delegate. This sidesteps EF Core's rejection of a projection that captures the `MapperContext` as a constant (the "could potentially cause a memory leak" error) that an inlined non-translatable mapper would otherwise trigger.
 
-`Invoke` behaves identically to `Map` for in-memory object mapping. It applies to single objects; for collections, the inlined `Project` path remains the translatable option.
+This works on the `Project` / `ToExpression` path **with or without** the EF Core integration (`UseArchPillarMapper`), and at any nesting depth. `Invoke` behaves identically to `Map` for in-memory object mapping. It applies to single objects; for collections, the inlined `Project` path remains the translatable option.
+
+> **Limitation:** a *direct* `mapper.Map(o)` call typed into a hand-written query (inlined by `UseArchPillarMapper`'s interceptor) whose mapper itself contains an `Invoke` is not supported — the interceptor runs after EF's parameter extraction, so the box can no longer be lifted to a parameter. Use the `Project` / `ToExpression` path for mappers that contain `Invoke`.
 
 ### 5. Optional Properties
 

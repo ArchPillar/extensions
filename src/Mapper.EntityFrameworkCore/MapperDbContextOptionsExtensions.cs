@@ -17,6 +17,13 @@ namespace ArchPillar.Extensions.Mapper.EntityFrameworkCore;
 /// </summary>
 public static class MapperDbContextOptionsExtensions
 {
+    // Shared, stateless interceptor instances. Passing the same instances on
+    // every call keeps EF Core's internal service-provider fingerprint stable,
+    // so building many contexts with the integration reuses one provider rather
+    // than creating a fresh one per call.
+    private static readonly EnumMapperQueryInterceptor _enumMapperInterceptor = new();
+    private static readonly MapperInliningInterceptor _mapperInliningInterceptor = new();
+
     /// <summary>
     /// Registers the ArchPillar Mapper EF Core integration, enabling direct
     /// <c>EnumMapper&lt;,&gt;.Map()</c> calls as well as inlining of regular
@@ -39,7 +46,7 @@ public static class MapperDbContextOptionsExtensions
             return builder;
         }
 
-        builder.AddInterceptors(new EnumMapperQueryInterceptor(), new MapperInliningInterceptor());
+        builder.AddInterceptors(_enumMapperInterceptor, _mapperInliningInterceptor);
 
         ((IDbContextOptionsBuilderInfrastructure)builder)
             .AddOrUpdateExtension(new ArchPillarMapperOptionsExtension());

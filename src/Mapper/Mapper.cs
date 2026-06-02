@@ -499,15 +499,17 @@ public sealed class Mapper<TSource, TDest> : IMapper
 
     /// <summary>
     /// Maps a single item by <em>invoking</em> this mapper as a function rather
-    /// than inlining its expression tree. Inside a LINQ projection, the parent
-    /// mapper does not fold this mapper into the query; the call survives so the
-    /// provider evaluates it on the materialised source. Use it when the nested
-    /// mapping cannot (or should not) be translated by the LINQ provider — for
-    /// example when it routes through a custom instance method the provider would
-    /// reject.
+    /// than inlining its expression tree. Inside a LINQ projection the nested
+    /// mapper is not folded into the query; instead it is compiled to a delegate
+    /// call that the provider evaluates on the materialised source. Use it when
+    /// the nested mapping cannot (or should not) be translated by the LINQ
+    /// provider — for example when it routes through a custom instance method the
+    /// provider would reject.
     /// <para>
-    /// Behaves identically to <see cref="Map(TSource)"/> for in-memory mapping;
-    /// returns <see langword="null"/> when <paramref name="source"/> is
+    /// Works on the <c>Project</c> / <c>ToExpression</c> projection path, with or
+    /// without the EF Core integration (<c>UseArchPillarMapper</c>). Behaves
+    /// identically to <see cref="Map(TSource)"/> for in-memory mapping; returns
+    /// <see langword="null"/> when <paramref name="source"/> is
     /// <see langword="null"/>.
     /// </para>
     /// </summary>
