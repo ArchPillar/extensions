@@ -25,8 +25,9 @@ public sealed class BindMismatchErrorTests
     public void Map_PropertyTypeMismatch_ThrowsClearError()
     {
         // A mapping that binds an int-typed source value to a string property.
-        // (C#'s member-init/builder type-checking prevents writing this directly;
-        // such mismatches arise in practice from nested-mapper inlining.)
+        // C# type-checks member-init and the fluent builder, so such a mismatch
+        // cannot be written directly — in practice it arises from nested-mapper
+        // inlining, so the test builds the mapping via the internal constructor.
         ParameterExpression src = Expression.Parameter(typeof(MismatchSource), "src");
         LambdaExpression sourceExpr = Expression.Lambda(
             Expression.Property(src, nameof(MismatchSource.Value)), src);
