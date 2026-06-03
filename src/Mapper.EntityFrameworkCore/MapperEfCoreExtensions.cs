@@ -1,3 +1,6 @@
+using System.Linq.Expressions;
+using ArchPillar.Extensions.Mapper.EntityFrameworkCore.Internal;
+
 namespace ArchPillar.Extensions.Mapper.EntityFrameworkCore;
 
 /// <summary>
@@ -61,5 +64,38 @@ public static class MapperEfCoreExtensions
 
         Func<TSource, TDest> compiled = mapper.ToExpression(configure).Compile();
         return source.Select(compiled);
+    }
+
+    /// <summary>
+    /// Inlines every direct <c>mapper.Map(...)</c> and <c>source.Project(mapper)</c>
+    /// call inside a hand-written LINQ query into the mapper's projection
+    /// expression, at query-construction time.
+    /// <para>
+    /// This is the explicit, opt-in counterpart to the automatic inlining performed
+    /// by <see cref="MapperDbContextOptionsExtensions.UseArchPillarMapper"/>. Because
+    /// it runs <em>before</em> EF Core's parameter extraction, it supports mappers
+    /// that contain <see cref="Mapper{TSource,TDest}.Invoke(TSource)"/> calls (the
+    /// nested mapping runs in memory on the materialised source) — which the
+    /// automatic interceptor cannot, since it runs after parameter extraction.
+    /// </para>
+    /// <para>
+    /// Use it on a query whose projection calls a mapper that contains <c>Invoke</c>:
+    /// <code>
+    /// var rows = await db.Orders
+    ///     .Select(o => new Row { Id = o.Id, Dto = mappers.Order.Map(o)! })
+    ///     .ApplyMappers()
+    ///     .ToListAsync();
+    /// </code>
+    /// </para>
+    /// </summary>
+    /// <typeparam name="TSource">The query element type.</typeparam>
+    /// <param name="query">The query whose mapper calls should be inlined.</param>
+    /// <returns>An equivalent query with mapper calls inlined into the projection.</returns>
+    public static IQueryable<TSource> ApplyMappers<TSource>(this IQueryable<TSource> query)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        Expression rewritten = new MapperCallRewriter(flattenVariableBoxes: false).Visit(query.Expression)!;
+        return query.Provider.CreateQuery<TSource>(rewritten);
     }
 }
