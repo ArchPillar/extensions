@@ -1,6 +1,7 @@
 using System.Text;
+using ArchPillar.Extensions.Localization.Formats;
 
-namespace ArchPillar.Extensions.Localization.Formats.Arb.Tests;
+namespace ArchPillar.Extensions.Localization.Tests;
 
 public sealed class ArbTranslationFormatTests
 {
@@ -59,9 +60,8 @@ public sealed class ArbTranslationFormatTests
     public async Task RoundTrip_PreservesIcuPluralVerbatimAsync()
     {
         const string Plural = "{count, plural, one {# item} other {# items}}";
-        Catalog catalog = SingleEntry("items", Plural);
 
-        Catalog roundTripped = await RoundTripAsync(catalog);
+        Catalog roundTripped = await RoundTripAsync(SingleEntry("items", Plural));
 
         Assert.Equal(Plural, Assert.Single(roundTripped.Entries).TranslatedMessage);
     }
@@ -69,9 +69,7 @@ public sealed class ArbTranslationFormatTests
     [Fact]
     public async Task Write_IsByteStableAcrossReadWriteCyclesAsync()
     {
-        Catalog catalog = SingleEntry("greeting", "Hallo");
-
-        var first = await WriteAsync(catalog);
+        var first = await WriteAsync(SingleEntry("greeting", "Hallo"));
         var second = await WriteAsync(await ReadAsync(first));
 
         Assert.Equal(first, second);
@@ -103,9 +101,7 @@ public sealed class ArbTranslationFormatTests
     [Fact]
     public async Task Write_EmitsLocaleAndUnescapedUnicodeAsync()
     {
-        Catalog catalog = SingleEntry("city", "München");
-
-        var text = Encoding.UTF8.GetString(await WriteAsync(catalog));
+        var text = Encoding.UTF8.GetString(await WriteAsync(SingleEntry("city", "München")));
 
         Assert.Contains("\"@@locale\": \"de\"", text);
         Assert.Contains("München", text);

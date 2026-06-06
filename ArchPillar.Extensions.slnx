@@ -21,6 +21,10 @@
   <Folder Name="/samples/Commands/Command.WebApiSample/">
     <Project Path="samples/Commands/Command.WebApiSample/Command.WebApiSample.csproj" />
   </Folder>
+  <Folder Name="/samples/Localization/" />
+  <Folder Name="/samples/Localization/Localization.ConsoleSample/">
+    <Project Path="samples/Localization/Localization.ConsoleSample/Localization.ConsoleSample.csproj" />
+  </Folder>
   <Folder Name="/benchmarks/" />
   <Folder Name="/benchmarks/Mapper.Benchmarks/">
     <Project Path="benchmarks/Mapper.Benchmarks/ArchPillar.Extensions.Mapper.Benchmarks.csproj" />
@@ -56,8 +60,8 @@
   <Folder Name="/src/Localization.Abstractions/">
     <Project Path="src/Localization.Abstractions/ArchPillar.Extensions.Localization.Abstractions.csproj" />
   </Folder>
-  <Folder Name="/src/Localization.Formats.Arb/">
-    <Project Path="src/Localization.Formats.Arb/ArchPillar.Extensions.Localization.Formats.Arb.csproj" />
+  <Folder Name="/src/Localization/">
+    <Project Path="src/Localization/ArchPillar.Extensions.Localization.csproj" />
   </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/Mapper.Tests/">
@@ -84,7 +88,7 @@
   <Folder Name="/tests/Localization.Abstractions.Tests/">
     <Project Path="tests/Localization.Abstractions.Tests/ArchPillar.Extensions.Localization.Abstractions.Tests.csproj" />
   </Folder>
-  <Folder Name="/tests/Localization.Formats.Arb.Tests/">
-    <Project Path="tests/Localization.Formats.Arb.Tests/ArchPillar.Extensions.Localization.Formats.Arb.Tests.csproj" />
+  <Folder Name="/tests/Localization.Tests/">
+    <Project Path="tests/Localization.Tests/ArchPillar.Extensions.Localization.Tests.csproj" />
   </Folder>
 </Solution>

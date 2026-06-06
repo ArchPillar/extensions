@@ -3,13 +3,13 @@
   <PropertyGroup>
     <TargetFramework />
     <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
-    <RootNamespace>ArchPillar.Extensions.Localization.Formats.Arb</RootNamespace>
+    <RootNamespace>ArchPillar.Extensions.Localization</RootNamespace>
   </PropertyGroup>
 
   <PropertyGroup>
-    <PackageId>ArchPillar.Extensions.Localization.Formats.Arb</PackageId>
-    <Description>Application Resource Bundle (ARB) container-format provider for ArchPillar.Extensions.Localization. ICU-native, JSON-based, and the default authoring format. Uses System.Text.Json from the BCL.</Description>
-    <PackageTags>archpillar;localization;i18n;arb;json;format</PackageTags>
+    <PackageId>ArchPillar.Extensions.Localization</PackageId>
+    <Description>A user-interface translation library for .NET: extract translatable strings from call sites, hand them to translators in standard formats (ARB, XLIFF, Portable Object), and load translations at runtime as pluggable overrides. The in-code default is always the source of truth and terminal fallback. Bundles the container-format providers; no dependencies beyond the BCL.</Description>
+    <PackageTags>archpillar;localization;i18n;l10n;icu;translation;arb</PackageTags>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageProjectUrl>https://github.com/ArchPillar/extensions</PackageProjectUrl>
     <RepositoryUrl>https://github.com/ArchPillar/extensions</RepositoryUrl>
@@ -27,10 +27,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Localization.Abstractions\ArchPillar.Extensions.Localization.Abstractions.csproj" />
+    <ProjectReference Include="..\Localization.MessageFormat\ArchPillar.Extensions.Localization.MessageFormat.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.Formats.Arb.Tests" />
+    <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.Tests" />
   </ItemGroup>
 
   <ItemGroup>

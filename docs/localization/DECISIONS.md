@@ -73,6 +73,19 @@ discover nothing implicitly:
 - Anyone who wants reconciliation (in CI/CD or locally) wires an explicit `sync` /
   `sync --check` step.
 
+### D-F — Dependency-free providers bundle into the core runtime.
+The container-format providers (ARB, Portable Object, XLIFF) have no dependencies beyond the BCL
+on the runtime's target frameworks (`System.Text.Json` and `System.Xml` are in-box on net8/9/10).
+They therefore ship **inside the core runtime assembly** (`ArchPillar.Extensions.Localization`),
+not as separate `Formats.*` packages — the family does not split dependency-free code into tiny
+DLLs. The runtime registers all bundled providers by default.
+
+`MessageFormat` and `Abstractions` remain separate assemblies only because the analyzer and the
+generator load them inside the compiler (`netstandard2.0`); the providers are runtime-only and so
+have no such constraint. The compile-time generator emits the source template with a small internal
+writer (spec 02 / Phase 7), so it needs no provider assembly and adds no `System.Text.Json`
+dependency to the Roslyn host.
+
 ### D-E — Defaults for the specs' open questions.
 - **Catalog layout:** one file per locale, flat in `OutputPath`. ARB `en.arb` / `de.arb`;
   XLIFF `en.xliff` / `de.xliff`; Portable Object `messages.pot` template + `messages.de.po`.

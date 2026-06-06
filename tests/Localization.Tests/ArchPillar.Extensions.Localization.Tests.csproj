@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <RootNamespace>ArchPillar.Extensions.Localization.Formats.Arb.Tests</RootNamespace>
+    <RootNamespace>ArchPillar.Extensions.Localization.Tests</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Localization.Formats.Arb\ArchPillar.Extensions.Localization.Formats.Arb.csproj" />
+    <ProjectReference Include="..\..\src\Localization\ArchPillar.Extensions.Localization.csproj" />
   </ItemGroup>
 
 </Project>

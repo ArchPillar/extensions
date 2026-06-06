@@ -1,0 +1,39 @@
+using ArchPillar.Extensions.Localization.MessageFormat;
+
+namespace ArchPillar.Extensions.Localization;
+
+/// <summary>
+/// Configuration for a <see cref="Localizer"/>: where to load catalogs from, the source language, the
+/// format precedence on overlap, and the missing-argument and hot-reload behaviour.
+/// </summary>
+public sealed class LocalizerOptions
+{
+    /// <summary>
+    /// The directory containing translation catalog files. Defaults to a <c>Translations</c> directory
+    /// beside the application binary.
+    /// </summary>
+    public string TranslationsDirectory { get; init; } = DefaultDirectory();
+
+    /// <summary>The source language whose catalog is not loaded as an override (the in-code default wins).</summary>
+    public string SourceCulture { get; init; } = "en";
+
+    /// <summary>The cultures to load; <see langword="null"/> discovers every culture present in the directory.</summary>
+    public IReadOnlyList<string>? Cultures { get; init; }
+
+    /// <summary>
+    /// The format preference when the same culture and key appear in more than one file. Earlier entries
+    /// win; the default prefers the ICU-native formats over Portable Object.
+    /// </summary>
+    public IReadOnlyList<string> FormatPrecedence { get; init; } = ["xliff", "arb", "po"];
+
+    /// <summary>Whether to watch the directory and reload on change. Off by default.</summary>
+    public bool EnableHotReload { get; init; }
+
+    /// <summary>How long to wait for changes to settle before reloading when hot reload is enabled.</summary>
+    public TimeSpan HotReloadDebounce { get; init; } = TimeSpan.FromMilliseconds(250);
+
+    /// <summary>How to handle a referenced argument with no supplied value.</summary>
+    public MissingArgumentPolicy MissingArguments { get; init; } = MissingArgumentPolicy.PassThrough;
+
+    private static string DefaultDirectory() => Path.Combine(AppContext.BaseDirectory, "Translations");
+}

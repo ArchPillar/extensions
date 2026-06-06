@@ -2,7 +2,7 @@ using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 
-namespace ArchPillar.Extensions.Localization.Formats.Arb;
+namespace ArchPillar.Extensions.Localization.Formats;
 
 /// <summary>
 /// The Application Resource Bundle (ARB) container-format provider. ARB is a single JSON object per
