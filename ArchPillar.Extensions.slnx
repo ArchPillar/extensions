@@ -66,6 +66,12 @@
   <Folder Name="/src/Localization/">
     <Project Path="src/Localization/ArchPillar.Extensions.Localization.csproj" />
   </Folder>
+  <Folder Name="/src/Localization.Detection/">
+    <Project Path="src/Localization.Detection/ArchPillar.Extensions.Localization.Detection.csproj" />
+  </Folder>
+  <Folder Name="/src/Localization.Analyzers/">
+    <Project Path="src/Localization.Analyzers/ArchPillar.Extensions.Localization.Analyzers.csproj" />
+  </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/Mapper.Tests/">
     <Project Path="tests/Mapper.Tests/ArchPillar.Extensions.Mapper.Tests.csproj" />
@@ -93,5 +99,8 @@
   </Folder>
   <Folder Name="/tests/Localization.Tests/">
     <Project Path="tests/Localization.Tests/ArchPillar.Extensions.Localization.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Localization.Detection.Tests/">
+    <Project Path="tests/Localization.Detection.Tests/ArchPillar.Extensions.Localization.Detection.Tests.csproj" />
   </Folder>
 </Solution>
