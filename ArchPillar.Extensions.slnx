@@ -75,6 +75,9 @@
   <Folder Name="/src/Localization.Generator/">
     <Project Path="src/Localization.Generator/ArchPillar.Extensions.Localization.Generator.csproj" />
   </Folder>
+  <Folder Name="/src/Localization.Tooling/">
+    <Project Path="src/Localization.Tooling/ArchPillar.Extensions.Localization.Tooling.csproj" />
+  </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/Mapper.Tests/">
     <Project Path="tests/Mapper.Tests/ArchPillar.Extensions.Mapper.Tests.csproj" />
@@ -105,5 +108,8 @@
   </Folder>
   <Folder Name="/tests/Localization.Detection.Tests/">
     <Project Path="tests/Localization.Detection.Tests/ArchPillar.Extensions.Localization.Detection.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Localization.Tooling.Tests/">
+    <Project Path="tests/Localization.Tooling.Tests/ArchPillar.Extensions.Localization.Tooling.Tests.csproj" />
   </Folder>
 </Solution>

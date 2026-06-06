@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>archpillar-loc</ToolCommandName>
+    <RootNamespace>ArchPillar.Extensions.Localization.Tooling</RootNamespace>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>ArchPillar.Extensions.Localization.Tooling</PackageId>
+    <Description>The dotnet tool for the ArchPillar.Extensions.Localization family: extract the source template from a built assembly and add, sync, or convert translation catalogs on demand.</Description>
+    <PackageTags>archpillar;localization;i18n;tool;gettext;xliff;arb</PackageTags>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageProjectUrl>https://github.com/ArchPillar/extensions</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/ArchPillar/extensions</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>PACKAGE.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Spectre.Console" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Localization\ArchPillar.Extensions.Localization.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.Tooling.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="" />
+    <None Include="PACKAGE.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+</Project>

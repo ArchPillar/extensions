@@ -1,0 +1,29 @@
+<Project>
+
+  <!--
+    Materializes the source-language template after a real build by invoking the tool to extract the
+    template the generator baked into the output assembly. Gated to build-only (never design-time), so
+    editing in the IDE does not write files (Decision D-B). Best-effort: a missing tool warns rather
+    than failing the build.
+  -->
+  <Target Name="ArchPillarLocalizationExtractTemplate"
+          AfterTargets="Build"
+          Condition="'$(ArchPillarLocalizationEmit)' == 'true' and '$(DesignTimeBuild)' != 'true' and '$(BuildingProject)' == 'true'">
+    <Exec Command="archpillar-loc extract --assembly &quot;$(TargetPath)&quot; --output &quot;$(ArchPillarLocalizationOutputPath)&quot;"
+          ContinueOnError="true"
+          StandardOutputImportance="low" />
+  </Target>
+
+  <!--
+    Copies the target catalogs (everything except the source-language template) beside the application
+    binary so the runtime can load them. Set ArchPillarLocalizationCopyTargetsToOutput=false to opt out
+    (for example when embedding or deploying catalogs separately).
+  -->
+  <ItemGroup Condition="'$(ArchPillarLocalizationCopyTargetsToOutput)' == 'true' and Exists('$(ArchPillarLocalizationOutputPath)')">
+    <Content Include="$(ArchPillarLocalizationOutputPath)\**\*.arb;$(ArchPillarLocalizationOutputPath)\**\*.xliff;$(ArchPillarLocalizationOutputPath)\**\*.xlf;$(ArchPillarLocalizationOutputPath)\**\*.po"
+             Exclude="$(ArchPillarLocalizationOutputPath)\$(ArchPillarLocalizationSourceLanguage).arb;$(ArchPillarLocalizationOutputPath)\$(ArchPillarLocalizationSourceLanguage).xliff;$(ArchPillarLocalizationOutputPath)\$(ArchPillarLocalizationSourceLanguage).xlf;$(ArchPillarLocalizationOutputPath)\messages.pot"
+             CopyToOutputDirectory="PreserveNewest"
+             Link="Translations\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>
