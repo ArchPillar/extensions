@@ -86,6 +86,14 @@ have no such constraint. The compile-time generator emits the source template wi
 writer (spec 02 / Phase 7), so it needs no provider assembly and adds no `System.Text.Json`
 dependency to the Roslyn host.
 
+### D-G — APL0009 (live stale-source diagnostic) is not implemented; staleness is the tool's job.
+The analyzer ships APL0001–APL0008. APL0009 (flagging, live in the editor, entries whose stored
+fingerprint differs from the current default) is intentionally **not** implemented: it would require
+the `netstandard2.0` analyzer to parse translation catalogs (the ARB/XLIFF/PO parsers are in the net
+runtime), the catalogs are often not present in the project (D-D — they may live in a separate repo),
+and it duplicates `archpillar-loc sync --check`, which detects drift canonically. Staleness is therefore
+covered by the tool, not the editor.
+
 ### D-E — Defaults for the specs' open questions.
 - **Catalog layout:** one file per locale, flat in `OutputPath`. ARB `en.arb` / `de.arb`;
   XLIFF `en.xliff` / `de.xliff`; Portable Object `messages.pot` template + `messages.de.po`.
