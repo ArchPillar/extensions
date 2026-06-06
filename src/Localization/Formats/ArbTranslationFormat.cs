@@ -170,7 +170,7 @@ public sealed class ArbTranslationFormat : ITranslationFormat
         var result = new List<SourceReference>();
         foreach (JsonElement element in references.EnumerateArray())
         {
-            SourceReference? reference = ParseReference(element.GetString());
+            SourceReference? reference = SourceReferenceText.Parse(element.GetString());
             if (reference is not null)
             {
                 result.Add(reference);
@@ -178,30 +178,6 @@ public sealed class ArbTranslationFormat : ITranslationFormat
         }
 
         return result;
-    }
-
-    private static SourceReference? ParseReference(string? text)
-    {
-        if (string.IsNullOrEmpty(text))
-        {
-            return null;
-        }
-
-        var lastColon = text!.LastIndexOf(':');
-        if (lastColon <= 0)
-        {
-            return null;
-        }
-
-        var previousColon = text.LastIndexOf(':', lastColon - 1);
-        if (previousColon <= 0
-            || !int.TryParse(text[(previousColon + 1)..lastColon], out var line)
-            || !int.TryParse(text[(lastColon + 1)..], out var column))
-        {
-            return null;
-        }
-
-        return new SourceReference(text[..previousColon], line, column);
     }
 
     private static TranslationState ParseState(string? state) =>
@@ -284,7 +260,7 @@ public sealed class ArbTranslationFormat : ITranslationFormat
         writer.WriteStartArray();
         foreach (SourceReference reference in references)
         {
-            writer.WriteStringValue($"{reference.FilePath}:{reference.Line}:{reference.Column}");
+            writer.WriteStringValue(SourceReferenceText.Format(reference));
         }
 
         writer.WriteEndArray();

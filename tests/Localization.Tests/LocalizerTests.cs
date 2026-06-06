@@ -1,4 +1,5 @@
 using System.Globalization;
+using ArchPillar.Extensions.Localization.Formats;
 
 namespace ArchPillar.Extensions.Localization.Tests;
 
@@ -157,12 +158,62 @@ public sealed class LocalizerTests : IDisposable
         Assert.Equal("Hallo", localizer.Translate(_de, "greeting", "Hello", null));
     }
 
+    [Fact]
+    public void Translate_MixedFormats_PrefersXliffOverArbByDefault()
+    {
+        var directory = NewDirectory();
+        WriteArb(directory, "de", Entry("greeting", "from arb"));
+        WriteCatalog(new XliffTranslationFormat(), directory, "de.xliff", DeCatalog("greeting", "from xliff"));
+        using Localizer localizer = Make(directory);
+
+        Assert.Equal("from xliff", localizer.Translate(_de, "greeting", "Hello", null));
+    }
+
+    [Fact]
+    public void Translate_FormatPrecedence_IsConfigurable()
+    {
+        var directory = NewDirectory();
+        WriteArb(directory, "de", Entry("greeting", "from arb"));
+        WriteCatalog(new XliffTranslationFormat(), directory, "de.xliff", DeCatalog("greeting", "from xliff"));
+        using Localizer localizer = new(new LocalizerOptions
+        {
+            TranslationsDirectory = directory,
+            SourceCulture = "en",
+            FormatPrecedence = ["arb", "xliff", "po"]
+        });
+
+        Assert.Equal("from arb", localizer.Translate(_de, "greeting", "Hello", null));
+    }
+
     public void Dispose()
     {
         foreach (var directory in _directories)
         {
             Directory.Delete(directory, recursive: true);
         }
+    }
+
+    private static Catalog DeCatalog(string key, string message) => new()
+    {
+        Culture = "de",
+        Headers = new Dictionary<string, string> { ["srcLang"] = "en" },
+        Entries =
+        [
+            new CatalogEntry
+            {
+                Key = key,
+                SourceMessage = message,
+                TranslatedMessage = message,
+                SourceFingerprint = "fp",
+                State = TranslationState.Translated
+            }
+        ]
+    };
+
+    private static void WriteCatalog(ITranslationFormat format, string directory, string fileName, Catalog catalog)
+    {
+        using FileStream stream = File.Create(Path.Combine(directory, fileName));
+        format.WriteAsync(stream, catalog, CancellationToken.None).GetAwaiter().GetResult();
     }
 
     private static Localizer Make(string directory) =>
