@@ -57,3 +57,15 @@ public sealed class TranslationCommentAttribute : Attribute
     /// </summary>
     public string? Comment { get; }
 }
+
+/// <summary>
+/// Marks the generic type parameter that supplies the translation category. When a translatable call's
+/// receiver is a constructed generic type whose parameter carries this attribute, extraction and the
+/// runtime both take the category from that type argument's full name — the <c>ILogger&lt;T&gt;</c>
+/// model. Keeping the signal an attribute, rather than a hardcoded type name, lets anyone define their
+/// own scoped localizer and have it detected identically.
+/// </summary>
+[AttributeUsage(AttributeTargets.GenericParameter, AllowMultiple = false)]
+public sealed class TranslationScopeAttribute : Attribute
+{
+}
