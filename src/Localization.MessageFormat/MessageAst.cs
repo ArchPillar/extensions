@@ -4,18 +4,18 @@ namespace ArchPillar.Extensions.Localization.MessageFormat;
 /// A parsed ICU MessageFormat message: an ordered sequence of <see cref="MessagePart"/> values.
 /// </summary>
 /// <param name="Parts">The ordered parts that compose the message.</param>
-public sealed record Message(IReadOnlyList<MessagePart> Parts);
+internal sealed record Message(IReadOnlyList<MessagePart> Parts);
 
 /// <summary>
 /// The base type for a single component of a parsed <see cref="Message"/>.
 /// </summary>
-public abstract record MessagePart;
+internal abstract record MessagePart;
 
 /// <summary>
 /// Literal text, with all ICU apostrophe quoting already resolved.
 /// </summary>
 /// <param name="Text">The decoded literal text.</param>
-public sealed record LiteralPart(string Text) : MessagePart;
+internal sealed record LiteralPart(string Text) : MessagePart;
 
 /// <summary>
 /// A simple or typed argument such as <c>{name}</c>, <c>{name, number}</c>,
@@ -24,13 +24,13 @@ public sealed record LiteralPart(string Text) : MessagePart;
 /// <param name="Name">The argument name.</param>
 /// <param name="Type">The format type (for example <c>number</c>, <c>date</c>, <c>time</c>), or <see langword="null"/> when none is supplied.</param>
 /// <param name="Style">The format style, or <see langword="null"/> when none is supplied.</param>
-public sealed record ArgumentPart(string Name, string? Type, string? Style) : MessagePart;
+internal sealed record ArgumentPart(string Name, string? Type, string? Style) : MessagePart;
 
 /// <summary>
 /// The <c>#</c> token inside a <c>plural</c> or <c>selectordinal</c> branch, which renders the
 /// formatted number minus the construct's offset.
 /// </summary>
-public sealed record PoundPart : MessagePart
+internal sealed record PoundPart : MessagePart
 {
     /// <summary>The shared singleton instance.</summary>
     public static PoundPart Instance { get; } = new();
@@ -43,7 +43,7 @@ public sealed record PoundPart : MessagePart
 /// <param name="Ordinal"><see langword="true"/> for <c>selectordinal</c>; <see langword="false"/> for <c>plural</c>.</param>
 /// <param name="Offset">The <c>offset</c> subtracted from the value before category resolution and <c>#</c> rendering.</param>
 /// <param name="Branches">The branches, keyed by selector.</param>
-public sealed record PluralPart(
+internal sealed record PluralPart(
     string ArgumentName,
     bool Ordinal,
     int Offset,
@@ -54,7 +54,7 @@ public sealed record PluralPart(
 /// </summary>
 /// <param name="ArgumentName">The name of the argument selecting the branch.</param>
 /// <param name="Branches">The branches, keyed by their string selector.</param>
-public sealed record SelectPart(
+internal sealed record SelectPart(
     string ArgumentName,
     IReadOnlyDictionary<string, Message> Branches) : MessagePart;
 
@@ -64,7 +64,7 @@ public sealed record SelectPart(
 /// </summary>
 /// <param name="ExplicitValue">The explicit value for a <c>=N</c> selector, or <see langword="null"/>.</param>
 /// <param name="Category">The plural category for a keyword selector, or <see langword="null"/>.</param>
-public readonly record struct PluralSelector(int? ExplicitValue, PluralCategory? Category);
+internal readonly record struct PluralSelector(int? ExplicitValue, PluralCategory? Category);
 
 /// <summary>
 /// The CLDR plural categories.

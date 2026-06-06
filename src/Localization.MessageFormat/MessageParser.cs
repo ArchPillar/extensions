@@ -3,11 +3,12 @@ using ArchPillar.Extensions.Localization.MessageFormat.Internal;
 namespace ArchPillar.Extensions.Localization.MessageFormat;
 
 /// <summary>
-/// Parses ICU MessageFormat strings into a <see cref="Message"/> abstract syntax tree and extracts
-/// the set of argument names a message references. This is the single source of "what a message means"
-/// shared by the analyzer, the extractor, the format providers, and the runtime.
+/// Parses ICU MessageFormat strings into the internal <see cref="Message"/> tree and extracts the
+/// set of argument names a message references. This is the single source of "what a message means"
+/// shared by the validator, the formatter, the format providers, and the runtime; the tree it
+/// produces is an implementation detail not exposed to consumers (see <see cref="MessageSyntax"/>).
 /// </summary>
-public static class MessageParser
+internal static class MessageParser
 {
     /// <summary>
     /// Parses <paramref name="text"/> into a <see cref="Message"/>.
@@ -59,11 +60,6 @@ public static class MessageParser
     /// <returns>The referenced argument names, in first-seen order.</returns>
     public static IReadOnlyCollection<string> ExtractPlaceholders(Message message)
     {
-        if (message is null)
-        {
-            throw new ArgumentNullException(nameof(message));
-        }
-
         var names = new List<string>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
         CollectFromMessage(message, names, seen);

@@ -57,19 +57,21 @@ touches a target-language file. All target-file operations — `add <lang>`, `sy
 The CI gate is **`sync --check`** (compares existing target files against the on-disk
 template, writes nothing, exits non-zero on drift).
 
-### D-D — Target catalogs live in a separate git context.
-Translated files are **not** stored alongside the source. They live in their own
-repository / translation store. Consequences:
+### D-D — The library never forces a catalog location.
+Target catalogs can live wherever the team wants — beside the source, in a separate
+repository, in a translation store, anywhere. The library and tool impose no location and
+discover nothing implicitly:
 
 - The tool takes **explicit paths** (template location, target directory). It never assumes
-  targets sit beside the source, and there is no discovery magic.
-- `OutputPath` in the source tree holds **only the generated template**, which is a build
-  output (git-ignorable, like the doc XML).
+  targets sit in any particular place, and there is no discovery magic.
+- `OutputPath` in the source tree is where the generator writes **the template** (a build
+  output, git-ignorable like the doc XML). Target files may or may not share that directory —
+  that is the team's choice, not the library's.
 - The package `.targets` copy-to-output / embed step (spec 06) applies to whatever target
-  files are *present in the configured directory at build time* — which, in this setup,
-  means they were fetched from their own home by an **explicit** step first. The build never
-  fetches, never reconciles, never assumes a language set.
-- Anyone who wants reconciliation in CI/CD wires an explicit `sync` / `sync --check` step.
+  files are *present in the configured directory at build time*; placing them there is an
+  explicit step. The build never fetches, never reconciles, never assumes a language set.
+- Anyone who wants reconciliation (in CI/CD or locally) wires an explicit `sync` /
+  `sync --check` step.
 
 ### D-E — Defaults for the specs' open questions.
 - **Catalog layout:** one file per locale, flat in `OutputPath`. ARB `en.arb` / `de.arb`;
