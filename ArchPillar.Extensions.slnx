@@ -50,6 +50,9 @@
   <Folder Name="/src/Primitives.EntityFrameworkCore/">
     <Project Path="src/Primitives.EntityFrameworkCore/ArchPillar.Extensions.Primitives.EntityFrameworkCore.csproj" />
   </Folder>
+  <Folder Name="/src/Localization.MessageFormat/">
+    <Project Path="src/Localization.MessageFormat/ArchPillar.Extensions.Localization.MessageFormat.csproj" />
+  </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/Mapper.Tests/">
     <Project Path="tests/Mapper.Tests/ArchPillar.Extensions.Mapper.Tests.csproj" />
@@ -68,5 +71,8 @@
   </Folder>
   <Folder Name="/tests/Primitives.EntityFrameworkCore.Tests/">
     <Project Path="tests/Primitives.EntityFrameworkCore.Tests/ArchPillar.Extensions.Primitives.EntityFrameworkCore.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Localization.MessageFormat.Tests/">
+    <Project Path="tests/Localization.MessageFormat.Tests/ArchPillar.Extensions.Localization.MessageFormat.Tests.csproj" />
   </Folder>
 </Solution>

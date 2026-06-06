@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework />
+    <TargetFrameworks>netstandard2.0;net8.0;net9.0;net10.0</TargetFrameworks>
+    <RootNamespace>ArchPillar.Extensions.Localization.MessageFormat</RootNamespace>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>ArchPillar.Extensions.Localization.MessageFormat</PackageId>
+    <Description>An ICU MessageFormat parser, validator, and formatter with embedded Unicode CLDR plural rules. The shared message grammar for the ArchPillar.Extensions.Localization family. Zero dependencies beyond the BCL.</Description>
+    <PackageTags>archpillar;localization;i18n;icu;messageformat;cldr;plural</PackageTags>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageProjectUrl>https://github.com/ArchPillar/extensions</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/ArchPillar/extensions</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>PACKAGE.md</PackageReadmeFile>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.MessageFormat.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="" />
+    <None Include="PACKAGE.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+</Project>
