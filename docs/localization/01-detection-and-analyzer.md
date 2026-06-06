@@ -136,7 +136,13 @@ Notes:
 
 - Implement one `DiagnosticAnalyzer` registering `RegisterCompilationStartAction`, then `RegisterSyntaxNodeAction` for `InvocationExpression` and `ObjectCreationExpression`, calling `TranslationSiteDetector.DetectAt`.
 - Resolve the attribute symbols once per compilation start (cache `INamedTypeSymbol` for each attribute) and bail immediately if `Abstractions` is not referenced, so the analyzer is free on projects that do not use the library.
-- Provide code fixes where mechanical: `APL0005` (insert an `other {}` branch), `APL0001` (offer to extract a `const`).
+- A code fix is provided where the change is mechanical and meaning-preserving: `APL0005` ships
+  `MissingOtherCodeFixProvider`, which adds an empty `other {}` branch to the flagged default-message
+  literal (reusing `MessageSyntax.InsertMissingOtherBranches`, so brace and apostrophe-quoting rules match
+  the parser) and leaves the rest of the text untouched for a translator to fill in. `APL0001` has no fix:
+  a non-constant argument is genuinely not extractable, and inventing a `const` would change behavior, so
+  the analyzer only flags it. The code-fix assembly is `netstandard2.0` and packs alongside the analyzer
+  under `analyzers/dotnet/cs`.
 - Ship the analyzer and the runtime in the same NuGet package with correct `analyzers/dotnet/cs` packaging so referencing the library activates the diagnostics automatically.
 
 ## Acceptance criteria

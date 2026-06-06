@@ -84,6 +84,7 @@
         <!-- Roslyn (analyzers + source generator); host-provided, referenced PrivateAssets=all.
              Pinned to 4.14.0 so it does not downgrade BenchmarkDotNet's transitive requirement. -->
         <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
+        <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.14.0" />
         <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />
     </ItemGroup>
     <ItemGroup>

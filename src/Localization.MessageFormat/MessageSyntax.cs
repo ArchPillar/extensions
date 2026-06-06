@@ -1,3 +1,5 @@
+using ArchPillar.Extensions.Localization.MessageFormat.Internal;
+
 namespace ArchPillar.Extensions.Localization.MessageFormat;
 
 /// <summary>
@@ -44,5 +46,24 @@ public static class MessageSyntax
         return MessageParser.TryParse(text, out Message? message, out _)
             ? MessageParser.FindConstructsMissingOther(message!)
             : [];
+    }
+
+    /// <summary>
+    /// Returns <paramref name="text"/> with an empty <c>other {}</c> branch added to every
+    /// <c>plural</c>/<c>selectordinal</c>/<c>select</c> construct that is missing one, leaving every other
+    /// character untouched. When the text is not valid ICU MessageFormat syntax it is returned unchanged,
+    /// since the construct boundaries cannot be trusted.
+    /// </summary>
+    /// <param name="text">The ICU MessageFormat source.</param>
+    /// <returns>The text with the missing <c>other</c> branches inserted, ready for a translator to fill in.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="text"/> is <see langword="null"/>.</exception>
+    public static string InsertMissingOtherBranches(string text)
+    {
+        if (text is null)
+        {
+            throw new ArgumentNullException(nameof(text));
+        }
+
+        return MessageParser.TryParse(text, out _, out _) ? OtherBranchInserter.Insert(text) : text;
     }
 }
