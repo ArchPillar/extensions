@@ -1,0 +1,29 @@
+<Project>
+
+  <!--
+    The configuration surface for the localization generator (spec 06). These defaults are set so a
+    consuming project can override any of them. There is deliberately no target-language property:
+    adding a language is an on-demand tool/Poedit operation, never a build input.
+
+    The generator reads the CompilerVisibleProperty entries below. The template is baked into the output
+    assembly by the generator and materialized to ArchPillarLocalizationOutputPath by the tool (invoked
+    from the package .targets), since a generator may not write files directly.
+  -->
+  <PropertyGroup>
+    <ArchPillarLocalizationFormat Condition="'$(ArchPillarLocalizationFormat)' == ''">arb</ArchPillarLocalizationFormat>
+    <ArchPillarLocalizationSourceLanguage Condition="'$(ArchPillarLocalizationSourceLanguage)' == ''">en</ArchPillarLocalizationSourceLanguage>
+    <ArchPillarLocalizationOutputPath Condition="'$(ArchPillarLocalizationOutputPath)' == ''">$(MSBuildProjectDirectory)\Translations</ArchPillarLocalizationOutputPath>
+    <ArchPillarLocalizationEmit Condition="'$(ArchPillarLocalizationEmit)' == ''">true</ArchPillarLocalizationEmit>
+    <ArchPillarLocalizationLiveExtraction Condition="'$(ArchPillarLocalizationLiveExtraction)' == ''">false</ArchPillarLocalizationLiveExtraction>
+    <ArchPillarLocalizationCopyTargetsToOutput Condition="'$(ArchPillarLocalizationCopyTargetsToOutput)' == ''">true</ArchPillarLocalizationCopyTargetsToOutput>
+    <ArchPillarLocalizationEmbedTargets Condition="'$(ArchPillarLocalizationEmbedTargets)' == ''">false</ArchPillarLocalizationEmbedTargets>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <CompilerVisibleProperty Include="ArchPillarLocalizationFormat" />
+    <CompilerVisibleProperty Include="ArchPillarLocalizationSourceLanguage" />
+    <CompilerVisibleProperty Include="ArchPillarLocalizationEmit" />
+    <CompilerVisibleProperty Include="ArchPillarLocalizationKeyPattern" />
+  </ItemGroup>
+
+</Project>

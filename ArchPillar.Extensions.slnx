@@ -72,6 +72,9 @@
   <Folder Name="/src/Localization.Analyzers/">
     <Project Path="src/Localization.Analyzers/ArchPillar.Extensions.Localization.Analyzers.csproj" />
   </Folder>
+  <Folder Name="/src/Localization.Generator/">
+    <Project Path="src/Localization.Generator/ArchPillar.Extensions.Localization.Generator.csproj" />
+  </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/Mapper.Tests/">
     <Project Path="tests/Mapper.Tests/ArchPillar.Extensions.Mapper.Tests.csproj" />
