@@ -1,0 +1,50 @@
+using System.Globalization;
+using ArchPillar.Extensions.Localization;
+using Microsoft.AspNetCore.Localization;
+using Microsoft.Extensions.Localization;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// English ships in code; a German catalog (Translations/de.arb) loads as an override at runtime. The
+// Localizer and the IStringLocalizer adapter are both registered by AddArchPillarLocalization.
+builder.Services.AddArchPillarLocalization(new LocalizerOptions
+{
+    TranslationsDirectory = Path.Combine(AppContext.BaseDirectory, "Translations"),
+    SourceCulture = "en"
+});
+
+WebApplication app = builder.Build();
+
+// Standard ASP.NET request-culture middleware. It sets CurrentUICulture per request (here from the
+// ?culture= query string by default), which is exactly what the Localizer reads — no extra wiring.
+CultureInfo[] supportedCultures = [new("en"), new("de")];
+app.UseRequestLocalization(new RequestLocalizationOptions
+{
+    DefaultRequestCulture = new RequestCulture("en"),
+    SupportedCultures = supportedCultures,
+    SupportedUICultures = supportedCultures
+});
+
+// Inject the Localizer for the full model: in-code English default, German override, named arguments,
+// and ICU plurals. Try /?culture=de and /?culture=en.
+app.MapGet("/", (Localizer localizer) => new
+{
+    greeting = localizer.Translate("home.greeting", "Hello {name}", ("name", "Ada")),
+    inbox = localizer.Translate(
+        "inbox.count",
+        "{count, plural, =0 {No messages} one {# message} other {# messages}}",
+        ("count", 3))
+});
+
+// Inject IStringLocalizer for teams with existing ASP.NET code: the name is the key, a missing entry
+// returns the name with ResourceNotFound set, and positional arguments map to {0}. Try /strings?culture=de.
+app.MapGet("/strings", (IStringLocalizer<Program> localizer) =>
+{
+    LocalizedString summary = localizer["inbox.summary", 3];
+    return new { value = summary.Value, resourceNotFound = summary.ResourceNotFound };
+});
+
+app.Run();
+
+/// <summary>The application entry point, made public so <see cref="IStringLocalizer{T}"/> can close over it.</summary>
+public partial class Program;

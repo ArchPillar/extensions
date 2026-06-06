@@ -47,3 +47,15 @@ public sealed class Greeter(Localizer localizer)
 No extra wiring is needed for request culture. `Localizer` reads `CultureInfo.CurrentUICulture`, which
 `app.UseRequestLocalization(...)` sets per request — so the standard ASP.NET culture middleware drives
 which override is used.
+
+## Samples
+
+Three runnable samples under `samples/Localization` show the same registration across hosting models:
+
+- **`Localization.ConsoleSample`** — a generic `Host` resolving the `Localizer` from DI (named arguments,
+  ICU plurals, in-code English default, German override).
+- **`Localization.AspNetSample`** — a minimal API with `UseRequestLocalization`; one endpoint injects the
+  `Localizer`, another the `IStringLocalizer<T>` adapter. Switch culture with `?culture=de`.
+- **`Localization.BlazorSample`** — a server-rendered Razor component injecting both `Localizer` and
+  `IStringLocalizer<Home>`, with culture-switch links. It also shows the honest "missing → name" behaviour
+  for the source language under the `IStringLocalizer` model.

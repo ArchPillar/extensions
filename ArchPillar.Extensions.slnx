@@ -25,6 +25,12 @@
   <Folder Name="/samples/Localization/Localization.ConsoleSample/">
     <Project Path="samples/Localization/Localization.ConsoleSample/Localization.ConsoleSample.csproj" />
   </Folder>
+  <Folder Name="/samples/Localization/Localization.AspNetSample/">
+    <Project Path="samples/Localization/Localization.AspNetSample/Localization.AspNetSample.csproj" />
+  </Folder>
+  <Folder Name="/samples/Localization/Localization.BlazorSample/">
+    <Project Path="samples/Localization/Localization.BlazorSample/Localization.BlazorSample.csproj" />
+  </Folder>
   <Folder Name="/benchmarks/" />
   <Folder Name="/benchmarks/Mapper.Benchmarks/">
     <Project Path="benchmarks/Mapper.Benchmarks/ArchPillar.Extensions.Mapper.Benchmarks.csproj" />
