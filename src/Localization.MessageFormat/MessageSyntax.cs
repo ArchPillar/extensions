@@ -31,4 +31,18 @@ public static class MessageSyntax
         Message message = MessageParser.Parse(text);
         return MessageParser.ExtractPlaceholders(message);
     }
+
+    /// <summary>
+    /// Returns the argument names of any <c>plural</c>/<c>selectordinal</c>/<c>select</c> construct in
+    /// <paramref name="text"/> that is missing the required <c>other</c> branch. Returns an empty set
+    /// when the text is not valid syntax (a separate concern reported by <see cref="TryValidate"/>).
+    /// </summary>
+    /// <param name="text">The ICU MessageFormat source.</param>
+    /// <returns>The argument names of constructs missing an <c>other</c> branch.</returns>
+    public static IReadOnlyCollection<string> FindConstructsMissingOther(string text)
+    {
+        return MessageParser.TryParse(text, out Message? message, out _)
+            ? MessageParser.FindConstructsMissingOther(message!)
+            : [];
+    }
 }

@@ -13,13 +13,15 @@ namespace ArchPillar.Extensions.Localization.Detection;
 /// <param name="Comment">The optional translator comment.</param>
 /// <param name="Placeholders">The argument names the default message references.</param>
 /// <param name="Reference">The source location of the call.</param>
+/// <param name="SuppliedArguments">The argument names supplied at the call site when statically known (the params-tuple form); otherwise <see langword="null"/>.</param>
 public sealed record TranslationSite(
     string Key,
     string DefaultMessage,
     string? Context,
     string? Comment,
     IReadOnlyList<string> Placeholders,
-    SourceReference Reference);
+    SourceReference Reference,
+    IReadOnlyList<string>? SuppliedArguments);
 
 /// <summary>
 /// The shared cause enumeration that the analyzer maps to diagnostics and the extractor maps to build
@@ -31,7 +33,16 @@ public enum DetectionCause
     NonConstantArgument,
 
     /// <summary>The default message is not valid ICU MessageFormat syntax.</summary>
-    InvalidMessageFormat
+    InvalidMessageFormat,
+
+    /// <summary>A placeholder in the message has no matching supplied argument. The detail is the placeholder name.</summary>
+    PlaceholderNotSupplied,
+
+    /// <summary>A supplied argument is not used by the message. The detail is the argument name.</summary>
+    ArgumentNotUsed,
+
+    /// <summary>A plural/select construct is missing its required <c>other</c> branch. The detail is the argument name.</summary>
+    MissingOtherBranch
 }
 
 /// <summary>

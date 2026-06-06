@@ -93,9 +93,106 @@ public static class TranslationSiteDetector
         }
 
         IReadOnlyList<string> placeholders = ResolvePlaceholders(defaultMessage, defaultArgument, problems);
-        var site = new TranslationSite(key, defaultMessage, context, comment, placeholders, ToReference(node));
+        IReadOnlyList<string>? supplied = SuppliedArguments(arguments);
+        AddArgumentProblems(placeholders, supplied, defaultArgument, problems);
+        AddMissingOtherProblems(defaultMessage, defaultArgument, problems);
+
+        var site = new TranslationSite(key, defaultMessage, context, comment, placeholders, ToReference(node), supplied);
         return new TranslationSiteResult(site, problems);
     }
+
+    private static void AddArgumentProblems(
+        IReadOnlyList<string> placeholders,
+        IReadOnlyList<string>? supplied,
+        IArgumentOperation defaultArgument,
+        List<DetectionProblem> problems)
+    {
+        if (supplied is null)
+        {
+            return;
+        }
+
+        Location location = defaultArgument.Value.Syntax.GetLocation();
+        foreach (var placeholder in placeholders)
+        {
+            if (!supplied.Contains(placeholder))
+            {
+                problems.Add(new DetectionProblem(DetectionCause.PlaceholderNotSupplied, placeholder, location));
+            }
+        }
+
+        foreach (var argument in supplied)
+        {
+            if (!placeholders.Contains(argument))
+            {
+                problems.Add(new DetectionProblem(DetectionCause.ArgumentNotUsed, argument, location));
+            }
+        }
+    }
+
+    private static void AddMissingOtherProblems(
+        string defaultMessage,
+        IArgumentOperation defaultArgument,
+        List<DetectionProblem> problems)
+    {
+        Location location = defaultArgument.Value.Syntax.GetLocation();
+        foreach (var argumentName in MessageSyntax.FindConstructsMissingOther(defaultMessage))
+        {
+            problems.Add(new DetectionProblem(DetectionCause.MissingOtherBranch, argumentName, location));
+        }
+    }
+
+    private static IReadOnlyList<string>? SuppliedArguments(ImmutableArray<IArgumentOperation> arguments)
+    {
+        foreach (IArgumentOperation argument in arguments)
+        {
+            if (argument.Parameter is { IsParams: true })
+            {
+                return ExtractTupleNames(argument.Value);
+            }
+        }
+
+        return null;
+    }
+
+    private static IReadOnlyList<string>? ExtractTupleNames(IOperation value)
+    {
+        if (value is not IArrayCreationOperation array || array.Initializer is null)
+        {
+            return null;
+        }
+
+        var names = new List<string>();
+        foreach (IOperation element in array.Initializer.ElementValues)
+        {
+            var name = TupleFirstConstant(element);
+            if (name is null)
+            {
+                return null;
+            }
+
+            names.Add(name);
+        }
+
+        return names;
+    }
+
+    private static string? TupleFirstConstant(IOperation element)
+    {
+        if (Unwrap(element) is ITupleOperation tuple && tuple.Elements.Length >= 1)
+        {
+            IOperation first = Unwrap(tuple.Elements[0]);
+            if (first.ConstantValue.HasValue)
+            {
+                return first.ConstantValue.Value as string;
+            }
+        }
+
+        return null;
+    }
+
+    private static IOperation Unwrap(IOperation operation) =>
+        operation is IConversionOperation conversion ? conversion.Operand : operation;
 
     private static ImmutableArray<IArgumentOperation> ExtractArguments(IOperation? operation) => operation switch
     {

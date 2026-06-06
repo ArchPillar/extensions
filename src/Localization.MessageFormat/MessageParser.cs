@@ -109,4 +109,65 @@ internal static class MessageParser
             names.Add(name);
         }
     }
+
+    public static IReadOnlyCollection<string> FindConstructsMissingOther(Message message)
+    {
+        var names = new List<string>();
+        CollectMissingOther(message, names);
+        return names;
+    }
+
+    private static void CollectMissingOther(Message message, List<string> names)
+    {
+        foreach (MessagePart part in message.Parts)
+        {
+            CollectMissingOtherFromPart(part, names);
+        }
+    }
+
+    private static void CollectMissingOtherFromPart(MessagePart part, List<string> names)
+    {
+        switch (part)
+        {
+            case PluralPart plural:
+                if (!HasOtherCategory(plural.Branches.Keys))
+                {
+                    names.Add(plural.ArgumentName);
+                }
+
+                CollectMissingOtherFromBranches(plural.Branches.Values, names);
+                break;
+            case SelectPart select:
+                if (!select.Branches.ContainsKey("other"))
+                {
+                    names.Add(select.ArgumentName);
+                }
+
+                CollectMissingOtherFromBranches(select.Branches.Values, names);
+                break;
+            default:
+                break;
+        }
+    }
+
+    private static void CollectMissingOtherFromBranches(IEnumerable<Message> branches, List<string> names)
+    {
+        foreach (Message branch in branches)
+        {
+            CollectMissingOther(branch, names);
+        }
+    }
+
+    private static bool HasOtherCategory(IEnumerable<PluralSelector> selectors)
+    {
+        foreach (PluralSelector selector in selectors)
+        {
+            if (selector.Category == PluralCategory.Other)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

@@ -26,9 +26,55 @@ internal static class RoslynTestHost
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
     }
 
-    public static async Task<ImmutableArray<Diagnostic>> RunAnalyzerAsync(Compilation compilation)
+    public static Task<ImmutableArray<Diagnostic>> RunAnalyzerAsync(Compilation compilation) =>
+        RunAnalyzerAsync(compilation, new Dictionary<string, string>(StringComparer.Ordinal));
+
+    public static async Task<ImmutableArray<Diagnostic>> RunAnalyzerAsync(
+        Compilation compilation,
+        IReadOnlyDictionary<string, string> globalOptions)
     {
         var analyzers = ImmutableArray.Create<DiagnosticAnalyzer>(new TranslationAnalyzer());
-        return await compilation.WithAnalyzers(analyzers).GetAnalyzerDiagnosticsAsync(CancellationToken.None);
+        var options = new AnalyzerOptions(
+            ImmutableArray<AdditionalText>.Empty,
+            new TestOptionsProvider(globalOptions));
+        return await compilation.WithAnalyzers(analyzers, options).GetAnalyzerDiagnosticsAsync(CancellationToken.None);
+    }
+
+    private sealed class TestOptionsProvider : AnalyzerConfigOptionsProvider
+    {
+        private readonly TestOptions _options;
+
+        public TestOptionsProvider(IReadOnlyDictionary<string, string> values)
+        {
+            _options = new TestOptions(values);
+        }
+
+        public override AnalyzerConfigOptions GlobalOptions => _options;
+
+        public override AnalyzerConfigOptions GetOptions(SyntaxTree tree) => _options;
+
+        public override AnalyzerConfigOptions GetOptions(AdditionalText textFile) => _options;
+    }
+
+    private sealed class TestOptions : AnalyzerConfigOptions
+    {
+        private readonly IReadOnlyDictionary<string, string> _values;
+
+        public TestOptions(IReadOnlyDictionary<string, string> values)
+        {
+            _values = values;
+        }
+
+        public override bool TryGetValue(string key, out string value)
+        {
+            if (_values.TryGetValue(key, out var found))
+            {
+                value = found;
+                return true;
+            }
+
+            value = null!;
+            return false;
+        }
     }
 }
