@@ -53,6 +53,9 @@
   <Folder Name="/src/Localization.MessageFormat/">
     <Project Path="src/Localization.MessageFormat/ArchPillar.Extensions.Localization.MessageFormat.csproj" />
   </Folder>
+  <Folder Name="/src/Localization.Abstractions/">
+    <Project Path="src/Localization.Abstractions/ArchPillar.Extensions.Localization.Abstractions.csproj" />
+  </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/Mapper.Tests/">
     <Project Path="tests/Mapper.Tests/ArchPillar.Extensions.Mapper.Tests.csproj" />
@@ -74,5 +77,8 @@
   </Folder>
   <Folder Name="/tests/Localization.MessageFormat.Tests/">
     <Project Path="tests/Localization.MessageFormat.Tests/ArchPillar.Extensions.Localization.MessageFormat.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Localization.Abstractions.Tests/">
+    <Project Path="tests/Localization.Abstractions.Tests/ArchPillar.Extensions.Localization.Abstractions.Tests.csproj" />
   </Folder>
 </Solution>
