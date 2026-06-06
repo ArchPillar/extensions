@@ -1,0 +1,41 @@
+@page "/"
+@inject Localizer Localizer
+@inject IStringLocalizer<Home> Strings
+
+<h1>@Localizer.Translate("home.title", "Inbox")</h1>
+
+<ul>
+    @for (var count = 0; count <= 2; count++)
+    {
+        <li>
+            @Localizer.Translate(
+                "inbox.count",
+                "{count, plural, =0 {No messages} one {# message} other {# messages}}",
+                ("count", count))
+        </li>
+    }
+</ul>
+
+@{
+    // The IStringLocalizer<T> adapter: the name is the key, positional arguments map to {0}, and a
+    // missing entry returns the name (English has no override here).
+    LocalizedString summary = Strings["inbox.summary", 3];
+}
+<p>@summary.Value @(summary.ResourceNotFound ? "(no override — showing the key)" : string.Empty)</p>
+
+<nav>
+    <button @onclick="@(() => SetCulture("en"))">English</button>
+    <button @onclick="@(() => SetCulture("de"))">Deutsch</button>
+    <span> — current: @CultureInfo.CurrentUICulture.Name</span>
+</nav>
+
+@code {
+    // WebAssembly is single-threaded, so setting the current culture in code takes effect on the next
+    // render — no page reload, no request middleware. The Localizer reads CurrentUICulture each call.
+    private static void SetCulture(string name)
+    {
+        CultureInfo culture = CultureInfo.GetCultureInfo(name);
+        CultureInfo.CurrentUICulture = culture;
+        CultureInfo.CurrentCulture = culture;
+    }
+}

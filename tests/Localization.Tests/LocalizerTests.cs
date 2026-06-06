@@ -185,6 +185,45 @@ public sealed class LocalizerTests : IDisposable
         Assert.Equal("from arb", localizer.Translate(_de, "greeting", "Hello", null));
     }
 
+    [Fact]
+    public void FromCatalogs_UsesSuppliedOverride_WithoutTouchingDisk()
+    {
+        using var localizer = Localizer.FromCatalogs(
+            [DeCatalog("greeting", "Hallo")],
+            new LocalizerOptions { SourceCulture = "en" });
+
+        Assert.Equal("Hallo", localizer.Translate(_de, "greeting", "Hello", null));
+        Assert.Equal("Hello", localizer.Translate(_fr, "greeting", "Hello", null));
+    }
+
+    [Fact]
+    public void FromCatalogs_SkipsSourceCultureCatalog()
+    {
+        var enCatalog = new Catalog
+        {
+            Culture = "en",
+            Entries =
+            [
+                new CatalogEntry
+                {
+                    Key = "greeting",
+                    SourceMessage = "FROM CATALOG",
+                    TranslatedMessage = "FROM CATALOG",
+                    SourceFingerprint = "fp",
+                    State = TranslationState.Translated
+                }
+            ]
+        };
+
+        using var localizer = Localizer.FromCatalogs([enCatalog], new LocalizerOptions { SourceCulture = "en" });
+
+        Assert.Equal("Hello", localizer.Translate(_en, "greeting", "Hello", null));
+    }
+
+    [Fact]
+    public void FromCatalogs_Null_Throws() =>
+        Assert.Throws<ArgumentNullException>(() => Localizer.FromCatalogs(null!));
+
     public void Dispose()
     {
         foreach (var directory in _directories)

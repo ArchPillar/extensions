@@ -13,6 +13,7 @@ namespace ArchPillar.Extensions.Localization;
 public sealed class Localizer : IDisposable
 {
     private readonly LocalizerOptions _options;
+    private readonly Func<TranslationSnapshot> _load;
     private readonly MessageFormatter _formatter;
     private readonly CultureInfo _sourceCulture;
     private readonly object _reloadGate = new();
@@ -21,20 +22,50 @@ public sealed class Localizer : IDisposable
     private Timer? _debounce;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="Localizer"/> class, loading catalogs immediately.
+    /// Initializes a new instance of the <see cref="Localizer"/> class, loading catalogs from the
+    /// configured directory immediately.
     /// </summary>
     /// <param name="options">The localizer configuration.</param>
     /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
     public Localizer(LocalizerOptions options)
+        : this(options ?? throw new ArgumentNullException(nameof(options)), () => CatalogLoader.Load(options!))
     {
-        _options = options ?? throw new ArgumentNullException(nameof(options));
-        _formatter = new MessageFormatter(_options.MissingArguments);
-        _sourceCulture = CreateCulture(_options.SourceCulture);
-        _snapshot = CatalogLoader.Load(_options);
         if (_options.EnableHotReload)
         {
             StartWatching();
         }
+    }
+
+    private Localizer(LocalizerOptions options, Func<TranslationSnapshot> load)
+    {
+        _options = options;
+        _load = load;
+        _formatter = new MessageFormatter(_options.MissingArguments);
+        _sourceCulture = CreateCulture(_options.SourceCulture);
+        _snapshot = load();
+    }
+
+    /// <summary>
+    /// Creates a <see cref="Localizer"/> from catalogs the caller has already loaded — for hosts without a
+    /// readable file system (such as Blazor WebAssembly), where the catalogs are fetched over HTTP and
+    /// parsed with an <see cref="ITranslationFormat"/> before being handed in here. The source-language
+    /// catalog and untranslated entries are skipped exactly as the directory loader does; on per-culture
+    /// overlap, later catalogs win. No directory is read and hot reload does not apply.
+    /// </summary>
+    /// <param name="catalogs">The parsed catalogs to load as overrides.</param>
+    /// <param name="options">The localizer configuration, or <see langword="null"/> for the defaults.</param>
+    /// <returns>A localizer backed by the supplied catalogs.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="catalogs"/> is <see langword="null"/>.</exception>
+    public static Localizer FromCatalogs(IEnumerable<Catalog> catalogs, LocalizerOptions? options = null)
+    {
+        if (catalogs is null)
+        {
+            throw new ArgumentNullException(nameof(catalogs));
+        }
+
+        LocalizerOptions resolved = options ?? new LocalizerOptions();
+        List<Catalog> snapshotSource = [.. catalogs];
+        return new Localizer(resolved, () => CatalogLoader.BuildSnapshot(snapshotSource, resolved));
     }
 
     /// <summary>
@@ -134,13 +165,14 @@ public sealed class Localizer : IDisposable
         Translate(culture, key, defaultMessage, context, out _, arguments);
 
     /// <summary>
-    /// Rebuilds the loaded snapshot from the translations directory and swaps it in atomically.
+    /// Rebuilds the loaded snapshot from its source (the translations directory, or the supplied catalogs)
+    /// and swaps it in atomically.
     /// </summary>
     public void Reload()
     {
         lock (_reloadGate)
         {
-            TranslationSnapshot snapshot = CatalogLoader.Load(_options);
+            TranslationSnapshot snapshot = _load();
             Volatile.Write(ref _snapshot, snapshot);
         }
     }

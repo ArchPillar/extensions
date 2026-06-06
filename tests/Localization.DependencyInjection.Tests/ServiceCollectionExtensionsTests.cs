@@ -78,6 +78,34 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
         Assert.Same(provider.GetRequiredService<Localizer>(), provider.GetRequiredService<Localizer>());
     }
 
+    [Fact]
+    public void AddArchPillarLocalization_WithInstance_RegistersThatLocalizerAndAdapters()
+    {
+        var catalog = new Catalog
+        {
+            Culture = "de",
+            Entries =
+            [
+                new CatalogEntry
+                {
+                    Key = "home.greeting",
+                    SourceMessage = "Hello",
+                    TranslatedMessage = "Hallo",
+                    SourceFingerprint = "fp",
+                    State = TranslationState.Translated
+                }
+            ]
+        };
+        var localizer = Localizer.FromCatalogs([catalog], new LocalizerOptions { SourceCulture = "en" });
+
+        var services = new ServiceCollection();
+        services.AddArchPillarLocalization(localizer);
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        Assert.Same(localizer, provider.GetRequiredService<Localizer>());
+        WithCulture(_german, () => Assert.Equal("Hallo", provider.GetRequiredService<IStringLocalizer>()["home.greeting"].Value));
+    }
+
     public void Dispose() => Directory.Delete(_directory, recursive: true);
 
     private ServiceProvider BuildProvider()

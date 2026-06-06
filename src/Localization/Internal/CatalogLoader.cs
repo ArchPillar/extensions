@@ -26,6 +26,20 @@ internal static class CatalogLoader
         return ToSnapshot(byCulture);
     }
 
+    public static TranslationSnapshot BuildSnapshot(IEnumerable<Catalog> catalogs, LocalizerOptions options)
+    {
+        var byCulture = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (Catalog catalog in catalogs)
+        {
+            if (!ShouldSkipCulture(catalog.Culture, options))
+            {
+                MergeEntries(catalog, byCulture);
+            }
+        }
+
+        return ToSnapshot(byCulture);
+    }
+
     private static TranslationFormatRegistry BuildRegistry()
     {
         var registry = new TranslationFormatRegistry();
