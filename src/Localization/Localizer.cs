@@ -49,7 +49,7 @@ public sealed class Localizer : IDisposable
         [Translatable] string key,
         [TranslationDefault] string defaultMessage,
         params (string Name, object? Value)[] arguments) =>
-        Translate(CultureInfo.CurrentUICulture, key, defaultMessage, context: null, arguments);
+        TranslateCore(CultureInfo.CurrentUICulture, key, defaultMessage, context: null, arguments);
 
     /// <summary>
     /// Translates <paramref name="key"/> with a disambiguation <paramref name="context"/> for the current
@@ -65,7 +65,7 @@ public sealed class Localizer : IDisposable
         [TranslationDefault] string defaultMessage,
         [TranslationContext] string context,
         params (string Name, object? Value)[] arguments) =>
-        Translate(CultureInfo.CurrentUICulture, key, defaultMessage, context, arguments);
+        TranslateCore(CultureInfo.CurrentUICulture, key, defaultMessage, context, arguments);
 
     /// <summary>
     /// Translates <paramref name="key"/> for an explicit <paramref name="culture"/>, falling back through
@@ -80,10 +80,20 @@ public sealed class Localizer : IDisposable
     /// <exception cref="ArgumentNullException"><paramref name="culture"/> is <see langword="null"/>.</exception>
     public string Translate(
         CultureInfo culture,
+        [Translatable] string key,
+        [TranslationDefault] string defaultMessage,
+        [TranslationContext] string? context,
+        params (string Name, object? Value)[] arguments) =>
+        TranslateCore(culture, key, defaultMessage, context, arguments);
+
+    // The non-attributed core. The public overloads carry the attributes so the extractor finds every
+    // call site; they delegate here so the library's own forwarding never looks like a translation site.
+    private string TranslateCore(
+        CultureInfo culture,
         string key,
         string defaultMessage,
         string? context,
-        params (string Name, object? Value)[] arguments)
+        (string Name, object? Value)[] arguments)
     {
         if (culture is null)
         {
