@@ -31,6 +31,7 @@ internal static class CatalogLoader
         var registry = new TranslationFormatRegistry();
         registry.Register(new ArbTranslationFormat());
         registry.Register(new XliffTranslationFormat());
+        registry.Register(new PoTranslationFormat());
         return registry;
     }
 

@@ -5,8 +5,8 @@ catalogs as **overrides** and renders translatable call sites; the in-code defau
 source of truth for the source language and the terminal fallback for every other language, so an
 app with no translation files still runs correctly.
 
-> Design reference: [`05-runtime.md`](05-runtime.md). The container-format providers (ARB today;
-> XLIFF and Portable Object next) are bundled into this package — there are no separate `Formats.*`
+> Design reference: [`05-runtime.md`](05-runtime.md). All three container-format providers — ARB,
+> XLIFF 2.1, and Portable Object — are bundled into this package; there are no separate `Formats.*`
 > packages.
 
 ## Translating
