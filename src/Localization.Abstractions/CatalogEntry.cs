@@ -22,6 +22,12 @@ public sealed record CatalogEntry
     /// <summary>The translator comment, if any.</summary>
     public string? Comment { get; init; }
 
+    /// <summary>
+    /// The prior source default recorded when the source drifted, so a translator can diff against it.
+    /// Set by reconciliation; <see langword="null"/> otherwise.
+    /// </summary>
+    public string? PreviousSource { get; init; }
+
     /// <summary>The source locations where the key is used.</summary>
     public IReadOnlyList<SourceReference> References { get; init; } = [];
 

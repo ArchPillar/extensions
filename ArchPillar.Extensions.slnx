@@ -56,6 +56,9 @@
   <Folder Name="/src/Localization.Abstractions/">
     <Project Path="src/Localization.Abstractions/ArchPillar.Extensions.Localization.Abstractions.csproj" />
   </Folder>
+  <Folder Name="/src/Localization.Formats.Arb/">
+    <Project Path="src/Localization.Formats.Arb/ArchPillar.Extensions.Localization.Formats.Arb.csproj" />
+  </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/Mapper.Tests/">
     <Project Path="tests/Mapper.Tests/ArchPillar.Extensions.Mapper.Tests.csproj" />
@@ -80,5 +83,8 @@
   </Folder>
   <Folder Name="/tests/Localization.Abstractions.Tests/">
     <Project Path="tests/Localization.Abstractions.Tests/ArchPillar.Extensions.Localization.Abstractions.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Localization.Formats.Arb.Tests/">
+    <Project Path="tests/Localization.Formats.Arb.Tests/ArchPillar.Extensions.Localization.Formats.Arb.Tests.csproj" />
   </Folder>
 </Solution>
