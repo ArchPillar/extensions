@@ -52,11 +52,13 @@ public sealed class MessageFormatter
         }
 
         Message message = _cache.GetOrAdd(template, MessageParser.Parse);
-        return MessageRenderer.Render(message, culture, arguments, _missingArguments);
+        return MessageRenderer.Render(message, culture, ToArray(arguments), _missingArguments);
     }
 
     /// <summary>
     /// Formats <paramref name="template"/> against named tuple arguments in <paramref name="culture"/>.
+    /// This is the allocation-lean overload: a literal-only template returns its text with no
+    /// allocation, and argument lookup avoids building a dictionary.
     /// </summary>
     /// <param name="template">The ICU MessageFormat source.</param>
     /// <param name="culture">The culture used for plural resolution and number/date formatting.</param>
@@ -64,22 +66,34 @@ public sealed class MessageFormatter
     /// <returns>The rendered string.</returns>
     public string Format(string template, CultureInfo culture, params (string Name, object? Value)[] arguments)
     {
+        if (template is null)
+        {
+            throw new ArgumentNullException(nameof(template));
+        }
+
+        if (culture is null)
+        {
+            throw new ArgumentNullException(nameof(culture));
+        }
+
         if (arguments is null)
         {
             throw new ArgumentNullException(nameof(arguments));
         }
 
-        return Format(template, culture, ToDictionary(arguments));
+        Message message = _cache.GetOrAdd(template, MessageParser.Parse);
+        return MessageRenderer.Render(message, culture, arguments, _missingArguments);
     }
 
-    private static IReadOnlyDictionary<string, object?> ToDictionary((string Name, object? Value)[] arguments)
+    private static (string Name, object? Value)[] ToArray(IReadOnlyDictionary<string, object?> arguments)
     {
-        var map = new Dictionary<string, object?>(arguments.Length, StringComparer.Ordinal);
-        foreach ((var name, var value) in arguments)
+        var array = new (string Name, object? Value)[arguments.Count];
+        var index = 0;
+        foreach (KeyValuePair<string, object?> pair in arguments)
         {
-            map[name] = value;
+            array[index++] = (pair.Key, pair.Value);
         }
 
-        return map;
+        return array;
     }
 }

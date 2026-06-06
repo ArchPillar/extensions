@@ -109,6 +109,17 @@ grammar (D-6); embedded CLDR plural data (D-7); the three shipped formats with A
 (D-12); `convert` as a tool capability (D-13); runtime loads-all-formats-prefers-by-fidelity
 (D-14). `IStringLocalizer` / DI interop stays deferred to an integration phase (D-5).
 
+## Performance (cross-cutting)
+
+The runtime lookup is on the UI hot path, so it must be lightning fast and allocation-lean:
+
+- **A static label resolves with zero allocations.** A literal message (no arguments) returns its
+  cached text directly; argument lookup is a span/array scan, not a dictionary; and a thread-local
+  `StringBuilder` is reused so a dynamic render allocates only the result string (inherent).
+- This is **pinned by allocation tests** (`GC.GetAllocatedBytesForCurrentThread`, asserting exact zero
+  on the literal path) and tracked by a **BenchmarkDotNet** project (`benchmarks/Localization.Benchmarks`).
+- Benchmarks + allocation tests accompany the runtime (Phase 4) and any later change to the hot path.
+
 ## Phase plan
 
 Every phase follows the repository's conventions: **TDD** (tests first), **zero-warnings**

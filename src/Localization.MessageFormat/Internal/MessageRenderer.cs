@@ -8,24 +8,64 @@ namespace ArchPillar.Extensions.Localization.MessageFormat.Internal;
 /// arguments, resolves <c>plural</c>/<c>selectordinal</c> categories (in the target culture) and
 /// <c>select</c> branches, and renders <c>#</c> as the value minus the construct's offset.
 /// </summary>
+/// <remarks>
+/// The hot path is allocation-conscious: a literal-only message returns its text directly (no
+/// allocation), arguments are looked up over the argument array rather than a dictionary, and a
+/// thread-local <see cref="StringBuilder"/> is reused so a dynamic render allocates only the result.
+/// </remarks>
 internal static class MessageRenderer
 {
+    [ThreadStatic]
+    private static StringBuilder? _pooledBuilder;
+
     public static string Render(
         Message message,
         CultureInfo culture,
-        IReadOnlyDictionary<string, object?> arguments,
+        (string Name, object? Value)[] arguments,
         MissingArgumentPolicy policy)
     {
-        var builder = new StringBuilder();
-        RenderInto(builder, message, culture, arguments, policy, pound: null);
-        return builder.ToString();
+        if (TryGetLiteral(message, out var literal))
+        {
+            return literal;
+        }
+
+        StringBuilder builder = _pooledBuilder ?? new StringBuilder();
+        _pooledBuilder = null;
+        try
+        {
+            builder.Clear();
+            RenderInto(builder, message, culture, arguments, policy, pound: null);
+            return builder.ToString();
+        }
+        finally
+        {
+            _pooledBuilder = builder;
+        }
+    }
+
+    private static bool TryGetLiteral(Message message, out string literal)
+    {
+        if (message.Parts.Count == 0)
+        {
+            literal = string.Empty;
+            return true;
+        }
+
+        if (message.Parts.Count == 1 && message.Parts[0] is LiteralPart only)
+        {
+            literal = only.Text;
+            return true;
+        }
+
+        literal = string.Empty;
+        return false;
     }
 
     private static void RenderInto(
         StringBuilder builder,
         Message message,
         CultureInfo culture,
-        IReadOnlyDictionary<string, object?> arguments,
+        (string Name, object? Value)[] arguments,
         MissingArgumentPolicy policy,
         decimal? pound)
     {
@@ -39,7 +79,7 @@ internal static class MessageRenderer
         StringBuilder builder,
         MessagePart part,
         CultureInfo culture,
-        IReadOnlyDictionary<string, object?> arguments,
+        (string Name, object? Value)[] arguments,
         MissingArgumentPolicy policy,
         decimal? pound)
     {
@@ -69,10 +109,10 @@ internal static class MessageRenderer
         StringBuilder builder,
         ArgumentPart argument,
         CultureInfo culture,
-        IReadOnlyDictionary<string, object?> arguments,
+        (string Name, object? Value)[] arguments,
         MissingArgumentPolicy policy)
     {
-        if (!arguments.TryGetValue(argument.Name, out var value))
+        if (!TryGetArgument(arguments, argument.Name, out var value))
         {
             AppendMissing(builder, argument.Name, policy);
             return;
@@ -87,10 +127,10 @@ internal static class MessageRenderer
         StringBuilder builder,
         PluralPart plural,
         CultureInfo culture,
-        IReadOnlyDictionary<string, object?> arguments,
+        (string Name, object? Value)[] arguments,
         MissingArgumentPolicy policy)
     {
-        if (!arguments.TryGetValue(plural.ArgumentName, out var value) || value is null)
+        if (!TryGetArgument(arguments, plural.ArgumentName, out var value) || value is null)
         {
             AppendMissing(builder, plural.ArgumentName, policy);
             return;
@@ -149,10 +189,10 @@ internal static class MessageRenderer
         StringBuilder builder,
         SelectPart select,
         CultureInfo culture,
-        IReadOnlyDictionary<string, object?> arguments,
+        (string Name, object? Value)[] arguments,
         MissingArgumentPolicy policy)
     {
-        arguments.TryGetValue(select.ArgumentName, out var value);
+        TryGetArgument(arguments, select.ArgumentName, out var value);
         var key = value?.ToString() ?? string.Empty;
         if (!select.Branches.TryGetValue(key, out Message? branch))
         {
@@ -163,6 +203,24 @@ internal static class MessageRenderer
         {
             RenderInto(builder, branch, culture, arguments, policy, pound: null);
         }
+    }
+
+    private static bool TryGetArgument(
+        (string Name, object? Value)[] arguments,
+        string name,
+        out object? value)
+    {
+        foreach ((var argumentName, var argumentValue) in arguments)
+        {
+            if (string.Equals(argumentName, name, StringComparison.Ordinal))
+            {
+                value = argumentValue;
+                return true;
+            }
+        }
+
+        value = null;
+        return false;
     }
 
     private static void AppendMissing(StringBuilder builder, string name, MissingArgumentPolicy policy)

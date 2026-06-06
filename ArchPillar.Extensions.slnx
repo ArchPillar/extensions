@@ -35,6 +35,9 @@
   <Folder Name="/benchmarks/Commands.Benchmarks/">
     <Project Path="benchmarks/Commands.Benchmarks/ArchPillar.Extensions.Commands.Benchmarks.csproj" />
   </Folder>
+  <Folder Name="/benchmarks/Localization.Benchmarks/">
+    <Project Path="benchmarks/Localization.Benchmarks/ArchPillar.Extensions.Localization.Benchmarks.csproj" />
+  </Folder>
   <Folder Name="/src/" />
   <Folder Name="/src/Mapper/">
     <Project Path="src/Mapper/ArchPillar.Extensions.Mapper.csproj" />

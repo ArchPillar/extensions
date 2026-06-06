@@ -68,3 +68,12 @@ that one call.
 
 `Reload()` rebuilds the snapshot and swaps it in atomically; concurrent `Translate` calls never see a
 torn state. The localizer is thread-safe, `IDisposable`, and designed to be a singleton.
+
+## Performance
+
+Lookup is built for the UI hot path. A **static label** (a literal message with no arguments) resolves
+with **zero allocations** — the cached literal text is returned directly. A message with arguments
+allocates only the result string (a thread-local `StringBuilder` is reused, and argument lookup avoids
+building a dictionary). The zero-allocation guarantee is covered by allocation tests, and
+`benchmarks/Localization.Benchmarks` measures the paths (`dotnet run -c Release --project
+benchmarks/Localization.Benchmarks`).
