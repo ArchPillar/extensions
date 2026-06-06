@@ -150,7 +150,7 @@ for runtime assemblies).
 
 | # | Phase | Delivers |
 |---|---|---|
-| 9+ | Integration | `IStringLocalizer` / `Microsoft.Extensions.DependencyInjection` adapter (D-5); ASP.NET Core request-culture integration; any other host integrations — taken once Phases 1–8 are done |
+| 9 | Integration ✅ | `ArchPillar.Extensions.Localization.DependencyInjection`: `AddArchPillarLocalization`, the `IStringLocalizer`/`IStringLocalizer<T>`/`IStringLocalizerFactory` adapter (name-is-key, missing→name, positional args → `{0}`), and ASP.NET request-culture via `CurrentUICulture` (D-5). The core stays dependency-free. |
 
 ### Adjustment to the spec's build order
 

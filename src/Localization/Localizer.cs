@@ -86,14 +86,25 @@ public sealed class Localizer : IDisposable
         params (string Name, object? Value)[] arguments) =>
         TranslateCore(culture, key, defaultMessage, context, arguments);
 
-    // The non-attributed core. The public overloads carry the attributes so the extractor finds every
-    // call site; they delegate here so the library's own forwarding never looks like a translation site.
-    private string TranslateCore(
+    /// <summary>
+    /// Translates for an explicit culture and additionally reports whether a loaded override was used
+    /// (rather than the in-code default). Intended for integration adapters such as <c>IStringLocalizer</c>.
+    /// </summary>
+    /// <param name="culture">The culture to translate for.</param>
+    /// <param name="key">The stable symbolic key.</param>
+    /// <param name="defaultMessage">The fallback rendered when no override exists.</param>
+    /// <param name="context">The optional disambiguation context.</param>
+    /// <param name="overrideFound">Set to <see langword="true"/> when a loaded override was used.</param>
+    /// <param name="arguments">The message arguments as <c>(name, value)</c> tuples.</param>
+    /// <returns>The rendered string.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="culture"/> is <see langword="null"/>.</exception>
+    public string Translate(
         CultureInfo culture,
         string key,
         string defaultMessage,
         string? context,
-        (string Name, object? Value)[] arguments)
+        out bool overrideFound,
+        params (string Name, object? Value)[] arguments)
     {
         if (culture is null)
         {
@@ -102,6 +113,7 @@ public sealed class Localizer : IDisposable
 
         var composite = TranslationKey.Compose(key, context);
         var message = Resolve(culture, composite);
+        overrideFound = message is not null;
 
         // An override was authored for the requested culture, so render it with that culture's rules.
         // The in-code default is source-language text, so render it with the source culture's rules —
@@ -110,6 +122,16 @@ public sealed class Localizer : IDisposable
             ? _formatter.Format(message, culture, arguments)
             : _formatter.Format(defaultMessage, _sourceCulture, arguments);
     }
+
+    // The non-attributed core. The public overloads carry the attributes so the extractor finds every
+    // call site; they delegate here so the library's own forwarding never looks like a translation site.
+    private string TranslateCore(
+        CultureInfo culture,
+        string key,
+        string defaultMessage,
+        string? context,
+        (string Name, object? Value)[] arguments) =>
+        Translate(culture, key, defaultMessage, context, out _, arguments);
 
     /// <summary>
     /// Rebuilds the loaded snapshot from the translations directory and swaps it in atomically.
