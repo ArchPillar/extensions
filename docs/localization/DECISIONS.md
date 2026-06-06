@@ -107,6 +107,29 @@ covered by the tool, not the editor.
   (the gettext `EOT` convention), defined once in `Abstractions` and shared by every provider
   and the runtime lookup.
 
+### D-H — Namespacing follows the `ILogger<T>` model; users never manage namespaces.
+Keys live in one global lookup, but every key is implicitly scoped by a **category** equal to the
+full type name of the `T` in `ILocalizer<T>` — exactly as `ILogger<T>` derives its category. There is
+no namespace configuration: no MSBuild property, no attribute the user sets, nothing to manage. Shared
+strings are shared the ordinary way — a shared class/service injected as `ILocalizer<SharedResource>` —
+which doubles as honest code deduplication. This refines D-5 and supersedes the early flat global keyspace:
+
+- **The native API is `ILocalizer` / `ILocalizer<T>` / `ILocalizerFactory`**, modeled on
+  `ILogger`/`ILoggerFactory`. `ILocalizer<T>` derives its category from `typeof(T).FullName`;
+  `ILocalizerFactory.Create(string category)` is the dynamic escape hatch (== `CreateLogger(string)`).
+- **The in-code default stays** (D-1): the native method is `Translate(key, default, args)`, not the
+  default-less `IStringLocalizer` indexer. `ILocalizer<T>` is therefore *richer* than
+  `IStringLocalizer<T>`; the BCL `IStringLocalizer` adapter (D-5) remains, for interop only.
+- **The runtime snapshot gains a category tier**: `culture → category → key → message`. An
+  `ILocalizer<T>` resolves its category's sub-map once (cached per `T`), so a literal lookup stays
+  zero-allocation (no per-call key concatenation) — the performance guarantee is preserved.
+- **Extraction derives the category from the receiver's `T`, attribute-driven** (D-3): the generic
+  parameter carries `[TranslationScope]`, so detection reads the type argument's full name without
+  hardcoding any type or method name, and anyone can roll their own scoped localizer. The compile-time
+  category therefore matches the runtime category exactly.
+- `Localizer` (concrete) becomes an `ILocalizer` implementation; the sealed implementations sit behind
+  the interfaces.
+
 ## What is unchanged from the specs
 
 All other decisions in `00-architecture.md` (D-1 … D-14) stand: the in-code default is the
@@ -151,6 +174,7 @@ for runtime assemblies).
 | # | Phase | Delivers |
 |---|---|---|
 | 9 | Integration ✅ | `ArchPillar.Extensions.Localization.DependencyInjection`: `AddArchPillarLocalization`, the `IStringLocalizer`/`IStringLocalizer<T>`/`IStringLocalizerFactory` adapter (name-is-key, missing→name, positional args → `{0}`), and ASP.NET request-culture via `CurrentUICulture` (D-5). The core stays dependency-free. |
+| 10 | Namespacing + `ILocalizer` model (D-H) | `ILocalizer`/`ILocalizer<T>`/`ILocalizerFactory` modeled on `ILogger`; `[TranslationScope]`; category tier in the snapshot + loader (`culture → category → key → message`); generator derives the category from the receiver's `T`; DI + samples updated. `IStringLocalizer` adapter retained for interop. |
 
 ### Adjustment to the spec's build order
 
