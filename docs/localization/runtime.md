@@ -38,9 +38,13 @@ For `(culture, key, context)` the localizer tries, in order:
 2. each **parent** culture (`de-AT` → `de` → invariant),
 3. the **in-code default** supplied at the call site.
 
-The resolved ICU string is then formatted against the **requested culture**, so a German override
-pluralizes by German rules even though the key was authored in English. A missing snapshot, culture,
-or key never fails — it degrades to the default for that one call.
+An **override** is formatted against the **requested culture** (a German override pluralizes by German
+rules even though the key was authored in another language). The **in-code default** is formatted
+against the **`SourceCulture`** instead — it is source-language text, so it must pluralize by the rules
+of the language it was written in, not by whatever culture happened to be requested. The defaults are
+never assumed to be English; `SourceCulture` (default `en`, fully configurable) declares the language
+they are authored in. A missing snapshot, culture, or key never fails — it degrades to the default for
+that one call.
 
 ## Loading
 

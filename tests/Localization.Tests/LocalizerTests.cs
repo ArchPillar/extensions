@@ -95,6 +95,36 @@ public sealed class LocalizerTests : IDisposable
     }
 
     [Fact]
+    public void Translate_DefaultFallback_UsesSourceCulturePluralRules()
+    {
+        // No Japanese override: the English default must render with English (source) plural rules,
+        // not Japanese rules (which have only "other"), so "1 file" stays grammatical — not "1 files".
+        using Localizer localizer = Make(NewDirectory());
+        var japanese = CultureInfo.GetCultureInfo("ja");
+
+        const string Default = "{count, plural, one {# file} other {# files}}";
+        Assert.Equal("1 file", localizer.Translate(japanese, "inbox", Default, null, ("count", 1)));
+        Assert.Equal("3 files", localizer.Translate(japanese, "inbox", Default, null, ("count", 3)));
+    }
+
+    [Fact]
+    public void Translate_NonEnglishSource_DoesNotAssumeEnglish()
+    {
+        // Source language is German; the in-code default is German and must be excluded from overrides
+        // when a de.arb exists, while still rendering correctly with German rules.
+        var directory = NewDirectory();
+        WriteArb(directory, "de", Entry("greeting", "FROM FILE"));
+        using Localizer localizer = new(new LocalizerOptions
+        {
+            TranslationsDirectory = directory,
+            SourceCulture = "de"
+        });
+
+        // de is now the source culture, so de.arb is ignored and the in-code German default wins.
+        Assert.Equal("Hallo", localizer.Translate(_de, "greeting", "Hallo", null));
+    }
+
+    [Fact]
     public void Translate_Context_DisambiguatesKey()
     {
         var directory = NewDirectory();

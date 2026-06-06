@@ -14,6 +14,7 @@ public sealed class Localizer : IDisposable
 {
     private readonly LocalizerOptions _options;
     private readonly MessageFormatter _formatter;
+    private readonly CultureInfo _sourceCulture;
     private readonly object _reloadGate = new();
     private TranslationSnapshot _snapshot;
     private FileSystemWatcher? _watcher;
@@ -28,6 +29,7 @@ public sealed class Localizer : IDisposable
     {
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _formatter = new MessageFormatter(_options.MissingArguments);
+        _sourceCulture = CreateCulture(_options.SourceCulture);
         _snapshot = CatalogLoader.Load(_options);
         if (_options.EnableHotReload)
         {
@@ -89,8 +91,14 @@ public sealed class Localizer : IDisposable
         }
 
         var composite = TranslationKey.Compose(key, context);
-        var message = Resolve(culture, composite) ?? defaultMessage;
-        return _formatter.Format(message, culture, arguments);
+        var message = Resolve(culture, composite);
+
+        // An override was authored for the requested culture, so render it with that culture's rules.
+        // The in-code default is source-language text, so render it with the source culture's rules —
+        // otherwise an English default shown under, say, Japanese rules would pluralize incorrectly.
+        return message is not null
+            ? _formatter.Format(message, culture, arguments)
+            : _formatter.Format(defaultMessage, _sourceCulture, arguments);
     }
 
     /// <summary>
@@ -146,4 +154,16 @@ public sealed class Localizer : IDisposable
 
     private void OnChanged(object sender, FileSystemEventArgs e) =>
         _debounce?.Change(_options.HotReloadDebounce, Timeout.InfiniteTimeSpan);
+
+    private static CultureInfo CreateCulture(string name)
+    {
+        try
+        {
+            return CultureInfo.GetCultureInfo(name);
+        }
+        catch (CultureNotFoundException)
+        {
+            return CultureInfo.InvariantCulture;
+        }
+    }
 }
