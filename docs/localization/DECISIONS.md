@@ -156,11 +156,19 @@ from **layered sources where the last source wins**.
   views; it is a convenience over the ambient, never a parallel system or a requirement. An explicitly
   constructed isolated `Localizer` remains available for tests and multi-tenant scenarios, and a test reset
   keeps the suite deterministic against the shared store.
-- **Targeting.** The store, the lookup, `ILocalizer`, and the default (null) renderer live in the BCL-only,
-  broadly-targeted layer (down to `netstandard2.0`) so a `netstandard2.0` library can localize with no DI and
-  no net-only runtime; the net-only source loaders (directory, `FileSystemWatcher`, MSBuild-embedded) layer
-  on top. Trimming / single-file / AOT compatibility of embedded-resource discovery is validated by spike
-  before it is relied on.
+- **Targeting (multi-target, not split).** The runtime **multi-targets down to `netstandard2.0`** so a
+  `netstandard2.0` library can localize without DI. `System.*` packages are not "external" dependencies —
+  they are the framework — but to keep a net8/9/10 consumer from pulling `System.Text.Json` from NuGet, the
+  reference is **conditional on the `netstandard2.0` target only**; net8+ uses the in-box copy. Net-only API
+  gaps (e.g. the three-argument `string.Replace(string, string, StringComparison)`) are bridged with
+  `#if`/polyfills rather than a separate assembly split.
+- **Embedded catalogs lean into satellite assemblies.** When a library *opts into* embedding (the default
+  stays files), catalogs are named `<name>.<culture>.<ext>` and MSBuild routes them to standard per-culture
+  **satellite assemblies** — deliberately working *with* .NET's resource convention and people's existing
+  knowledge, not against it. The ambient store loads them the framework way: lazily, per requested culture,
+  via `Assembly.GetSatelliteAssembly(culture)`, walking parent cultures. The culture-neutral attribute path
+  (main-assembly resource) remains for source-language or merged catalogs that have no single culture.
+  Trimming / single-file / AOT compatibility is validated by spike before it is relied on.
 
 This refines D-H (the namespacing model stands) and revises D-5/D-B/D-F where they assumed DI-first or
 per-instance loading.
