@@ -51,11 +51,14 @@ in-box, so no package deps and no `#if`/polyfill work. (B1's package-version pre
 - [x] F3. Existing samples verified working with the ambient wiring (console renders en/de + plurals; ASP.NET's `IStringLocalizer` now reads the ambient — `/strings?culture=de` → German). No rewrite needed; the new library sample is the canonical ambient demo.
 
 ### G. Docs
-- [ ] G1. Update `integration.md` / `runtime.md` for ambient + files + satellites + publish merge
-- [ ] G2. Publishing guidance: **files are trim/AOT-safe (the default)** — loose on disk, parsed with DOM
-  APIs, no reflection; for **mobile/WASM/AOT/trimmed apps prefer files** (ideally one merged bundle per
-  culture). Embed is opt-in and needs the trimmer rooting from H1. Note the globalization-data caveat
-  (an app on `InvariantGlobalization` can't select non-default cultures — standard .NET advice).
+- [x] G1. Rewrote `runtime.md` (ambient store + `ILocalizer`/`ILocalizer<T>` + categories + `Localized<TSelf>`;
+  isolated `Localizer`; loading via files vs. embed/satellites; publish-merge) and `integration.md` (ambient-
+  feeding DI; the **composing** `IStringLocalizer` adapter — found-aware, `typeof(T)` category; the **migration
+  on-ramp** — `L(...)` marker, on-by-default indexer extraction, what is *not* extracted; updated sample
+  index). Added a "practical guides" pointer to `README.md`.
+- [x] G2. Publishing guidance in `runtime.md`: files are the one universal path (trim/single-file/AOT-safe);
+  the embed matrix from H1 (main-assembly embed works everywhere; satellite works under trim/single-file but
+  degrades to the default under AOT); merge-per-culture on publish; the `InvariantGlobalization` caveat.
 
 ### H. Validation
 - [x] H1. **Embed path under trimming / single-file / AOT** — validated end-to-end with a real
