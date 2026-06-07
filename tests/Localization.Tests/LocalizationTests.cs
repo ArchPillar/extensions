@@ -1,11 +1,15 @@
 using System.Globalization;
 
 [assembly: ArchPillar.Extensions.Localization.LocalizationCatalog("embedded.de.arb", "arb")]
+[assembly: ArchPillar.Extensions.Localization.LocalizationSatelliteCatalogs]
 
 namespace ArchPillar.Extensions.Localization.Tests;
 
 /// <summary>A top-level marker type whose full name is the category of the embedded test catalog.</summary>
 internal sealed class EmbeddedStrings;
+
+/// <summary>A top-level marker type whose full name is the category of the satellite test catalog.</summary>
+internal sealed class SatelliteStrings;
 
 /// <summary>A top-level marker type used as a category in the ambient-store tests.</summary>
 internal sealed class Greeting;
@@ -66,6 +70,14 @@ public sealed class LocalizationTests
         {
             Directory.Delete(directory, recursive: true);
         }
+    }
+
+    [Fact]
+    public void SatelliteCatalog_IsLoadedLazilyForTheRequestedCulture()
+    {
+        Localization.Reset();
+
+        WithCulture(_german, () => Assert.Equal("Aus dem Satelliten", Localization.For<SatelliteStrings>().Translate("sat.key", "From satellite")));
     }
 
     [Fact]

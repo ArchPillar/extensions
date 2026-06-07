@@ -32,8 +32,8 @@ in-box, so no package deps and no `#if`/polyfill work. (B1's package-version pre
 - [x] C2. Ambient store: default beside-binary **directory source** (layered embedded < directory < host; configurable `TranslationsDirectory`)
 - [x] C3. Test: dev-mode files loading through the ambient store (`TranslationsDirectory_LoadsCatalogsFromFilesBesideTheBinary`)
 - [ ] C4. Opt-in embed → **satellite** assemblies (`<name>.<culture>.<ext>`, no `WithCulture` override)
-- [ ] C5. Ambient store: lazy per-culture satellite loading via `Assembly.GetSatelliteAssembly` (walk parents)
-- [ ] C6. Test: satellite-embedded catalog discovered & loaded
+- [x] C5. Ambient store: lazy per-culture satellite loading via `Assembly.GetSatelliteAssembly` (walk parents); `[LocalizationSatelliteCatalogs]` marker; zero-cost fast path for files-only apps
+- [x] C6. Test: satellite-embedded catalog discovered & loaded (`SatelliteCatalog_IsLoadedLazilyForTheRequestedCulture`)
 
 ### D. Publish merge
 - [ ] D1. `dotnet apl merge`: gather → resolve precedence → flatten → one catalogue per culture

@@ -22,6 +22,9 @@
   <ItemGroup>
     <None Remove="Embedded/embedded.de.arb" />
     <EmbeddedResource Include="Embedded/embedded.de.arb" LogicalName="embedded.de.arb" WithCulture="false" />
+    <!-- Culture-inferred name (no WithCulture override) so MSBuild routes it to the 'de' satellite assembly. -->
+    <None Remove="Embedded/satellite.de.arb" />
+    <EmbeddedResource Include="Embedded/satellite.de.arb" />
   </ItemGroup>
 
 </Project>
