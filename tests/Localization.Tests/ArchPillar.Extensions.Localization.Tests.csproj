@@ -19,4 +19,9 @@
     <ProjectReference Include="..\..\src\Localization\ArchPillar.Extensions.Localization.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Remove="Embedded/embedded.de.arb" />
+    <EmbeddedResource Include="Embedded/embedded.de.arb" LogicalName="embedded.de.arb" WithCulture="false" />
+  </ItemGroup>
+
 </Project>
