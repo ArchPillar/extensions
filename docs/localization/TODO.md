@@ -29,8 +29,8 @@ in-box, so no package deps and no `#if`/polyfill work. (B1's package-version pre
 
 ### C. Files-by-default + satellites
 - [ ] C1. MSBuild: copy catalogs to output **by default** (per-library naming, collision-free)
-- [ ] C2. Ambient store: default beside-binary **directory source** (reuse `CatalogLoader`)
-- [ ] C3. Test: dev-mode many-files loading through the ambient store
+- [x] C2. Ambient store: default beside-binary **directory source** (layered embedded < directory < host; configurable `TranslationsDirectory`)
+- [x] C3. Test: dev-mode files loading through the ambient store (`TranslationsDirectory_LoadsCatalogsFromFilesBesideTheBinary`)
 - [ ] C4. Opt-in embed → **satellite** assemblies (`<name>.<culture>.<ext>`, no `WithCulture` override)
 - [ ] C5. Ambient store: lazy per-culture satellite loading via `Assembly.GetSatelliteAssembly` (walk parents)
 - [ ] C6. Test: satellite-embedded catalog discovered & loaded

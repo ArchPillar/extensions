@@ -15,11 +15,14 @@ namespace ArchPillar.Extensions.Localization;
 public static class Localization
 {
     private static readonly object _gate = new();
-    private static readonly List<Catalog> _catalogs = [];
+    private static readonly List<Catalog> _embeddedCatalogs = [];
+    private static readonly List<Catalog> _directoryCatalogs = [];
+    private static readonly List<Catalog> _hostCatalogs = [];
     private static readonly List<ITranslationSource> _sources = [];
     private static readonly HashSet<Assembly> _seen = [];
     private static readonly TranslationFormatRegistry _registry = BuildRegistry();
     private static string _sourceCulture = "en";
+    private static string _directory = DefaultDirectory();
     private static bool _subscribed;
     private static bool _scannedLoaded;
     private static Localizer _current = new([], new LocalizerOptions());
@@ -37,6 +40,29 @@ public static class Localization
             {
                 _sourceCulture = value ?? "en";
                 Rebuild();
+            }
+        }
+    }
+
+    /// <summary>
+    /// The directory loaded by default (the dev/default "files beside the binary" path), defaulting to a
+    /// <c>Translations</c> folder next to the application binary. Catalogs found here layer below host
+    /// additions and above embedded catalogs. Setting it reloads the directory layer.
+    /// </summary>
+    public static string TranslationsDirectory
+    {
+        get => _directory;
+        set
+        {
+            lock (_gate)
+            {
+                _directory = value ?? string.Empty;
+                if (_scannedLoaded)
+                {
+                    _directoryCatalogs.Clear();
+                    LoadDirectory(_directory);
+                    Rebuild();
+                }
             }
         }
     }
@@ -64,7 +90,7 @@ public static class Localization
 
         lock (_gate)
         {
-            _catalogs.Add(catalog);
+            _hostCatalogs.Add(catalog);
             Rebuild();
         }
     }
@@ -97,10 +123,13 @@ public static class Localization
     {
         lock (_gate)
         {
-            _catalogs.Clear();
+            _embeddedCatalogs.Clear();
+            _directoryCatalogs.Clear();
+            _hostCatalogs.Clear();
             _sources.Clear();
             _seen.Clear();
             _sourceCulture = "en";
+            _directory = DefaultDirectory();
             _scannedLoaded = false;
             var empty = new Localizer([], new LocalizerOptions());
             Interlocked.Exchange(ref _current, empty).Dispose();
@@ -136,6 +165,7 @@ public static class Localization
                 AppDomain.CurrentDomain.AssemblyLoad += OnAssemblyLoad;
             }
 
+            LoadDirectory(_directory);
             foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
                 DiscoverEmbedded(assembly);
@@ -170,7 +200,7 @@ public static class Localization
             Catalog? catalog = TryLoad(assembly, attribute);
             if (catalog is not null)
             {
-                _catalogs.Add(catalog);
+                _embeddedCatalogs.Add(catalog);
                 added = true;
             }
         }
@@ -215,10 +245,52 @@ public static class Localization
 
     private static void Rebuild()
     {
+        // Layered low-to-high precedence: embedded (library-shipped) < directory (app-local files) < host
+        // (explicit AddCatalog). A later catalog wins on overlap inside the merge.
+        List<Catalog> all = [.. _embeddedCatalogs, .. _directoryCatalogs, .. _hostCatalogs];
         var options = new LocalizerOptions { SourceCulture = _sourceCulture, Sources = [.. _sources] };
-        var next = new Localizer([.. _catalogs], options);
+        var next = new Localizer(all, options);
         Interlocked.Exchange(ref _current, next).Dispose();
     }
+
+    private static void LoadDirectory(string directory)
+    {
+        if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory))
+        {
+            return;
+        }
+
+        foreach (var file in Directory.EnumerateFiles(directory))
+        {
+            Catalog? catalog = TryReadFile(file);
+            if (catalog is not null)
+            {
+                _directoryCatalogs.Add(catalog);
+            }
+        }
+    }
+
+    private static Catalog? TryReadFile(string file)
+    {
+        ITranslationFormat? format = _registry.ResolveByExtension(Path.GetExtension(file));
+        if (format is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            using FileStream stream = File.OpenRead(file);
+            return format.ReadAsync(stream, CancellationToken.None).GetAwaiter().GetResult();
+        }
+        catch (Exception)
+        {
+            // A malformed file must never take down the host; skip it.
+            return null;
+        }
+    }
+
+    private static string DefaultDirectory() => Path.Combine(AppContext.BaseDirectory, "Translations");
 
     private static TranslationFormatRegistry BuildRegistry()
     {

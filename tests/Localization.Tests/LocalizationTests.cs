@@ -42,6 +42,33 @@ public sealed class LocalizationTests
     }
 
     [Fact]
+    public void TranslationsDirectory_LoadsCatalogsFromFilesBesideTheBinary()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "apldir-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            File.WriteAllText(Path.Combine(directory, "de.arb"), $$"""
+                {
+                  "@@locale": "de",
+                  "@@x-category": "{{typeof(Greeting).FullName}}",
+                  "hello": "Hallo",
+                  "@hello": { "x-state": "Translated", "x-source-fingerprint": "fp" }
+                }
+                """);
+
+            Localization.Reset();
+            Localization.TranslationsDirectory = directory;
+
+            WithCulture(_german, () => Assert.Equal("Hallo", Localization.For<Greeting>().Translate("hello", "Hello")));
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Reset_DropsHostAddedCatalogs()
     {
         Localization.Reset();
