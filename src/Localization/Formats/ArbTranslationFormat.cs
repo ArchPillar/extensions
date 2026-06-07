@@ -70,6 +70,7 @@ public sealed class ArbTranslationFormat : ITranslationFormat
     private static Catalog Parse(JsonElement root)
     {
         var culture = string.Empty;
+        var defaultCategory = string.Empty;
         var headers = new Dictionary<string, string>(StringComparer.Ordinal);
         var values = new List<KeyValuePair<string, string>>();
         var metadata = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
@@ -78,7 +79,7 @@ public sealed class ArbTranslationFormat : ITranslationFormat
         {
             if (property.Name.StartsWith("@@", StringComparison.Ordinal))
             {
-                ReadFileMetadata(property, ref culture, headers);
+                ReadFileMetadata(property, ref culture, ref defaultCategory, headers);
             }
             else if (property.Name.StartsWith("@", StringComparison.Ordinal))
             {
@@ -93,13 +94,13 @@ public sealed class ArbTranslationFormat : ITranslationFormat
         var entries = new List<CatalogEntry>(values.Count);
         foreach (KeyValuePair<string, string> value in values)
         {
-            entries.Add(BuildEntry(value.Key, value.Value, metadata));
+            entries.Add(BuildEntry(value.Key, value.Value, metadata, defaultCategory));
         }
 
         return new Catalog { Culture = culture, Entries = entries, Headers = headers };
     }
 
-    private static void ReadFileMetadata(JsonProperty property, ref string culture, Dictionary<string, string> headers)
+    private static void ReadFileMetadata(JsonProperty property, ref string culture, ref string defaultCategory, Dictionary<string, string> headers)
     {
         if (property.Name == "@@locale")
         {
@@ -107,10 +108,16 @@ public sealed class ArbTranslationFormat : ITranslationFormat
             return;
         }
 
+        if (property.Name == "@@x-category")
+        {
+            defaultCategory = property.Value.GetString() ?? string.Empty;
+            return;
+        }
+
         headers[property.Name[2..]] = property.Value.GetString() ?? string.Empty;
     }
 
-    private static CatalogEntry BuildEntry(string key, string value, Dictionary<string, JsonElement> metadata)
+    private static CatalogEntry BuildEntry(string key, string value, Dictionary<string, JsonElement> metadata, string defaultCategory)
     {
         metadata.TryGetValue(key, out JsonElement meta);
         return new CatalogEntry
@@ -118,6 +125,7 @@ public sealed class ArbTranslationFormat : ITranslationFormat
             Key = key,
             SourceMessage = value,
             TranslatedMessage = value,
+            Category = GetString(meta, "x-category") ?? defaultCategory,
             Context = GetString(meta, "context"),
             Comment = GetString(meta, "description"),
             PreviousSource = GetString(meta, "x-previous-source"),
@@ -214,6 +222,7 @@ public sealed class ArbTranslationFormat : ITranslationFormat
         writer.WriteStartObject();
         WriteOptionalString(writer, "description", entry.Comment);
         WriteOptionalString(writer, "context", entry.Context);
+        WriteOptionalString(writer, "x-category", entry.Category);
         WritePlaceholders(writer, entry.Placeholders);
         writer.WriteString("x-state", entry.State.ToString());
         WriteReferences(writer, entry.References);

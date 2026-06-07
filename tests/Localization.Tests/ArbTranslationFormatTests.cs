@@ -108,6 +108,48 @@ public sealed class ArbTranslationFormatTests
         Assert.DoesNotContain("\r\n", text);
     }
 
+    [Fact]
+    public async Task Read_AppliesTopLevelCategoryAsDefaultAsync()
+    {
+        const string Arb = """
+            {
+              "@@locale": "de",
+              "@@x-category": "Acme.Todo.TodoStrings",
+              "add": "Hinzufügen",
+              "@add": { "x-state": "Translated", "x-source-fingerprint": "fp" }
+            }
+            """;
+
+        Catalog catalog = await ReadAsync(Encoding.UTF8.GetBytes(Arb));
+
+        Assert.Equal("Acme.Todo.TodoStrings", Assert.Single(catalog.Entries).Category);
+    }
+
+    [Fact]
+    public async Task RoundTrip_PreservesEntryCategoryAsync()
+    {
+        var catalog = new Catalog
+        {
+            Culture = "de",
+            Entries =
+            [
+                new CatalogEntry
+                {
+                    Key = "add",
+                    Category = "Acme.Todo.TodoStrings",
+                    SourceMessage = "Add",
+                    TranslatedMessage = "Hinzufügen",
+                    SourceFingerprint = "fp",
+                    State = TranslationState.Translated
+                }
+            ]
+        };
+
+        Catalog roundTripped = await RoundTripAsync(catalog);
+
+        Assert.Equal("Acme.Todo.TodoStrings", Assert.Single(roundTripped.Entries).Category);
+    }
+
     private static Catalog SingleEntry(string key, string message) => new()
     {
         Culture = "de",
