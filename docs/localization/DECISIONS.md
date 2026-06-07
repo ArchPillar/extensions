@@ -156,12 +156,12 @@ from **layered sources where the last source wins**.
   views; it is a convenience over the ambient, never a parallel system or a requirement. An explicitly
   constructed isolated `Localizer` remains available for tests and multi-tenant scenarios, and a test reset
   keeps the suite deterministic against the shared store.
-- **Targeting (multi-target, not split).** The runtime **multi-targets down to `netstandard2.0`** so a
-  `netstandard2.0` library can localize without DI. `System.*` packages are not "external" dependencies —
-  they are the framework — but to keep a net8/9/10 consumer from pulling `System.Text.Json` from NuGet, the
-  reference is **conditional on the `netstandard2.0` target only**; net8+ uses the in-box copy. Net-only API
-  gaps (e.g. the three-argument `string.Replace(string, string, StringComparison)`) are bridged with
-  `#if`/polyfills rather than a separate assembly split.
+- **Targeting: `net8.0;net9.0;net10.0` — nothing before .NET 8.** The maintainer supports no .NET Framework
+  and no `netstandard` for consumers. The runtime therefore stays `net8.0;net9.0;net10.0`; a library that
+  localizes references it directly and is itself net8+. `System.Text.Json` and `System.Xml` are in-box on
+  every supported target, so there is **no package dependency and no `#if`/polyfill work**. (The
+  analyzer/generator, `MessageFormat`, and `Abstractions` remain `netstandard2.0` only because the Roslyn
+  host requires it — the compiler's constraint, not a consumer-reach choice.)
 - **Embedded catalogs lean into satellite assemblies.** When a library *opts into* embedding (the default
   stays files), catalogs are named `<name>.<culture>.<ext>` and MSBuild routes them to standard per-culture
   **satellite assemblies** — deliberately working *with* .NET's resource convention and people's existing

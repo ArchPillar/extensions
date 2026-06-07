@@ -22,11 +22,10 @@ like the code.
 - [x] A1. Analyzer: scope `APL0006`/`APL0007` duplicate detection by category
 - [x] A2. Typed key registry: namespace constants by category (avoid cross-category key collisions)
 
-### B. ns2.0 multi-target (a `netstandard2.0` library can localize without DI)
-- [x] B1. Add `System.Text.Json` package version to `Directory.Packages.props` (used only on ns2.0) — pinned `9.0.0` (restores for ns2.0)
-- [ ] B2. Add `netstandard2.0` to the runtime TFMs; reference `System.Text.Json` conditionally (ns2.0 only)
-- [ ] B3. Fix net-only API gaps one by one (`string.Replace(_, _, StringComparison)`, …) via `#if`/polyfills
-- [ ] B4. Build green across `netstandard2.0;net8.0;net9.0;net10.0`; all tests still pass
+### B. ~~ns2.0 multi-target~~ — DROPPED
+Maintainer supports nothing before .NET 8 (no .NET Framework, no `netstandard` for consumers). The runtime
+stays `net8.0;net9.0;net10.0`; a localizing library is itself net8+. `System.Text.Json`/`System.Xml` are
+in-box, so no package deps and no `#if`/polyfill work. (B1's package-version prep was reverted.)
 
 ### C. Files-by-default + satellites
 - [ ] C1. MSBuild: copy catalogs to output **by default** (per-library naming, collision-free)
