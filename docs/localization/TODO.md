@@ -69,10 +69,14 @@ Make adoption from an existing `IStringLocalizer` / `.resx` codebase cheap, or t
   parameter carries `[Translatable]` + `[TranslationDefault]`; returns the text unchanged at runtime. Reuses
   the existing detector (key = default = literal; null receiver → global category). Usable via `using static`.
   Detector test proves the real symbol is harvested; abstractions test pins the passthrough + the attributes.
-- [ ] I2. **`IStringLocalizer` call-site extraction (on by default).** Detector recognizes the indexer by
-  symbol (`IStringLocalizer` / `IStringLocalizer<T>` from `Microsoft.Extensions.Localization`); indexed
-  literal = key = default; category = `typeof(T)` (global for the non-generic); positional `{0}` kept
-  verbatim. Detection tests for both indexers; analyzer/generator pick it up unchanged downstream.
+- [x] I2. **`IStringLocalizer` call-site extraction (on by default).** Detector recognizes the indexer by
+  symbol (`IStringLocalizer` / `IStringLocalizer<T>`, resolved by metadata name — no dependency on the
+  package); indexed literal = key = default; category = `typeof(T)` (global for the non-generic); positional
+  `{0}` kept verbatim. **Constant + valid-ICU only**; dynamic keys and `string.Format`-style literals
+  (`{0:C}`) are skipped silently (never APL0001/Error, never a warning). Only the whole-compilation `Detect`
+  walk reaches it, so the generator/tool extract these sites while existing `IStringLocalizer` code stays
+  free of editor diagnostics. Five detector tests cover both indexers, the dynamic-skip, and the non-ICU
+  skip. Typed-key registry already sanitizes sentence keys (`"Email is required"` → `EmailIsRequired`).
 - [ ] I3. **Composing adapter.** `IStringLocalizerFactory`/`IStringLocalizer` tries the ambient store, then
   **falls through to the previously-registered factory** on miss (via `ResourceNotFound`) so existing `.resx`
   keeps working. Test: ambient hit wins; ambient miss yields the inner factory's value; total miss → name.

@@ -24,7 +24,7 @@ public static class TranslationSiteDetector
     public static IEnumerable<TranslationSiteResult> Detect(Compilation compilation, CancellationToken cancellationToken)
     {
         var symbols = AttributeSymbols.From(compilation);
-        if (symbols.Translatable is null)
+        if (symbols.Translatable is null && symbols.StringLocalizer is null)
         {
             yield break;
         }
@@ -34,7 +34,7 @@ public static class TranslationSiteDetector
             SemanticModel model = compilation.GetSemanticModel(tree);
             foreach (SyntaxNode node in tree.GetRoot(cancellationToken).DescendantNodes())
             {
-                if (node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax)
+                if (node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax or ElementAccessExpressionSyntax)
                 {
                     TranslationSiteResult? result = DetectCore(model, node, symbols, cancellationToken);
                     if (result is not null)
@@ -66,6 +66,11 @@ public static class TranslationSiteDetector
         CancellationToken cancellationToken)
     {
         IOperation? operation = model.GetOperation(node, cancellationToken);
+        if (operation is IPropertyReferenceOperation propertyReference)
+        {
+            return DetectStringLocalizer(propertyReference, symbols, node);
+        }
+
         ImmutableArray<IArgumentOperation> arguments = ExtractArguments(operation);
         if (arguments.IsDefault)
         {
@@ -74,6 +79,60 @@ public static class TranslationSiteDetector
 
         IArgumentOperation? keyArgument = FindArgument(arguments, symbols.Translatable);
         return keyArgument is null ? null : Build(arguments, keyArgument, symbols, node, ReceiverType(operation));
+    }
+
+    // IStringLocalizer interop: recognize the BCL indexer (this[name] / this[name, params object[]]) by
+    // symbol, not attribute — it's a fixed shape we cannot annotate. The indexed literal is both the key and
+    // the default (the .resx text-as-key convention; a not-found lookup returns the name). We extract only a
+    // constant, valid-ICU literal and skip everything else silently: a dynamic key has no static text, and a
+    // string.Format-style literal ({0:C}) isn't ICU — flagging either would break a migrating build (a
+    // non-constant key is APL0001/Error on the native path). Category is typeof(T) for IStringLocalizer<T>,
+    // global otherwise. Only the whole-compilation Detect walk reaches here (the analyzer ignores element
+    // access), so existing IStringLocalizer code is extracted without lighting up editor diagnostics.
+    private static TranslationSiteResult? DetectStringLocalizer(
+        IPropertyReferenceOperation reference,
+        AttributeSymbols symbols,
+        SyntaxNode node)
+    {
+        if (symbols.StringLocalizer is null
+            || !reference.Property.IsIndexer
+            || !SymbolEqualityComparer.Default.Equals(reference.Property.ContainingType?.OriginalDefinition, symbols.StringLocalizer)
+            || reference.Arguments.Length == 0)
+        {
+            return null;
+        }
+
+        Optional<object?> constant = reference.Arguments[0].Value.ConstantValue;
+        if (!constant.HasValue || constant.Value is not string name || !MessageSyntax.TryValidate(name, out _))
+        {
+            return null;
+        }
+
+        var category = StringLocalizerCategory(reference.Instance?.Type as INamedTypeSymbol, symbols.GenericStringLocalizer);
+        IReadOnlyList<string> placeholders = [.. MessageSyntax.ExtractPlaceholders(name)];
+        var site = new TranslationSite(name, name, null, category, null, placeholders, ToReference(node), null);
+        return new TranslationSiteResult(site, []);
+    }
+
+    private static string StringLocalizerCategory(INamedTypeSymbol? instanceType, INamedTypeSymbol? genericLocalizer)
+    {
+        if (instanceType is null || genericLocalizer is null)
+        {
+            return string.Empty;
+        }
+
+        foreach (INamedTypeSymbol candidate in SelfBasesAndInterfaces(instanceType))
+        {
+            if (candidate.IsGenericType
+                && SymbolEqualityComparer.Default.Equals(candidate.OriginalDefinition, genericLocalizer)
+                && candidate.TypeArguments.Length == 1
+                && candidate.TypeArguments[0] is INamedTypeSymbol argument)
+            {
+                return FullName(argument);
+            }
+        }
+
+        return string.Empty;
     }
 
     private static INamedTypeSymbol? ReceiverType(IOperation? operation) =>
@@ -404,13 +463,17 @@ public static class TranslationSiteDetector
             INamedTypeSymbol? defaultMessage,
             INamedTypeSymbol? context,
             INamedTypeSymbol? comment,
-            INamedTypeSymbol? scope)
+            INamedTypeSymbol? scope,
+            INamedTypeSymbol? stringLocalizer,
+            INamedTypeSymbol? genericStringLocalizer)
         {
             Translatable = translatable;
             Default = defaultMessage;
             Context = context;
             Comment = comment;
             Scope = scope;
+            StringLocalizer = stringLocalizer;
+            GenericStringLocalizer = genericStringLocalizer;
         }
 
         public INamedTypeSymbol? Translatable { get; }
@@ -423,11 +486,17 @@ public static class TranslationSiteDetector
 
         public INamedTypeSymbol? Scope { get; }
 
+        public INamedTypeSymbol? StringLocalizer { get; }
+
+        public INamedTypeSymbol? GenericStringLocalizer { get; }
+
         public static AttributeSymbols From(Compilation compilation) => new(
             compilation.GetTypeByMetadataName("ArchPillar.Extensions.Localization.TranslatableAttribute"),
             compilation.GetTypeByMetadataName("ArchPillar.Extensions.Localization.TranslationDefaultAttribute"),
             compilation.GetTypeByMetadataName("ArchPillar.Extensions.Localization.TranslationContextAttribute"),
             compilation.GetTypeByMetadataName("ArchPillar.Extensions.Localization.TranslationCommentAttribute"),
-            compilation.GetTypeByMetadataName("ArchPillar.Extensions.Localization.TranslationScopeAttribute"));
+            compilation.GetTypeByMetadataName("ArchPillar.Extensions.Localization.TranslationScopeAttribute"),
+            compilation.GetTypeByMetadataName("Microsoft.Extensions.Localization.IStringLocalizer"),
+            compilation.GetTypeByMetadataName("Microsoft.Extensions.Localization.IStringLocalizer`1"));
     }
 }

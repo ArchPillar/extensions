@@ -141,6 +141,59 @@ public sealed class TranslationSiteDetectorTests
         Assert.Equal(string.Empty, site.Category);
     }
 
+    private const string StringLocalizerSource = """
+        using Microsoft.Extensions.Localization;
+
+        public sealed class Home;
+
+        public sealed class Consumer(IStringLocalizer<Home> scoped, IStringLocalizer plain)
+        {
+            public string Required() => scoped["Email is required"];
+            public string Dynamic(string key) => scoped[key];
+            public string FormatStyle() => scoped["Price: {0:C}"];
+            public string Positional() => scoped["Hello {0}", "Ada"];
+            public string Shared() => plain["Shared text"];
+        }
+        """;
+
+    [Fact]
+    public void Detect_StringLocalizerConstant_ExtractsLiteralAsKeyDefaultAndCategoryFromTypeArgument()
+    {
+        List<TranslationSiteResult> results = DetectStringLocalizer();
+
+        TranslationSite site = Single(results, "Email is required");
+        Assert.Equal("Email is required", site.DefaultMessage);
+        Assert.Equal("Home", site.Category);
+        Assert.Empty(site.Placeholders);
+    }
+
+    [Fact]
+    public void Detect_StringLocalizerNonGeneric_HasGlobalCategory() =>
+        Assert.Equal(string.Empty, Single(DetectStringLocalizer(), "Shared text").Category);
+
+    [Fact]
+    public void Detect_StringLocalizerPositionalPlaceholder_IsKeptVerbatim()
+    {
+        TranslationSite site = Single(DetectStringLocalizer(), "Hello {0}");
+        Assert.Equal(["0"], site.Placeholders);
+    }
+
+    [Fact]
+    public void Detect_StringLocalizerDynamicKey_IsSkippedSilently()
+    {
+        List<TranslationSiteResult> results = DetectStringLocalizer();
+
+        Assert.DoesNotContain(results, r => r.Site is null);
+        Assert.DoesNotContain(results, r => r.Problems.Count > 0);
+    }
+
+    [Fact]
+    public void Detect_StringLocalizerNonIcuLiteral_IsSkippedSilently() =>
+        Assert.DoesNotContain(DetectStringLocalizer(), r => r.Site?.Key == "Price: {0:C}");
+
+    private static List<TranslationSiteResult> DetectStringLocalizer() =>
+        TranslationSiteDetector.Detect(RoslynTestHost.CreateCompilation(StringLocalizerSource), CancellationToken.None).ToList();
+
     private static List<TranslationSiteResult> Detect() =>
         TranslationSiteDetector.Detect(RoslynTestHost.CreateCompilation(Source), CancellationToken.None).ToList();
 
