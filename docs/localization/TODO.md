@@ -54,4 +54,7 @@ in-box, so no package deps and no `#if`/polyfill work. (B1's package-version pre
 - [ ] G1. Update `integration.md` / `runtime.md` for ambient + files + satellites + publish merge
 
 ### H. Validation
-- [ ] H1. Spike: embedded/satellite discovery under trimming / single-file / AOT
+- [ ] H1. **(Essential — mobile + WASM are AOT/trimmed)** Validate embedded/satellite discovery under
+  trimming / single-file / AOT (iOS is AOT-only, WASM trims by default). Root the `[LocalizationCatalog]`
+  attribute, embedded resources, and satellites against the trimmer; confirm the explicit
+  `Localizer.FromCatalogs` path stays trim-safe as the fallback.
