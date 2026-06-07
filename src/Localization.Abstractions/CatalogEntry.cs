@@ -13,6 +13,13 @@ public sealed record CatalogEntry
     /// <summary>The optional disambiguation context.</summary>
     public string? Context { get; init; }
 
+    /// <summary>
+    /// The translation category (namespace) — the full type name of the scope the key belongs to. Empty
+    /// for the uncategorized/global namespace. Keys are unique within a category, so the same key may
+    /// appear under different categories with different translations.
+    /// </summary>
+    public string Category { get; init; } = "";
+
     /// <summary>The source-language default message (ICU MessageFormat).</summary>
     public required string SourceMessage { get; init; }
 

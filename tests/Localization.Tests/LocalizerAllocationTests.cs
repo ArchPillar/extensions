@@ -9,6 +9,7 @@ public sealed class LocalizerAllocationTests : IDisposable
 
     private readonly string _directory;
     private readonly Localizer _localizer;
+    private readonly ILocalizer<LocalizerAllocationTests> _typed;
 
     public LocalizerAllocationTests()
     {
@@ -26,6 +27,28 @@ public sealed class LocalizerAllocationTests : IDisposable
             TranslationsDirectory = _directory,
             SourceCulture = "en"
         });
+        _typed = new LocalizerFactory(_localizer).Create<LocalizerAllocationTests>();
+    }
+
+    [Fact]
+    public void TypedLocalizer_DefaultLiteral_IsAllocationFree()
+    {
+        CultureInfo original = CultureInfo.CurrentUICulture;
+        CultureInfo.CurrentUICulture = _german;
+        try
+        {
+            AssertZeroAllocations(() =>
+            {
+                for (var i = 0; i < Invocations; i++)
+                {
+                    _typed.Translate("app.missing", "OK");
+                }
+            });
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = original;
+        }
     }
 
     [Fact]

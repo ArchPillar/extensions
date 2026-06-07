@@ -17,7 +17,7 @@ internal static class CatalogLoader
         }
 
         TranslationFormatRegistry registry = BuildRegistry();
-        var byCulture = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, Dictionary<string, Dictionary<string, string>>> byCulture = NewCultureMap();
         foreach (var file in OrderedFiles(options.TranslationsDirectory, registry, options.FormatPrecedence))
         {
             LoadFile(file, registry, options, byCulture);
@@ -28,7 +28,7 @@ internal static class CatalogLoader
 
     public static TranslationSnapshot BuildSnapshot(IEnumerable<Catalog> catalogs, LocalizerOptions options)
     {
-        var byCulture = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
+        Dictionary<string, Dictionary<string, Dictionary<string, string>>> byCulture = NewCultureMap();
         foreach (Catalog catalog in catalogs)
         {
             if (!ShouldSkipCulture(catalog.Culture, options))
@@ -39,6 +39,9 @@ internal static class CatalogLoader
 
         return ToSnapshot(byCulture);
     }
+
+    private static Dictionary<string, Dictionary<string, Dictionary<string, string>>> NewCultureMap() =>
+        new(StringComparer.OrdinalIgnoreCase);
 
     private static TranslationFormatRegistry BuildRegistry()
     {
@@ -91,7 +94,7 @@ internal static class CatalogLoader
         string file,
         TranslationFormatRegistry registry,
         LocalizerOptions options,
-        Dictionary<string, Dictionary<string, string>> byCulture)
+        Dictionary<string, Dictionary<string, Dictionary<string, string>>> byCulture)
     {
         ITranslationFormat? format = registry.ResolveByExtension(Path.GetExtension(file));
         if (format is null)
@@ -118,20 +121,28 @@ internal static class CatalogLoader
         return options.Cultures?.Contains(culture, StringComparer.OrdinalIgnoreCase) == false;
     }
 
-    private static void MergeEntries(Catalog catalog, Dictionary<string, Dictionary<string, string>> byCulture)
+    private static void MergeEntries(Catalog catalog, Dictionary<string, Dictionary<string, Dictionary<string, string>>> byCulture)
     {
-        if (!byCulture.TryGetValue(catalog.Culture, out Dictionary<string, string>? map))
+        if (!byCulture.TryGetValue(catalog.Culture, out Dictionary<string, Dictionary<string, string>>? byCategory))
         {
-            map = new Dictionary<string, string>(StringComparer.Ordinal);
-            byCulture[catalog.Culture] = map;
+            byCategory = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
+            byCulture[catalog.Culture] = byCategory;
         }
 
         foreach (CatalogEntry entry in catalog.Entries)
         {
-            if (HasTranslation(entry))
+            if (!HasTranslation(entry))
             {
-                map[TranslationKey.Compose(entry.Key, entry.Context)] = entry.TranslatedMessage!;
+                continue;
             }
+
+            if (!byCategory.TryGetValue(entry.Category, out Dictionary<string, string>? map))
+            {
+                map = new Dictionary<string, string>(StringComparer.Ordinal);
+                byCategory[entry.Category] = map;
+            }
+
+            map[TranslationKey.Compose(entry.Key, entry.Context)] = entry.TranslatedMessage!;
         }
     }
 
@@ -152,12 +163,18 @@ internal static class CatalogLoader
         }
     }
 
-    private static TranslationSnapshot ToSnapshot(Dictionary<string, Dictionary<string, string>> byCulture)
+    private static TranslationSnapshot ToSnapshot(Dictionary<string, Dictionary<string, Dictionary<string, string>>> byCulture)
     {
-        var result = new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
-        foreach (KeyValuePair<string, Dictionary<string, string>> pair in byCulture)
+        var result = new Dictionary<string, IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>>(StringComparer.OrdinalIgnoreCase);
+        foreach (KeyValuePair<string, Dictionary<string, Dictionary<string, string>>> culture in byCulture)
         {
-            result[pair.Key] = pair.Value;
+            var byCategory = new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.Ordinal);
+            foreach (KeyValuePair<string, Dictionary<string, string>> category in culture.Value)
+            {
+                byCategory[category.Key] = category.Value;
+            }
+
+            result[culture.Key] = byCategory;
         }
 
         return new TranslationSnapshot(result);

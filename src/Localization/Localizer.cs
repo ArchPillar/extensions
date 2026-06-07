@@ -10,7 +10,7 @@ namespace ArchPillar.Extensions.Localization;
 /// Lookups are lock-free; loading is pluggable and optionally hot-reloadable. Designed to be a singleton
 /// and safe for concurrent use.
 /// </summary>
-public sealed class Localizer : IDisposable
+public sealed class Localizer : IDisposable, ILocalizer
 {
     private readonly LocalizerOptions _options;
     private readonly Func<TranslationSnapshot> _load;
@@ -143,12 +143,31 @@ public sealed class Localizer : IDisposable
         }
 
         var composite = TranslationKey.Compose(key, context);
-        var message = Resolve(culture, composite);
+        var message = Resolve(culture, category: string.Empty, composite);
         overrideFound = message is not null;
 
         // An override was authored for the requested culture, so render it with that culture's rules.
         // The in-code default is source-language text, so render it with the source culture's rules —
         // otherwise an English default shown under, say, Japanese rules would pluralize incorrectly.
+        return message is not null
+            ? _formatter.Format(message, culture, arguments)
+            : _formatter.Format(defaultMessage, _sourceCulture, arguments);
+    }
+
+    // The category-scoped core used by ILocalizer<T> (via the factory). It looks the key up within the
+    // localizer's category for the current UI culture, falling back to the in-code default. A literal
+    // lookup with no context allocates nothing: the composite key is the key itself and the tiered
+    // dictionary reads do not allocate.
+    internal string TranslateInCategory(
+        string category,
+        string key,
+        string defaultMessage,
+        string? context,
+        (string Name, object? Value)[] arguments)
+    {
+        CultureInfo culture = CultureInfo.CurrentUICulture;
+        var composite = TranslationKey.Compose(key, context);
+        var message = Resolve(culture, category, composite);
         return message is not null
             ? _formatter.Format(message, culture, arguments)
             : _formatter.Format(defaultMessage, _sourceCulture, arguments);
@@ -184,13 +203,14 @@ public sealed class Localizer : IDisposable
         _debounce?.Dispose();
     }
 
-    private string? Resolve(CultureInfo culture, string compositeKey)
+    private string? Resolve(CultureInfo culture, string category, string compositeKey)
     {
         TranslationSnapshot snapshot = Volatile.Read(ref _snapshot);
         CultureInfo? current = culture;
         while (current is not null && !string.IsNullOrEmpty(current.Name))
         {
-            if (snapshot.ByCulture.TryGetValue(current.Name, out IReadOnlyDictionary<string, string>? map)
+            if (snapshot.ByCulture.TryGetValue(current.Name, out IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>? byCategory)
+                && byCategory.TryGetValue(category, out IReadOnlyDictionary<string, string>? map)
                 && map.TryGetValue(compositeKey, out var message))
             {
                 return message;
