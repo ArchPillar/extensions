@@ -173,6 +173,37 @@ from **layered sources where the last source wins**.
 This refines D-H (the namespacing model stands) and revises D-5/D-B/D-F where they assumed DI-first or
 per-instance loading.
 
+### D-J — Migration on-ramp: scan `IStringLocalizer` sites + a no-op `L(...)` marker; the adapter composes, never replaces.
+A team adopting this library from an existing `IStringLocalizer` / `.resx` codebase must not face a rewrite
+to get value, or the migration cost alone makes them discard it. Three deliberate concessions, grounded in
+how `IStringLocalizer` actually works (verified against the docs):
+
+- **Nothing of the framework's own is at risk.** No .NET runtime/BCL message, Identity error, or MVC
+  model-binding message flows through `IStringLocalizer` — those use `ResourceManager` and dedicated
+  providers directly. The only strings on the `IStringLocalizer` path are **opt-in app code**
+  (`AddDataAnnotationsLocalization`, view localization, direct injection). So the thing we must not break is
+  **the consumer's own `.resx`**, served by the default `ResourceManagerStringLocalizerFactory`.
+- **The adapter composes.** Our `IStringLocalizerFactory`/`IStringLocalizer` tries the ambient store first
+  and, on a miss, **falls through to the previously-registered factory** (using `LocalizedString.ResourceNotFound`
+  for found-awareness — reversing the earlier "value-or-name only" stance, which would have shadowed existing
+  `.resx`). Existing translations keep working alongside ours; adoption is additive.
+- **`IStringLocalizer` call sites are extracted, on by default.** The detector recognizes the indexer
+  (`this[name]` / `this[name, params object[]]`) by symbol, not attribute. **The indexed literal is both the
+  key and the default** (matching BCL semantics, where a not-found lookup returns the name). Category is
+  `typeof(T)` for `IStringLocalizer<T>`, global for the non-generic indexer. Positional `{0}` placeholders
+  are captured verbatim (no rewrite — already valid). This is automatic so a migrating codebase's strings
+  appear in the catalog with zero annotation work.
+- **`L(...)` — a no-op marker for everything else.** Strings that never touch a localizer (log messages,
+  `throw new(...)` text) get a terse passthrough: `using static …` then `L("Email is required")`. The method
+  returns its argument unchanged at runtime (no setup, no ambient dependency); its only job is to carry
+  `[Translatable]` + `[TranslationDefault]` so the existing detector harvests the literal (key = default =
+  the text; null receiver → global category). It piggybacks entirely on the current attribute-driven
+  detection — no special-casing.
+
+This refines D-5 (interop is no longer a one-way value-or-name adapter — it composes) and extends D-3
+(attribute-driven detection still covers the marker; the `IStringLocalizer` indexer is the one symbol-based
+exception, justified by it being a fixed BCL shape we cannot annotate).
+
 ## What is unchanged from the specs
 
 All other decisions in `00-architecture.md` (D-1 … D-14) stand: the in-code default is the

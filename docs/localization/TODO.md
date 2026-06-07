@@ -62,3 +62,17 @@ in-box, so no package deps and no `#if`/polyfill work. (B1's package-version pre
   satellite discovery under trimming / single-file / AOT: root the `[LocalizationCatalog]` attribute,
   embedded resources, and satellites against the trimmer. The files path needs no spike. Sanity-check the
   `JsonDocument`/`XDocument` DOM parsers under AOT while here.
+
+### I. Migration on-ramp (D-J)
+Make adoption from an existing `IStringLocalizer` / `.resx` codebase cheap, or the migration cost sinks us.
+- [x] I1. **`L(...)` no-op marker.** `TranslationMarkers.L` in Abstractions — static passthrough whose
+  parameter carries `[Translatable]` + `[TranslationDefault]`; returns the text unchanged at runtime. Reuses
+  the existing detector (key = default = literal; null receiver → global category). Usable via `using static`.
+  Detector test proves the real symbol is harvested; abstractions test pins the passthrough + the attributes.
+- [ ] I2. **`IStringLocalizer` call-site extraction (on by default).** Detector recognizes the indexer by
+  symbol (`IStringLocalizer` / `IStringLocalizer<T>` from `Microsoft.Extensions.Localization`); indexed
+  literal = key = default; category = `typeof(T)` (global for the non-generic); positional `{0}` kept
+  verbatim. Detection tests for both indexers; analyzer/generator pick it up unchanged downstream.
+- [ ] I3. **Composing adapter.** `IStringLocalizerFactory`/`IStringLocalizer` tries the ambient store, then
+  **falls through to the previously-registered factory** on miss (via `ResourceNotFound`) so existing `.resx`
+  keeps working. Test: ambient hit wins; ambient miss yields the inner factory's value; total miss → name.

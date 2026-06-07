@@ -122,6 +122,25 @@ public sealed class TranslationSiteDetectorTests
         Assert.Equal("Buttons", Single(results, "save").Category);
     }
 
+    [Fact]
+    public void Detect_LMarker_HarvestsLiteralAsKeyAndDefaultInGlobalCategory()
+    {
+        const string Marked = """
+            using static ArchPillar.Extensions.Localization.TranslationMarkers;
+
+            public sealed class Consumer
+            {
+                public string Required() => L("Email is required");
+            }
+            """;
+
+        var results = TranslationSiteDetector.Detect(RoslynTestHost.CreateCompilation(Marked), CancellationToken.None).ToList();
+
+        TranslationSite site = Single(results, "Email is required");
+        Assert.Equal("Email is required", site.DefaultMessage);
+        Assert.Equal(string.Empty, site.Category);
+    }
+
     private static List<TranslationSiteResult> Detect() =>
         TranslationSiteDetector.Detect(RoslynTestHost.CreateCompilation(Source), CancellationToken.None).ToList();
 
