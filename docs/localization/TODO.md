@@ -20,7 +20,7 @@ like the code.
 
 ### A. Correctness cleanups (small, low risk)
 - [x] A1. Analyzer: scope `APL0006`/`APL0007` duplicate detection by category
-- [ ] A2. Typed key registry: namespace constants by category (avoid cross-category key collisions)
+- [x] A2. Typed key registry: namespace constants by category (avoid cross-category key collisions)
 
 ### B. ns2.0 multi-target (a `netstandard2.0` library can localize without DI)
 - [ ] B1. Add `System.Text.Json` package version to `Directory.Packages.props` (used only on ns2.0)

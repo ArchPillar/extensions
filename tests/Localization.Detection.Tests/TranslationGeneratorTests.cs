@@ -40,6 +40,57 @@ public sealed class TranslationGeneratorTests
         Assert.Contains("x-source-fingerprint", arb);
     }
 
+    [Fact]
+    public void Generator_GroupsKeysByCategoryIntoNestedClasses()
+    {
+        const string Scoped = """
+            using ArchPillar.Extensions.Localization;
+
+            public interface IScoped<[TranslationScope] T>
+            {
+                string Translate([Translatable] string key, [TranslationDefault] string message);
+            }
+
+            public sealed class Save;
+            public sealed class Cancel;
+
+            public sealed class Consumer(IScoped<Save> save, IScoped<Cancel> cancel)
+            {
+                public void Run()
+                {
+                    save.Translate("label", "Save");
+                    cancel.Translate("label", "Cancel");
+                }
+            }
+            """;
+
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(new Generator.TranslationGenerator());
+        GeneratorDriverRunResult result = driver.RunGenerators(RoslynTestHost.CreateCompilation(Scoped)).GetRunResult();
+        var registry = result.Results
+            .SelectMany(r => r.GeneratedSources)
+            .Single(s => s.HintName == "TranslationKeys.g.cs")
+            .SourceText
+            .ToString();
+
+        Assert.Contains("public static class Save", registry);
+        Assert.Contains("public static class Cancel", registry);
+        // The same key "label" lives once per category, with no top-level collision.
+        Assert.Equal(2, CountOccurrences(registry, "public const string Label = \"label\";"));
+    }
+
+    private static int CountOccurrences(string text, string value)
+    {
+        var count = 0;
+        var index = 0;
+        while ((index = text.IndexOf(value, index, StringComparison.Ordinal)) >= 0)
+        {
+            count++;
+            index += value.Length;
+        }
+
+        return count;
+    }
+
     private static string Generated(string hintName)
     {
         GeneratorDriver driver = CSharpGeneratorDriver.Create(new Generator.TranslationGenerator());
