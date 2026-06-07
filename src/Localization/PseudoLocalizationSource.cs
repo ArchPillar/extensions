@@ -5,10 +5,11 @@ namespace ArchPillar.Extensions.Localization;
 
 /// <summary>
 /// A pseudo-localization source for QA. For its target culture it replaces every ASCII letter of the
-/// in-code default with <c>X</c>, copying anything inside braces (ICU placeholders and constructs) through
-/// untouched so formatting still works. A string that renders as <c>XXXX</c> is going through the
-/// localizer; a string that stays readable is hardcoded or otherwise not translatable — so it is an
-/// at-a-glance smoke test of what is and is not translated. It is a test aid, not a real translation.
+/// in-code default's literal text with <c>X</c>, while leaving ICU syntax intact — argument names,
+/// keywords, and placeholders sit at odd brace depth and are preserved, literal text (including a plural
+/// or select branch body) sits at even depth and is X'd. A string that renders as <c>XXXX</c> is going
+/// through the localizer; a string that stays readable is hardcoded or otherwise not translatable — so it
+/// is an at-a-glance smoke test of what is and is not translated. It is a test aid, not a real translation.
 /// </summary>
 public sealed class PseudoLocalizationSource : ITranslationSource
 {
@@ -50,7 +51,7 @@ public sealed class PseudoLocalizationSource : ITranslationSource
                 depth--;
             }
 
-            builder.Append(depth == 0 && IsAsciiLetter(character) ? 'X' : character);
+            builder.Append(depth % 2 == 0 && IsAsciiLetter(character) ? 'X' : character);
         }
 
         return builder.ToString();

@@ -33,6 +33,21 @@ public sealed class TranslationSourceTests
     }
 
     [Fact]
+    public void Pseudo_XsBranchTextButKeepsPluralSyntax()
+    {
+        using var localizer = new Localizer(new LocalizerOptions
+        {
+            SourceCulture = "en",
+            Sources = [new PseudoLocalizationSource("qps-ploc")]
+        });
+
+        var rendered = localizer.Translate(
+            _pseudo, "todo.remaining", "{count, plural, one {# task left} other {# tasks left}}", null, ("count", 2));
+
+        Assert.Equal("2 XXXXX XXXX", rendered);
+    }
+
+    [Fact]
     public void Pseudo_DoesNotAffectOtherCultures()
     {
         using var localizer = new Localizer(new LocalizerOptions

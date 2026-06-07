@@ -1,0 +1,12 @@
+{
+  "@@locale": "fr",
+  "@@x-category": "Localization.TodoSample.TodoStrings",
+  "Title": "Mes tâches",
+  "@Title": { "x-state": "Translated", "x-source-fingerprint": "sample" },
+  "AddHint": "Saisissez une tâche et appuyez sur Entrée pour l'ajouter.",
+  "@AddHint": { "x-state": "Translated", "x-source-fingerprint": "sample" },
+  "Empty": "Rien à faire — ajoutez votre première tâche !",
+  "@Empty": { "x-state": "Translated", "x-source-fingerprint": "sample" },
+  "Remaining": "{count, plural, =0 {Tout est fait !} one {# tâche restante} other {# tâches restantes}}",
+  "@Remaining": { "x-state": "Translated", "x-source-fingerprint": "sample" }
+}

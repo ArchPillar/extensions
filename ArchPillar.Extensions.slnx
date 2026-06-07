@@ -34,6 +34,9 @@
   <Folder Name="/samples/Localization/Localization.WasmSample/">
     <Project Path="samples/Localization/Localization.WasmSample/Localization.WasmSample.csproj" />
   </Folder>
+  <Folder Name="/samples/Localization/Localization.TodoSample/">
+    <Project Path="samples/Localization/Localization.TodoSample/Localization.TodoSample.csproj" />
+  </Folder>
   <Folder Name="/benchmarks/" />
   <Folder Name="/benchmarks/Mapper.Benchmarks/">
     <Project Path="benchmarks/Mapper.Benchmarks/ArchPillar.Extensions.Mapper.Benchmarks.csproj" />
