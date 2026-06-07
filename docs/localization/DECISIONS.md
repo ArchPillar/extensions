@@ -130,6 +130,41 @@ which doubles as honest code deduplication. This refines D-5 and supersedes the 
 - `Localizer` (concrete) becomes an `ILocalizer` implementation; the sealed implementations sit behind
   the interfaces.
 
+### D-I — Translations load through one ambient, layered store (the configuration model); DI is an escape hatch.
+A translated string must render where no services exist — most importantly an **exception message** thrown
+from a static context, deep in a library, before any container is built. Anything that needs DI to localize
+is broken for that case. So the translation/override data is **ambient global state** — accepted
+deliberately despite the general aversion to it — modeled on `IConfiguration`: one process-wide store built
+from **layered sources where the last source wins**.
+
+- **Uniform layered sources.** A library's embedded translations and a host's overrides are not different
+  kinds of thing — both are sources layered into the one store. Override = "add a later source." A lookup is
+  one priority-ordered, lock-free read; a miss falls to the in-code default (the floor, supplied at the call
+  site, never stored). The category (D-H) is how sources are keyed.
+- **The lookup/merge code lives in archpillar.** A library references archpillar and calls in; nothing is
+  duplicated per library. `ILocalizer<T>`, the generated per-assembly localizer, and the bare `Localizer`
+  are category-scoped read views over the one store.
+- **Lazy, assembly-load-driven.** Assemblies load on demand, so sources are discovered by reacting to loads,
+  not by an up-front scan: read embedded translations from already-loaded assemblies at init, and subscribe
+  to `AppDomain.CurrentDomain.AssemblyLoad` to pull in each assembly's translations as it loads. This is
+  self-correcting — a library's `Translate` cannot run before its assembly is loaded, and a host override for
+  a not-yet-loaded library waits in the store and wins when that library appears. Each assembly advertises
+  its embedded catalogs with an assembly attribute, so discovery is an attribute read, not a resource scan.
+- **Immutable snapshot, atomic swap.** Adding a source rebuilds the merged snapshot and swaps it atomically —
+  the existing lock-free machinery — so lookups stay zero-allocation.
+- **DI is the escape hatch.** `AddArchPillarLocalization` feeds the same ambient store and offers injectable
+  views; it is a convenience over the ambient, never a parallel system or a requirement. An explicitly
+  constructed isolated `Localizer` remains available for tests and multi-tenant scenarios, and a test reset
+  keeps the suite deterministic against the shared store.
+- **Targeting.** The store, the lookup, `ILocalizer`, and the default (null) renderer live in the BCL-only,
+  broadly-targeted layer (down to `netstandard2.0`) so a `netstandard2.0` library can localize with no DI and
+  no net-only runtime; the net-only source loaders (directory, `FileSystemWatcher`, MSBuild-embedded) layer
+  on top. Trimming / single-file / AOT compatibility of embedded-resource discovery is validated by spike
+  before it is relied on.
+
+This refines D-H (the namespacing model stands) and revises D-5/D-B/D-F where they assumed DI-first or
+per-instance loading.
+
 ## What is unchanged from the specs
 
 All other decisions in `00-architecture.md` (D-1 … D-14) stand: the in-code default is the
@@ -174,7 +209,11 @@ for runtime assemblies).
 | # | Phase | Delivers |
 |---|---|---|
 | 9 | Integration ✅ | `ArchPillar.Extensions.Localization.DependencyInjection`: `AddArchPillarLocalization`, the `IStringLocalizer`/`IStringLocalizer<T>`/`IStringLocalizerFactory` adapter (name-is-key, missing→name, positional args → `{0}`), and ASP.NET request-culture via `CurrentUICulture` (D-5). The core stays dependency-free. |
-| 10 | Namespacing + `ILocalizer` model (D-H) | `ILocalizer`/`ILocalizer<T>`/`ILocalizerFactory` modeled on `ILogger`; `[TranslationScope]`; category tier in the snapshot + loader (`culture → category → key → message`); generator derives the category from the receiver's `T`; DI + samples updated. `IStringLocalizer` adapter retained for interop. |
+| 10.1 ✅ | Contracts (D-H) | `ILocalizer`/`ILocalizer<T>`/`ILocalizerFactory` modeled on `ILogger`; `[TranslationScope]`; the `Localized<TSelf>` self-scoped base (member name → key via `[CallerMemberName]`). |
+| 10.2 ✅ | Category tier | `CatalogEntry.Category`; snapshot/loader tiered `culture → category → key → message`; `Localizer : ILocalizer`; `Localizer<T>` + `LocalizerFactory`; zero-alloc preserved. *(Re-pointed at the ambient store in 10.3.)* |
+| 10.3 | Ambient layered store (D-I) | The `IConfiguration`-style store: layered sources, last-wins merge + atomic swap, lazy `AssemblyLoad`-driven discovery, embedded-catalog loader + advertising attribute; move store/lookup/`ILocalizer`/null-renderer to the `netstandard2.0` layer; re-point the views at the store; test reset; trimming/single-file/AOT spike. |
+| 10.4 | Extractor + persistence | Category from the receiver's `[TranslationScope]` (and the `Localized<TSelf>` marker), else the assembly default namespace, else global; carry the category into the template + typed registry; format providers persist `Category`; MSBuild embeds the target catalogs. |
+| 10.5 | DI + samples + docs | `AddArchPillarLocalization` feeds the ambient store and offers injectable views; samples incl. a no-DI library + an exception-text example + a `Localized<TSelf>` bundle; docs. `IStringLocalizer` adapter retained for interop. |
 
 ### Adjustment to the spec's build order
 
