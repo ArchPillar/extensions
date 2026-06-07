@@ -48,7 +48,7 @@ in-box, so no package deps and no `#if`/polyfill work. (B1's package-version pre
 ### F. Samples (after the milestones)
 - [x] F1. No-DI batteries-included library sample (`Localization.GreetingLibrary` ships German embedded as a satellite; `Localization.LibraryConsumer` uses it with **zero** config) — verified running
 - [x] F2. Localized exception text (the consumer sample's `Validator` throws a German `ArgumentException` under `de`, no services)
-- [ ] F3. Revisit existing samples for the ambient/files model
+- [x] F3. Existing samples verified working with the ambient wiring (console renders en/de + plurals; ASP.NET's `IStringLocalizer` now reads the ambient — `/strings?culture=de` → German). No rewrite needed; the new library sample is the canonical ambient demo.
 
 ### G. Docs
 - [ ] G1. Update `integration.md` / `runtime.md` for ambient + files + satellites + publish merge
