@@ -98,7 +98,10 @@ public sealed class TranslationAnalyzer : DiagnosticAnalyzer
     private static void CheckSite(SyntaxNodeAnalysisContext context, TranslationSite site, AnalysisState state)
     {
         Location location = context.Node.GetLocation();
-        var composite = TranslationKey.Compose(site.Key, site.Context);
+
+        // Duplicate detection is scoped by category: the same key under two different categories is a
+        // different string, not a conflict.
+        var composite = site.Category + TranslationKey.Separator + TranslationKey.Compose(site.Key, site.Context);
 
         var firstDefault = state.DefaultsByKey.GetOrAdd(composite, site.DefaultMessage);
         if (!string.Equals(firstDefault, site.DefaultMessage, StringComparison.Ordinal))
@@ -106,7 +109,7 @@ public sealed class TranslationAnalyzer : DiagnosticAnalyzer
             context.ReportDiagnostic(Diagnostic.Create(Diagnostics.DuplicateKey, location, site.Key));
         }
 
-        var textKey = site.DefaultMessage + TranslationKey.Separator + (site.Context ?? string.Empty);
+        var textKey = site.Category + TranslationKey.Separator + site.DefaultMessage + TranslationKey.Separator + (site.Context ?? string.Empty);
         var firstKey = state.KeysByDefault.GetOrAdd(textKey, site.Key);
         if (!string.Equals(firstKey, site.Key, StringComparison.Ordinal))
         {

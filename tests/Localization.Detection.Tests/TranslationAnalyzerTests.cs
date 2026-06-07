@@ -60,6 +60,35 @@ public sealed class TranslationAnalyzerTests
     }
 
     [Fact]
+    public async Task Analyzer_SameKeyDifferentCategories_DoesNotReportApl0006Async()
+    {
+        const string Source = """
+            using ArchPillar.Extensions.Localization;
+
+            public interface IScoped<[TranslationScope] T>
+            {
+                string Translate([Translatable] string key, [TranslationDefault] string message);
+            }
+
+            public sealed class Save;
+            public sealed class Cancel;
+
+            public sealed class Consumer(IScoped<Save> save, IScoped<Cancel> cancel)
+            {
+                public void Run()
+                {
+                    save.Translate("label", "Save");
+                    cancel.Translate("label", "Cancel");
+                }
+            }
+            """;
+
+        ImmutableArray<Diagnostic> diagnostics = await RoslynTestHost.RunAnalyzerAsync(RoslynTestHost.CreateCompilation(Source));
+
+        Assert.DoesNotContain(diagnostics, d => d.Id == "APL0006");
+    }
+
+    [Fact]
     public async Task Analyzer_PlaceholderNotSupplied_ReportsApl0003Async()
     {
         ImmutableArray<Diagnostic> diagnostics = await RoslynTestHost.RunAnalyzerAsync(RoslynTestHost.CreateCompilation(
