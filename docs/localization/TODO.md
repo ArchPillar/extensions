@@ -46,8 +46,8 @@ in-box, so no package deps and no `#if`/polyfill work. (B1's package-version pre
 - [x] E3. Tests restructured: functionality uses explicit catalogs via `Localization.AddCatalog` + `Reset()`; WASM sample fed via the ambient
 
 ### F. Samples (after the milestones)
-- [ ] F1. No-DI validation-style library sample (batteries included, files)
-- [ ] F2. Exception-text sample (localize from a static / exception context)
+- [x] F1. No-DI batteries-included library sample (`Localization.GreetingLibrary` ships German embedded as a satellite; `Localization.LibraryConsumer` uses it with **zero** config) — verified running
+- [x] F2. Localized exception text (the consumer sample's `Validator` throws a German `ArgumentException` under `de`, no services)
 - [ ] F3. Revisit existing samples for the ambient/files model
 
 ### G. Docs

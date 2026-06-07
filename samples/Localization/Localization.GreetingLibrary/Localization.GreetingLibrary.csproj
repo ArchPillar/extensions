@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <RootNamespace>Acme.Greeting</RootNamespace>
+    <AssemblyName>Acme.Greeting</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Localization\ArchPillar.Extensions.Localization.csproj" />
+  </ItemGroup>
+
+  <!--
+    Batteries included: ship the German catalog inside this library's own DLL as a culture satellite
+    (Culture="de" routes de.arb to de/Acme.Greeting.resources.dll), and mark the assembly so the ambient
+    store discovers it. A consuming app needs no configuration, no DI, and no files on disk.
+  -->
+  <ItemGroup>
+    <None Remove="Translations/de.arb" />
+    <EmbeddedResource Include="Translations/de.arb" Culture="de" Link="Acme.Greeting.de.arb" />
+    <AssemblyAttribute Include="ArchPillar.Extensions.Localization.LocalizationSatelliteCatalogsAttribute" />
+  </ItemGroup>
+
+</Project>

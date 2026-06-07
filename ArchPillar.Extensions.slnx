@@ -37,6 +37,12 @@
   <Folder Name="/samples/Localization/Localization.TodoSample/">
     <Project Path="samples/Localization/Localization.TodoSample/Localization.TodoSample.csproj" />
   </Folder>
+  <Folder Name="/samples/Localization/Localization.GreetingLibrary/">
+    <Project Path="samples/Localization/Localization.GreetingLibrary/Localization.GreetingLibrary.csproj" />
+  </Folder>
+  <Folder Name="/samples/Localization/Localization.LibraryConsumer/">
+    <Project Path="samples/Localization/Localization.LibraryConsumer/Localization.LibraryConsumer.csproj" />
+  </Folder>
   <Folder Name="/benchmarks/" />
   <Folder Name="/benchmarks/Mapper.Benchmarks/">
     <Project Path="benchmarks/Mapper.Benchmarks/ArchPillar.Extensions.Mapper.Benchmarks.csproj" />

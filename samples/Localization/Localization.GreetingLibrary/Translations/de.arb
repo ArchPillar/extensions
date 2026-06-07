@@ -1,0 +1,7 @@
+{
+  "@@locale": "de",
+  "greeting": "Hallo {name}!",
+  "@greeting": { "x-category": "Acme.Greeting.Greeter", "x-state": "Translated", "x-source-fingerprint": "sample" },
+  "required": "{field} ist erforderlich.",
+  "@required": { "x-category": "Acme.Greeting.Validator", "x-state": "Translated", "x-source-fingerprint": "sample" }
+}
