@@ -155,6 +155,11 @@ NativeAOT cannot load a separate managed satellite assembly, so under AOT the sa
 or a main-assembly embedded catalog; avoid satellite embedding.** The embedded publishes are otherwise
 IL-warning-clean (the resource/satellite/attribute reflection is not flagged by the trimmer).
 
+`samples/Localization/Localization.AotSample` is a NativeAOT app built the recommended way — it localizes
+through both AOT-safe paths (a loose file and a main-assembly embedded catalog, no satellite) and is verified
+to resolve German after `dotnet publish -r <rid>`. (`Localization.TrimSample` is the broader spike that also
+exercises the satellite path to demonstrate the AOT limitation above.)
+
 The usual globalization caveat applies: an app published with `InvariantGlobalization=true` cannot select a
 non-default culture, so it can never load non-default translations — standard .NET advice, not specific here.
 

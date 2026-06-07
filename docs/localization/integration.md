@@ -141,5 +141,7 @@ Runnable samples under `samples/Localization`:
 - **`Localization.MigrationSample`** — migrating an existing `AddLocalization()` + `.resx` app: the composing
   adapter keeps the legacy `.resx` resolving while ArchPillar's `de.arb` wins where it has an entry, plus an
   `L(...)` marker. No call-site changes.
-- **`Localization.TrimSample`** — validates the embedded/satellite path under trimming / single-file / AOT
-  (see [`runtime.md`](runtime.md) → Publishing).
+- **`Localization.AotSample`** — a NativeAOT app localizing the recommended AOT-safe way (a loose file plus a
+  main-assembly embedded catalog, no satellite); publishes and runs as a native binary.
+- **`Localization.TrimSample`** — the broader spike that validates the embedded/satellite path under trimming
+  / single-file / AOT, including the satellite's AOT limitation (see [`runtime.md`](runtime.md) → Publishing).

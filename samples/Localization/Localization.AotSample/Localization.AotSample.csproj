@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <RootNamespace>AotSample</RootNamespace>
+    <AssemblyName>AotSample</AssemblyName>
+    <!-- The recommended AOT-safe shape: NativeAOT with the two paths that survive AOT — loose files and a
+         main-assembly embedded catalog. No culture satellite (NativeAOT can't load one). PublishAot lives in
+         the csproj (not the command line) so it does not propagate to the netstandard2.0 analyzer/generator
+         references (NETSDK1207). `dotnet publish -r <rid>` produces the native binary; a plain build is
+         unaffected and the AOT analyzers keep the sample honest. -->
+    <PublishAot>true</PublishAot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Localization\ArchPillar.Extensions.Localization.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- AOT-safe path #1: a loose file copied beside the binary, loaded by the ambient store's directory. -->
+    <Content Include="Translations\**\*.arb" CopyToOutputDirectory="PreserveNewest" />
+    <!-- AOT-safe path #2: a catalog embedded in the MAIN assembly (WithCulture=false keeps it out of a satellite). -->
+    <None Remove="Embedded/main.de.arb" />
+    <EmbeddedResource Include="Embedded/main.de.arb" LogicalName="aotmain.de.arb" WithCulture="false" />
+  </ItemGroup>
+
+</Project>
