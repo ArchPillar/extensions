@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <PackAsTool>true</PackAsTool>
-    <ToolCommandName>archpillar-loc</ToolCommandName>
+    <ToolCommandName>dotnet-apl</ToolCommandName>
     <RootNamespace>ArchPillar.Extensions.Localization.Tooling</RootNamespace>
   </PropertyGroup>
 

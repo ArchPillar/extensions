@@ -7,7 +7,7 @@ using Spectre.Console;
 namespace ArchPillar.Extensions.Localization.Tooling;
 
 /// <summary>
-/// The <c>archpillar-loc</c> command-line surface: <c>extract</c> the baked template from a built
+/// The <c>dotnet apl</c> command-line surface: <c>extract</c> the baked template from a built
 /// assembly, <c>add</c> a new language, <c>sync</c> a target against the template, and <c>convert</c>
 /// between formats. Every command works on explicit paths and runs on demand, never as part of a build.
 /// </summary>
@@ -213,7 +213,7 @@ internal static class ToolApplication
 
     private static int Usage()
     {
-        AnsiConsole.MarkupLine("[bold]archpillar-loc[/] [grey]<extract|add|sync|convert> [options][/]");
+        AnsiConsole.MarkupLine("[bold]dotnet apl[/] [grey]<extract|add|sync|convert> [options][/]");
         return 1;
     }
 }

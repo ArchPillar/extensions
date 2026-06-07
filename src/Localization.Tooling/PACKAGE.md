@@ -1,6 +1,6 @@
 # ArchPillar.Extensions.Localization.Tooling
 
-The `dotnet` tool (`archpillar-loc`) for the `ArchPillar.Extensions.Localization` family. It works on
+The `dotnet` tool (`dotnet apl`) for the `ArchPillar.Extensions.Localization` family. It works on
 demand, never as part of the build:
 
 - `extract` — read the source-language template the generator baked into a built assembly and write it

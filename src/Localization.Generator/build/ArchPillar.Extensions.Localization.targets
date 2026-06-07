@@ -9,7 +9,7 @@
   <Target Name="ArchPillarLocalizationExtractTemplate"
           AfterTargets="Build"
           Condition="'$(ArchPillarLocalizationEmit)' == 'true' and '$(DesignTimeBuild)' != 'true' and '$(BuildingProject)' == 'true'">
-    <Exec Command="archpillar-loc extract --assembly &quot;$(TargetPath)&quot; --output &quot;$(ArchPillarLocalizationOutputPath)&quot;"
+    <Exec Command="dotnet apl extract --assembly &quot;$(TargetPath)&quot; --output &quot;$(ArchPillarLocalizationOutputPath)&quot;"
           ContinueOnError="true"
           StandardOutputImportance="low" />
   </Target>

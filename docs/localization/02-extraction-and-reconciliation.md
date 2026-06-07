@@ -125,17 +125,17 @@ The generator writes the source-language template (the `.pot`-equivalent / sourc
 ## Command-line surface (`dotnet` tool)
 
 ```
-archpillar-loc template  --project <path> [--solution <path>]   # emit template out of process (CI / non-build)
+dotnet apl template  --project <path> [--solution <path>]   # emit template out of process (CI / non-build)
                          --format <arb|xliff|po, default arb> --source-locale <bcp47, default en>
                          --output <dir, default ./Translations> [--key-pattern <regex>] [--check]
 
-archpillar-loc add       <lang>                                  # create a target file from the template
+dotnet apl add       <lang>                                  # create a target file from the template
                          --output <dir> [--force]
 
-archpillar-loc sync      --output <dir>                          # reconcile every existing target file
+dotnet apl sync      --output <dir>                          # reconcile every existing target file
                          [--check] [--report <path>]
 
-archpillar-loc convert   (--template | --lang <lang>) --to <po|xliff|arb>
+dotnet apl convert   (--template | --lang <lang>) --to <po|xliff|arb>
                          --output <dir>
 ```
 

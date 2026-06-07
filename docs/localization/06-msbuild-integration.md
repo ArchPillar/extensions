@@ -46,7 +46,7 @@ Adding a target language is an operation on the **template**, performed when loc
 - **Via the `dotnet` tool:** `add <lang>` reads the template and writes a new target file (correct per-language header from CLDR, all keys present, targets empty). `sync` later reconciles existing target files against the current template. `convert --to <format>` re-serializes the template or a catalog into another format. (Spec 02.)
 - **Via Poedit (Portable Object only):** "create new translation from POT" and "update from POT" perform the equivalent `add`/`sync` natively, so a translator can self-serve without the tool. XLIFF and ARB cannot self-bootstrap a new target language, which is why the tool provides it for them.
 
-The build is never involved in this. Target files appear in `OutputPath` when someone adds them and are kept current by deliberate `sync` (or a translator's Poedit merge), not by recompiling. A team that wants automation may run `archpillar-loc sync` in continuous integration — that is an explicit ops choice, not a compile-time coupling.
+The build is never involved in this. Target files appear in `OutputPath` when someone adds them and are kept current by deliberate `sync` (or a translator's Poedit merge), not by recompiling. A team that wants automation may run `dotnet apl sync` in continuous integration — that is an explicit ops choice, not a compile-time coupling.
 
 ## Live extraction (the opt-in)
 
