@@ -46,6 +46,9 @@
   <Folder Name="/samples/Localization/Localization.MigrationSample/">
     <Project Path="samples/Localization/Localization.MigrationSample/Localization.MigrationSample.csproj" />
   </Folder>
+  <Folder Name="/samples/Localization/Localization.TrimSample/">
+    <Project Path="samples/Localization/Localization.TrimSample/Localization.TrimSample.csproj" />
+  </Folder>
   <Folder Name="/benchmarks/" />
   <Folder Name="/benchmarks/Mapper.Benchmarks/">
     <Project Path="benchmarks/Mapper.Benchmarks/ArchPillar.Extensions.Mapper.Benchmarks.csproj" />

@@ -58,10 +58,22 @@ in-box, so no package deps and no `#if`/polyfill work. (B1's package-version pre
   (an app on `InvariantGlobalization` can't select non-default cultures — standard .NET advice).
 
 ### H. Validation
-- [ ] H1. **(Embed path only — the default files path is already trim/AOT-safe)** Validate the *embedded*/
-  satellite discovery under trimming / single-file / AOT: root the `[LocalizationCatalog]` attribute,
-  embedded resources, and satellites against the trimmer. The files path needs no spike. Sanity-check the
-  `JsonDocument`/`XDocument` DOM parsers under AOT while here.
+- [x] H1. **Embed path under trimming / single-file / AOT** — validated end-to-end with a real
+  published-and-run spike (`Localization.TrimSample`: a main-assembly `[LocalizationCatalog]` embed **and** a
+  `de` culture satellite, both resolved via the ambient store). Findings (linux-x64, .NET 10):
+  - **Full trim (`PublishTrimmed`, `TrimMode=full`)**: both the main-assembly catalog and the satellite
+    resolve. The `de/TrimSample.resources.dll` satellite is preserved; **no trimmer roots needed**, and the
+    publish is **IL-warning-clean** (our `GetManifestResourceStream` / `GetSatelliteAssembly` /
+    `GetCustomAttributes` / `AppDomain` reflection isn't flagged).
+  - **Single-file + full trim**: both resolve; the satellite is bundled into the single exe (no loose `de/`).
+  - **NativeAOT (`PublishAot`)**: the **main-assembly embed works**, but the **satellite does not load** —
+    NativeAOT can't load a separate managed satellite, so `GetSatelliteAssembly` throws, our loader swallows
+    it, and the lookup **degrades gracefully to the in-code default** (no crash). ⇒ for AOT, prefer files
+    (merged bundle per culture) or a main-assembly embedded catalog; avoid satellite embedding.
+  - The **files-on-disk path** needs no spike (loose files + `JsonDocument`/`XDocument`, no satellite
+    reflection) and is the one universal path across plain / trim / single-file / AOT.
+  - *Follow-up candidate (not done):* mark the runtime `IsTrimmable` and/or guard the satellite path with an
+    AOT feature attribute so consumers get analysis up front. Deferred — the publish is already warning-clean.
 
 ### I. Migration on-ramp (D-J)
 Make adoption from an existing `IStringLocalizer` / `.resx` codebase cheap, or the migration cost sinks us.
