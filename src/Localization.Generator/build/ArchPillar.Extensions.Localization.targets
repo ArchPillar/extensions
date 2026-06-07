@@ -44,4 +44,28 @@
     <AssemblyAttribute Include="ArchPillar.Extensions.Localization.LocalizationSatelliteCatalogsAttribute" />
   </ItemGroup>
 
+  <!--
+    On publish, flatten the per-library catalogs in the published Translations folder into one bundle per
+    culture (the dev many-files layout becomes a production single-bundle-per-culture layout). Best-effort:
+    if the 'dotnet apl' tool is not installed the merge is skipped (ContinueOnError) and the per-library
+    files are kept, so the app still works — just with more files. Set ArchPillarLocalizationMergeOnPublish=
+    false to keep the many files. The merge reuses the runtime's load, so the bundle resolves identically.
+  -->
+  <Target Name="ArchPillarLocalizationMergeOnPublish"
+          AfterTargets="Publish"
+          Condition="'$(ArchPillarLocalizationMergeOnPublish)' == 'true' and Exists('$(PublishDir)Translations')">
+    <Exec Command="dotnet apl merge --input &quot;$(PublishDir)Translations&quot; --output &quot;$(IntermediateOutputPath)apl-merged&quot; --source $(ArchPillarLocalizationSourceLanguage)"
+          ContinueOnError="true"
+          StandardOutputImportance="low" />
+    <ItemGroup>
+      <_ArchPillarMergedCatalogs Include="$(IntermediateOutputPath)apl-merged\*" />
+      <_ArchPillarPublishedCatalogs Include="$(PublishDir)Translations\*.arb;$(PublishDir)Translations\*.xliff;$(PublishDir)Translations\*.xlf;$(PublishDir)Translations\*.po" />
+    </ItemGroup>
+    <!-- Only swap when the merge actually produced bundles; otherwise leave the per-library files in place. -->
+    <Delete Files="@(_ArchPillarPublishedCatalogs)" Condition="'@(_ArchPillarMergedCatalogs)' != ''" />
+    <Copy SourceFiles="@(_ArchPillarMergedCatalogs)"
+          DestinationFiles="@(_ArchPillarMergedCatalogs->'$(PublishDir)Translations\%(Filename)%(Extension)')"
+          Condition="'@(_ArchPillarMergedCatalogs)' != ''" />
+  </Target>
+
 </Project>

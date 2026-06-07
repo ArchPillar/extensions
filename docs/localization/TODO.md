@@ -37,7 +37,7 @@ in-box, so no package deps and no `#if`/polyfill work. (B1's package-version pre
 
 ### D. Publish merge
 - [x] D1. `dotnet apl merge` — gather → reuse the runtime load (`CatalogLoader.Flatten` = `BuildSnapshot` + dump) → one bundle per culture; tool test + `Flatten` unit test
-- [ ] D2. Publish MSBuild target invoking the tool
+- [x] D2. Publish target (`AfterTargets=Publish`, default on, override `ArchPillarLocalizationMergeOnPublish=false`): runs `dotnet apl merge` to swap the per-library files for one bundle per culture; best-effort (degrades to many-files if the tool isn't installed). *(XML validated; not end-to-end publish-verified in this environment — the merge logic itself is tested in D1.)*
 - [x] D3. Merged bundle resolves identically to the many-files path — guaranteed by construction (it *is* the runtime's loaded data; covered by the `Flatten` test)
 
 ### E. DI integration (10.5) feeds the ambient

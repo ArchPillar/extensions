@@ -17,6 +17,7 @@
     <ArchPillarLocalizationLiveExtraction Condition="'$(ArchPillarLocalizationLiveExtraction)' == ''">false</ArchPillarLocalizationLiveExtraction>
     <ArchPillarLocalizationCopyTargetsToOutput Condition="'$(ArchPillarLocalizationCopyTargetsToOutput)' == ''">true</ArchPillarLocalizationCopyTargetsToOutput>
     <ArchPillarLocalizationEmbedTargets Condition="'$(ArchPillarLocalizationEmbedTargets)' == ''">false</ArchPillarLocalizationEmbedTargets>
+    <ArchPillarLocalizationMergeOnPublish Condition="'$(ArchPillarLocalizationMergeOnPublish)' == ''">true</ArchPillarLocalizationMergeOnPublish>
   </PropertyGroup>
 
   <ItemGroup>
