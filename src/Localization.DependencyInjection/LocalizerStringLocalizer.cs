@@ -4,37 +4,18 @@ using Microsoft.Extensions.Localization;
 namespace ArchPillar.Extensions.Localization.DependencyInjection;
 
 /// <summary>
-/// Adapts <see cref="Localizer"/> to <see cref="IStringLocalizer"/>: the name is the key, a missing
-/// entry returns the name with <see cref="LocalizedString.ResourceNotFound"/> set, and positional
-/// arguments map to <c>{0}</c>, <c>{1}</c>, ... ICU placeholders. The culture is the current UI culture.
+/// Adapts the ambient localizer to <see cref="IStringLocalizer"/>: the name is the key, a missing entry
+/// returns the name (the in-code default), and positional arguments map to <c>{0}</c>, <c>{1}</c>, ... The
+/// culture is the current UI culture and the global namespace is used (the resource type of the generic
+/// form is ignored). Reads <see cref="Localization"/> so DI and the ambient store share one source.
 /// </summary>
 internal class LocalizerStringLocalizer : IStringLocalizer
 {
-    private readonly Localizer _localizer;
+    public LocalizedString this[string name] =>
+        new(name, Localization.Default.Translate(name, name));
 
-    public LocalizerStringLocalizer(Localizer localizer)
-    {
-        _localizer = localizer;
-    }
-
-    public LocalizedString this[string name]
-    {
-        get
-        {
-            var value = _localizer.Translate(CultureInfo.CurrentUICulture, name, name, context: null, out var found);
-            return new LocalizedString(name, value, resourceNotFound: !found);
-        }
-    }
-
-    public LocalizedString this[string name, params object[] arguments]
-    {
-        get
-        {
-            var value = _localizer.Translate(
-                CultureInfo.CurrentUICulture, name, name, context: null, out var found, ToNamedArguments(arguments));
-            return new LocalizedString(name, value, resourceNotFound: !found);
-        }
-    }
+    public LocalizedString this[string name, params object[] arguments] =>
+        new(name, Localization.Default.Translate(name, name, ToNamedArguments(arguments)));
 
     public IEnumerable<LocalizedString> GetAllStrings(bool includeParentCultures) => [];
 
@@ -52,10 +33,4 @@ internal class LocalizerStringLocalizer : IStringLocalizer
 
 /// <summary>The generic <see cref="IStringLocalizer{T}"/> form; the resource type is ignored because keys are a single global namespace.</summary>
 /// <typeparam name="T">The resource type (unused).</typeparam>
-internal sealed class LocalizerStringLocalizer<T> : LocalizerStringLocalizer, IStringLocalizer<T>
-{
-    public LocalizerStringLocalizer(Localizer localizer)
-        : base(localizer)
-    {
-    }
-}
+internal sealed class LocalizerStringLocalizer<T> : LocalizerStringLocalizer, IStringLocalizer<T>;

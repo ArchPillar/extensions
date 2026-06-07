@@ -1,6 +1,7 @@
 using ArchPillar.Extensions.Localization;
 using ArchPillar.Extensions.Localization.DependencyInjection;
 using Microsoft.Extensions.Localization;
+using Ambient = ArchPillar.Extensions.Localization.Localization;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
@@ -10,8 +11,11 @@ namespace Microsoft.Extensions.DependencyInjection;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Registers a singleton <see cref="Localizer"/> and adapts it to <see cref="IStringLocalizer"/>,
-    /// <see cref="IStringLocalizer{T}"/>, and <see cref="IStringLocalizerFactory"/>.
+    /// Configures the ambient <see cref="Localization"/> store from <paramref name="options"/> and registers
+    /// <see cref="ILocalizer"/>, <see cref="ILocalizer{T}"/>, <see cref="IStringLocalizer"/>,
+    /// <see cref="IStringLocalizer{T}"/>, and <see cref="IStringLocalizerFactory"/> over it — so an injected
+    /// localizer, a non-DI caller, and an exception text all read the same store (Decision D-I). A concrete
+    /// <see cref="Localizer"/> over the same options is also registered for direct injection.
     /// </summary>
     /// <param name="services">The service collection.</param>
     /// <param name="options">The localizer options, or <see langword="null"/> for the defaults.</param>
@@ -24,38 +28,28 @@ public static class ServiceCollectionExtensions
             throw new ArgumentNullException(nameof(services));
         }
 
-        services.AddSingleton(_ => new Localizer(options ?? new LocalizerOptions()));
-        return AddAdapters(services);
-    }
+        LocalizerOptions resolved = options ?? new LocalizerOptions();
 
-    /// <summary>
-    /// Registers an already-constructed singleton <see cref="Localizer"/> and the same
-    /// <see cref="IStringLocalizer"/> adapters. Use this when the localizer cannot be built from a
-    /// directory — for example in Blazor WebAssembly, where catalogs are fetched over HTTP and the
-    /// localizer is created with <see cref="Localizer.FromCatalogs"/> before registration.
-    /// </summary>
-    /// <param name="services">The service collection.</param>
-    /// <param name="localizer">The localizer instance to register.</param>
-    /// <returns>The same service collection, for chaining.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="services"/> or <paramref name="localizer"/> is <see langword="null"/>.</exception>
-    public static IServiceCollection AddArchPillarLocalization(this IServiceCollection services, Localizer localizer)
-    {
-        if (services is null)
+        // Feed the ambient store so DI and the ambient share one source of truth.
+        Ambient.SourceCulture = resolved.SourceCulture;
+        if (!string.IsNullOrEmpty(resolved.TranslationsDirectory))
         {
-            throw new ArgumentNullException(nameof(services));
+            Ambient.TranslationsDirectory = resolved.TranslationsDirectory;
         }
 
-        if (localizer is null)
+        foreach (ITranslationSource source in resolved.Sources)
         {
-            throw new ArgumentNullException(nameof(localizer));
+            Ambient.AddSource(source);
         }
 
-        services.AddSingleton(localizer);
-        return AddAdapters(services);
-    }
+        // Native interfaces over the ambient store.
+        services.AddSingleton(Ambient.Default);
+        services.AddSingleton(typeof(ILocalizer<>), typeof(AmbientLocalizer<>));
 
-    private static IServiceCollection AddAdapters(IServiceCollection services)
-    {
+        // A concrete Localizer over the same options remains available for direct injection.
+        services.AddSingleton(_ => new Localizer(resolved));
+
+        // IStringLocalizer adapters over the ambient store.
         services.AddSingleton<IStringLocalizerFactory, LocalizerStringLocalizerFactory>();
         services.AddSingleton<IStringLocalizer, LocalizerStringLocalizer>();
         services.AddSingleton(typeof(IStringLocalizer<>), typeof(LocalizerStringLocalizer<>));

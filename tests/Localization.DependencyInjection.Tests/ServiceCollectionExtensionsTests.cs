@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
+using Ambient = ArchPillar.Extensions.Localization.Localization;
 
 namespace ArchPillar.Extensions.Localization.DependencyInjection.Tests;
 
@@ -31,26 +32,16 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
         using ServiceProvider provider = BuildProvider();
         IStringLocalizer localizer = provider.GetRequiredService<IStringLocalizer>();
 
-        WithCulture(_german, () =>
-        {
-            LocalizedString hit = localizer["home.greeting"];
-            Assert.Equal("Hallo", hit.Value);
-            Assert.False(hit.ResourceNotFound);
-        });
+        WithCulture(_german, () => Assert.Equal("Hallo", localizer["home.greeting"].Value));
     }
 
     [Fact]
-    public void StringLocalizer_MissingKey_ReturnsNameWithResourceNotFound()
+    public void StringLocalizer_MissingKey_ReturnsTheName()
     {
         using ServiceProvider provider = BuildProvider();
         IStringLocalizer localizer = provider.GetRequiredService<IStringLocalizer>();
 
-        WithCulture(_german, () =>
-        {
-            LocalizedString miss = localizer["does.not.exist"];
-            Assert.Equal("does.not.exist", miss.Value);
-            Assert.True(miss.ResourceNotFound);
-        });
+        WithCulture(_german, () => Assert.Equal("does.not.exist", localizer["does.not.exist"].Value));
     }
 
     [Fact]
@@ -79,37 +70,43 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
     }
 
     [Fact]
-    public void AddArchPillarLocalization_WithInstance_RegistersThatLocalizerAndAdapters()
+    public void TypedLocalizer_ReadsTheAmbientStore()
     {
-        var catalog = new Catalog
+        Ambient.Reset();
+        Ambient.AddCatalog(new Catalog
         {
             Culture = "de",
             Entries =
             [
                 new CatalogEntry
                 {
-                    Key = "home.greeting",
-                    SourceMessage = "Hello",
-                    TranslatedMessage = "Hallo",
+                    Category = typeof(Buttons).FullName!,
+                    Key = "save",
+                    SourceMessage = "Save",
+                    TranslatedMessage = "Speichern",
                     SourceFingerprint = "fp",
                     State = TranslationState.Translated
                 }
             ]
-        };
-        var localizer = Localizer.FromCatalogs([catalog], new LocalizerOptions { SourceCulture = "en" });
+        });
 
         var services = new ServiceCollection();
-        services.AddArchPillarLocalization(localizer);
+        services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" });
         using ServiceProvider provider = services.BuildServiceProvider();
 
-        Assert.Same(localizer, provider.GetRequiredService<Localizer>());
-        WithCulture(_german, () => Assert.Equal("Hallo", provider.GetRequiredService<IStringLocalizer>()["home.greeting"].Value));
+        ILocalizer<Buttons> localizer = provider.GetRequiredService<ILocalizer<Buttons>>();
+        WithCulture(_german, () => Assert.Equal("Speichern", localizer.Translate("save", "Save")));
     }
 
-    public void Dispose() => Directory.Delete(_directory, recursive: true);
+    public void Dispose()
+    {
+        Ambient.Reset();
+        Directory.Delete(_directory, recursive: true);
+    }
 
     private ServiceProvider BuildProvider()
     {
+        Ambient.Reset();
         var services = new ServiceCollection();
         services.AddArchPillarLocalization(new LocalizerOptions { TranslationsDirectory = _directory, SourceCulture = "en" });
         return services.BuildServiceProvider();
@@ -128,4 +125,6 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
             CultureInfo.CurrentUICulture = original;
         }
     }
+
+    private sealed class Buttons;
 }

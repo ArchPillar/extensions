@@ -41,9 +41,9 @@ in-box, so no package deps and no `#if`/polyfill work. (B1's package-version pre
 - [ ] D3. Test: merged catalogue resolves identically to the dev many-files path
 
 ### E. DI integration (10.5) feeds the ambient
-- [ ] E1. `AddArchPillarLocalization` populates the ambient store (calling-assembly default namespace)
-- [ ] E2. `IStringLocalizer` adapter reads the ambient store
-- [ ] E3. Test
+- [x] E1. `AddArchPillarLocalization` populates the ambient store + registers `ILocalizer`/`ILocalizer<T>` over it (kept `Localizer` for direct injection; dropped the `Localizer`-instance overload)
+- [x] E2. `IStringLocalizer`/`<T>`/factory adapters read the ambient (no found-awareness — just value-or-name)
+- [x] E3. Tests restructured: functionality uses explicit catalogs via `Localization.AddCatalog` + `Reset()`; WASM sample fed via the ambient
 
 ### F. Samples (after the milestones)
 - [ ] F1. No-DI validation-style library sample (batteries included, files)
