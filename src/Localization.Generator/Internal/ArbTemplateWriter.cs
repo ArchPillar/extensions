@@ -32,7 +32,7 @@ internal static class ArbTemplateWriter
             .OrderBy(s => s.Reference.FilePath, StringComparer.Ordinal)
             .ThenBy(s => s.Reference.Line))
         {
-            if (seen.Add(site.Key))
+            if (seen.Add(site.Category + "\0" + site.Key))
             {
                 ordered.Add(site);
             }
@@ -52,6 +52,11 @@ internal static class ArbTemplateWriter
         if (!string.IsNullOrEmpty(site.Context))
         {
             parts.Add(JsonString("context") + ": " + JsonString(site.Context!));
+        }
+
+        if (!string.IsNullOrEmpty(site.Category))
+        {
+            parts.Add(JsonString("x-category") + ": " + JsonString(site.Category));
         }
 
         if (site.Placeholders.Count > 0)

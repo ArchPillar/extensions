@@ -14,6 +14,7 @@ public sealed class PoTranslationFormat : ITranslationFormat
 {
     private const string IcuArgPrefix = "icu-arg=";
     private const string FingerprintPrefix = "fingerprint=";
+    private const string CategoryPrefix = "x-category=";
     private static readonly UTF8Encoding _utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
 
     /// <inheritdoc />
@@ -199,6 +200,11 @@ public sealed class PoTranslationFormat : ITranslationFormat
             }
         }
 
+        if (!string.IsNullOrEmpty(entry.Category))
+        {
+            builder.Append("#. ").Append(CategoryPrefix).Append(entry.Category).Append('\n');
+        }
+
         builder.Append("#. ").Append(FingerprintPrefix).Append(entry.SourceFingerprint).Append('\n');
         foreach (SourceReference reference in entry.References)
         {
@@ -289,6 +295,8 @@ public sealed class PoTranslationFormat : ITranslationFormat
 
         public string? PreviousSource { get; private set; }
 
+        public string Category { get; private set; } = string.Empty;
+
         public string? IcuArgument { get; private set; }
 
         public string Fingerprint { get; private set; } = string.Empty;
@@ -331,6 +339,7 @@ public sealed class PoTranslationFormat : ITranslationFormat
             return new CatalogEntry
             {
                 Key = key,
+                Category = Category,
                 Context = context,
                 SourceMessage = source,
                 TranslatedMessage = translated,
@@ -409,6 +418,10 @@ public sealed class PoTranslationFormat : ITranslationFormat
             else if (rest.StartsWith(FingerprintPrefix, StringComparison.Ordinal))
             {
                 Fingerprint = rest[FingerprintPrefix.Length..];
+            }
+            else if (rest.StartsWith(CategoryPrefix, StringComparison.Ordinal))
+            {
+                Category = rest[CategoryPrefix.Length..];
             }
             else
             {

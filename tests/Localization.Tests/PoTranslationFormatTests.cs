@@ -129,6 +129,19 @@ public sealed class PoTranslationFormatTests
         Assert.Equal(TranslationState.Translated, entry.State);
     }
 
+    [Fact]
+    public async Task RoundTrip_PreservesCategoryAsync()
+    {
+        Catalog catalog = SingleEntry("save", "Speichern") with
+        {
+            Entries = [SingleEntry("save", "Speichern").Entries[0] with { Category = "Acme.Todo.TodoStrings" }]
+        };
+
+        Catalog roundTripped = await RoundTripAsync(catalog);
+
+        Assert.Equal("Acme.Todo.TodoStrings", roundTripped.Entries[0].Category);
+    }
+
     private static Catalog SingleEntry(string key, string message) => new()
     {
         Culture = "de",

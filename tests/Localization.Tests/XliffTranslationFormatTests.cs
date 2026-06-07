@@ -102,6 +102,17 @@ public sealed class XliffTranslationFormatTests
         Assert.Equal(TranslationState.Translated, entry.State);
     }
 
+    [Fact]
+    public async Task RoundTrip_PreservesCategoryAsync()
+    {
+        Catalog source = Translated("save", "Speichern");
+        Catalog catalog = source with { Entries = [source.Entries[0] with { Category = "Acme.Todo.TodoStrings" }] };
+
+        Catalog roundTripped = await RoundTripAsync(catalog);
+
+        Assert.Equal("Acme.Todo.TodoStrings", roundTripped.Entries[0].Category);
+    }
+
     private static Catalog Translated(string key, string message) => new()
     {
         Culture = "de",

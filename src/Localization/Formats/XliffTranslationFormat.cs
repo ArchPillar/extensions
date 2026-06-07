@@ -88,6 +88,7 @@ public sealed class XliffTranslationFormat : ITranslationFormat
             Key = (string?)unit.Attribute("id") ?? string.Empty,
             SourceMessage = (string?)segment?.Element(_ns + "source") ?? string.Empty,
             TranslatedMessage = (string?)segment?.Element(_ns + "target"),
+            Category = notes.Category ?? string.Empty,
             Context = notes.Context,
             Comment = notes.Comment,
             PreviousSource = notes.PreviousSource,
@@ -119,6 +120,9 @@ public sealed class XliffTranslationFormat : ITranslationFormat
     {
         switch (category)
         {
+            case "x-category":
+                notes.Category = value;
+                break;
             case "context":
                 notes.Context = value;
                 break;
@@ -220,6 +224,7 @@ public sealed class XliffTranslationFormat : ITranslationFormat
     private static XElement? BuildNotes(CatalogEntry entry)
     {
         var notes = new List<XElement>();
+        AddNote(notes, "x-category", entry.Category);
         AddNote(notes, "context", entry.Context);
         AddNote(notes, "comment", entry.Comment);
         AddNote(notes, "previous-source", entry.PreviousSource);
@@ -270,6 +275,8 @@ public sealed class XliffTranslationFormat : ITranslationFormat
 
     private sealed class Notes
     {
+        public string? Category { get; set; }
+
         public string? Context { get; set; }
 
         public string? Comment { get; set; }
