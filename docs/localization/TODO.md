@@ -52,9 +52,13 @@ in-box, so no package deps and no `#if`/polyfill work. (B1's package-version pre
 
 ### G. Docs
 - [ ] G1. Update `integration.md` / `runtime.md` for ambient + files + satellites + publish merge
+- [ ] G2. Publishing guidance: **files are trim/AOT-safe (the default)** — loose on disk, parsed with DOM
+  APIs, no reflection; for **mobile/WASM/AOT/trimmed apps prefer files** (ideally one merged bundle per
+  culture). Embed is opt-in and needs the trimmer rooting from H1. Note the globalization-data caveat
+  (an app on `InvariantGlobalization` can't select non-default cultures — standard .NET advice).
 
 ### H. Validation
-- [ ] H1. **(Essential — mobile + WASM are AOT/trimmed)** Validate embedded/satellite discovery under
-  trimming / single-file / AOT (iOS is AOT-only, WASM trims by default). Root the `[LocalizationCatalog]`
-  attribute, embedded resources, and satellites against the trimmer; confirm the explicit
-  `Localizer.FromCatalogs` path stays trim-safe as the fallback.
+- [ ] H1. **(Embed path only — the default files path is already trim/AOT-safe)** Validate the *embedded*/
+  satellite discovery under trimming / single-file / AOT: root the `[LocalizationCatalog]` attribute,
+  embedded resources, and satellites against the trimmer. The files path needs no spike. Sanity-check the
+  `JsonDocument`/`XDocument` DOM parsers under AOT while here.
