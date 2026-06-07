@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Reflection;
 using ArchPillar.Extensions.Localization.Formats;
@@ -22,6 +23,7 @@ public static class Localization
     private static readonly List<ITranslationSource> _sources = [];
     private static readonly List<Assembly> _satelliteAssemblies = [];
     private static readonly HashSet<Assembly> _seen = [];
+    private static readonly ConcurrentQueue<Assembly> _pendingAssemblies = new();
     private static readonly TranslationFormatRegistry _registry = BuildRegistry();
     private static HashSet<string> _loadedCultures = new(StringComparer.OrdinalIgnoreCase);
     private static string _sourceCulture = "en";
@@ -29,6 +31,7 @@ public static class Localization
     private static bool _subscribed;
     private static bool _scannedLoaded;
     private static volatile bool _hasSatellites;
+    private static volatile bool _hasPendingAssemblies;
     private static Localizer _current = new([], new LocalizerOptions());
 
     /// <summary>The global-namespace ambient localizer (the uncategorized bucket).</summary>
@@ -134,6 +137,8 @@ public static class Localization
             _sources.Clear();
             _satelliteAssemblies.Clear();
             _seen.Clear();
+            _pendingAssemblies.Clear();
+            _hasPendingAssemblies = false;
             _loadedCultures = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             _sourceCulture = "en";
             _directory = DefaultDirectory();
@@ -149,6 +154,16 @@ public static class Localization
         get
         {
             EnsureStarted();
+
+            // Discover any assemblies that loaded since the last lookup. This is done here — on the lookup
+            // path, under _gate — rather than in the AssemblyLoad handler, because the handler runs while the
+            // CLR loader lock is held and must not take _gate (see OnAssemblyLoad). The volatile flag keeps
+            // the common case (nothing pending) a single cheap read with no lock.
+            if (_hasPendingAssemblies)
+            {
+                ProcessPendingAssemblies();
+            }
+
             return Volatile.Read(ref _current);
         }
     }
@@ -201,9 +216,28 @@ public static class Localization
 
     private static void OnAssemblyLoad(object? sender, AssemblyLoadEventArgs args)
     {
+        // This fires while the CLR loader lock is held (an assembly is loading). It must NOT take _gate or do
+        // reflection: _gate is held elsewhere across reflection that needs the loader lock, so acquiring it
+        // here would invert the lock order and deadlock. Just record the assembly; it is discovered lazily
+        // under _gate on the next lookup (see Current / ProcessPendingAssemblies).
+        _pendingAssemblies.Enqueue(args.LoadedAssembly);
+        _hasPendingAssemblies = true;
+    }
+
+    private static void ProcessPendingAssemblies()
+    {
         lock (_gate)
         {
-            if (DiscoverEmbedded(args.LoadedAssembly))
+            // Clear the flag before draining so an assembly that loads during this drain is never lost: it
+            // re-sets the flag (and is either dequeued below or picked up on the next lookup).
+            _hasPendingAssemblies = false;
+            var added = false;
+            while (_pendingAssemblies.TryDequeue(out Assembly? assembly))
+            {
+                added |= DiscoverEmbedded(assembly);
+            }
+
+            if (added)
             {
                 Rebuild();
             }
