@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Globalization;
 using System.Reflection;
 using ArchPillar.Extensions.Localization.Formats;
@@ -15,7 +14,14 @@ namespace ArchPillar.Extensions.Localization;
 /// </summary>
 public static class Localization
 {
+    // _gate guards ONLY the in-memory bookkeeping: the catalog lists, the discovery sets, and the snapshot
+    // rebuild/swap — all short, allocation-light operations. Reflection and I/O (reading assembly attributes,
+    // GetSatelliteAssembly, reading embedded resources, reading files) are NEVER done while holding _gate.
+    // That is deliberate: those operations take the CLR loader lock, and the AssemblyLoad handler runs while
+    // the loader lock is held. If _gate were held across a loader-lock operation, the handler taking _gate
+    // would invert the lock order and deadlock. Keeping _gate off the reflection paths makes that impossible.
     private static readonly object _gate = new();
+    private static readonly object _startupGate = new();
     private static readonly List<Catalog> _embeddedCatalogs = [];
     private static readonly List<Catalog> _satelliteCatalogs = [];
     private static readonly List<Catalog> _directoryCatalogs = [];
@@ -23,7 +29,7 @@ public static class Localization
     private static readonly List<ITranslationSource> _sources = [];
     private static readonly List<Assembly> _satelliteAssemblies = [];
     private static readonly HashSet<Assembly> _seen = [];
-    private static readonly ConcurrentQueue<Assembly> _pendingAssemblies = new();
+    private static readonly HashSet<(Assembly Assembly, string Culture)> _satellitePairs = [];
     private static readonly TranslationFormatRegistry _registry = BuildRegistry();
     private static HashSet<string> _loadedCultures = new(StringComparer.OrdinalIgnoreCase);
     private static string _sourceCulture = "en";
@@ -31,7 +37,6 @@ public static class Localization
     private static bool _subscribed;
     private static bool _scannedLoaded;
     private static volatile bool _hasSatellites;
-    private static volatile bool _hasPendingAssemblies;
     private static Localizer _current = new([], new LocalizerOptions());
 
     /// <summary>The global-namespace ambient localizer (the uncategorized bucket).</summary>
@@ -61,15 +66,26 @@ public static class Localization
         get => _directory;
         set
         {
+            var directory = value ?? string.Empty;
+            bool started;
             lock (_gate)
             {
-                _directory = value ?? string.Empty;
-                if (_scannedLoaded)
-                {
-                    _directoryCatalogs.Clear();
-                    LoadDirectory(_directory);
-                    Rebuild();
-                }
+                _directory = directory;
+                started = _scannedLoaded;
+            }
+
+            if (!started)
+            {
+                return;
+            }
+
+            // Read the directory OUTSIDE the lock, then swap the directory layer under it.
+            List<Catalog> catalogs = ReadDirectory(directory);
+            lock (_gate)
+            {
+                _directoryCatalogs.Clear();
+                _directoryCatalogs.AddRange(catalogs);
+                Rebuild();
             }
         }
     }
@@ -137,8 +153,7 @@ public static class Localization
             _sources.Clear();
             _satelliteAssemblies.Clear();
             _seen.Clear();
-            _pendingAssemblies.Clear();
-            _hasPendingAssemblies = false;
+            _satellitePairs.Clear();
             _loadedCultures = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             _sourceCulture = "en";
             _directory = DefaultDirectory();
@@ -154,16 +169,6 @@ public static class Localization
         get
         {
             EnsureStarted();
-
-            // Discover any assemblies that loaded since the last lookup. This is done here — on the lookup
-            // path, under _gate — rather than in the AssemblyLoad handler, because the handler runs while the
-            // CLR loader lock is held and must not take _gate (see OnAssemblyLoad). The volatile flag keeps
-            // the common case (nothing pending) a single cheap read with no lock.
-            if (_hasPendingAssemblies)
-            {
-                ProcessPendingAssemblies();
-            }
-
             return Volatile.Read(ref _current);
         }
     }
@@ -183,6 +188,9 @@ public static class Localization
         return Current.TranslateInCategory(category, key, defaultMessage, context: null, out overrideFound, arguments);
     }
 
+    // One-time startup: subscribe to assembly loads, read the directory layer, and discover every
+    // already-loaded assembly. _startupGate (not _gate) serializes this so concurrent first calls run it
+    // once; the reflection and I/O inside run WITHOUT _gate, which is taken only for the short commits.
     private static void EnsureStarted()
     {
         if (Volatile.Read(ref _scannedLoaded))
@@ -190,91 +198,182 @@ public static class Localization
             return;
         }
 
-        lock (_gate)
+        lock (_startupGate)
         {
-            if (_scannedLoaded)
+            if (Volatile.Read(ref _scannedLoaded))
             {
                 return;
             }
 
-            if (!_subscribed)
+            lock (_gate)
             {
-                _subscribed = true;
-                AppDomain.CurrentDomain.AssemblyLoad += OnAssemblyLoad;
+                if (!_subscribed)
+                {
+                    _subscribed = true;
+                    AppDomain.CurrentDomain.AssemblyLoad += OnAssemblyLoad;
+                }
             }
 
-            LoadDirectory(_directory);
+            List<Catalog> directory = ReadDirectory(_directory);
+            lock (_gate)
+            {
+                _directoryCatalogs.AddRange(directory);
+            }
+
             foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
-                DiscoverEmbedded(assembly);
+                DiscoverAssembly(assembly, rebuild: false);
             }
 
-            Rebuild();
-            _scannedLoaded = true;
+            lock (_gate)
+            {
+                Rebuild();
+            }
+
+            Volatile.Write(ref _scannedLoaded, true);
         }
     }
 
-    private static void OnAssemblyLoad(object? sender, AssemblyLoadEventArgs args)
-    {
-        // This fires while the CLR loader lock is held (an assembly is loading). It must NOT take _gate or do
-        // reflection: _gate is held elsewhere across reflection that needs the loader lock, so acquiring it
-        // here would invert the lock order and deadlock. Just record the assembly; it is discovered lazily
-        // under _gate on the next lookup (see Current / ProcessPendingAssemblies).
-        _pendingAssemblies.Enqueue(args.LoadedAssembly);
-        _hasPendingAssemblies = true;
-    }
+    private static void OnAssemblyLoad(object? sender, AssemblyLoadEventArgs args) =>
+        DiscoverAssembly(args.LoadedAssembly, rebuild: true);
 
-    private static void ProcessPendingAssemblies()
+    // Discovers one assembly's embedded catalogs and registers it as a satellite source if marked. All
+    // reflection (attribute reads, resource reads) happens before the lock; _gate is taken only to commit
+    // into the lists and rebuild. Already-seen assemblies are skipped (the under-lock _seen.Add is the gate,
+    // so two threads discovering the same assembly never double-add).
+    private static void DiscoverAssembly(Assembly assembly, bool rebuild)
     {
         lock (_gate)
         {
-            // Clear the flag before draining so an assembly that loads during this drain is never lost: it
-            // re-sets the flag (and is either dequeued below or picked up on the next lookup).
-            _hasPendingAssemblies = false;
-            var added = false;
-            while (_pendingAssemblies.TryDequeue(out Assembly? assembly))
+            if (_seen.Contains(assembly))
             {
-                added |= DiscoverEmbedded(assembly);
+                return;
+            }
+        }
+
+        var isSatellite = HasSatelliteMarker(assembly);
+        List<Catalog> embedded = ProduceEmbedded(assembly);
+
+        var registeredSatellite = false;
+        lock (_gate)
+        {
+            if (!_seen.Add(assembly))
+            {
+                return;
             }
 
-            if (added)
+            var changed = false;
+            if (embedded.Count > 0)
+            {
+                _embeddedCatalogs.AddRange(embedded);
+                changed = true;
+            }
+
+            if (isSatellite)
+            {
+                _satelliteAssemblies.Add(assembly);
+                _hasSatellites = true;
+                registeredSatellite = true;
+            }
+
+            if (changed && rebuild)
             {
                 Rebuild();
             }
         }
+
+        // Load this assembly's satellites for any culture already in use (reflection outside the lock).
+        if (registeredSatellite)
+        {
+            ReconcileSatellites();
+        }
     }
 
-    private static bool DiscoverEmbedded(Assembly assembly)
+    // Loads the satellite catalogs for a culture (and its parents) the first time the culture is used. The
+    // fast path is a volatile bool plus a lock-free set read, so a files-only app pays almost nothing.
+    private static void EnsureCulture(CultureInfo culture)
     {
-        if (!_seen.Add(assembly))
+        EnsureStarted();
+        if (!_hasSatellites)
         {
-            return false;
+            return;
         }
 
-        var added = false;
-        foreach (LocalizationCatalogAttribute attribute in SafeAttributes(assembly))
+        if (Volatile.Read(ref _loadedCultures).Contains(culture.Name))
         {
-            Catalog? catalog = TryLoad(assembly, attribute);
-            if (catalog is not null)
+            return;
+        }
+
+        // Register the requested culture and its parents as "in use" (cheap, no reflection), then load their
+        // satellites outside the lock via the reconcile.
+        lock (_gate)
+        {
+            var loaded = new HashSet<string>(_loadedCultures, StringComparer.OrdinalIgnoreCase);
+            for (CultureInfo? current = culture; current is not null && !string.IsNullOrEmpty(current.Name); current = current.Parent)
             {
-                _embeddedCatalogs.Add(catalog);
-                added = true;
+                loaded.Add(current.Name);
+            }
+
+            Volatile.Write(ref _loadedCultures, loaded);
+        }
+
+        ReconcileSatellites();
+    }
+
+    // Loads every (satellite assembly × in-use culture) pair that has not been loaded yet. Production
+    // (GetSatelliteAssembly + resource reads) runs outside _gate; _gate is taken only to find the missing
+    // pairs and to commit. It loops until stable, so a satellite assembly and a culture appearing on
+    // different threads at the same time are always reconciled (each pair is attempted exactly once).
+    private static void ReconcileSatellites()
+    {
+        while (true)
+        {
+            var missing = new List<(Assembly Assembly, CultureInfo Culture)>();
+            lock (_gate)
+            {
+                foreach (Assembly assembly in _satelliteAssemblies)
+                {
+                    foreach (var cultureName in _loadedCultures)
+                    {
+                        if (!_satellitePairs.Contains((assembly, cultureName)))
+                        {
+                            missing.Add((assembly, CultureInfo.GetCultureInfo(cultureName)));
+                        }
+                    }
+                }
+            }
+
+            if (missing.Count == 0)
+            {
+                return;
+            }
+
+            var produced = new List<(Assembly Assembly, string Culture, List<Catalog> Catalogs)>(missing.Count);
+            foreach ((Assembly assembly, CultureInfo culture) in missing)
+            {
+                produced.Add((assembly, culture.Name, ProduceSatellites(assembly, culture)));
+            }
+
+            lock (_gate)
+            {
+                var changed = false;
+                foreach ((Assembly assembly, var culture, List<Catalog> catalogs) in produced)
+                {
+                    // Mark the pair attempted even when empty, so a culture a library does not translate is
+                    // not retried; only add catalogs (and rebuild) when the satellite actually had some.
+                    if (_satellitePairs.Add((assembly, culture)) && catalogs.Count > 0)
+                    {
+                        _satelliteCatalogs.AddRange(catalogs);
+                        changed = true;
+                    }
+                }
+
+                if (changed)
+                {
+                    Rebuild();
+                }
             }
         }
-
-        if (HasSatelliteMarker(assembly))
-        {
-            _satelliteAssemblies.Add(assembly);
-            _hasSatellites = true;
-
-            // Pick up this assembly's satellites for any culture already in use; new cultures load lazily.
-            foreach (var cultureName in _loadedCultures)
-            {
-                added |= LoadSatellites(assembly, CultureInfo.GetCultureInfo(cultureName));
-            }
-        }
-
-        return added;
     }
 
     private static bool HasSatelliteMarker(Assembly assembly)
@@ -287,6 +386,57 @@ public static class Localization
         {
             return false;
         }
+    }
+
+    // Reads an assembly's embedded catalogs declared by [LocalizationCatalog]. Pure: no shared state, no
+    // lock — the caller commits the result.
+    private static List<Catalog> ProduceEmbedded(Assembly assembly)
+    {
+        var catalogs = new List<Catalog>();
+        foreach (LocalizationCatalogAttribute attribute in SafeAttributes(assembly))
+        {
+            Catalog? catalog = TryLoad(assembly, attribute);
+            if (catalog is not null)
+            {
+                catalogs.Add(catalog);
+            }
+        }
+
+        return catalogs;
+    }
+
+    // Reads the catalogs from an assembly's satellite for a culture. Pure: GetSatelliteAssembly and the
+    // resource reads (which take the CLR loader lock) run here, outside any lock; the caller commits.
+    private static List<Catalog> ProduceSatellites(Assembly assembly, CultureInfo culture)
+    {
+        Assembly? satellite;
+        try
+        {
+            satellite = assembly.GetSatelliteAssembly(culture);
+        }
+        catch (Exception)
+        {
+            // No satellite for this culture; that is the normal "this assembly doesn't ship this language" case.
+            return [];
+        }
+
+        var catalogs = new List<Catalog>();
+        foreach (var name in satellite.GetManifestResourceNames())
+        {
+            ITranslationFormat? format = _registry.ResolveByExtension(Path.GetExtension(name));
+            if (format is null)
+            {
+                continue;
+            }
+
+            Catalog? catalog = ReadResource(satellite, name, format);
+            if (catalog is not null)
+            {
+                catalogs.Add(catalog);
+            }
+        }
+
+        return catalogs;
     }
 
     private static IEnumerable<LocalizationCatalogAttribute> SafeAttributes(Assembly assembly)
@@ -324,6 +474,8 @@ public static class Localization
         }
     }
 
+    // Rebuilds the merged snapshot from the current lists and swaps it in atomically. Callers hold _gate so
+    // the lists are consistent; the swap itself is a single Interlocked.Exchange, so lookups never tear.
     private static void Rebuild()
     {
         // Layered low-to-high precedence: embedded and satellite (library-shipped) < directory (app-local
@@ -334,11 +486,13 @@ public static class Localization
         Interlocked.Exchange(ref _current, next).Dispose();
     }
 
-    private static void LoadDirectory(string directory)
+    // Reads every catalog file in a directory. Pure: file I/O only, no shared state, no lock.
+    private static List<Catalog> ReadDirectory(string directory)
     {
+        var catalogs = new List<Catalog>();
         if (string.IsNullOrEmpty(directory) || !Directory.Exists(directory))
         {
-            return;
+            return catalogs;
         }
 
         foreach (var file in Directory.EnumerateFiles(directory))
@@ -346,9 +500,11 @@ public static class Localization
             Catalog? catalog = TryReadFile(file);
             if (catalog is not null)
             {
-                _directoryCatalogs.Add(catalog);
+                catalogs.Add(catalog);
             }
         }
+
+        return catalogs;
     }
 
     private static Catalog? TryReadFile(string file)
@@ -369,81 +525,6 @@ public static class Localization
             // A malformed file must never take down the host; skip it.
             return null;
         }
-    }
-
-    // Loads the satellite catalogs for a culture (and its parents) the first time the culture is used.
-    // The fast path is a volatile bool plus a lock-free set lookup, so a files-only app (no satellite
-    // assemblies) pays almost nothing; only the first lookup per culture under a satellite app takes the
-    // lock and reads the satellite assemblies.
-    private static void EnsureCulture(CultureInfo culture)
-    {
-        EnsureStarted();
-        if (!_hasSatellites)
-        {
-            return;
-        }
-
-        if (Volatile.Read(ref _loadedCultures).Contains(culture.Name))
-        {
-            return;
-        }
-
-        lock (_gate)
-        {
-            var loaded = new HashSet<string>(_loadedCultures, StringComparer.OrdinalIgnoreCase);
-            var added = false;
-            for (CultureInfo? current = culture; current is not null && !string.IsNullOrEmpty(current.Name); current = current.Parent)
-            {
-                if (!loaded.Add(current.Name))
-                {
-                    continue;
-                }
-
-                foreach (Assembly assembly in _satelliteAssemblies)
-                {
-                    added |= LoadSatellites(assembly, current);
-                }
-            }
-
-            Volatile.Write(ref _loadedCultures, loaded);
-            if (added)
-            {
-                Rebuild();
-            }
-        }
-    }
-
-    private static bool LoadSatellites(Assembly assembly, CultureInfo culture)
-    {
-        Assembly? satellite;
-        try
-        {
-            satellite = assembly.GetSatelliteAssembly(culture);
-        }
-        catch (Exception)
-        {
-            // No satellite for this culture; that is the normal "this assembly doesn't ship this language" case.
-            return false;
-        }
-
-        var added = false;
-        foreach (var name in satellite.GetManifestResourceNames())
-        {
-            ITranslationFormat? format = _registry.ResolveByExtension(Path.GetExtension(name));
-            if (format is null)
-            {
-                continue;
-            }
-
-            Catalog? catalog = ReadResource(satellite, name, format);
-            if (catalog is not null)
-            {
-                _satelliteCatalogs.Add(catalog);
-                added = true;
-            }
-        }
-
-        return added;
     }
 
     private static Catalog? ReadResource(Assembly assembly, string resourceName, ITranslationFormat format)
