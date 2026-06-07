@@ -40,6 +40,56 @@ internal static class CatalogLoader
         return ToSnapshot(byCulture);
     }
 
+    /// <summary>
+    /// Loads <paramref name="catalogs"/> exactly as the runtime does — last source wins, source culture and
+    /// untranslated entries skipped — and dumps the merged result as one flattened <see cref="Catalog"/> per
+    /// culture (the publish bundle). Because it reuses <see cref="BuildSnapshot"/>, the bundle resolves
+    /// identically to loading the many files. Translator-only metadata is dropped; a runtime bundle needs only
+    /// the translations.
+    /// </summary>
+    public static IReadOnlyList<Catalog> Flatten(IEnumerable<Catalog> catalogs, LocalizerOptions options)
+    {
+        TranslationSnapshot snapshot = BuildSnapshot(catalogs, options);
+        var result = new List<Catalog>();
+        foreach (KeyValuePair<string, IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>> culture in snapshot.ByCulture)
+        {
+            var entries = new List<CatalogEntry>();
+            foreach (KeyValuePair<string, IReadOnlyDictionary<string, string>> category in culture.Value)
+            {
+                foreach (KeyValuePair<string, string> entry in category.Value)
+                {
+                    (var key, var context) = SplitComposite(entry.Key);
+                    entries.Add(new CatalogEntry
+                    {
+                        Category = category.Key,
+                        Key = key,
+                        Context = context,
+                        SourceMessage = entry.Value,
+                        TranslatedMessage = entry.Value,
+                        SourceFingerprint = string.Empty,
+                        State = TranslationState.Translated
+                    });
+                }
+            }
+
+            IEnumerable<CatalogEntry> ordered = entries
+                .OrderBy(entry => entry.Category, StringComparer.Ordinal)
+                .ThenBy(entry => entry.Key, StringComparer.Ordinal)
+                .ThenBy(entry => entry.Context ?? string.Empty, StringComparer.Ordinal);
+            result.Add(new Catalog { Culture = culture.Key, Entries = [.. ordered] });
+        }
+
+        return result;
+    }
+
+    private static (string Key, string? Context) SplitComposite(string composite)
+    {
+        var separator = composite.IndexOf(TranslationKey.Separator);
+        return separator >= 0
+            ? (composite[(separator + 1)..], composite[..separator])
+            : (composite, null);
+    }
+
     private static Dictionary<string, Dictionary<string, Dictionary<string, string>>> NewCultureMap() =>
         new(StringComparer.OrdinalIgnoreCase);
 

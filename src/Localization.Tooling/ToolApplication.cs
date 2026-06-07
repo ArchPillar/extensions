@@ -2,14 +2,16 @@ using System.Reflection;
 using System.Runtime.Loader;
 using System.Text;
 using ArchPillar.Extensions.Localization.Formats;
+using ArchPillar.Extensions.Localization.Internal;
 using Spectre.Console;
 
 namespace ArchPillar.Extensions.Localization.Tooling;
 
 /// <summary>
 /// The <c>dotnet apl</c> command-line surface: <c>extract</c> the baked template from a built
-/// assembly, <c>add</c> a new language, <c>sync</c> a target against the template, and <c>convert</c>
-/// between formats. Every command works on explicit paths and runs on demand, never as part of a build.
+/// assembly, <c>add</c> a new language, <c>sync</c> a target against the template, <c>convert</c>
+/// between formats, and <c>merge</c> a set of catalogs into one flattened bundle per culture (the publish
+/// step). Every command works on explicit paths and runs on demand, never as part of a build.
 /// </summary>
 internal static class ToolApplication
 {
@@ -31,6 +33,7 @@ internal static class ToolApplication
                 "add" => await AddAsync(arguments, options).ConfigureAwait(false),
                 "sync" => await SyncAsync(options).ConfigureAwait(false),
                 "convert" => await ConvertAsync(options).ConfigureAwait(false),
+                "merge" => await MergeAsync(options).ConfigureAwait(false),
                 _ => Fail($"Unknown command '{arguments[0]}'.")
             };
         }
@@ -115,6 +118,54 @@ internal static class ToolApplication
         await WriteFileAsync(target, output, catalog).ConfigureAwait(false);
         Success($"Converted {from} to {output}");
         return 0;
+    }
+
+    private static async Task<int> MergeAsync(IReadOnlyDictionary<string, string> options)
+    {
+        var input = Require(options, "--input");
+        var output = Require(options, "--output");
+        var formatId = options.TryGetValue("--format", out var f) && f.Length > 0 ? f : "arb";
+        var sourceCulture = options.TryGetValue("--source", out var s) && s.Length > 0 ? s : "en";
+        TranslationFormatRegistry registry = BuildRegistry();
+        ITranslationFormat outputProvider = registry.ResolveById(formatId) ?? throw new ArgumentException($"Unknown format '{formatId}'.");
+
+        var catalogs = new List<Catalog>();
+        foreach (var file in EnumerateCatalogFiles(input, registry))
+        {
+            catalogs.Add(await ReadFileAsync(ProviderFor(registry, file), file).ConfigureAwait(false));
+        }
+
+        // Reuse the runtime's load (precedence + skip source/untranslated), then dump one bundle per culture.
+        IReadOnlyList<Catalog> merged = CatalogLoader.Flatten(catalogs, new LocalizerOptions { SourceCulture = sourceCulture });
+        foreach (Catalog catalog in merged)
+        {
+            await WriteFileAsync(outputProvider, Path.Combine(output, catalog.Culture + Extension(outputProvider)), catalog).ConfigureAwait(false);
+        }
+
+        Success($"Merged {catalogs.Count} catalog(s) into {merged.Count} bundle(s) in {output}");
+        return 0;
+    }
+
+    private static IEnumerable<string> EnumerateCatalogFiles(string input, TranslationFormatRegistry registry)
+    {
+        if (File.Exists(input))
+        {
+            yield return input;
+            yield break;
+        }
+
+        if (!Directory.Exists(input))
+        {
+            yield break;
+        }
+
+        foreach (var file in Directory.EnumerateFiles(input))
+        {
+            if (registry.ResolveByExtension(Path.GetExtension(file)) is not null)
+            {
+                yield return file;
+            }
+        }
     }
 
     private static (string Format, string SourceLanguage, string Arb) ReadBakedTemplate(string assemblyPath)
@@ -213,7 +264,7 @@ internal static class ToolApplication
 
     private static int Usage()
     {
-        AnsiConsole.MarkupLine("[bold]dotnet apl[/] [grey]<extract|add|sync|convert> [options][/]");
+        AnsiConsole.MarkupLine("[bold]dotnet apl[/] [grey]<extract|add|sync|convert|merge> [options][/]");
         return 1;
     }
 }

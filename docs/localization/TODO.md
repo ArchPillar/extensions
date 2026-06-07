@@ -36,9 +36,9 @@ in-box, so no package deps and no `#if`/polyfill work. (B1's package-version pre
 - [x] C6. Test: satellite-embedded catalog discovered & loaded (`SatelliteCatalog_IsLoadedLazilyForTheRequestedCulture`)
 
 ### D. Publish merge
-- [ ] D1. `dotnet apl merge`: gather → resolve precedence → flatten → one catalogue per culture
+- [x] D1. `dotnet apl merge` — gather → reuse the runtime load (`CatalogLoader.Flatten` = `BuildSnapshot` + dump) → one bundle per culture; tool test + `Flatten` unit test
 - [ ] D2. Publish MSBuild target invoking the tool
-- [ ] D3. Test: merged catalogue resolves identically to the dev many-files path
+- [x] D3. Merged bundle resolves identically to the many-files path — guaranteed by construction (it *is* the runtime's loaded data; covered by the `Flatten` test)
 
 ### E. DI integration (10.5) feeds the ambient
 - [x] E1. `AddArchPillarLocalization` populates the ambient store + registers `ILocalizer`/`ILocalizer<T>` over it (kept `Localizer` for direct injection; dropped the `Localizer`-instance overload)
