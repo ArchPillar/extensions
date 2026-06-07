@@ -72,6 +72,56 @@ public sealed class TranslationSiteDetectorTests
         Assert.Empty(TranslationSiteDetector.Detect(RoslynTestHost.CreateCompilation(Plain), CancellationToken.None));
     }
 
+    [Fact]
+    public void Detect_GlobalCall_HasEmptyCategory() =>
+        Assert.Equal(string.Empty, Single(Detect(), "home.title").Category);
+
+    [Fact]
+    public void Detect_ScopedReceiver_TakesCategoryFromTypeArgument()
+    {
+        const string Scoped = """
+            using ArchPillar.Extensions.Localization;
+
+            public interface IScoped<[TranslationScope] T>
+            {
+                string Translate([Translatable] string key, [TranslationDefault] string message);
+            }
+
+            public sealed class Home;
+
+            public sealed class Consumer(IScoped<Home> loc)
+            {
+                public string Title() => loc.Translate("title", "Inbox");
+            }
+            """;
+
+        var results = TranslationSiteDetector.Detect(RoslynTestHost.CreateCompilation(Scoped), CancellationToken.None).ToList();
+
+        Assert.Equal("Home", Single(results, "title").Category);
+    }
+
+    [Fact]
+    public void Detect_ScopedBaseClass_TakesCategoryFromTheDerivedType()
+    {
+        const string Scoped = """
+            using ArchPillar.Extensions.Localization;
+
+            public abstract class Bundle<[TranslationScope] TSelf> where TSelf : Bundle<TSelf>
+            {
+                protected string Translate([Translatable] string key, [TranslationDefault] string message) => message;
+            }
+
+            public sealed class Buttons : Bundle<Buttons>
+            {
+                public string Save() => Translate("save", "Save");
+            }
+            """;
+
+        var results = TranslationSiteDetector.Detect(RoslynTestHost.CreateCompilation(Scoped), CancellationToken.None).ToList();
+
+        Assert.Equal("Buttons", Single(results, "save").Category);
+    }
+
     private static List<TranslationSiteResult> Detect() =>
         TranslationSiteDetector.Detect(RoslynTestHost.CreateCompilation(Source), CancellationToken.None).ToList();
 

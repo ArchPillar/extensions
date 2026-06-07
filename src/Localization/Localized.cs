@@ -16,7 +16,7 @@ namespace ArchPillar.Extensions.Localization;
 /// </code>
 /// </summary>
 /// <typeparam name="TSelf">The deriving type; its full name is the translation category.</typeparam>
-public abstract class Localized<TSelf>(ILocalizer<TSelf> localizer)
+public abstract class Localized<[TranslationScope] TSelf>(ILocalizer<TSelf> localizer)
     where TSelf : Localized<TSelf>
 {
     /// <summary>

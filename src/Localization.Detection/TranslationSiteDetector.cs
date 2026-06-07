@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Text;
 using ArchPillar.Extensions.Localization.MessageFormat;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -64,21 +65,26 @@ public static class TranslationSiteDetector
         AttributeSymbols symbols,
         CancellationToken cancellationToken)
     {
-        ImmutableArray<IArgumentOperation> arguments = ExtractArguments(model.GetOperation(node, cancellationToken));
+        IOperation? operation = model.GetOperation(node, cancellationToken);
+        ImmutableArray<IArgumentOperation> arguments = ExtractArguments(operation);
         if (arguments.IsDefault)
         {
             return null;
         }
 
         IArgumentOperation? keyArgument = FindArgument(arguments, symbols.Translatable);
-        return keyArgument is null ? null : Build(arguments, keyArgument, symbols, node);
+        return keyArgument is null ? null : Build(arguments, keyArgument, symbols, node, ReceiverType(operation));
     }
+
+    private static INamedTypeSymbol? ReceiverType(IOperation? operation) =>
+        operation is IInvocationOperation invocation ? invocation.Instance?.Type as INamedTypeSymbol : null;
 
     private static TranslationSiteResult Build(
         ImmutableArray<IArgumentOperation> arguments,
         IArgumentOperation keyArgument,
         AttributeSymbols symbols,
-        SyntaxNode node)
+        SyntaxNode node,
+        INamedTypeSymbol? receiver)
     {
         var problems = new List<DetectionProblem>();
         var key = Constant(keyArgument, problems);
@@ -97,8 +103,84 @@ public static class TranslationSiteDetector
         AddArgumentProblems(placeholders, supplied, defaultArgument, problems);
         AddMissingOtherProblems(defaultMessage, defaultArgument, problems);
 
-        var site = new TranslationSite(key, defaultMessage, context, comment, placeholders, ToReference(node), supplied);
+        var category = CategoryFrom(receiver, symbols.Scope);
+        var site = new TranslationSite(key, defaultMessage, context, category, comment, placeholders, ToReference(node), supplied);
         return new TranslationSiteResult(site, problems);
+    }
+
+    // The category is the full name of the type argument bound to a [TranslationScope] type parameter on
+    // the receiver's type (or any base type or interface) — so ILocalizer<T>, Localized<TSelf>, and any
+    // user-rolled scoped localizer all resolve identically, matching the runtime. No marker → global.
+    private static string CategoryFrom(INamedTypeSymbol? receiver, INamedTypeSymbol? scopeAttribute)
+    {
+        if (receiver is null || scopeAttribute is null)
+        {
+            return string.Empty;
+        }
+
+        foreach (INamedTypeSymbol candidate in SelfBasesAndInterfaces(receiver))
+        {
+            if (!candidate.IsGenericType)
+            {
+                continue;
+            }
+
+            INamedTypeSymbol definition = candidate.OriginalDefinition;
+            for (var index = 0; index < definition.TypeParameters.Length && index < candidate.TypeArguments.Length; index++)
+            {
+                if (HasScopeAttribute(definition.TypeParameters[index], scopeAttribute)
+                    && candidate.TypeArguments[index] is INamedTypeSymbol argument)
+                {
+                    return FullName(argument);
+                }
+            }
+        }
+
+        return string.Empty;
+    }
+
+    private static IEnumerable<INamedTypeSymbol> SelfBasesAndInterfaces(INamedTypeSymbol type)
+    {
+        for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
+        {
+            yield return current;
+        }
+
+        foreach (INamedTypeSymbol contract in type.AllInterfaces)
+        {
+            yield return contract;
+        }
+    }
+
+    private static bool HasScopeAttribute(ITypeParameterSymbol parameter, INamedTypeSymbol scopeAttribute)
+    {
+        foreach (AttributeData data in parameter.GetAttributes())
+        {
+            if (SymbolEqualityComparer.Default.Equals(data.AttributeClass, scopeAttribute))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string FullName(INamedTypeSymbol type)
+    {
+        var builder = new StringBuilder();
+        if (type.ContainingType is not null)
+        {
+            builder.Append(FullName(type.ContainingType));
+            builder.Append('+');
+        }
+        else if (type.ContainingNamespace is { IsGlobalNamespace: false })
+        {
+            builder.Append(type.ContainingNamespace.ToDisplayString());
+            builder.Append('.');
+        }
+
+        builder.Append(type.Name);
+        return builder.ToString();
     }
 
     private static void AddArgumentProblems(
@@ -321,12 +403,14 @@ public static class TranslationSiteDetector
             INamedTypeSymbol? translatable,
             INamedTypeSymbol? defaultMessage,
             INamedTypeSymbol? context,
-            INamedTypeSymbol? comment)
+            INamedTypeSymbol? comment,
+            INamedTypeSymbol? scope)
         {
             Translatable = translatable;
             Default = defaultMessage;
             Context = context;
             Comment = comment;
+            Scope = scope;
         }
 
         public INamedTypeSymbol? Translatable { get; }
@@ -337,10 +421,13 @@ public static class TranslationSiteDetector
 
         public INamedTypeSymbol? Comment { get; }
 
+        public INamedTypeSymbol? Scope { get; }
+
         public static AttributeSymbols From(Compilation compilation) => new(
             compilation.GetTypeByMetadataName("ArchPillar.Extensions.Localization.TranslatableAttribute"),
             compilation.GetTypeByMetadataName("ArchPillar.Extensions.Localization.TranslationDefaultAttribute"),
             compilation.GetTypeByMetadataName("ArchPillar.Extensions.Localization.TranslationContextAttribute"),
-            compilation.GetTypeByMetadataName("ArchPillar.Extensions.Localization.TranslationCommentAttribute"));
+            compilation.GetTypeByMetadataName("ArchPillar.Extensions.Localization.TranslationCommentAttribute"),
+            compilation.GetTypeByMetadataName("ArchPillar.Extensions.Localization.TranslationScopeAttribute"));
     }
 }
