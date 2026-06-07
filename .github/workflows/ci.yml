@@ -9,6 +9,8 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    # Cap the job so a hanging test can never burn the runner for hours.
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v5
@@ -28,4 +30,5 @@ jobs:
         run: dotnet build -c Release --no-restore
 
       - name: Test
-        run: dotnet test -c Release --no-build --verbosity normal
+        # --blame-hang-timeout names and dumps a test that wedges, instead of hanging until the job cap.
+        run: dotnet test -c Release --no-build --verbosity normal --blame-hang-timeout 5m
