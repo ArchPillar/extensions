@@ -21,11 +21,27 @@
     output path; the culture is read from the catalog content, not the file name, so the prefix is harmless.
     Set ArchPillarLocalizationCopyTargetsToOutput=false to opt out (e.g. when embedding or merging at publish).
   -->
-  <ItemGroup Condition="'$(ArchPillarLocalizationCopyTargetsToOutput)' == 'true' and Exists('$(ArchPillarLocalizationOutputPath)')">
+  <ItemGroup Condition="'$(ArchPillarLocalizationCopyTargetsToOutput)' == 'true' and '$(ArchPillarLocalizationEmbedTargets)' != 'true' and Exists('$(ArchPillarLocalizationOutputPath)')">
     <Content Include="$(ArchPillarLocalizationOutputPath)\**\*.arb;$(ArchPillarLocalizationOutputPath)\**\*.xliff;$(ArchPillarLocalizationOutputPath)\**\*.xlf;$(ArchPillarLocalizationOutputPath)\**\*.po"
              Exclude="$(ArchPillarLocalizationOutputPath)\$(ArchPillarLocalizationSourceLanguage).arb;$(ArchPillarLocalizationOutputPath)\$(ArchPillarLocalizationSourceLanguage).xliff;$(ArchPillarLocalizationOutputPath)\$(ArchPillarLocalizationSourceLanguage).xlf;$(ArchPillarLocalizationOutputPath)\messages.pot"
              CopyToOutputDirectory="PreserveNewest"
              Link="Translations\$(AssemblyName).%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <!--
+    Opt-in (ArchPillarLocalizationEmbedTargets=true): embed the target catalogs as standard per-culture
+    SATELLITE assemblies instead of copying them as files — for single-file / self-contained publish. The
+    culture is taken from the file name (de.arb -> de), so each lands in <culture>/<AssemblyName>.resources.dll,
+    and the assembly is marked with [LocalizationSatelliteCatalogs] so the runtime probes it lazily per
+    culture. Catalogs must be named <culture>.<ext> (e.g. de.arb / de.xliff). For trimmed/AOT apps prefer the
+    file (copy) path; embedded resources and satellites must be rooted against the trimmer.
+  -->
+  <ItemGroup Condition="'$(ArchPillarLocalizationEmbedTargets)' == 'true' and Exists('$(ArchPillarLocalizationOutputPath)')">
+    <EmbeddedResource Include="$(ArchPillarLocalizationOutputPath)\*.arb;$(ArchPillarLocalizationOutputPath)\*.xliff;$(ArchPillarLocalizationOutputPath)\*.xlf"
+                      Exclude="$(ArchPillarLocalizationOutputPath)\$(ArchPillarLocalizationSourceLanguage).arb;$(ArchPillarLocalizationOutputPath)\$(ArchPillarLocalizationSourceLanguage).xliff;$(ArchPillarLocalizationOutputPath)\$(ArchPillarLocalizationSourceLanguage).xlf"
+                      Culture="%(Filename)"
+                      Link="$(AssemblyName).%(Filename)%(Extension)" />
+    <AssemblyAttribute Include="ArchPillar.Extensions.Localization.LocalizationSatelliteCatalogsAttribute" />
   </ItemGroup>
 
 </Project>

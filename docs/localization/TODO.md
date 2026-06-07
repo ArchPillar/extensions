@@ -31,7 +31,7 @@ in-box, so no package deps and no `#if`/polyfill work. (B1's package-version pre
 - [x] C1. MSBuild: copy catalogs to output **by default** (per-library naming — `Translations/<AssemblyName>.<culture>.<ext>`, collision-free; verified end-to-end)
 - [x] C2. Ambient store: default beside-binary **directory source** (layered embedded < directory < host; configurable `TranslationsDirectory`)
 - [x] C3. Test: dev-mode files loading through the ambient store (`TranslationsDirectory_LoadsCatalogsFromFilesBesideTheBinary`)
-- [ ] C4. Opt-in embed → **satellite** assemblies (`<name>.<culture>.<ext>`, no `WithCulture` override)
+- [x] C4. Opt-in embed (`ArchPillarLocalizationEmbedTargets=true`) → **satellite** assemblies via `Culture="%(Filename)"` + emits `[LocalizationSatelliteCatalogs]`; copy path is skipped when embedding (verified end-to-end). *(ARB/XLIFF `<culture>.<ext>`; PO `messages.<culture>.po` naming not yet supported for embed.)*
 - [x] C5. Ambient store: lazy per-culture satellite loading via `Assembly.GetSatelliteAssembly` (walk parents); `[LocalizationSatelliteCatalogs]` marker; zero-cost fast path for files-only apps
 - [x] C6. Test: satellite-embedded catalog discovered & loaded (`SatelliteCatalog_IsLoadedLazilyForTheRequestedCulture`)
 
