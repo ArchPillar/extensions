@@ -77,6 +77,10 @@ Make adoption from an existing `IStringLocalizer` / `.resx` codebase cheap, or t
   walk reaches it, so the generator/tool extract these sites while existing `IStringLocalizer` code stays
   free of editor diagnostics. Five detector tests cover both indexers, the dynamic-skip, and the non-ICU
   skip. Typed-key registry already sanitizes sentence keys (`"Email is required"` → `EmailIsRequired`).
-- [ ] I3. **Composing adapter.** `IStringLocalizerFactory`/`IStringLocalizer` tries the ambient store, then
-  **falls through to the previously-registered factory** on miss (via `ResourceNotFound`) so existing `.resx`
-  keeps working. Test: ambient hit wins; ambient miss yields the inner factory's value; total miss → name.
+- [x] I3. **Composing adapter.** The DI factory captures any previously-registered `IStringLocalizerFactory`
+  and wraps it: the adapter tries the ambient store (found-aware via a new category-scoped
+  `TranslateInCategory(..., out overrideFound, ...)`), and on a miss **falls through to the inner factory's
+  localizer** (checking `ResourceNotFound`) before settling on the name. `IStringLocalizer<T>` now flows
+  through the BCL `StringLocalizer<T>` → `factory.Create(typeof(T))`, so it resolves under `typeof(T)` —
+  matching I2 extraction (and DataAnnotations' `Create(modelType)` composes the same way). Test proves all
+  three paths: ambient hit wins, miss falls through to inner, total miss → name + `ResourceNotFound`.

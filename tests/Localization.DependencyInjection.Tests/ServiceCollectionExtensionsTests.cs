@@ -98,6 +98,51 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
         WithCulture(_german, () => Assert.Equal("Speichern", localizer.Translate("save", "Save")));
     }
 
+    [Fact]
+    public void StringLocalizer_ComposesOverAPreviouslyRegisteredFactory()
+    {
+        Ambient.Reset();
+        Ambient.AddCatalog(new Catalog
+        {
+            Culture = "de",
+            Entries =
+            [
+                new CatalogEntry
+                {
+                    Category = typeof(Buttons).FullName!,
+                    Key = "ambient",
+                    SourceMessage = "Ambient",
+                    TranslatedMessage = "AmbientDe",
+                    SourceFingerprint = "fp",
+                    State = TranslationState.Translated
+                }
+            ]
+        });
+
+        var services = new ServiceCollection();
+        services.AddSingleton<IStringLocalizerFactory>(new FakeFactory());
+        services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" });
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        IStringLocalizer localizer = provider.GetRequiredService<IStringLocalizerFactory>().Create(typeof(Buttons));
+
+        WithCulture(_german, () =>
+        {
+            // The ambient hit wins.
+            Assert.Equal("AmbientDe", localizer["ambient"].Value);
+
+            // The ambient misses, so it falls through to the previously-registered factory.
+            LocalizedString fromInner = localizer["inner"];
+            Assert.Equal("FromInner", fromInner.Value);
+            Assert.False(fromInner.ResourceNotFound);
+
+            // Neither has it, so the name (the in-code default) is returned, flagged not-found.
+            LocalizedString miss = localizer["missing"];
+            Assert.Equal("missing", miss.Value);
+            Assert.True(miss.ResourceNotFound);
+        });
+    }
+
     public void Dispose()
     {
         Ambient.Reset();
@@ -127,4 +172,24 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
     }
 
     private sealed class Buttons;
+
+    // A stand-in for a previously-registered factory (such as ResourceManager): it knows exactly one key,
+    // "inner", and reports every other key as not found so composition and fall-through can be observed.
+    private sealed class FakeFactory : IStringLocalizerFactory
+    {
+        public IStringLocalizer Create(Type resourceSource) => new FakeLocalizer();
+
+        public IStringLocalizer Create(string baseName, string location) => new FakeLocalizer();
+    }
+
+    private sealed class FakeLocalizer : IStringLocalizer
+    {
+        public LocalizedString this[string name] => name == "inner"
+            ? new LocalizedString(name, "FromInner", resourceNotFound: false)
+            : new LocalizedString(name, name, resourceNotFound: true);
+
+        public LocalizedString this[string name, params object[] arguments] => this[name];
+
+        public IEnumerable<LocalizedString> GetAllStrings(bool includeParentCultures) => [];
+    }
 }

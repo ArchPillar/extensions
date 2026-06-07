@@ -34,6 +34,7 @@
     <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.Tests" />
     <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.Tooling" />
     <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.Tooling.Tests" />
+    <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.DependencyInjection" />
   </ItemGroup>
 
   <ItemGroup>

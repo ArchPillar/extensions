@@ -49,10 +49,46 @@ public static class ServiceCollectionExtensions
         // A concrete Localizer over the same options remains available for direct injection.
         services.AddSingleton(_ => new Localizer(resolved));
 
-        // IStringLocalizer adapters over the ambient store.
-        services.AddSingleton<IStringLocalizerFactory, LocalizerStringLocalizerFactory>();
-        services.AddSingleton<IStringLocalizer, LocalizerStringLocalizer>();
-        services.AddSingleton(typeof(IStringLocalizer<>), typeof(LocalizerStringLocalizer<>));
+        // IStringLocalizer adapters over the ambient store, composing over any factory registered earlier
+        // (such as the ResourceManager/.resx factory from AddLocalization) so existing translations keep
+        // resolving on an ambient miss (Decision D-J). The generic IStringLocalizer<T> flows through the BCL
+        // StringLocalizer<T>, which calls our factory's Create(typeof(T)) — giving each its typeof(T) category.
+        ServiceDescriptor? innerFactory = services.LastOrDefault(descriptor => descriptor.ServiceType == typeof(IStringLocalizerFactory));
+        services.AddSingleton<IStringLocalizerFactory>(provider =>
+            new LocalizerStringLocalizerFactory(ResolveInnerFactory(provider, innerFactory)));
+        services.AddSingleton(typeof(IStringLocalizer<>), typeof(StringLocalizer<>));
+        services.AddSingleton<IStringLocalizer>(_ => new LocalizerStringLocalizer(string.Empty, inner: null));
         return services;
+    }
+
+    // Builds the previously-registered factory from its descriptor so the composing factory can wrap it.
+    // Returns null when there was no prior factory (then the adapter just falls back to the in-code default)
+    // or when the descriptor is keyed (whose implementation members are not readable this way).
+    private static IStringLocalizerFactory? ResolveInnerFactory(IServiceProvider provider, ServiceDescriptor? descriptor)
+    {
+        if (descriptor is null)
+        {
+            return null;
+        }
+
+        // A keyed descriptor's implementation members throw when read off the descriptor, so leave it alone.
+        if (descriptor.IsKeyedService)
+        {
+            return null;
+        }
+
+        if (descriptor.ImplementationInstance is IStringLocalizerFactory instance)
+        {
+            return instance;
+        }
+
+        if (descriptor.ImplementationFactory is { } factory)
+        {
+            return factory(provider) as IStringLocalizerFactory;
+        }
+
+        return descriptor.ImplementationType is not null
+            ? (IStringLocalizerFactory)ActivatorUtilities.CreateInstance(provider, descriptor.ImplementationType)
+            : null;
     }
 }

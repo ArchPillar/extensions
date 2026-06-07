@@ -195,11 +195,24 @@ public sealed class Localizer : IDisposable, ILocalizer
         string key,
         string defaultMessage,
         string? context,
+        (string Name, object? Value)[] arguments) =>
+        TranslateInCategory(category, key, defaultMessage, context, out _, arguments);
+
+    // The found-aware, category-scoped core used by the IStringLocalizer adapter so it can compose: a hit
+    // resolves from the store, a miss is reported so the adapter can fall through to a previously-registered
+    // factory (the .resx-backed one) before settling on the in-code default.
+    internal string TranslateInCategory(
+        string category,
+        string key,
+        string defaultMessage,
+        string? context,
+        out bool overrideFound,
         (string Name, object? Value)[] arguments)
     {
         CultureInfo culture = CultureInfo.CurrentUICulture;
         var composite = TranslationKey.Compose(key, context);
         var message = ResolveOverride(culture, category, composite, defaultMessage);
+        overrideFound = message is not null;
         return message is not null
             ? _formatter.Format(message, culture, arguments)
             : _formatter.Format(defaultMessage, _sourceCulture, arguments);

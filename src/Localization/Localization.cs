@@ -153,6 +153,21 @@ public static class Localization
         }
     }
 
+    // The found-aware ambient lookup the IStringLocalizer adapter composes over: resolves within
+    // <paramref name="category"/> for the current UI culture and reports whether a loaded override was used,
+    // so the adapter can fall through to a previously-registered factory on a miss before using the default.
+    internal static string TranslateInCategory(
+        string category,
+        string key,
+        string defaultMessage,
+        (string Name, object? Value)[] arguments,
+        out bool overrideFound)
+    {
+        CultureInfo culture = CultureInfo.CurrentUICulture;
+        EnsureCulture(culture);
+        return Current.TranslateInCategory(category, key, defaultMessage, context: null, out overrideFound, arguments);
+    }
+
     private static void EnsureStarted()
     {
         if (Volatile.Read(ref _scannedLoaded))
