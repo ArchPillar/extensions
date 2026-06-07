@@ -35,5 +35,12 @@ public sealed class LocalizerOptions
     /// <summary>How to handle a referenced argument with no supplied value.</summary>
     public MissingArgumentPolicy MissingArguments { get; init; } = MissingArgumentPolicy.PassThrough;
 
+    /// <summary>
+    /// Additional dynamic translation sources consulted before the loaded catalogs and the in-code default;
+    /// a later source wins. Use for custom providers such as pseudo-localization or a live translation
+    /// service. Empty by default.
+    /// </summary>
+    public IReadOnlyList<ITranslationSource> Sources { get; init; } = [];
+
     private static string DefaultDirectory() => Path.Combine(AppContext.BaseDirectory, "Translations");
 }

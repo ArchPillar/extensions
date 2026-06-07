@@ -14,6 +14,7 @@ public sealed class Localizer : IDisposable, ILocalizer
 {
     private readonly LocalizerOptions _options;
     private readonly Func<TranslationSnapshot> _load;
+    private readonly IReadOnlyList<ITranslationSource> _sources;
     private readonly MessageFormatter _formatter;
     private readonly CultureInfo _sourceCulture;
     private readonly object _reloadGate = new();
@@ -71,6 +72,7 @@ public sealed class Localizer : IDisposable, ILocalizer
     {
         _options = options;
         _load = load;
+        _sources = options.Sources ?? [];
         _formatter = new MessageFormatter(_options.MissingArguments);
         _sourceCulture = CreateCulture(_options.SourceCulture);
         _snapshot = load();
@@ -173,7 +175,7 @@ public sealed class Localizer : IDisposable, ILocalizer
         }
 
         var composite = TranslationKey.Compose(key, context);
-        var message = Resolve(culture, category: string.Empty, composite);
+        var message = ResolveOverride(culture, category: string.Empty, composite, defaultMessage);
         overrideFound = message is not null;
 
         // An override was authored for the requested culture, so render it with that culture's rules.
@@ -197,10 +199,27 @@ public sealed class Localizer : IDisposable, ILocalizer
     {
         CultureInfo culture = CultureInfo.CurrentUICulture;
         var composite = TranslationKey.Compose(key, context);
-        var message = Resolve(culture, category, composite);
+        var message = ResolveOverride(culture, category, composite, defaultMessage);
         return message is not null
             ? _formatter.Format(message, culture, arguments)
             : _formatter.Format(defaultMessage, _sourceCulture, arguments);
+    }
+
+    // Consults the custom sources (a later source wins) before the loaded catalogs. When no sources are
+    // configured the loop is skipped and the catalog lookup is unchanged, so the literal path stays
+    // allocation-free.
+    private string? ResolveOverride(CultureInfo culture, string category, string compositeKey, string defaultMessage)
+    {
+        for (var index = _sources.Count - 1; index >= 0; index--)
+        {
+            var fromSource = _sources[index].Resolve(culture, category, compositeKey, defaultMessage);
+            if (fromSource is not null)
+            {
+                return fromSource;
+            }
+        }
+
+        return Resolve(culture, category, compositeKey);
     }
 
     // The non-attributed core. The public overloads carry the attributes so the extractor finds every
