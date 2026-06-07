@@ -36,6 +36,37 @@ public sealed class Localizer : IDisposable, ILocalizer
         }
     }
 
+    /// <summary>
+    /// Initializes an isolated localizer over the given <paramref name="catalogs"/>, bypassing the
+    /// translations directory and the ambient store. Intended for tests and self-contained or multi-tenant
+    /// scenarios. The source-language catalog and untranslated entries are skipped exactly as the directory
+    /// loader does; on per-culture overlap, later catalogs win. Hot reload does not apply.
+    /// </summary>
+    /// <param name="catalogs">The parsed catalogs to load as overrides.</param>
+    /// <param name="options">The localizer configuration, or <see langword="null"/> for the defaults.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="catalogs"/> is <see langword="null"/>.</exception>
+    public Localizer(IEnumerable<Catalog> catalogs, LocalizerOptions? options = null)
+        : this(options ?? new LocalizerOptions(), catalogs ?? throw new ArgumentNullException(nameof(catalogs)))
+    {
+    }
+
+    /// <summary>
+    /// Initializes an isolated localizer over a single <paramref name="catalog"/>, bypassing the
+    /// translations directory and the ambient store.
+    /// </summary>
+    /// <param name="catalog">The parsed catalog to load as overrides.</param>
+    /// <param name="options">The localizer configuration, or <see langword="null"/> for the defaults.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="catalog"/> is <see langword="null"/>.</exception>
+    public Localizer(Catalog catalog, LocalizerOptions? options = null)
+        : this(Single(catalog), options)
+    {
+    }
+
+    private Localizer(LocalizerOptions options, IEnumerable<Catalog> catalogs)
+        : this(options, BuildCatalogLoader(catalogs, options))
+    {
+    }
+
     private Localizer(LocalizerOptions options, Func<TranslationSnapshot> load)
     {
         _options = options;
@@ -48,24 +79,23 @@ public sealed class Localizer : IDisposable, ILocalizer
     /// <summary>
     /// Creates a <see cref="Localizer"/> from catalogs the caller has already loaded — for hosts without a
     /// readable file system (such as Blazor WebAssembly), where the catalogs are fetched over HTTP and
-    /// parsed with an <see cref="ITranslationFormat"/> before being handed in here. The source-language
-    /// catalog and untranslated entries are skipped exactly as the directory loader does; on per-culture
-    /// overlap, later catalogs win. No directory is read and hot reload does not apply.
+    /// parsed with an <see cref="ITranslationFormat"/> before being handed in here. Equivalent to the
+    /// <see cref="Localizer(IEnumerable{Catalog}, LocalizerOptions?)"/> constructor.
     /// </summary>
     /// <param name="catalogs">The parsed catalogs to load as overrides.</param>
     /// <param name="options">The localizer configuration, or <see langword="null"/> for the defaults.</param>
     /// <returns>A localizer backed by the supplied catalogs.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="catalogs"/> is <see langword="null"/>.</exception>
-    public static Localizer FromCatalogs(IEnumerable<Catalog> catalogs, LocalizerOptions? options = null)
-    {
-        if (catalogs is null)
-        {
-            throw new ArgumentNullException(nameof(catalogs));
-        }
+    public static Localizer FromCatalogs(IEnumerable<Catalog> catalogs, LocalizerOptions? options = null) =>
+        new(catalogs ?? throw new ArgumentNullException(nameof(catalogs)), options);
 
-        LocalizerOptions resolved = options ?? new LocalizerOptions();
-        List<Catalog> snapshotSource = [.. catalogs];
-        return new Localizer(resolved, () => CatalogLoader.BuildSnapshot(snapshotSource, resolved));
+    private static IEnumerable<Catalog> Single(Catalog catalog) =>
+        catalog is null ? throw new ArgumentNullException(nameof(catalog)) : [catalog];
+
+    private static Func<TranslationSnapshot> BuildCatalogLoader(IEnumerable<Catalog> catalogs, LocalizerOptions options)
+    {
+        List<Catalog> source = [.. catalogs];
+        return () => CatalogLoader.BuildSnapshot(source, options);
     }
 
     /// <summary>

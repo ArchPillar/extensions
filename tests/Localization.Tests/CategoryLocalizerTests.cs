@@ -56,6 +56,30 @@ public sealed class CategoryLocalizerTests
         Assert.Same(factory.Create<Save>(), factory.Create<Save>());
     }
 
+    [Fact]
+    public void Constructor_FromSingleCatalog_BuildsIsolatedLocalizer()
+    {
+        using var root = new Localizer(
+            DeCatalog(("save", typeof(Save).FullName!, "Speichern")),
+            new LocalizerOptions { SourceCulture = "en" });
+
+        WithCulture(_german, () => Assert.Equal("Speichern", new LocalizerFactory(root).Create<Save>().Translate("save", "Save")));
+    }
+
+    [Fact]
+    public void Constructor_FromCatalogs_BuildsIsolatedLocalizer()
+    {
+        using var root = new Localizer(
+            [DeCatalog(("save", typeof(Save).FullName!, "Speichern"))],
+            new LocalizerOptions { SourceCulture = "en" });
+
+        WithCulture(_german, () => Assert.Equal("Speichern", new LocalizerFactory(root).Create<Save>().Translate("save", "Save")));
+    }
+
+    [Fact]
+    public void Constructor_NullCatalog_Throws() =>
+        Assert.Throws<ArgumentNullException>(() => new Localizer((Catalog)null!));
+
     private static Catalog DeCatalog(params (string Key, string Category, string Message)[] entries) => new()
     {
         Culture = "de",
