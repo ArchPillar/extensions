@@ -28,7 +28,7 @@ stays `net8.0;net9.0;net10.0`; a localizing library is itself net8+. `System.Tex
 in-box, so no package deps and no `#if`/polyfill work. (B1's package-version prep was reverted.)
 
 ### C. Files-by-default + satellites
-- [ ] C1. MSBuild: copy catalogs to output **by default** (per-library naming, collision-free)
+- [x] C1. MSBuild: copy catalogs to output **by default** (per-library naming — `Translations/<AssemblyName>.<culture>.<ext>`, collision-free; verified end-to-end)
 - [x] C2. Ambient store: default beside-binary **directory source** (layered embedded < directory < host; configurable `TranslationsDirectory`)
 - [x] C3. Test: dev-mode files loading through the ambient store (`TranslationsDirectory_LoadsCatalogsFromFilesBesideTheBinary`)
 - [ ] C4. Opt-in embed → **satellite** assemblies (`<name>.<culture>.<ext>`, no `WithCulture` override)
