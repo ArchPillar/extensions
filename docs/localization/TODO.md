@@ -77,6 +77,11 @@ Make adoption from an existing `IStringLocalizer` / `.resx` codebase cheap, or t
   walk reaches it, so the generator/tool extract these sites while existing `IStringLocalizer` code stays
   free of editor diagnostics. Five detector tests cover both indexers, the dynamic-skip, and the non-ICU
   skip. Typed-key registry already sanitizes sentence keys (`"Email is required"` → `EmailIsRequired`).
+- [x] I4. **Migration sample** (`Localization.MigrationSample`): a console app with an existing
+  `AddLocalization()` + real `Resources/Greeting[.de].resx` that then adopts `AddArchPillarLocalization()`.
+  Verified running — under `de`, "Welcome" resolves from ArchPillar's `de.arb` (ambient wins), "Goodbye"
+  falls through to the legacy `.resx` (kept), "Help" returns the name; an `L("…")` marker rides along. Shows
+  I1+I3 end-to-end with no call-site changes (`AssemblyName == RootNamespace` to satisfy ResourceManager).
 - [x] I3. **Composing adapter.** The DI factory captures any previously-registered `IStringLocalizerFactory`
   and wraps it: the adapter tries the ambient store (found-aware via a new category-scoped
   `TranslateInCategory(..., out overrideFound, ...)`), and on a miss **falls through to the inner factory's

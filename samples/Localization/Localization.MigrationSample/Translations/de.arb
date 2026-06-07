@@ -1,0 +1,5 @@
+{
+  "@@locale": "de",
+  "Welcome": "Willkommen (neu, aus ArchPillar)",
+  "@Welcome": { "x-category": "MigrationSample.Greeting", "x-state": "Translated", "x-source-fingerprint": "sample" }
+}
