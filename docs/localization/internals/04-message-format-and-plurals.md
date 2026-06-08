@@ -127,3 +127,15 @@ public static class PluralRules
 - [ ] The formatter renders `#` with the target culture's number formatting and applies `offset`.
 - [ ] A missing argument does not throw under the default policy.
 - [ ] No runtime dependency reads the CLDR Extensible Markup Language; all plural logic is in generated code, and the embedded CLDR version is recorded in the assembly.
+
+## Regenerating the CLDR plural data
+
+The plural rules are generated from pinned CLDR data checked into `eng/cldr/`. No CLDR data is parsed
+at runtime — all plural logic is generated code. To bump the version, replace the JSON files and run:
+
+```bash
+python3 eng/cldr/generate_plural_data.py
+```
+
+which regenerates `src/Localization.MessageFormat/Internal/CldrPluralData.g.cs`. The embedded CLDR
+release is recorded in the assembly and exposed as `PluralRules.CldrVersion`.
