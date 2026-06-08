@@ -1,5 +1,3 @@
-using System.Linq;
-
 namespace ArchPillar.Extensions.Localization.MessageFormat.Tests;
 
 public sealed class GettextPluralFormsTests
