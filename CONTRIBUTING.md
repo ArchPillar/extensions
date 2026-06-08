@@ -18,6 +18,7 @@ dotnet test tests/Mapper.Tests
 - Open an issue first to discuss non-trivial changes — this avoids wasted effort if the change doesn't fit the project's direction.
 - Small bug fixes and documentation improvements can go straight to a pull request.
 - Keep pull requests focused on a single change. Separate unrelated fixes into their own PRs.
+- Writing or updating documentation or sample projects? Follow the authoring standards in [`docs/authoring/`](docs/authoring/) — the [documentation guide](docs/authoring/documentation-guide.md) and [samples guide](docs/authoring/samples-guide.md). Each ends with a review checklist.
 
 ## Code Style
 
