@@ -17,13 +17,20 @@ The companion guide for example projects is [samples-guide.md](samples-guide.md)
 
 ## Where documentation lives
 
-Each library has two homes for prose, with no overlap in responsibility:
+Documentation splits by **audience**. The dividing line is "how do I *use* this?" versus
+"how does this *work* and why?" — keep the two apart.
 
 | Location | File(s) | Audience | Purpose |
 |----------|---------|----------|---------|
 | `src/{Library}/` | `PACKAGE.md` | NuGet consumers | Shipped as the package readme. Self-contained pitch + quick start. |
 | `src/{Library}/` | `README.md` | Repo browsers | One-paragraph stub that redirects to `docs/{library}/`. |
-| `docs/{library}/` | `README.md`, `SPEC.md`, `getting-started.md`, `features.md` (or `features/`), `recommendations.md`, `CHANGELOG.md`, `KNOWN_ISSUES.md` | Repo readers, contributors | The full documentation set. |
+| `docs/{library}/` | `README.md`, `getting-started.md`, `features.md` (or `features/`), `recommendations.md`, `CHANGELOG.md`, `KNOWN_ISSUES.md` | Library **users** | How to consume the library — install, first result, every feature, production patterns. |
+| `docs/{library}/internals/` | `SPEC.md`, plus architecture and design notes | Library **developers / contributors** | How the library works and why — the design contract, implementation notes, and decisions. |
+
+> **`docs/{library}/` root is user-facing.** Anything aimed at the people *building* the
+> library — the spec, architecture write-ups, design-decision records — goes under
+> `docs/{library}/internals/`, never at the root. A user browsing the docs should not have to
+> step around implementation material.
 
 > Use the library's published name for `src/` folders (`src/Mapper`,
 > `src/Pipelines`) and the lowercase short name for the docs folder
@@ -35,22 +42,28 @@ Every library ships the same core set. There is no "skip it because the library 
 a small library has a *short* SPEC and a *short* features page, not a missing one. What scales
 is depth, not coverage.
 
-**Always required:**
+**Always required — user docs:**
 
 | Document | Notes |
 |----------|-------|
 | `src/{Library}/PACKAGE.md` | NuGet readme — self-contained pitch + quick start. |
 | `src/{Library}/README.md` | Redirect stub. |
 | `docs/{library}/README.md` | Documentation landing page. |
-| `docs/{library}/SPEC.md` | Design contract — Goals / Non-Goals / concepts. Keep it as short as the surface allows, but it always exists. |
 | `docs/{library}/getting-started.md` | Numbered install-to-first-result walkthrough. |
 | `docs/{library}/features.md` *or* `docs/{library}/features/` | One entry per feature — see the [scaling rules](#docslibraryfeaturesmd--or-docslibraryfeatures). |
+
+**Always required — developer docs:**
+
+| Document | Notes |
+|----------|-------|
+| `docs/{library}/internals/SPEC.md` | Design contract — Goals / Non-Goals / concepts. Keep it as short as the surface allows, but it always exists. |
 
 **Conditionally required:**
 
 | Document | Add it when |
 |----------|-------------|
 | `docs/{library}/recommendations.md` | The library contains any non-obvious logic — a pitfall, an ordering constraint, a "do this, not that" pattern. As soon as correct usage is not self-evident from `getting-started.md`, this doc is required. |
+| `docs/{library}/internals/*.md` (architecture, design decisions) | The library has implementation detail or a design rationale worth recording for maintainers — anything a future contributor would otherwise have to reverse-engineer. |
 | `docs/{library}/CHANGELOG.md` | The library has a published release. |
 | `docs/{library}/KNOWN_ISSUES.md` | Optional — a placeholder tracker, useful once the library ships. |
 
@@ -128,16 +141,17 @@ The hub for the full set — the first page a reader lands on.
 ## Quick Start         (the smallest end-to-end example)
 ## Features            (table: feature → one-line description, mirroring features.md)
 ## Performance         (BenchmarkDotNet block, only if benchmarks exist)
-## Documentation       (relative links to getting-started / features / recommendations / SPEC)
+## Documentation       (relative links to getting-started / features / recommendations; and to internals/SPEC.md for the design contract)
 ```
 
 A very small surface may present its public types directly (public surface, wire shape,
 factories) in place of a `Features` table, the way *Primitives* does — but it still links to
 the full doc set under `## Documentation`.
 
-### `docs/{library}/SPEC.md`
+### `docs/{library}/internals/SPEC.md`
 
-The design contract. Opens with Goals / Non-Goals so scope is unambiguous.
+The design contract — **developer-facing**, which is why it lives under `internals/` rather
+than at the docs root. Opens with Goals / Non-Goals so scope is unambiguous.
 
 ```text
 # ArchPillar.Extensions.{Library} — Specification
@@ -152,6 +166,14 @@ The design contract. Opens with Goals / Non-Goals so scope is unambiguous.
 ```
 
 Show full type signatures, not just usage. ASCII diagrams are welcome for execution flow.
+
+### `docs/{library}/internals/` (other developer docs)
+
+`SPEC.md` is the required anchor. Add further developer-facing pages here as the library earns
+them — an `architecture.md` walking the implementation, decision records, performance notes —
+anything a future contributor would otherwise reverse-engineer from the source. Keep them out
+of the user-facing docs root. Once `internals/` holds more than the spec, add an
+`internals/README.md` index listing its pages.
 
 ### `docs/{library}/getting-started.md`
 
@@ -236,15 +258,18 @@ When you add a library, also:
 
 A docs change is ready when every applicable item is true:
 
-- [ ] Every always-required doc exists: `PACKAGE.md`, the src `README.md` stub, and the docs
-      `README.md`, `SPEC.md`, `getting-started.md`, and `features.md` (or `features/`).
+- [ ] Every always-required doc exists: `PACKAGE.md`, the src `README.md` stub, the docs
+      `README.md`, `getting-started.md`, `features.md` (or `features/`), and
+      `internals/SPEC.md`.
 - [ ] `recommendations.md` exists if the library has any non-obvious logic, pitfall, or
       ordering constraint.
+- [ ] User-facing docs live at `docs/{library}/` root; developer docs (SPEC, architecture,
+      decisions) live under `docs/{library}/internals/` — no implementation material at the root.
 - [ ] Each doc follows its canonical skeleton — section order matches, nothing reordered.
 - [ ] `PACKAGE.md` is self-contained and ends with `## Documentation` and `## License`.
 - [ ] `src/{Library}/README.md` is the redirect stub only, not a duplicate of `PACKAGE.md`.
 - [ ] The docs `README.md` opens with a one-paragraph description and a `## Why?`.
-- [ ] The SPEC states **Goals** and **Non-Goals** up front.
+- [ ] `internals/SPEC.md` states **Goals** and **Non-Goals** up front.
 - [ ] `getting-started.md` is numbered and every step has runnable code.
 - [ ] Every feature has at least a heading and a paragraph in `features.md` (or `features/`);
       long files are split into a folder rather than left to sprawl.
