@@ -42,7 +42,7 @@ internal sealed class MessageGrammarParser
             if (c == '{')
             {
                 FlushLiteral(parts, literal);
-                parts.Add(ParseArgument());
+                parts.Add(ParseArgument(allowPound));
             }
             else if (allowPound && c == '#')
             {
@@ -120,7 +120,9 @@ internal sealed class MessageGrammarParser
         }
     }
 
-    private MessagePart ParseArgument()
+    // allowPound carries whether '#' is active in the current context (true inside a plural), so a select
+    // nested in a plural keeps '#' as the plural number while a top-level select treats it as a literal.
+    private MessagePart ParseArgument(bool allowPound)
     {
         _pos++;
         SkipWhitespace();
@@ -139,7 +141,7 @@ internal sealed class MessageGrammarParser
         {
             "plural" => FinishPlural(name, ordinal: false),
             "selectordinal" => FinishPlural(name, ordinal: true),
-            "select" => FinishSelect(name),
+            "select" => FinishSelect(name, allowPound),
             _ => FinishSimple(name, type)
         };
     }
@@ -168,11 +170,11 @@ internal sealed class MessageGrammarParser
         return new PluralPart(name, ordinal, offset, branches);
     }
 
-    private MessagePart FinishSelect(string name)
+    private MessagePart FinishSelect(string name, bool allowPound)
     {
         SkipWhitespace();
         Expect(',');
-        IReadOnlyDictionary<string, Message> branches = ReadSelectBranches();
+        IReadOnlyDictionary<string, Message> branches = ReadSelectBranches(allowPound);
         Expect('}');
         return new SelectPart(name, branches);
     }
@@ -210,14 +212,14 @@ internal sealed class MessageGrammarParser
         return branches;
     }
 
-    private IReadOnlyDictionary<string, Message> ReadSelectBranches()
+    private IReadOnlyDictionary<string, Message> ReadSelectBranches(bool allowPound)
     {
         var branches = new Dictionary<string, Message>(StringComparer.Ordinal);
         SkipWhitespace();
         while (!AtEnd && Current != '}')
         {
             var key = ReadKeyword();
-            Message body = ReadBranchBody(allowPound: false);
+            Message body = ReadBranchBody(allowPound);
             if (!branches.ContainsKey(key))
             {
                 branches.Add(key, body);

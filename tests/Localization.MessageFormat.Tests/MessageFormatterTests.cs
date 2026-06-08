@@ -104,4 +104,45 @@ public sealed class MessageFormatterTests
 
         Assert.Equal("1,234", result);
     }
+
+    [Fact]
+    public void Format_PoundAndDefaultNumber_GroupByCulture()
+    {
+        var german = CultureInfo.GetCultureInfo("de-DE");
+
+        Assert.Equal("1,234", _formatter.Format("{n, plural, other {#}}", _english, ("n", 1234)));
+        Assert.Equal("1.234", _formatter.Format("{n, plural, other {#}}", german, ("n", 1234)));
+        Assert.Equal("1,234", _formatter.Format("{n, number}", _english, ("n", 1234)));
+        Assert.Equal("1.234,5", _formatter.Format("{n, number}", german, ("n", 1234.5)));
+    }
+
+    [Fact]
+    public void Format_SelectMissingArgument_RespectsPolicy()
+    {
+        // PassThrough emits the placeholder; Throw raises — matching plural, not a silent fall to "other".
+        Assert.Equal("{g}", _formatter.Format("{g, select, female {she} other {they}}", _english));
+
+        var strict = new MessageFormatter(MissingArgumentPolicy.Throw);
+        Assert.Throws<MissingArgumentException>(
+            () => strict.Format("{g, select, female {she} other {they}}", _english));
+    }
+
+    [Fact]
+    public void Format_NonNumericPluralArgument_ThrowsMessageFormatException() =>
+        Assert.Throws<MessageFormatException>(
+            () => _formatter.Format("{n, plural, other {#}}", _english, ("n", "not a number")));
+
+    [Fact]
+    public void Format_SuppliedNullPluralArgument_ThrowsMessageFormatExceptionNotMissing() =>
+        Assert.Throws<MessageFormatException>(
+            () => _formatter.Format("{n, plural, other {#}}", _english, ("n", null)));
+
+    [Fact]
+    public void Format_PoundInsideSelectInsidePlural_RendersThePluralNumber()
+    {
+        var result = _formatter.Format(
+            "{n, plural, other {{g, select, other {#}}}}", _english, ("n", 5), ("g", "x"));
+
+        Assert.Equal("5", result);
+    }
 }

@@ -89,7 +89,7 @@ internal static class MessageRenderer
                 builder.Append(literal.Text);
                 break;
             case PoundPart:
-                builder.Append(FormatValue(pound ?? 0m, culture));
+                builder.Append(FormatNumber(pound ?? 0m, culture));
                 break;
             case ArgumentPart argument:
                 RenderArgument(builder, argument, culture, arguments, policy);
@@ -98,7 +98,7 @@ internal static class MessageRenderer
                 RenderPlural(builder, plural, culture, arguments, policy);
                 break;
             case SelectPart select:
-                RenderSelect(builder, select, culture, arguments, policy);
+                RenderSelect(builder, select, culture, arguments, policy, pound);
                 break;
             default:
                 break;
@@ -130,13 +130,19 @@ internal static class MessageRenderer
         (string Name, object? Value)[] arguments,
         MissingArgumentPolicy policy)
     {
-        if (!TryGetArgument(arguments, plural.ArgumentName, out var value) || value is null)
+        if (!TryGetArgument(arguments, plural.ArgumentName, out var value))
         {
             AppendMissing(builder, plural.ArgumentName, policy);
             return;
         }
 
-        var number = ToNumber(value);
+        // A supplied-but-null or non-numeric argument is a caller error, not a missing translation argument,
+        // so report it as a format error (with an accurate message) rather than "no value was supplied".
+        if (!TryToNumber(value, out var number))
+        {
+            throw new MessageFormatException($"Argument '{plural.ArgumentName}' is not a number.", -1);
+        }
+
         Message branch = SelectPluralBranch(plural, number, culture);
         RenderInto(builder, branch, culture, arguments, policy, number - plural.Offset);
     }
@@ -190,9 +196,15 @@ internal static class MessageRenderer
         SelectPart select,
         CultureInfo culture,
         (string Name, object? Value)[] arguments,
-        MissingArgumentPolicy policy)
+        MissingArgumentPolicy policy,
+        decimal? pound)
     {
-        TryGetArgument(arguments, select.ArgumentName, out var value);
+        if (!TryGetArgument(arguments, select.ArgumentName, out var value))
+        {
+            AppendMissing(builder, select.ArgumentName, policy);
+            return;
+        }
+
         var key = value?.ToString() ?? string.Empty;
         if (!select.Branches.TryGetValue(key, out Message? branch))
         {
@@ -201,7 +213,8 @@ internal static class MessageRenderer
 
         if (branch is not null)
         {
-            RenderInto(builder, branch, culture, arguments, policy, pound: null);
+            // Thread the enclosing plural's number so a '#' inside a select-within-a-plural renders it.
+            RenderInto(builder, branch, culture, arguments, policy, pound);
         }
     }
 
@@ -252,8 +265,23 @@ internal static class MessageRenderer
             return value?.ToString() ?? string.Empty;
         }
 
+        // A plain "{n, number}" (no/unknown style) uses the locale's default number format, which groups —
+        // matching the "integer" style and ICU. Only the explicit styles take a fixed format string.
+        if (type == "number" && NumberStyle(style) is null)
+        {
+            return FormatNumber(value, culture);
+        }
+
         return formattable.ToString(ResolveFormat(type, style), culture);
     }
+
+    // Formats a number with the locale's grouping separators (ICU's default for "#" and "{n, number}"):
+    // grouped, and up to three fraction digits with trailing zeros trimmed — so an integer groups with no
+    // decimals and a fractional value keeps its digits.
+    private static string FormatNumber(object? value, CultureInfo culture) =>
+        value is IFormattable formattable
+            ? formattable.ToString("#,##0.###", culture)
+            : value?.ToString() ?? string.Empty;
 
     private static string? ResolveFormat(string type, string? style) => type switch
     {
@@ -286,13 +314,35 @@ internal static class MessageRenderer
         _ => "T"
     };
 
-    private static decimal ToNumber(object value) => value switch
+    private static bool TryToNumber(object? value, out decimal number)
     {
-        decimal d => d,
-        double db => (decimal)db,
-        float fl => (decimal)fl,
-        _ => Convert.ToDecimal(value, CultureInfo.InvariantCulture)
-    };
+        switch (value)
+        {
+            case decimal d:
+                number = d;
+                return true;
+            case double db:
+                number = (decimal)db;
+                return true;
+            case float fl:
+                number = (decimal)fl;
+                return true;
+            case null:
+                number = 0m;
+                return false;
+            default:
+                try
+                {
+                    number = Convert.ToDecimal(value, CultureInfo.InvariantCulture);
+                    return true;
+                }
+                catch (Exception exception) when (exception is FormatException or InvalidCastException or OverflowException)
+                {
+                    number = 0m;
+                    return false;
+                }
+        }
+    }
 
     private static Message EmptyMessage { get; } = new([]);
 }
