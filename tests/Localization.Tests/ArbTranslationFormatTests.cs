@@ -150,6 +150,34 @@ public sealed class ArbTranslationFormatTests
         Assert.Equal("Acme.Todo.TodoStrings", Assert.Single(roundTripped.Entries).Category);
     }
 
+    [Fact]
+    public async Task Read_NonStringValue_SkipsItButKeepsTheRestAsync()
+    {
+        // A non-string message value must not drop the whole file.
+        const string Arb = """
+            {
+              "@@locale": "en",
+              "count": 5,
+              "greeting": "Hello"
+            }
+            """;
+
+        Catalog catalog = await ReadAsync(Encoding.UTF8.GetBytes(Arb));
+
+        CatalogEntry entry = Assert.Single(catalog.Entries);
+        Assert.Equal("greeting", entry.Key);
+        Assert.Equal("Hello", entry.TranslatedMessage);
+    }
+
+    [Fact]
+    public async Task Write_KeyBeginningWithAt_ThrowsRatherThanProduceUnreadableFileAsync()
+    {
+        FormatException exception = await Assert.ThrowsAsync<FormatException>(
+            async () => await WriteAsync(SingleEntry("@weird", "value")));
+
+        Assert.Contains("@weird", exception.Message);
+    }
+
     private static Catalog SingleEntry(string key, string message) => new()
     {
         Culture = "de",

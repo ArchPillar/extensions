@@ -85,10 +85,13 @@ public sealed class ArbTranslationFormat : ITranslationFormat
             {
                 metadata[property.Name[1..]] = property.Value;
             }
-            else
+            else if (property.Value.ValueKind == JsonValueKind.String)
             {
                 values.Add(new KeyValuePair<string, string>(property.Name, property.Value.GetString() ?? string.Empty));
             }
+
+            // A non-string message value is skipped rather than thrown, so one malformed entry does not
+            // drop the entire catalog.
         }
 
         var entries = new List<CatalogEntry>(values.Count);
@@ -102,19 +105,27 @@ public sealed class ArbTranslationFormat : ITranslationFormat
 
     private static void ReadFileMetadata(JsonProperty property, ref string culture, ref string defaultCategory, Dictionary<string, string> headers)
     {
+        // File-metadata values are expected to be strings; a non-string value (e.g. from an "@@"-prefixed
+        // user key) is ignored rather than thrown, so it does not drop the whole catalog.
+        var value = property.Value.ValueKind == JsonValueKind.String ? property.Value.GetString() ?? string.Empty : null;
+        if (value is null)
+        {
+            return;
+        }
+
         if (property.Name == "@@locale")
         {
-            culture = property.Value.GetString() ?? string.Empty;
+            culture = value;
             return;
         }
 
         if (property.Name == "@@x-category")
         {
-            defaultCategory = property.Value.GetString() ?? string.Empty;
+            defaultCategory = value;
             return;
         }
 
-        headers[property.Name[2..]] = property.Value.GetString() ?? string.Empty;
+        headers[property.Name[2..]] = value;
     }
 
     private static CatalogEntry BuildEntry(string key, string value, Dictionary<string, JsonElement> metadata, string defaultCategory)
@@ -217,6 +228,13 @@ public sealed class ArbTranslationFormat : ITranslationFormat
 
     private static void WriteEntry(Utf8JsonWriter writer, CatalogEntry entry)
     {
+        // ARB reserves a leading "@" for metadata: a key beginning with "@" would write a "@@key" sidecar
+        // that reads back as file metadata and is unrecoverable. Fail fast rather than emit a corrupt file.
+        if (entry.Key.StartsWith("@", StringComparison.Ordinal))
+        {
+            throw new FormatException($"ARB does not support a key beginning with '@' (key '{entry.Key}'); '@' is reserved for metadata.");
+        }
+
         writer.WriteString(entry.Key, entry.TranslatedMessage ?? entry.SourceMessage);
         writer.WritePropertyName("@" + entry.Key);
         writer.WriteStartObject();
