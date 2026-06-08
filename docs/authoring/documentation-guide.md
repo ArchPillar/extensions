@@ -5,6 +5,11 @@ library's docs are expected to follow, and the reference a reviewer (human or ag
 checks a docs PR against. When a rule here conflicts with an older doc, this guide wins
 and the older doc should be brought into line.
 
+> **Existing libraries predate this standard.** Their docs (notably the SPECs, which still
+> sit at `docs/{library}/SPEC.md` rather than under `internals/`) are migrated as a separate,
+> deliberate effort — not ad hoc while touching unrelated work. Don't relocate an existing
+> doc just because this guide would place it elsewhere; that backfill has its own change.
+
 The companion guide for example projects is [samples-guide.md](samples-guide.md).
 
 ## How to use this guide
@@ -24,8 +29,10 @@ Documentation splits by **audience**. The dividing line is "how do I *use* this?
 |----------|---------|----------|---------|
 | `src/{Library}/` | `PACKAGE.md` | NuGet consumers | Shipped as the package readme. Self-contained pitch + quick start. |
 | `src/{Library}/` | `README.md` | Repo browsers | One-paragraph stub that redirects to `docs/{library}/`. |
-| `docs/{library}/` | `README.md`, `getting-started.md`, `features.md` (or `features/`), `recommendations.md`, `CHANGELOG.md`, `KNOWN_ISSUES.md` | Library **users** | How to consume the library — install, first result, every feature, production patterns. |
-| `docs/{library}/internals/` | `SPEC.md`, plus architecture and design notes | Library **developers / contributors** | How the library works and why — the design contract, implementation notes, and decisions. |
+| `docs/{library}/` | `README.md`, `getting-started.md`, `features.md` (or `features/`); plus `recommendations.md` *(conditional)*, `CHANGELOG.md` *(conditional)*, `KNOWN_ISSUES.md` *(optional)* | Library **users** | How to consume the library — install, first result, every feature, production patterns. |
+| `docs/{library}/internals/` | `SPEC.md`; plus architecture and design notes *(as earned)* | Library **developers / contributors** | How the library works and why — the design contract, implementation notes, and decisions. |
+
+See [Required documents](#required-documents) for exactly which files are always required versus conditional or optional.
 
 > **`docs/{library}/` root is user-facing.** Anything aimed at the people *building* the
 > library — the spec, architecture write-ups, design-decision records — goes under
@@ -68,8 +75,8 @@ is depth, not coverage.
 | `docs/{library}/KNOWN_ISSUES.md` | Optional — a placeholder tracker, useful once the library ships. |
 
 Scale **depth to surface, never coverage**: a feature with little to say still gets a heading
-and a paragraph; it is never dropped. When a file grows long, split it (see `features`) rather
-than letting it sprawl.
+and a paragraph; it is never dropped. When a file grows long, split it (see
+[features](#docslibraryfeaturesmd--or-docslibraryfeatures)) rather than letting it sprawl.
 
 ## House style
 
@@ -141,7 +148,7 @@ The hub for the full set — the first page a reader lands on.
 ## Quick Start         (the smallest end-to-end example)
 ## Features            (table: feature → one-line description, mirroring features.md)
 ## Performance         (BenchmarkDotNet block, only if benchmarks exist)
-## Documentation       (relative links to getting-started / features / recommendations; and to internals/SPEC.md for the design contract)
+## Documentation       (relative links to getting-started / features / recommendations if present; and to internals/SPEC.md for the design contract)
 ```
 
 A very small surface may present its public types directly (public surface, wire shape,
