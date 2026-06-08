@@ -19,6 +19,27 @@ a starter template and not architectural guidance — the top-level
 Keep that framing. A sample teaches the library's API and idioms; it does not teach how to
 build a product.
 
+## What counts as a sample
+
+A sample is a **runnable project that demonstrates a complete scenario**, not a snippet. To
+clear the bar, a sample must:
+
+- **Build and run** as its own project — there is no such thing as a sample that only exists
+  as code inside a Markdown file.
+- **Show the scenario end-to-end** — define the types involved, wire the library up, run it,
+  and surface a result (console output, an HTTP response, a printed projection).
+- **Exercise at least one failure or edge path** — a validation failure, a short-circuit, a
+  not-found — alongside the happy path. The contrast is where the library earns its keep.
+
+There is **no minimum line count** — substance is about the scenario, not size.
+`Pipelines.BuilderSample` clears the bar in ~60 lines because it builds a pipeline, runs it,
+and shows a short-circuit; it is not padded and it is not a snippet.
+
+> **If all you have is a one-liner, it is not a sample — it is documentation.** A single API
+> call, or a few lines that would sit comfortably inside a `getting-started.md` step or a
+> `features.md` entry, belongs in the docs (see [documentation-guide.md](documentation-guide.md)),
+> not in `samples/`. Don't stand up a project to show one method call.
+
 ## Naming
 
 Sample project and folder names follow one scheme:
@@ -183,6 +204,8 @@ list in two places, on purpose.
 
 A sample change is ready when every applicable item is true:
 
+- [ ] It is a runnable project demonstrating a complete scenario end-to-end — not a one-liner
+      or a snippet that belongs in the docs.
 - [ ] Folder and project are named `{Library}.{Scenario}Sample`.
 - [ ] Project type is the lowest tier that demonstrates the feature honestly.
 - [ ] Structure uses one layout (domain-folder *or* layer-folder), one type per file.
