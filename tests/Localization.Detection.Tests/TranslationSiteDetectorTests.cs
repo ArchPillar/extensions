@@ -191,6 +191,30 @@ public sealed class TranslationSiteDetectorTests
     public void Detect_StringLocalizerNonIcuLiteral_IsSkippedSilently() =>
         Assert.DoesNotContain(DetectStringLocalizer(), r => r.Site?.Key == "Price: {0:C}");
 
+    [Fact]
+    public void Detect_GenericScopeType_UsesTheOpenGenericNameWithArity()
+    {
+        const string Scoped = """
+            using ArchPillar.Extensions.Localization;
+
+            public interface IScoped<[TranslationScope] T>
+            {
+                string Translate([Translatable] string key, [TranslationDefault] string message);
+            }
+
+            public sealed class Box<TItem>;
+
+            public sealed class Consumer(IScoped<Box<int>> loc)
+            {
+                public string Title() => loc.Translate("title", "Inbox");
+            }
+            """;
+
+        var results = TranslationSiteDetector.Detect(RoslynTestHost.CreateCompilation(Scoped), CancellationToken.None).ToList();
+
+        Assert.Equal("Box`1", Single(results, "title").Category);
+    }
+
     private static List<TranslationSiteResult> DetectStringLocalizer() =>
         TranslationSiteDetector.Detect(RoslynTestHost.CreateCompilation(StringLocalizerSource), CancellationToken.None).ToList();
 

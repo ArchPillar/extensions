@@ -80,6 +80,20 @@ public sealed class CategoryLocalizerTests
     public void Constructor_NullCatalog_Throws() =>
         Assert.Throws<ArgumentNullException>(() => new Localizer((Catalog)null!));
 
+    [Fact]
+    public void TypedLocalizer_GenericScopeType_ResolvesUnderTheOpenGenericCategory()
+    {
+        // The extractor files a generic scope type under its open-generic name (Box`1); the runtime must look
+        // it up under the same name, not typeof(T).FullName, which includes the assembly-qualified type args.
+        var openGeneric = typeof(Box<int>).GetGenericTypeDefinition().FullName!;
+        using var root = Localizer.FromCatalogs(
+            [DeCatalog(("save", openGeneric, "Speichern"))],
+            new LocalizerOptions { SourceCulture = "en" });
+
+        WithCulture(_german, () =>
+            Assert.Equal("Speichern", new LocalizerFactory(root).Create<Box<int>>().Translate("save", "Save")));
+    }
+
     private static Catalog DeCatalog(params (string Key, string Category, string Message)[] entries) => new()
     {
         Culture = "de",
@@ -111,4 +125,6 @@ public sealed class CategoryLocalizerTests
     private sealed class Save;
 
     private sealed class Cancel;
+
+    private sealed class Box<T>;
 }

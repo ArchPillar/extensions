@@ -239,6 +239,14 @@ public static class TranslationSiteDetector
         }
 
         builder.Append(type.Name);
+
+        // Match Type.GetGenericTypeDefinition().FullName at runtime: a generic type carries its arity
+        // backtick (e.g. Acme.Box`1) but not its type arguments, so the two categories agree.
+        if (type.Arity > 0)
+        {
+            builder.Append('`').Append(type.Arity);
+        }
+
         return builder.ToString();
     }
 

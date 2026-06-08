@@ -572,7 +572,7 @@ public static class Localization
 
     private sealed class AmbientCategoryLocalizer<T> : ILocalizer<T>
     {
-        private static readonly string _category = typeof(T).FullName ?? typeof(T).Name;
+        private static readonly string _category = Internal.CategoryName.Of(typeof(T));
 
         public string Translate(string key, string defaultMessage, params (string Name, object? Value)[] arguments)
         {

@@ -1,3 +1,4 @@
+using ArchPillar.Extensions.Localization.Internal;
 using Microsoft.Extensions.Localization;
 
 namespace ArchPillar.Extensions.Localization.DependencyInjection;
@@ -27,7 +28,7 @@ internal sealed class LocalizerStringLocalizerFactory : IStringLocalizerFactory
             throw new ArgumentNullException(nameof(resourceSource));
         }
 
-        return new LocalizerStringLocalizer(resourceSource.FullName ?? resourceSource.Name, _inner?.Create(resourceSource));
+        return new LocalizerStringLocalizer(CategoryName.Of(resourceSource), _inner?.Create(resourceSource));
     }
 
     public IStringLocalizer Create(string baseName, string location) =>

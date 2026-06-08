@@ -20,4 +20,4 @@ internal class CategoryLocalizer(Localizer root, string category) : ILocalizer
 /// </summary>
 /// <typeparam name="T">The type whose full name is the translation category.</typeparam>
 internal sealed class CategoryLocalizer<T>(Localizer root)
-    : CategoryLocalizer(root, typeof(T).FullName ?? typeof(T).Name), ILocalizer<T>;
+    : CategoryLocalizer(root, CategoryName.Of(typeof(T))), ILocalizer<T>;
