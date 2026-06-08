@@ -113,6 +113,62 @@ public sealed class XliffTranslationFormatTests
         Assert.Equal("Acme.Todo.TodoStrings", roundTripped.Entries[0].Category);
     }
 
+    [Fact]
+    public async Task Read_Xliff20_ParsesInsteadOfReturningEmptyAsync()
+    {
+        // XLIFF 2.0 has the same shape as 2.1; only the namespace's final digit differs.
+        const string Xliff = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <xliff xmlns="urn:oasis:names:tc:xliff:document:2.0" version="2.0" srcLang="en" trgLang="de">
+              <file id="f1">
+                <unit id="greeting">
+                  <segment state="translated">
+                    <source>Hello</source>
+                    <target>Hallo</target>
+                  </segment>
+                </unit>
+              </file>
+            </xliff>
+            """;
+
+        Catalog catalog = await ReadAsync(Encoding.UTF8.GetBytes(Xliff));
+
+        CatalogEntry entry = Assert.Single(catalog.Entries);
+        Assert.Equal("Hello", entry.SourceMessage);
+        Assert.Equal("Hallo", entry.TranslatedMessage);
+    }
+
+    [Fact]
+    public async Task Read_Xliff12_ThrowsRatherThanReturnEmptyAsync()
+    {
+        const string Xliff = """
+            <?xml version="1.0" encoding="utf-8"?>
+            <xliff xmlns="urn:oasis:names:tc:xliff:document:1.2" version="1.2">
+              <file source-language="en" target-language="de">
+                <body>
+                  <trans-unit id="greeting">
+                    <source>Hello</source>
+                    <target>Hallo</target>
+                  </trans-unit>
+                </body>
+              </file>
+            </xliff>
+            """;
+
+        await Assert.ThrowsAsync<NotSupportedException>(
+            async () => await ReadAsync(Encoding.UTF8.GetBytes(Xliff)));
+    }
+
+    [Fact]
+    public async Task RoundTrip_WhitespaceOnlySource_IsPreservedAsync()
+    {
+        Catalog source = Translated("space", "   ");
+
+        Catalog roundTripped = await RoundTripAsync(source);
+
+        Assert.Equal("   ", roundTripped.Entries[0].SourceMessage);
+    }
+
     private static Catalog Translated(string key, string message) => new()
     {
         Culture = "de",

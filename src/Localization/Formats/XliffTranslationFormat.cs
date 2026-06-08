@@ -65,29 +65,42 @@ public sealed class XliffTranslationFormat : ITranslationFormat
     private static Catalog Parse(XDocument document)
     {
         XElement root = document.Root ?? new XElement(_ns + "xliff");
+
+        // Read against the document's own namespace rather than a hardcoded one, so XLIFF 2.0 (same shape,
+        // namespace differs by one digit) and an unqualified document both parse instead of silently
+        // returning nothing.
+        XNamespace ns = root.Name.Namespace;
         var sourceLanguage = (string?)root.Attribute("srcLang") ?? string.Empty;
         var targetLanguage = (string?)root.Attribute("trgLang");
         var culture = string.IsNullOrEmpty(targetLanguage) ? sourceLanguage : targetLanguage!;
 
         var entries = new List<CatalogEntry>();
-        foreach (XElement unit in root.Descendants(_ns + "unit"))
+        foreach (XElement unit in root.Descendants(ns + "unit"))
         {
-            entries.Add(ParseUnit(unit));
+            entries.Add(ParseUnit(unit, ns));
+        }
+
+        // XLIFF 1.x uses a different shape (<trans-unit>). Fail loudly rather than hand back an empty
+        // catalog that looks like total data loss.
+        if (entries.Count == 0 && root.Descendants().Any(element => element.Name.LocalName == "trans-unit"))
+        {
+            throw new NotSupportedException(
+                $"XLIFF 1.x is not supported (version '{(string?)root.Attribute("version")}'); this provider reads XLIFF 2.x.");
         }
 
         var headers = new Dictionary<string, string>(StringComparer.Ordinal) { ["srcLang"] = sourceLanguage };
         return new Catalog { Culture = culture, Entries = entries, Headers = headers };
     }
 
-    private static CatalogEntry ParseUnit(XElement unit)
+    private static CatalogEntry ParseUnit(XElement unit, XNamespace ns)
     {
-        XElement? segment = unit.Element(_ns + "segment");
-        Notes notes = ReadNotes(unit);
+        XElement? segment = unit.Element(ns + "segment");
+        Notes notes = ReadNotes(unit, ns);
         return new CatalogEntry
         {
             Key = (string?)unit.Attribute("id") ?? string.Empty,
-            SourceMessage = (string?)segment?.Element(_ns + "source") ?? string.Empty,
-            TranslatedMessage = (string?)segment?.Element(_ns + "target"),
+            SourceMessage = (string?)segment?.Element(ns + "source") ?? string.Empty,
+            TranslatedMessage = (string?)segment?.Element(ns + "target"),
             Category = notes.Category ?? string.Empty,
             Context = notes.Context,
             Comment = notes.Comment,
@@ -99,16 +112,16 @@ public sealed class XliffTranslationFormat : ITranslationFormat
         };
     }
 
-    private static Notes ReadNotes(XElement unit)
+    private static Notes ReadNotes(XElement unit, XNamespace ns)
     {
         var notes = new Notes();
-        XElement? container = unit.Element(_ns + "notes");
+        XElement? container = unit.Element(ns + "notes");
         if (container is null)
         {
             return notes;
         }
 
-        foreach (XElement note in container.Elements(_ns + "note"))
+        foreach (XElement note in container.Elements(ns + "note"))
         {
             ApplyNote(notes, (string?)note.Attribute("category"), note.Value);
         }
@@ -208,14 +221,17 @@ public sealed class XliffTranslationFormat : ITranslationFormat
 
     private static XElement BuildUnit(CatalogEntry entry)
     {
+        // xml:space="preserve" keeps whitespace-only or whitespace-edge content from being replaced by the
+        // writer's indentation under Indent=true.
+        XAttribute preserve = new(XNamespace.Xml + "space", "preserve");
         var segment = new XElement(
             _ns + "segment",
             new XAttribute("state", StandardState(entry.State)),
             new XAttribute("subState", SubStatePrefix + entry.State),
-            new XElement(_ns + "source", entry.SourceMessage));
+            new XElement(_ns + "source", new XAttribute(preserve), entry.SourceMessage));
         if (entry.TranslatedMessage is not null)
         {
-            segment.Add(new XElement(_ns + "target", entry.TranslatedMessage));
+            segment.Add(new XElement(_ns + "target", new XAttribute(preserve), entry.TranslatedMessage));
         }
 
         return new XElement(_ns + "unit", new XAttribute("id", entry.Key), BuildNotes(entry), segment);
