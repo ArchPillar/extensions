@@ -156,12 +156,7 @@ public sealed class PoTranslationFormat : ITranslationFormat
     private static string Header(Catalog catalog, string key, string fallback) =>
         catalog.Headers.TryGetValue(key, out var value) ? value : fallback;
 
-    private static string PluralForms(string culture)
-    {
-        var count = PluralRules.GettextOrder(culture).Count;
-        var expression = count == 2 ? "(n != 1)" : "0";
-        return $"nplurals={count}; plural={expression};";
-    }
+    private static string PluralForms(string culture) => PluralRules.GettextPluralForms(culture);
 
     private static void WriteEntry(StringBuilder builder, CatalogEntry entry, string culture)
     {

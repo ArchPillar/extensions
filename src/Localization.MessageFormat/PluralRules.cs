@@ -117,6 +117,37 @@ public static class PluralRules
         return order;
     }
 
+    /// <summary>
+    /// Returns the gettext <c>Plural-Forms</c> header value (<c>nplurals=N; plural=EXPR;</c>) for a culture,
+    /// derived from its CLDR cardinal rules. The C expression maps each <c>n</c> to the index of its form in
+    /// <see cref="GettextOrder"/>, so an external gettext tool selects the right <c>msgstr[n]</c>.
+    /// </summary>
+    /// <param name="culture">The BCP-47 culture name.</param>
+    /// <returns>The <c>Plural-Forms</c> header value.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="culture"/> is <see langword="null"/>.</exception>
+    public static string GettextPluralForms(string culture)
+    {
+        if (culture is null)
+        {
+            throw new ArgumentNullException(nameof(culture));
+        }
+
+        return GettextPluralExpression.Build(GettextOrder(culture), CardinalRules(culture));
+    }
+
+    private static IReadOnlyList<CldrPluralRule> CardinalRules(string culture)
+    {
+        foreach (var candidate in CultureCandidates(culture))
+        {
+            if (CldrPluralData.Cardinal.TryGetValue(candidate, out CldrPluralRule[]? rules))
+            {
+                return rules;
+            }
+        }
+
+        return [];
+    }
+
     private static PluralCategory Resolve(
         IReadOnlyDictionary<string, CldrPluralRule[]> table,
         string culture,
