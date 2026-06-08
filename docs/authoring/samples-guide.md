@@ -56,20 +56,6 @@ Sample project and folder names follow one scheme:
 
 Samples live under `samples/{Library}/{Library}.{Scenario}Sample/`.
 
-> **Existing samples predate this scheme and should be renamed as a follow-up** so the whole
-> tree is consistent:
->
-> | Current | Canonical |
-> |---------|-----------|
-> | `samples/Mapper/WebShop` | `samples/Mapper/Mapper.WebShopSample` |
-> | `samples/Mapper/WebShop.OData` | `samples/Mapper/Mapper.WebShopODataSample` |
-> | `samples/Pipelines/Pipeline.BuilderSample` | `samples/Pipelines/Pipelines.BuilderSample` |
-> | `samples/Pipelines/Pipeline.HostSample` | `samples/Pipelines/Pipelines.HostSample` |
-> | `samples/Commands/Command.WebApiSample` | `samples/Commands/Commands.WebApiSample` |
-> | `samples/Commands/Command.HostSample` | `samples/Commands/Commands.HostSample` |
->
-> New samples use the canonical scheme from day one.
-
 ## Which host contexts to cover
 
 A library ships at least one runnable sample for **each host context where it is realistically

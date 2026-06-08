@@ -5,11 +5,6 @@ library's docs are expected to follow, and the reference a reviewer (human or ag
 checks a docs PR against. When a rule here conflicts with an older doc, this guide wins
 and the older doc should be brought into line.
 
-> **Existing libraries predate this standard.** Their docs (notably the SPECs, which still
-> sit at `docs/{library}/SPEC.md` rather than under `internals/`) are migrated as a separate,
-> deliberate effort — not ad hoc while touching unrelated work. Don't relocate an existing
-> doc just because this guide would place it elsewhere; that backfill has its own change.
-
 The companion guide for example projects is [samples-guide.md](samples-guide.md).
 
 ## How to use this guide
