@@ -73,6 +73,35 @@ Scale **depth to surface, never coverage**: a feature with little to say still g
 and a paragraph; it is never dropped. When a file grows long, split it (see
 [features](#docslibraryfeaturesmd--or-docslibraryfeatures)) rather than letting it sprawl.
 
+## Companion (opt-in) packages
+
+Some libraries ship an **opt-in companion package** that extends the parent with an integration
+the parent core deliberately does not depend on — for example `ArchPillar.Extensions.Mapper.EntityFrameworkCore`
+(EF Core query translation for `Mapper`) or `ArchPillar.Extensions.Primitives.EntityFrameworkCore`
+(EF Core conventions for `Primitives`). These are separately published NuGet packages, but they
+are **not separate libraries for documentation purposes** — they are *features of the parent*,
+gated behind a package reference.
+
+Document a companion package like this:
+
+- **It lives in `src/{Parent}.{Extension}/`** and, because it ships to NuGet on its own, it gets
+  its own `PACKAGE.md` (self-contained NuGet readme) and `README.md` redirect stub — the stub
+  points at the **parent's** docs folder (`docs/{parent}/`), not a folder of its own.
+- **It does *not* get its own `docs/{parent}.{extension}/` tree.** Its prose documentation lives
+  under the parent library's `docs/{parent}/`: a `features/` entry (or `features.md` section) for
+  the integration, a numbered branch in `getting-started.md` if the opt-in path needs setup, and
+  whatever the parent's `internals/SPEC.md` must say about how the integration works.
+- **The parent's docs own the cross-reference.** The parent `PACKAGE.md` and docs `README.md`
+  mention the companion in their `## Why?` or feature list, and the companion's `PACKAGE.md`
+  links back to the parent's docs under `## Documentation`.
+- **The top-level [`README.md`](../../README.md)** lists the companion under its parent's
+  Libraries entry (a sub-bullet or sentence), and gives it a `src/` row in the Repository
+  Structure tree — it is not a top-level Libraries heading of its own.
+
+The test for "companion vs. standalone library": if the package is meaningless without its parent
+and exists only to add one integration to it, it is a companion — document it under the parent. A
+package that stands on its own gets the full doc set in its own `docs/{library}/`.
+
 ## House style
 
 These apply to every document.
@@ -276,6 +305,9 @@ A docs change is ready when every applicable item is true:
       ordering constraint.
 - [ ] User-facing docs live at `docs/{library}/` root; developer docs (SPEC, architecture,
       decisions) live under `docs/{library}/internals/` — no implementation material at the root.
+- [ ] An opt-in [companion package](#companion-opt-in-packages) (e.g. `{Library}.EntityFrameworkCore`)
+      is documented under its parent's `docs/{parent}/` — it has a `src/` `PACKAGE.md` + redirect
+      stub but no `docs/` tree of its own.
 - [ ] Each doc follows its canonical skeleton — section order matches, nothing reordered.
 - [ ] `PACKAGE.md` is self-contained and ends with `## Documentation` and `## License`.
 - [ ] `src/{Library}/README.md` is the redirect stub only, not a duplicate of `PACKAGE.md`.
