@@ -92,6 +92,20 @@ public sealed class PluralRulesTests
     }
 
     [Fact]
+    public void Operands_VeryLargeValue_DoesNotOverflow()
+    {
+        // Values with more than 19 integer/fraction digits formerly threw OverflowException via long.Parse.
+        Exception? exception = Record.Exception(() =>
+        {
+            PluralRules.Operands(123456789012345678901234m);   // 24 integer digits
+            PluralRules.Operands(0.12345678901234567890123m);  // 23 fraction digits
+            PluralRules.Cardinal("en", PluralRules.Operands(123456789012345678901234m));
+        });
+
+        Assert.Null(exception);
+    }
+
+    [Fact]
     public void Operands_MinFractionDigits_PadsVisibleDigits()
     {
         PluralOperands operands = PluralRules.Operands(1m, minFractionDigits: 2);

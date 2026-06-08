@@ -81,11 +81,16 @@ public static class PluralRules
         }
 
         var trimmed = fractionText.TrimEnd('0');
-        var i = long.Parse(integerText, CultureInfo.InvariantCulture);
+
+        // The i/f/t operands are 64-bit, but a decimal can carry up to 29 digits, so parsing a long run of
+        // digits would overflow. Clamp to a fitting width: the low-order digits of the integer part (CLDR
+        // rules use it through small moduli, and the rare value large enough to overflow resolves to "other"
+        // anyway) and the leading digits of the fraction. The visible-digit counts v and w are unaffected.
+        var i = ParseDigits(integerText, keepLowOrder: true);
         var v = fractionText.Length;
         var w = trimmed.Length;
-        var f = v == 0 ? 0L : long.Parse(fractionText, CultureInfo.InvariantCulture);
-        var t = w == 0 ? 0L : long.Parse(trimmed, CultureInfo.InvariantCulture);
+        var f = v == 0 ? 0L : ParseDigits(fractionText, keepLowOrder: false);
+        var t = w == 0 ? 0L : ParseDigits(trimmed, keepLowOrder: false);
         return new PluralOperands(absolute, i, v, w, f, t, 0, 0);
     }
 
@@ -146,6 +151,24 @@ public static class PluralRules
         }
 
         return [];
+    }
+
+    // Parses a run of digits into a long that cannot overflow: a value with more than 18 digits is far
+    // beyond any real plural count, so it is clamped to 18 digits — the low-order ones for the integer part
+    // (to keep small moduli correct) and the high-order ones for a fraction.
+    private static long ParseDigits(string digits, bool keepLowOrder)
+    {
+        const int MaxDigits = 18;
+        if (digits.Length > MaxDigits)
+        {
+#if NETSTANDARD2_0
+            digits = keepLowOrder ? digits.Substring(digits.Length - MaxDigits) : digits.Substring(0, MaxDigits);
+#else
+            digits = keepLowOrder ? digits[(digits.Length - MaxDigits)..] : digits[..MaxDigits];
+#endif
+        }
+
+        return digits.Length == 0 ? 0L : long.Parse(digits, CultureInfo.InvariantCulture);
     }
 
     private static PluralCategory Resolve(
