@@ -1,15 +1,5 @@
 namespace Mapper.WebShopSample.Models;
 
-/// <summary>Lifecycle status of an order.</summary>
-public enum OrderStatus
-{
-    Pending,
-    Processing,
-    Shipped,
-    Delivered,
-    Cancelled,
-}
-
 /// <summary>
 /// API-facing order status code. Deliberately uses different numeric values from
 /// <see cref="OrderStatus"/> so the enum mapper produces a real SQL <c>CASE</c>

@@ -6,6 +6,29 @@ using Mapper.WebShopODataSample.Data;
 using Mapper.WebShopODataSample.Mappers;
 using Mapper.WebShopODataSample.Projections;
 
+// ---------------------------------------------------------------------------
+// Mapper.WebShopODataSample
+//
+// Demonstrates ArchPillar.Extensions.Mapper behind an ASP.NET Core OData API
+// (Controllers) over EF Core SQLite:
+//   - MapperContext (WebShopMappers) holding every Mapper as a named property.
+//   - Controllers calling Project() to expose projection DTOs as OData entity
+//     sets — flattening (CategoryName), computed columns (IsAvailable), and
+//     aggregates (TotalSpent, TotalOrders).
+//   - [EnableQuery] composing $select / $filter / $orderby / $top / $count /
+//     $expand on top of the mapper's IQueryable, so OData options translate all
+//     the way to SQL rather than running in memory.
+//   - Optional nested members (Order.Lines) materialised only when Include()
+//     opts them in (the order-by-key route).
+//
+// Targets net8.0 because Microsoft.AspNetCore.OData 9.x does — a tech-demo
+// constraint, not a framework recommendation.
+//
+// Domain types live under Models/, read DTOs under Projections/, the
+// MapperContext under Mappers/, and OData controllers under Controllers/ —
+// one file per class.
+// ---------------------------------------------------------------------------
+
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 // ── Database ────────────────────────────────────────────────────────────────

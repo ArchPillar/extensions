@@ -11,6 +11,30 @@ using Mapper.WebShopSample.Endpoints;
 using Mapper.WebShopSample.Mappers;
 using Mapper.WebShopSample.Models;
 
+// ---------------------------------------------------------------------------
+// Mapper.WebShopSample
+//
+// Demonstrates ArchPillar.Extensions.Mapper in an ASP.NET Core Minimal API
+// over EF Core (SQLite by default, PostgreSQL when configured):
+//   - MapperContext (WebShopMappers) holding every Mapper as a named property.
+//   - Project() translating projections to SQL — flattening (CategoryName),
+//     computed columns (IsAvailable, LineTotal), and aggregates (TotalSpent).
+//   - A request-scoped Variable (CurrentUserId) bound per query via Set() to
+//     compute IsOwner inside the SQL projection.
+//   - Optional nested members (Order.Lines, User.Profile) materialised only
+//     when Include() opts them in.
+//   - EnumMapper (OrderStatusCode) translated to a flat SQL CASE, and the EF
+//     Core integration (UseArchPillarMapper) inlining an enum-mapper call, a
+//     single nested mapper, and a collection Project() in one hand-written
+//     Select (the /orders/summary endpoint).
+//   - Edge paths: not-found (404) reads, ownership-scoped queries for non-admins,
+//     and validation failures on create/place-order (bad category, no lines).
+//
+// Domain types live under Models/, read DTOs under Projections/, request DTOs
+// under Parameters/, the MapperContext under Mappers/, and route handlers under
+// Endpoints/ — one file per class.
+// ---------------------------------------------------------------------------
+
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 // ── Database ────────────────────────────────────────────────────────────────

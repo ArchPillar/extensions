@@ -73,16 +73,22 @@ Scale **depth to surface, never coverage**: a feature with little to say still g
 and a paragraph; it is never dropped. When a file grows long, split it (see
 [features](#docslibraryfeaturesmd--or-docslibraryfeatures)) rather than letting it sprawl.
 
-## Companion (opt-in) packages
+## Add-on packages
 
-Some libraries ship an **opt-in companion package** that extends the parent with an integration
-the parent core deliberately does not depend on — for example `ArchPillar.Extensions.Mapper.EntityFrameworkCore`
-(EF Core query translation for `Mapper`) or `ArchPillar.Extensions.Primitives.EntityFrameworkCore`
-(EF Core conventions for `Primitives`). These are separately published NuGet packages, but they
-are **not separate libraries for documentation purposes** — they are *features of the parent*,
-gated behind a package reference.
+Some libraries ship an **opt-in add-on package** that extends the parent with capability the parent
+core deliberately does not carry — often a third-party integration, such as
+`ArchPillar.Extensions.Mapper.EntityFrameworkCore` (EF Core query translation for `Mapper`) or
+`ArchPillar.Extensions.Primitives.EntityFrameworkCore` (EF Core conventions for `Primitives`), but
+it need not be an integration — any optional extension shipped as its own package counts.
 
-Document a companion package like this:
+The defining trait is that **they are optional, opt-in features of the parent**: the parent library
+is complete and fully usable without them, and you pull one in — by adding its package reference —
+only when you want that extra capability. They are separately published NuGet packages, but they are
+**not separate libraries for documentation purposes** — they are *features of the parent*, gated
+behind that opt-in reference. Document them as such: the parent's docs present the add-on as one of
+its features and make clear it is optional and how to switch it on.
+
+Document an add-on package like this:
 
 - **It lives in `src/{Parent}.{Extension}/`** and, because it ships to NuGet on its own, it gets
   its own `PACKAGE.md` (self-contained NuGet readme) and `README.md` redirect stub — the stub
@@ -98,9 +104,9 @@ Document a companion package like this:
   Libraries entry (a sub-bullet or sentence), and gives it a `src/` row in the Repository
   Structure tree — it is not a top-level Libraries heading of its own.
 
-The test for "companion vs. standalone library": if the package is meaningless without its parent
-and exists only to add one integration to it, it is a companion — document it under the parent. A
-package that stands on its own gets the full doc set in its own `docs/{library}/`.
+The test for "add-on vs. standalone library": if the package is meaningless without its parent and
+exists only to bolt one extra capability onto it, document it under the parent. A package that
+stands on its own gets the full doc set in its own `docs/{library}/`.
 
 ## House style
 
@@ -305,7 +311,7 @@ A docs change is ready when every applicable item is true:
       ordering constraint.
 - [ ] User-facing docs live at `docs/{library}/` root; developer docs (SPEC, architecture,
       decisions) live under `docs/{library}/internals/` — no implementation material at the root.
-- [ ] An opt-in [companion package](#companion-opt-in-packages) (e.g. `{Library}.EntityFrameworkCore`)
+- [ ] An opt-in [add-on package](#add-on-packages) (e.g. `{Library}.EntityFrameworkCore`)
       is documented under its parent's `docs/{parent}/` — it has a `src/` `PACKAGE.md` + redirect
       stub but no `docs/` tree of its own.
 - [ ] Each doc follows its canonical skeleton — section order matches, nothing reordered.

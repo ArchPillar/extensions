@@ -711,9 +711,16 @@ builder.Services.AddDbContext<AppDbContext>(options =>
         .UseArchPillarMapper());
 ```
 
-`UseArchPillarMapper` takes no arguments. Mappers are never declared up front:
-every mapper is resolved from the constant it appears as in the query, and enum
-mapper tables are computed on demand the first time a given mapper is used.
+`UseArchPillarMapper` takes no arguments and returns the same builder for chaining.
+Mappers are never declared up front: every mapper is resolved from the constant it
+appears as in the query, and enum mapper tables are computed on demand the first time
+a given mapper is used. The companion package is opt-in precisely so the core library
+stays provider-agnostic and free of any EF Core dependency — add it only when you need
+the two capabilities below.
+
+> The [Mapper.WebShopSample](../../samples/Mapper/Mapper.WebShopSample/) wires
+> `UseArchPillarMapper()` into an ASP.NET Core app and exercises both whole-row
+> `Project(mapper)` and direct mapper calls inside hand-written queries.
 
 ### Direct mapper calls in hand-written queries
 
@@ -733,6 +740,21 @@ var rows = await db.Orders
 ```
 
 Both scalar `Map()` and collection `Project()` are inlined; nested mappers, enum mappers, and variables inside them resolve exactly as they do for a top-level `Project(mapper)`.
+
+### Hand-written queries with `Invoke` — `ApplyMappers()`
+
+The automatic interceptor runs *after* EF Core's parameter extraction, so it cannot inline a mapper that contains an `Invoke` call (a nested mapping deliberately opted out of expression-tree inlining). For those queries, call `ApplyMappers()` — the explicit, opt-in counterpart that runs the same rewrite at query-construction time, *before* parameter extraction, so the `Invoke` box parameterizes normally:
+
+```csharp
+using ArchPillar.Extensions.Mapper.EntityFrameworkCore;
+
+var rows = await db.Orders
+    .Select(o => new OrderRow { OrderId = o.Id, Order = mappers.Order.Map(o)! })
+    .ApplyMappers()   // inline before EF sees the query → Invoke-containing mappers work
+    .ToListAsync();
+```
+
+Whole-row `.Project(mapper)` already runs at construction time, so it supports `Invoke`-containing mappers without the explicit call.
 
 ### Requesting optional properties at the call site
 

@@ -1,6 +1,6 @@
 # Getting Started
 
-## Installation
+## 1. Install
 
 Add the NuGet package to your project:
 
@@ -18,7 +18,7 @@ dotnet add package ArchPillar.Extensions.Mapper.EntityFrameworkCore
 
 See [Features Guide — EF Core Integration](features.md#ef-core-integration).
 
-## Your First Mapper
+## 2. Your First Mapper
 
 Create a context class that inherits from `MapperContext`. Declare mappers as public properties and initialize them in the constructor.
 
@@ -90,7 +90,7 @@ A few things to note:
 - **`Project(OrderLine).ToList()`** maps a collection. The expression visitor inlines `OrderLine`'s expression into `Order`'s expression tree, so LINQ providers see a single flat expression — no delegate calls, no client-side evaluation.
 - **Implicit `Build()`.** Assigning a `MapperBuilder` to a `Mapper` property triggers `.Build()` via the implicit conversion operator. You can also call `.Build()` explicitly if you prefer.
 
-## Using the Mapper
+## 3. Using the Mapper
 
 ### In-memory mapping
 
@@ -113,7 +113,7 @@ Both use the same mapper definition. The LINQ provider sees a plain expression t
 
 To map only a single property with a mapper inside your own `Select` — rather than projecting the whole row — register the EF Core companion package with `UseArchPillarMapper()` and call `Map()` / `Project()` directly in the projection. See [Features Guide — EF Core Integration](features.md#ef-core-integration).
 
-## Dependency Injection
+## 4. Dependency Injection
 
 Register the context as a singleton — mappers are thread-safe and share compiled delegates via `Lazy<T>`.
 
@@ -136,7 +136,7 @@ public class OrderService(AppMappers mappers)
 }
 ```
 
-## Eager Compilation
+## 5. Eager Compilation
 
 By default, mappers compile lazily on first use. To surface mapping errors at startup and eliminate cold-start latency, call `EagerBuildAll()` at the end of the constructor:
 
@@ -170,7 +170,7 @@ public class AppMappers : MapperContext
 
 This forces expression assembly and delegate compilation for every `Mapper`, `EnumMapper`, and `SymmetricEnumMapper` on the context. Any configuration mistake (unmapped property, circular reference) throws immediately at construction time instead of at first use.
 
-## Coverage Validation
+## 6. Coverage Validation
 
 By default, every non-nullable destination property must be explicitly mapped, marked optional, or ignored. If you miss one, `Build()` throws an `InvalidOperationException` listing the unmapped properties.
 
@@ -188,4 +188,4 @@ See [Features Guide — Coverage Validation](features.md#coverage-validation) fo
 
 - [Features Guide](features.md) — nested mappers, optionals, variables, enums, MapTo, inheritance, expression transformers, and more
 - [Recommendations](recommendations.md) — patterns, pitfalls, and production guidance
-- [Specification](SPEC.md) — full design philosophy and API surface
+- [Specification](internals/SPEC.md) — full design philosophy and API surface
