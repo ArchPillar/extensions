@@ -21,6 +21,19 @@
   <Folder Name="/samples/Commands/Commands.WebApiSample/">
     <Project Path="samples/Commands/Commands.WebApiSample/Commands.WebApiSample.csproj" />
   </Folder>
+  <Folder Name="/samples/Primitives/" />
+  <Folder Name="/samples/Primitives/Primitives.CatalogSample/">
+    <Project Path="samples/Primitives/Primitives.CatalogSample/Primitives.CatalogSample.csproj" />
+  </Folder>
+  <Folder Name="/samples/Primitives/Primitives.WebApiSample/">
+    <Project Path="samples/Primitives/Primitives.WebApiSample/Primitives.WebApiSample.csproj" />
+  </Folder>
+  <Folder Name="/samples/Primitives/Primitives.TypedIdsSample/">
+    <Project Path="samples/Primitives/Primitives.TypedIdsSample/Primitives.TypedIdsSample.csproj" />
+  </Folder>
+  <Folder Name="/samples/Primitives/Primitives.BlazorSample/">
+    <Project Path="samples/Primitives/Primitives.BlazorSample/Primitives.BlazorSample.csproj" />
+  </Folder>
   <Folder Name="/benchmarks/" />
   <Folder Name="/benchmarks/Mapper.Benchmarks/">
     <Project Path="benchmarks/Mapper.Benchmarks/ArchPillar.Extensions.Mapper.Benchmarks.csproj" />

@@ -48,9 +48,14 @@ A small, in-process command dispatcher built on Pipelines and Primitives. `IComm
 │   ├── Pipelines/
 │   │   ├── Pipelines.BuilderSample/       # Direct (no-DI) Pipeline<T> sample
 │   │   └── Pipelines.HostSample/          # Host-builder + AddPipeline<T>() sample
-│   └── Commands/
-│       ├── Commands.HostSample/           # Host-builder dispatcher sample
-│       └── Commands.WebApiSample/         # ASP.NET Core Minimal-API sample
+│   ├── Commands/
+│   │   ├── Commands.HostSample/           # Host-builder dispatcher sample
+│   │   └── Commands.WebApiSample/         # ASP.NET Core Minimal-API sample
+│   └── Primitives/
+│       ├── Primitives.CatalogSample/      # Console: OperationResult success/failure + problem shape
+│       ├── Primitives.WebApiSample/       # Minimal API: OperationResult -> problem+json over HTTP
+│       ├── Primitives.TypedIdsSample/     # Console + EF Core SQLite: Id<T> persistence (add-on)
+│       └── Primitives.BlazorSample/       # Blazor WASM: consume OperationResult/problem+json, no backend
 ├── docs/
 │   ├── mapper/                            # Mapper documentation and spec
 │   ├── pipelines/                         # Pipelines documentation and spec

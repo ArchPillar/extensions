@@ -169,4 +169,7 @@ Every failure factory takes a required `detail` (the per-occurrence "what's what
 
 ## Samples
 
-No samples yet — the operation-result types are exercised throughout the [Commands samples](../../samples/Commands/).
+- [Primitives.CatalogSample](../../samples/Primitives/Primitives.CatalogSample/) — Console: the core `OperationResult` story in memory — success/failure factories, `Unwrap`/`ThrowIfFailed`, and the `OperationProblem`/`OperationError` shape.
+- [Primitives.WebApiSample](../../samples/Primitives/Primitives.WebApiSample/) — ASP.NET Core Minimal API: returning `OperationResult` across the HTTP boundary as `application/problem+json` with HTTP-aligned status codes (400 field errors, 404, 201/200).
+- [Primitives.TypedIdsSample](../../samples/Primitives/Primitives.TypedIdsSample/) — Console + EF Core SQLite: the opt-in `Primitives.EntityFrameworkCore` add-on — `Id<T>` persisted via `UseArchPillarTypedIds()` plus a per-property `HasIdConversion()`, with operations returning `OperationResult`.
+- [Primitives.BlazorSample](../../samples/Primitives/Primitives.BlazorSample/) — Blazor WebAssembly: consuming `OperationResult`/`problem+json` client-side with no backend — client-side validation producing a result, and deserializing a canned `problem+json` into `OperationProblem`.

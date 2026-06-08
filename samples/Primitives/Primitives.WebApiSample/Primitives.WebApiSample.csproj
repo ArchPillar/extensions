@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <PropertyGroup>
+        <GenerateDocumentationFile>false</GenerateDocumentationFile>
+        <Nullable>enable</Nullable>
+        <NoWarn>$(NoWarn);IDE0005</NoWarn>
+        <RootNamespace>Primitives.WebApiSample</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../../../src/Primitives/ArchPillar.Extensions.Primitives.csproj" />
+    </ItemGroup>
+
+</Project>
