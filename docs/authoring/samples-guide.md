@@ -68,22 +68,42 @@ Samples live under `samples/{Library}/{Library}.{Scenario}Sample/`.
 >
 > New samples use the canonical scheme from day one.
 
-## Choosing the scenario and project type
+## Which host contexts to cover
 
-Match the smallest project type that shows the library honestly. Three tiers, by how much
-context the feature needs:
+A library ships at least one runnable sample for **each host context where it is realistically
+used**, and skips the ones that don't apply:
 
-| Tier | Project type | When | Reference |
-|------|--------------|------|-----------|
-| **Minimal** | Single-file console (`Microsoft.NET.Sdk`, `Exe`) | The feature is self-contained; no DI or hosting needed. | `Pipelines.BuilderSample` (~60 lines) |
-| **Host** | Console on `Microsoft.Extensions.Hosting` | The DI / hosting story is part of the point. | `Commands.HostSample`, `Pipelines.HostSample` |
-| **Web** | ASP.NET Core Minimal API or Controllers (`Microsoft.NET.Sdk.Web`) | The library's natural home is a web app (request mapping, command dispatch over HTTP). | `Mapper.WebShopSample`, `Commands.WebApiSample` |
+| Host context | Project type | Applies when | Doesn't apply when |
+|--------------|--------------|--------------|--------------------|
+| **Console** | Console / generic host (`Microsoft.NET.Sdk`, optionally `Microsoft.Extensions.Hosting`) | The library is used in console apps, workers, or any non-web host. | The library is inherently web- or UI-bound. |
+| **Web** | ASP.NET Core, Minimal API or Controllers (`Microsoft.NET.Sdk.Web`) | The library is used server-side in web apps or APIs. | The library has no server/web role. |
+| **Blazor WebAssembly** | Blazor WASM client (`Microsoft.NET.Sdk.BlazorWebAssembly`) | The library runs client-side in the browser — AOT/trim-safe, no server-only dependencies. | The library depends on server-only infrastructure (a database, EF Core, server hosting). |
 
-Prefer the lowest tier that still tells the truth. A web app to demonstrate a pure middleware
-builder is overkill; a console `Console.WriteLine` to demonstrate EF Core projection is
-under-kill.
+Judge applicability by where the library is actually consumed, and **skip honestly**:
 
-If a library needs more than one scenario (e.g. a no-DI path *and* a hosted path, or a REST
+- An **EF Core integration** ships Console + Web samples but **not** Blazor WASM — EF Core does
+  not run in the browser.
+- An **ASP.NET Core-only extension** ships a **Web** sample only — Console and WASM don't apply.
+- A foundational, AOT/trim-safe library with no host coupling (e.g. *Primitives*) may apply to
+  all three.
+
+When you skip a context, **record it** — one line where the library's samples are listed (the
+Repository Structure tree in the top-level [`README.md`](../../README.md)) — so a reviewer sees
+a deliberate decision, not a missing sample.
+
+## Picking the project shape within a context
+
+Within a context, use the smallest project that still tells the truth:
+
+- **Console** is a single-file program when the feature is self-contained
+  (`Pipelines.BuilderSample`, ~60 lines), or a generic-host app when the DI / hosting story is
+  part of the point (`Commands.HostSample`).
+- **Web** uses Minimal API or Controllers as the scenario dictates (`Mapper.WebShopSample` is
+  Minimal API; its OData variant uses Controllers).
+- A console `Console.WriteLine` to demonstrate EF Core projection is under-kill; a web app to
+  demonstrate a pure in-memory helper is overkill.
+
+If one context needs more than one scenario (e.g. a no-DI path *and* a hosted path, or a REST
 path *and* an OData path), ship one focused sample per scenario rather than one sample with
 flags.
 
@@ -91,7 +111,7 @@ flags.
 
 Pick the layout that fits the scenario; don't mix both.
 
-- **Domain-folder layout** — group by business entity. Best for Host/Minimal samples built
+- **Domain-folder layout** — group by business entity. Best for console samples built
   around one or two entities. Mirrors `Commands.HostSample`:
 
   ```text
@@ -189,8 +209,9 @@ list in two places, on purpose.
 - Exercise the **failure paths**, not just the happy path: a validation failure, a
   short-circuit, a not-found. The existing Command and Pipeline samples all do this and it is
   the most instructive part.
-- Keep scope honest to the tier: Minimal stays ~60–150 lines; Host ~200–500; Web as large as
-  the scenario needs, but every file must earn its place.
+- Keep scope honest to the project shape: a single-file console stays ~60–150 lines, a
+  generic-host app ~200–500, a web app as large as the scenario needs — but every file must
+  earn its place.
 
 ## Registering a new sample
 
@@ -206,8 +227,10 @@ A sample change is ready when every applicable item is true:
 
 - [ ] It is a runnable project demonstrating a complete scenario end-to-end — not a one-liner
       or a snippet that belongs in the docs.
+- [ ] The library has a sample for each applicable host context (Console / Web / Blazor WASM);
+      contexts that don't apply are skipped and recorded as a deliberate decision.
 - [ ] Folder and project are named `{Library}.{Scenario}Sample`.
-- [ ] Project type is the lowest tier that demonstrates the feature honestly.
+- [ ] Project shape is the smallest that demonstrates the feature honestly within its context.
 - [ ] Structure uses one layout (domain-folder *or* layer-folder), one type per file.
 - [ ] `Program.cs` opens with the banner comment listing what's demonstrated.
 - [ ] Comments explain decisions, not mechanics; density matches existing samples.
