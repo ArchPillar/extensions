@@ -272,6 +272,10 @@ public sealed class PoTranslationFormat : ITranslationFormat
             'n' => '\n',
             't' => '\t',
             'r' => '\r',
+            'a' => '\a',
+            'b' => '\b',
+            'f' => '\f',
+            'v' => '\v',
             _ => value[index + 1]
         });
         return index + 1;
@@ -361,10 +365,26 @@ public sealed class PoTranslationFormat : ITranslationFormat
                 return (Msgid ?? string.Empty, translated);
             }
 
-            var forms = new string[_plurals.Count];
+            // The msgstr[N] entries are keyed by their bracket index, which may be sparse or out of order
+            // in an externally-authored file. Size by the highest index (not the count) and fill any gap
+            // with an empty form, so a non-contiguous catalog loads instead of throwing.
+            var slotCount = 0;
             foreach (KeyValuePair<int, string> form in _plurals)
             {
-                forms[form.Key] = form.Value;
+                if (form.Key >= 0 && form.Key + 1 > slotCount)
+                {
+                    slotCount = form.Key + 1;
+                }
+            }
+
+            var forms = new string[slotCount];
+            Array.Fill(forms, string.Empty);
+            foreach (KeyValuePair<int, string> form in _plurals)
+            {
+                if (form.Key >= 0)
+                {
+                    forms[form.Key] = form.Value;
+                }
             }
 
             hasTranslation = forms.Any(f => f.Length > 0);
@@ -431,10 +451,14 @@ public sealed class PoTranslationFormat : ITranslationFormat
 
         private void AddReference(string rest)
         {
-            SourceReference? reference = SourceReferenceText.Parse(rest);
-            if (reference is not null)
+            // gettext packs multiple references space-separated on one "#:" line; parse each token.
+            foreach (var token in rest.Split(' ', StringSplitOptions.RemoveEmptyEntries))
             {
-                References.Add(reference);
+                SourceReference? reference = SourceReferenceText.Parse(token);
+                if (reference is not null)
+                {
+                    References.Add(reference);
+                }
             }
         }
 

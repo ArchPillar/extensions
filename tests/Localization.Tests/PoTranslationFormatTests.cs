@@ -142,6 +142,61 @@ public sealed class PoTranslationFormatTests
         Assert.Equal("Acme.Todo.TodoStrings", roundTripped.Entries[0].Category);
     }
 
+    [Fact]
+    public async Task Read_GappedMsgstrIndices_DoesNotCrashAndLoadsTheEntryAsync()
+    {
+        // msgstr[0] and msgstr[2] with no [1]: the array must size by the highest index, not the count.
+        const string Po = """
+            msgid ""
+            msgstr ""
+            "Language: pl\n"
+
+            msgctxt "files"
+            msgid "one file"
+            msgid_plural "files"
+            msgstr[0] "plik"
+            msgstr[2] "plikow"
+            """;
+
+        Catalog catalog = await ReadAsync(Encoding.UTF8.GetBytes(Po));
+
+        CatalogEntry entry = Assert.Single(catalog.Entries);
+        Assert.Equal("files", entry.Key);
+        Assert.Contains("plik", entry.TranslatedMessage);
+    }
+
+    [Fact]
+    public async Task Read_UnescapesGettextControlEscapes_Async()
+    {
+        const string Po = """
+            msgctxt "k"
+            msgid "src"
+            msgstr "a\bc\fd"
+            """;
+
+        Catalog catalog = await ReadAsync(Encoding.UTF8.GetBytes(Po));
+
+        Assert.Equal("a\bc\fd", Assert.Single(catalog.Entries).TranslatedMessage);
+    }
+
+    [Fact]
+    public async Task Read_MultipleReferencesOnOneLine_ParsesEachAsync()
+    {
+        const string Po = """
+            #: Home.cs:12:5 Other.cs:7:3
+            msgctxt "k"
+            msgid "src"
+            msgstr "t"
+            """;
+
+        Catalog catalog = await ReadAsync(Encoding.UTF8.GetBytes(Po));
+
+        CatalogEntry entry = Assert.Single(catalog.Entries);
+        Assert.Equal(2, entry.References.Count);
+        Assert.Contains(new SourceReference("Home.cs", 12, 5), entry.References);
+        Assert.Contains(new SourceReference("Other.cs", 7, 3), entry.References);
+    }
+
     private static Catalog SingleEntry(string key, string message) => new()
     {
         Culture = "de",
