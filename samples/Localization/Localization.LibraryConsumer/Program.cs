@@ -1,9 +1,16 @@
 using System.Globalization;
 using Acme.Greeting;
 
-// There is NO localization setup here — no DI, no AddArchPillarLocalization, no files placed anywhere. The
-// Acme.Greeting library ships its German translations embedded in its own DLL (as a culture satellite),
-// and the ambient store discovers them lazily the first time German is requested. Batteries included.
+// ---------------------------------------------------------------------------
+// Localization.LibraryConsumer
+//
+// Demonstrates ArchPillar.Extensions.Localization consuming a batteries-included library:
+//   - Zero configuration — no DI, no AddArchPillarLocalization, no files placed on disk
+//   - German resolved from the library's embedded culture satellite via the ambient store
+//   - A localized exception message thrown with no services available (rules out DI)
+//
+// The library lives in the paired Localization.GreetingLibrary project (Greeter, Validator).
+// ---------------------------------------------------------------------------
 var greeter = new Greeter();
 var validator = new Validator();
 

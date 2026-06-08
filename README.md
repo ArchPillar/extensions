@@ -20,6 +20,10 @@ Foundational types for the rest of the family. Ships `OperationResult` / `Operat
 
 A small, in-process command dispatcher built on Pipelines and Primitives. `ICommand` and `ICommand<TResult>` flow through a single shared `Pipeline<CommandContext>`; cross-cutting concerns (transactions, logging, authorization) plug in as middlewares. Validation lives on the handler (`[CallerArgumentExpression]` auto-captures field names) and runs inside the pipeline so any user-supplied transactional middleware wraps both validation and execution. AOT/trim-safe, no runtime reflection at dispatch.
 
+### [ArchPillar.Extensions.Localization](docs/localization/)
+
+A user-interface translation library. Translatable strings are written once at the call site as an in-code ICU MessageFormat default — the source of truth and terminal fallback — and a Roslyn generator extracts them at compile time for translators (ARB / XLIFF 2.1 / Portable Object). Translations load at runtime as pluggable overrides through one ambient, DI-free store, with keys scoped by category (the `ILogger<T>` model). Bundles the analyzer, generator, and `dotnet apl` tooling; ships a composing `IStringLocalizer` adapter and an on-ramp for migrating off `.resx`. The files-on-disk path is AOT/trim-safe; no dependencies beyond the BCL.
+
 ## Repository Structure
 
 ```text
@@ -28,17 +32,23 @@ A small, in-process command dispatcher built on Pipelines and Primitives. `IComm
 │   ├── Mapper.EntityFrameworkCore/        # EF Core integration
 │   ├── Pipelines/                         # Pipelines library (includes DI extensions)
 │   ├── Primitives/                        # OperationResult / OperationProblem family
-│   └── Commands/                          # In-process command dispatcher
+│   ├── Commands/                          # In-process command dispatcher
+│   ├── Localization/                      # Translation runtime + bundled analyzer/generator/tooling
+│   ├── Localization.MessageFormat/        # ICU MessageFormat parser/formatter (standalone)
+│   ├── Localization.Abstractions/         # Attributes, catalog model, format registry
+│   └── Localization.DependencyInjection/  # DI registration + IStringLocalizer interop
 ├── tests/
 │   ├── Mapper.Tests/                      # Unit and integration tests
 │   ├── Mapper.OData.Tests/                # OData-specific tests
 │   ├── Pipelines.Tests/                   # Pipelines unit + allocation + DI tests
 │   ├── Primitives.Tests/                  # OperationResult / OperationProblem tests
-│   └── Commands.Tests/                    # Dispatcher, validation, batch, telemetry tests
+│   ├── Commands.Tests/                    # Dispatcher, validation, batch, telemetry tests
+│   └── Localization.*.Tests/              # Runtime, MessageFormat, formats, detection, analyzer, codefixes, tooling, DI
 ├── benchmarks/
 │   ├── Mapper.Benchmarks/                 # Mapper BenchmarkDotNet suite
 │   ├── Pipelines.Benchmarks/              # Pipelines BenchmarkDotNet suite
-│   └── Commands.Benchmarks/               # Commands BenchmarkDotNet suite
+│   ├── Commands.Benchmarks/               # Commands BenchmarkDotNet suite
+│   └── Localization.Benchmarks/           # Localization BenchmarkDotNet suite
 ├── samples/
 │   ├── Mapper/
 │   │   ├── WebShop/                       # ASP.NET Core Web API sample
@@ -46,14 +56,16 @@ A small, in-process command dispatcher built on Pipelines and Primitives. `IComm
 │   ├── Pipelines/
 │   │   ├── Pipeline.BuilderSample/        # Direct (no-DI) Pipeline<T> sample
 │   │   └── Pipeline.HostSample/           # Host-builder + AddPipeline<T>() sample
-│   └── Commands/
-│       ├── Command.HostSample/            # Host-builder dispatcher sample
-│       └── Command.WebApiSample/          # ASP.NET Core Minimal-API sample
+│   ├── Commands/
+│   │   ├── Command.HostSample/            # Host-builder dispatcher sample
+│   │   └── Command.WebApiSample/          # ASP.NET Core Minimal-API sample
+│   └── Localization/                      # Console, ASP.NET, Blazor, WASM, Todo, Migration, AOT, Trim + a library/consumer pair
 ├── docs/
 │   ├── mapper/                            # Mapper documentation and spec
 │   ├── pipelines/                         # Pipelines documentation and spec
 │   ├── primitives/                        # Primitives documentation
-│   └── commands/                          # Commands documentation and spec
+│   ├── commands/                          # Commands documentation and spec
+│   └── localization/                      # Localization docs (user-facing) + internals/ (spec, decisions)
 ├── Directory.Build.props                  # Shared project properties
 ├── Directory.Build.targets                # Roslyn analyzer configuration
 ├── Directory.Packages.props               # Central package management

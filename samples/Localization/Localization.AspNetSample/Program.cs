@@ -3,6 +3,18 @@ using ArchPillar.Extensions.Localization;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.Localization;
 
+// ---------------------------------------------------------------------------
+// Localization.AspNetSample
+//
+// Demonstrates ArchPillar.Extensions.Localization in an ASP.NET Core minimal API:
+//   - Registering both the Localizer and the IStringLocalizer adapter with AddArchPillarLocalization
+//   - ASP.NET request-culture middleware driving the active culture from the ?culture= query string
+//   - The Localizer at /: named arguments and ICU plurals, in-code English overridden by de.arb
+//   - The IStringLocalizer adapter at /strings, where a missing entry returns the key with
+//     ResourceNotFound set (the failure path)
+//
+// Everything lives in this file; the German catalog is Translations/de.arb.
+// ---------------------------------------------------------------------------
 var builder = WebApplication.CreateBuilder(args);
 
 // English ships in code; a German catalog (Translations/de.arb) loads as an override at runtime. The

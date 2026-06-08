@@ -4,9 +4,20 @@ using Microsoft.Extensions.Localization;
 using MigrationSample;
 using static ArchPillar.Extensions.Localization.TranslationMarkers;
 
-// This sample shows migrating an app that already localizes with IStringLocalizer + .resx onto ArchPillar,
-// WITHOUT rewriting call sites. The existing ResourceManager keeps serving its translations; ArchPillar's
-// store layers on top and wins where it has an entry.
+// ---------------------------------------------------------------------------
+// Localization.MigrationSample
+//
+// Demonstrates ArchPillar.Extensions.Localization in an app migrating off
+// AddLocalization() + .resx without rewriting call sites:
+//   - an IStringLocalizer adapter that composes over the legacy ResourceManager,
+//     so existing .resx translations keep resolving
+//   - ArchPillar's Translations/de.arb entry winning where it has one (Welcome),
+//     falling through to the .resx where it doesn't (Goodbye), then to the name
+//   - the L("...") marker, a no-op at runtime that flags strings for extraction
+//
+// Greeting (the resource scope) lives in Greeting.cs; the legacy resources are
+// under Resources/, the new translation under Translations/.
+// ---------------------------------------------------------------------------
 
 var services = new ServiceCollection();
 

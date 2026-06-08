@@ -1,10 +1,20 @@
 using System.Globalization;
 using ArchPillar.Extensions.Localization;
 
-// Validates the opt-in EMBED path end to end: a main-assembly embedded catalog and a culture satellite,
-// both discovered by the ambient store via assembly attributes (no scan) and resolved lazily for de. Publish
-// this trimmed / single-file / AOT and run it: if both German lines print, embed discovery survived; if the
-// English defaults print instead, the trimmer dropped the resources or the discovery reflection.
+// ---------------------------------------------------------------------------
+// Localization.TrimSample
+//
+// Validates the opt-in EMBED path under trimming / single-file / AOT:
+//   - a main-assembly embedded catalog, discovered via an assembly attribute
+//   - a culture satellite, discovered via an assembly attribute, resolved
+//     lazily for de
+//   - a self-check that prints OK/BROKEN: both German lines mean embed
+//     discovery survived; the English defaults mean the trimmer dropped the
+//     resources or the discovery reflection — and under NativeAOT the satellite
+//     does not load and degrades to the in-code default (the point of the spike)
+//
+// The embed attributes live in AssemblyInfo.cs, the catalogs under Embedded/.
+// ---------------------------------------------------------------------------
 CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("de");
 
 var fromMain = Localization.Default.Translate("fromMain", "from main (default)");

@@ -6,6 +6,17 @@ using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Ambient = ArchPillar.Extensions.Localization.Localization;
 
+// ---------------------------------------------------------------------------
+// Localization.WasmSample
+//
+// Demonstrates ArchPillar.Extensions.Localization in a Blazor WebAssembly client:
+//   - Fetching an ARB catalog over HTTP from static web assets (no file system in the browser)
+//   - Injecting ILocalizer and IStringLocalizer<T> into components over the ambient store
+//   - Switching culture in code at runtime with a button — no reload, no request middleware
+//   - A missing override surfacing via IStringLocalizer's ResourceNotFound (the key shows through)
+//
+// The UI lives in Pages/Home.razor; the German catalog is wwwroot/Translations/de.arb.
+// ---------------------------------------------------------------------------
 WebAssemblyHostBuilder builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");

@@ -3,10 +3,17 @@ using ArchPillar.Extensions.Localization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-// The app ships English in code. A German catalog (Translations/de.arb) is copied beside the binary and
-// loaded as an override at runtime — English needs no file because the in-code default is the source of
-// truth and terminal fallback. Here the Localizer is registered with the DI container and resolved like
-// any other service; AddArchPillarLocalization works the same in a console host as it does in ASP.NET.
+// ---------------------------------------------------------------------------
+// Localization.ConsoleSample
+//
+// Demonstrates ArchPillar.Extensions.Localization in a generic-host console app:
+//   - Registering the Localizer in DI with AddArchPillarLocalization and resolving it as a service
+//   - In-code English default overridden at runtime by a German .arb catalog beside the binary
+//   - Named arguments ({name}) and ICU plurals ({count, plural, ...}) across both cultures
+//   - English needs no file: the in-code default is the source of truth and the terminal fallback
+//
+// Everything lives in this file; the German catalog is Translations/de.arb.
+// ---------------------------------------------------------------------------
 using IHost host = Host.CreateDefaultBuilder(args)
     .ConfigureServices(services => services.AddArchPillarLocalization(new LocalizerOptions
     {

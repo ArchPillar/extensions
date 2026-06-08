@@ -1,10 +1,21 @@
 using System.Globalization;
 using ArchPillar.Extensions.Localization;
 
-// The recommended pattern for a NativeAOT app: localize through the two paths that survive AOT — a loose
-// file beside the binary and a catalog embedded in the main assembly. Both resolve from the ambient store
-// with no services. (A culture satellite would NOT load under AOT and would fall back to the in-code
-// default; this sample avoids it — see Localization.TrimSample for that validation.)
+// ---------------------------------------------------------------------------
+// Localization.AotSample
+//
+// Demonstrates ArchPillar.Extensions.Localization in a NativeAOT app, the
+// AOT-safe way:
+//   - a loose .arb file copied beside the binary, loaded by the ambient store
+//   - a catalog embedded in the main assembly (advertised by an assembly
+//     attribute, no resource scan)
+//   - deliberately NO culture satellite: NativeAOT cannot load one, so it would
+//     silently degrade to the in-code default
+//
+// Both translations resolve from Localization.Default with no services; the
+// embed attribute lives in AssemblyInfo.cs, the files under Translations/ and
+// Embedded/.
+// ---------------------------------------------------------------------------
 CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("de");
 
 var fromFiles = Localization.Default.Translate("fromFiles", "from files (default)");
