@@ -9,7 +9,7 @@ The companion guide for example projects is [samples-guide.md](samples-guide.md)
 
 ## How to use this guide
 
-- **Adding a new library?** Pick a tier (below), create the required docs from the
+- **Adding a new library?** Create the [required documents](#required-documents) from the
   canonical skeletons, and register the library in the top-level [`README.md`](../../README.md).
 - **Editing existing docs?** Match the skeleton and house style of the doc type you are
   touching. Do not invent a new section order.
@@ -23,44 +23,40 @@ Each library has two homes for prose, with no overlap in responsibility:
 |----------|---------|----------|---------|
 | `src/{Library}/` | `PACKAGE.md` | NuGet consumers | Shipped as the package readme. Self-contained pitch + quick start. |
 | `src/{Library}/` | `README.md` | Repo browsers | One-paragraph stub that redirects to `docs/{library}/`. |
-| `docs/{library}/` | `README.md`, `SPEC.md`, `getting-started.md`, `features.md`, `recommendations.md`, `CHANGELOG.md`, `KNOWN_ISSUES.md` | Repo readers, contributors | The full documentation set. |
+| `docs/{library}/` | `README.md`, `SPEC.md`, `getting-started.md`, `features.md` (or `features/`), `recommendations.md`, `CHANGELOG.md`, `KNOWN_ISSUES.md` | Repo readers, contributors | The full documentation set. |
 
 > Use the library's published name for `src/` folders (`src/Mapper`,
 > `src/Pipelines`) and the lowercase short name for the docs folder
 > (`docs/mapper`, `docs/pipelines`). This mirrors the existing layout — keep it.
 
-## The tiered model
+## Required documents
 
-Not every library needs every document. Pick a tier by **public API surface**, not by how
-much you have to say. A small library with a big README is a smell; split it only when the
-surface genuinely warrants a SPEC.
+Every library ships the same core set. There is no "skip it because the library is small" —
+a small library has a *short* SPEC and a *short* features page, not a missing one. What scales
+is depth, not coverage.
 
-| Document | Tier 1 — Small (e.g. Primitives) | Tier 2 — Medium (e.g. Pipelines, Commands) | Tier 3 — Large (e.g. Mapper) |
-|----------|:--:|:--:|:--:|
-| `PACKAGE.md` (src) | required | required | required |
-| `README.md` (src stub) | required | required | required |
-| `docs/.../README.md` | required | required | required |
-| `SPEC.md` | optional | required | required |
-| `getting-started.md` | optional | required | required |
-| `features.md` | — | optional | required |
-| `recommendations.md` | — | optional | required |
-| `CHANGELOG.md` | when released | when released | when released |
-| `KNOWN_ISSUES.md` | optional | optional | optional |
+**Always required:**
 
-Rules of thumb for sizing:
+| Document | Notes |
+|----------|-------|
+| `src/{Library}/PACKAGE.md` | NuGet readme — self-contained pitch + quick start. |
+| `src/{Library}/README.md` | Redirect stub. |
+| `docs/{library}/README.md` | Documentation landing page. |
+| `docs/{library}/SPEC.md` | Design contract — Goals / Non-Goals / concepts. Keep it as short as the surface allows, but it always exists. |
+| `docs/{library}/getting-started.md` | Numbered install-to-first-result walkthrough. |
+| `docs/{library}/features.md` *or* `docs/{library}/features/` | One entry per feature — see the [scaling rules](#docslibraryfeaturesmd--or-docslibraryfeatures). |
 
-- **Tier 1 (Small):** a handful of types, no real configuration story. The `docs/.../README.md`
-  carries everything — public surface, wire shape, a quick start. No SPEC until the design
-  needs defending. *Primitives* is the model here.
-- **Tier 2 (Medium):** a focused feature with a DI story and a few moving parts. Add a SPEC
-  (Goals / Non-Goals / contracts) and a numbered `getting-started.md`. Add `recommendations.md`
-  once there are real "do this, not that" patterns worth writing down.
-- **Tier 3 (Large):** a broad surface with many features. Split feature documentation out of
-  getting-started into its own `features.md`, and keep `recommendations.md` current. *Mapper*
-  is the model here.
+**Conditionally required:**
 
-Promote a library to a higher tier when its surface grows — don't pre-build docs for features
-that don't exist yet.
+| Document | Add it when |
+|----------|-------------|
+| `docs/{library}/recommendations.md` | The library contains any non-obvious logic — a pitfall, an ordering constraint, a "do this, not that" pattern. As soon as correct usage is not self-evident from `getting-started.md`, this doc is required. |
+| `docs/{library}/CHANGELOG.md` | The library has a published release. |
+| `docs/{library}/KNOWN_ISSUES.md` | Optional — a placeholder tracker, useful once the library ships. |
+
+Scale **depth to surface, never coverage**: a feature with little to say still gets a heading
+and a paragraph; it is never dropped. When a file grows long, split it (see `features`) rather
+than letting it sprawl.
 
 ## House style
 
@@ -121,7 +117,7 @@ For documentation, see [docs/{library}/](../../docs/{library}/).
 
 ### `docs/{library}/README.md` (documentation landing page)
 
-The hub for the full set. For Tier 1 this is the whole manual.
+The hub for the full set — the first page a reader lands on.
 
 ```text
 # ArchPillar.Extensions.{Library}
@@ -130,13 +126,14 @@ The hub for the full set. For Tier 1 this is the whole manual.
 
 ## Why?                (the problem, the opposing approach, why this design)
 ## Quick Start         (the smallest end-to-end example)
-## Features            (table: feature → one-line description)   [Tier 2/3]
+## Features            (table: feature → one-line description, mirroring features.md)
 ## Performance         (BenchmarkDotNet block, only if benchmarks exist)
 ## Documentation       (relative links to getting-started / features / recommendations / SPEC)
 ```
 
-For Tier 1, replace `Features`/`Documentation` with the type-by-type surface the way
-*Primitives* does (public surface, wire shape, factories, etc.).
+A very small surface may present its public types directly (public surface, wire shape,
+factories) in place of a `Features` table, the way *Primitives* does — but it still links to
+the full doc set under `## Documentation`.
 
 ### `docs/{library}/SPEC.md`
 
@@ -149,7 +146,7 @@ The design contract. Opens with Goals / Non-Goals so scope is unambiguous.
 ## Goals
 ## Non-Goals
 ## <Conceptual model / Contracts / Core concepts>   (the bulk; one ## per major concept)
-## API Surface         (types and signatures, tables for members)   [Tier 3]
+## API Surface         (types and signatures, tables for members; for larger surfaces)
 ## Error philosophy    (how and when the library fails)
 ## What this library deliberately does not do        (mirror of Non-Goals, concrete)
 ```
@@ -175,12 +172,29 @@ the easiest for a reader to follow.
 Every step carries a complete, copy-pasteable code block. End with a pointer to `features.md`
 or `recommendations.md` for what to read next.
 
-### `docs/{library}/features.md` (Tier 3)
+### `docs/{library}/features.md` — or `docs/{library}/features/`
 
-One `##` per feature, each a self-contained deep dive: what it is, a code example, behaviour
-notes (in `>` callouts), and constraints. Order from most-common to most-advanced.
+Document **every** feature. Size each entry to the feature, and split files *before* they get
+long — prefer several focused pages over one sprawling file.
 
-### `docs/{library}/recommendations.md` (Tier 2 optional / Tier 3)
+- **Minimum** — every feature gets a `##` heading and at least one paragraph: what it does and
+  when to reach for it, ideally with a short code example. No feature is omitted because it is
+  small.
+- **Grow to a full page** — as a feature gains options, behaviour notes, and constraints,
+  expand its entry. Order features from most-common to most-advanced.
+- **Promote to a folder** — when `features.md` gets long (a feature has earned a full page of
+  its own, or the file is pushing past a few hundred lines), convert it to a `features/`
+  folder:
+  - `features/README.md` — an index: one line per feature, each linking to its page.
+  - `features/{feature-name}.md` — one page per feature.
+- **Big feature → its own subfolder** — a feature that needs more than one page gets
+  `features/{feature-name}/` with its own `README.md` index and sub-pages.
+
+Each page is self-contained: what the feature is, a code example, behaviour notes in `>`
+callouts, and constraints. Whichever shape you use (`features.md`, a `features/` folder, or
+nested subfolders), link it from the docs `README.md` `## Documentation` section.
+
+### `docs/{library}/recommendations.md` (required once the library has non-obvious logic)
 
 Production patterns. One `##` per recommendation, phrased as an imperative
 (`## Register as Singleton`, `## Validate handler registrations at startup`), each with a short
@@ -222,14 +236,18 @@ When you add a library, also:
 
 A docs change is ready when every applicable item is true:
 
-- [ ] The library's tier is correct, and every **required** doc for that tier exists.
-- [ ] No doc was added that the tier doesn't call for (no padding).
+- [ ] Every always-required doc exists: `PACKAGE.md`, the src `README.md` stub, and the docs
+      `README.md`, `SPEC.md`, `getting-started.md`, and `features.md` (or `features/`).
+- [ ] `recommendations.md` exists if the library has any non-obvious logic, pitfall, or
+      ordering constraint.
 - [ ] Each doc follows its canonical skeleton — section order matches, nothing reordered.
 - [ ] `PACKAGE.md` is self-contained and ends with `## Documentation` and `## License`.
 - [ ] `src/{Library}/README.md` is the redirect stub only, not a duplicate of `PACKAGE.md`.
 - [ ] The docs `README.md` opens with a one-paragraph description and a `## Why?`.
-- [ ] A SPEC (if present) states **Goals** and **Non-Goals** up front.
-- [ ] `getting-started.md` (if present) is numbered and every step has runnable code.
+- [ ] The SPEC states **Goals** and **Non-Goals** up front.
+- [ ] `getting-started.md` is numbered and every step has runnable code.
+- [ ] Every feature has at least a heading and a paragraph in `features.md` (or `features/`);
+      long files are split into a folder rather than left to sprawl.
 - [ ] All code fences are language-tagged; examples are real, compilable C# (no `...`).
 - [ ] No badges; no emoji (except the top-level README `:)`); no manual table of contents.
 - [ ] Inter-doc links are relative and resolve; the package-name link points to its docs folder.
