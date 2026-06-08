@@ -215,10 +215,13 @@ list in two places, on purpose.
 
 ## Registering a new sample
 
-1. Add the sample to the **Repository Structure** tree in the top-level
+1. Add a bullet to the `## Samples` section of the library's docs `README.md`
+   (`docs/{library}/README.md`) — a relative link to the sample plus one line on the feature or
+   value it showcases. This section is the sample index a reader browses; keep it in sync.
+2. Add the sample to the **Repository Structure** tree in the top-level
    [`README.md`](../../README.md), with a trailing comment describing it.
-2. Add the project to the solution (`ArchPillar.Extensions.slnx`).
-3. Confirm it builds clean under the repo's **zero-warnings** policy — samples are held to the
+3. Add the project to the solution (`ArchPillar.Extensions.slnx`).
+4. Confirm it builds clean under the repo's **zero-warnings** policy — samples are held to the
    same analyzer bar as `src/` (see [`CLAUDE.md`](../../CLAUDE.md)).
 
 ## Review checklist
@@ -239,4 +242,6 @@ A sample change is ready when every applicable item is true:
 - [ ] No new external package dependencies beyond the library and host framework.
 - [ ] At least one failure/edge path is exercised, not just the happy path.
 - [ ] Builds with zero warnings under the repo analyzers.
+- [ ] Listed in the `## Samples` section of `docs/{library}/README.md` with a one-line note on
+      the feature/value it showcases.
 - [ ] Registered in the top-level README Repository Structure and the solution file.

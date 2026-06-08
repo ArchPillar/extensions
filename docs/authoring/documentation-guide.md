@@ -149,11 +149,18 @@ The hub for the full set — the first page a reader lands on.
 ## Features            (table: feature → one-line description, mirroring features.md)
 ## Performance         (BenchmarkDotNet block, only if benchmarks exist)
 ## Documentation       (relative links to getting-started / features / recommendations if present; and to internals/SPEC.md for the design contract)
+## Samples             (link each sample under samples/{Library}/, with one line on the feature or value it showcases)
 ```
 
 A very small surface may present its public types directly (public surface, wire shape,
 factories) in place of a `Features` table, the way *Primitives* does — but it still links to
 the full doc set under `## Documentation`.
+
+The `## Samples` section is the library's sample index: one bullet per sample, each a relative
+link to `../../samples/{Library}/{Library}.{Scenario}Sample/` followed by a short sentence on
+the feature or value that sample demonstrates — enough that a reader picks the right one to
+open. Keep this list in step with the samples that actually exist; a missing or stale entry is
+a review defect.
 
 ### `docs/{library}/internals/SPEC.md`
 
@@ -276,6 +283,9 @@ A docs change is ready when every applicable item is true:
 - [ ] `PACKAGE.md` is self-contained and ends with `## Documentation` and `## License`.
 - [ ] `src/{Library}/README.md` is the redirect stub only, not a duplicate of `PACKAGE.md`.
 - [ ] The docs `README.md` opens with a one-paragraph description and a `## Why?`.
+- [ ] The docs `README.md` has a `## Samples` section linking every sample under
+      `samples/{Library}/`, each with a one-line note on the feature/value it showcases, and
+      the list matches the samples that exist.
 - [ ] `internals/SPEC.md` states **Goals** and **Non-Goals** up front.
 - [ ] `getting-started.md` is numbered and every step has runnable code.
 - [ ] Every feature has at least a heading and a paragraph in `features.md` (or `features/`);
