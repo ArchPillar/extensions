@@ -159,8 +159,10 @@ the full doc set under `## Documentation`.
 The `## Samples` section is the library's sample index: one bullet per sample, each a relative
 link to `../../samples/{Library}/{Library}.{Scenario}Sample/` followed by a short sentence on
 the feature or value that sample demonstrates — enough that a reader picks the right one to
-open. Keep this list in step with the samples that actually exist; a missing or stale entry is
-a review defect.
+open. It also records any **intentionally skipped host context** as a one-line note (e.g. "No
+Blazor WASM sample: EF Core is server-only") so an absent sample reads as a decision — see the
+[samples guide](samples-guide.md). Keep this list in step with the samples that actually exist;
+a missing or stale entry is a review defect.
 
 ### `docs/{library}/internals/SPEC.md`
 

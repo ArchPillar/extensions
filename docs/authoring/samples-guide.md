@@ -49,7 +49,9 @@ Sample project and folder names follow one scheme:
 ```
 
 - `{Library}` is the library's short name: `Mapper`, `Pipelines`, `Commands`, `Primitives`.
-- `{Scenario}` describes the setting: `WebShop`, `Builder`, `Host`, `WebApi`, `Notes`.
+- `{Scenario}` is a free-form label for the setting (`WebShop`, `Builder`, `Host`, `WebApi`,
+  `Notes`) — it is *not* the host context. A `Host` or `WebApi` scenario still belongs to one
+  of the Console / Web / Blazor WASM host contexts below.
 - The `Sample` suffix is always present.
 
 Samples live under `samples/{Library}/{Library}.{Scenario}Sample/`.
@@ -87,9 +89,10 @@ Judge applicability by where the library is actually consumed, and **skip honest
 - A foundational, AOT/trim-safe library with no host coupling (e.g. *Primitives*) may apply to
   all three.
 
-When you skip a context, **record it** — one line where the library's samples are listed (the
-Repository Structure tree in the top-level [`README.md`](../../README.md)) — so a reviewer sees
-a deliberate decision, not a missing sample.
+When you skip a context, **record it** in the `## Samples` section of the library's docs
+`README.md` (`docs/{library}/README.md`) — the sample index — as a one-line note (e.g. "No
+Blazor WASM sample: EF Core is server-only"). That way a reviewer sees a deliberate decision,
+not a missing sample.
 
 ## Picking the project shape within a context
 
@@ -195,7 +198,7 @@ list in two places, on purpose.
   store, in-memory/SQLite EF Core, or a seeded local file — never a connection to a service
   the reader doesn't have.
 - **Seed deterministic data** so output is stable run to run. Put seeding in a `Seeder` (Web)
-  or an `InMemory...Store` (Host/Minimal).
+  or an `InMemory...Store` (Console).
 - If a sample *can* use a richer backend optionally (e.g. PostgreSQL when present, SQLite
   otherwise), it must still default to the zero-setup path.
 - **No external package dependencies** beyond what the demonstrated library and the host
@@ -221,8 +224,9 @@ list in two places, on purpose.
 2. Add the sample to the **Repository Structure** tree in the top-level
    [`README.md`](../../README.md), with a trailing comment describing it.
 3. Add the project to the solution (`ArchPillar.Extensions.slnx`).
-4. Confirm it builds clean under the repo's **zero-warnings** policy — samples are held to the
-   same analyzer bar as `src/` (see [`CLAUDE.md`](../../CLAUDE.md)).
+
+Like everything in `src/`, the sample must build clean under the repo's **zero-warnings**
+policy (see [`CLAUDE.md`](../../CLAUDE.md)) — the analyzer bar is the same.
 
 ## Review checklist
 
@@ -231,7 +235,7 @@ A sample change is ready when every applicable item is true:
 - [ ] It is a runnable project demonstrating a complete scenario end-to-end — not a one-liner
       or a snippet that belongs in the docs.
 - [ ] The library has a sample for each applicable host context (Console / Web / Blazor WASM);
-      contexts that don't apply are skipped and recorded as a deliberate decision.
+      contexts that don't apply are skipped and recorded in the docs `## Samples` section.
 - [ ] Folder and project are named `{Library}.{Scenario}Sample`.
 - [ ] Project shape is the smallest that demonstrates the feature honestly within its context.
 - [ ] Structure uses one layout (domain-folder *or* layer-folder), one type per file.
