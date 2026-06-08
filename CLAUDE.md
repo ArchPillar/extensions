@@ -6,6 +6,8 @@ A monorepo of standalone .NET libraries published under the `ArchPillar.Extensio
 
 - **Mapper** (`src/Mapper/`) — object-to-object DTO mapping and LINQ/EF Core expression projection. Read `docs/mapper/SPEC.md` for full design philosophy and API surface.
 
+When writing or reviewing **documentation or sample projects**, follow the authoring standards in `docs/authoring/` — `documentation-guide.md` (doc tiers, canonical skeletons, house style) and `samples-guide.md` (naming, structure, the per-sample README). Each guide ends with a review checklist; apply it before considering a docs/samples change done.
+
 ## Build & Test Commands
 
 ```bash
