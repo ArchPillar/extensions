@@ -2,6 +2,10 @@
 
 Foundational types for the `ArchPillar.Extensions.*` family. Lightweight, allocation-conscious, AOT/trim-safe — no dependencies beyond the BCL.
 
+## Why?
+
+Most layers invent their own "result" type and then a translation layer to turn it into an HTTP response. Primitives collapses that: `OperationStatus` carries the HTTP code verbatim and the failure body is RFC 7807 `application/problem+json`-shaped, so a result returned from a handler becomes a response without a lookup table — and round-trips back from an HTTP boundary without loss. Success allocates no `Problem` body; everything stays BCL-only and AOT/trim-safe. EF Core persistence for the typed-id primitives is an opt-in companion package, `ArchPillar.Extensions.Primitives.EntityFrameworkCore`.
+
 ## What you get
 
 - **`OperationStatus`** — typed enum with HTTP-aligned numeric values (200, 404, 422, 500…).
@@ -56,6 +60,10 @@ var order = await dispatcher.SendAsync(query).UnwrapAsync();
 ```
 
 `Exception` is `[JsonIgnore]` — diagnostic-only.
+
+## Documentation
+
+Full documentation — getting started, every feature, production recommendations, and the design spec — lives in the GitHub repo under [docs/primitives/](https://github.com/ArchPillar/extensions/tree/main/docs/primitives).
 
 ## License
 
