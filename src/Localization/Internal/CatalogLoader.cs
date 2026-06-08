@@ -116,8 +116,14 @@ internal static class CatalogLoader
             }
         }
 
-        // Process lowest-priority formats first so higher-priority formats overwrite on overlap.
-        files.Sort((left, right) => Rank(right, registry, precedence).CompareTo(Rank(left, registry, precedence)));
+        // Process lowest-priority formats first so higher-priority formats overwrite on overlap. Break a tie
+        // (two files of the same format, hence equal rank) by ordinal path so the winner is deterministic
+        // rather than dependent on the file system's enumeration order: the later path wins on overlap.
+        files.Sort((left, right) =>
+        {
+            var byRank = Rank(right, registry, precedence).CompareTo(Rank(left, registry, precedence));
+            return byRank != 0 ? byRank : string.CompareOrdinal(left, right);
+        });
         return files;
     }
 

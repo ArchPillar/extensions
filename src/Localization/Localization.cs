@@ -67,25 +67,29 @@ public static class Localization
         set
         {
             var directory = value ?? string.Empty;
-            bool started;
-            lock (_gate)
-            {
-                _directory = directory;
-                started = _scannedLoaded;
-            }
 
-            if (!started)
+            // Hold _startupGate so this cannot interleave with the one-time EnsureStarted: either startup
+            // runs first (then this reloads), or this runs first (then startup reads the new directory).
+            // That closes the race where a new directory is recorded but never read. I/O stays off _gate.
+            lock (_startupGate)
             {
-                return;
-            }
+                lock (_gate)
+                {
+                    _directory = directory;
+                }
 
-            // Read the directory OUTSIDE the lock, then swap the directory layer under it.
-            List<Catalog> catalogs = ReadDirectory(directory);
-            lock (_gate)
-            {
-                _directoryCatalogs.Clear();
-                _directoryCatalogs.AddRange(catalogs);
-                Rebuild();
+                if (!Volatile.Read(ref _scannedLoaded))
+                {
+                    return;
+                }
+
+                List<Catalog> catalogs = ReadDirectory(directory);
+                lock (_gate)
+                {
+                    _directoryCatalogs.Clear();
+                    _directoryCatalogs.AddRange(catalogs);
+                    Rebuild();
+                }
             }
         }
     }
@@ -328,7 +332,7 @@ public static class Localization
     {
         while (true)
         {
-            var missing = new List<(Assembly Assembly, CultureInfo Culture)>();
+            var missing = new List<(Assembly Assembly, string Culture)>();
             lock (_gate)
             {
                 foreach (Assembly assembly in _satelliteAssemblies)
@@ -337,7 +341,7 @@ public static class Localization
                     {
                         if (!_satellitePairs.Contains((assembly, cultureName)))
                         {
-                            missing.Add((assembly, CultureInfo.GetCultureInfo(cultureName)));
+                            missing.Add((assembly, cultureName));
                         }
                     }
                 }
@@ -348,10 +352,12 @@ public static class Localization
                 return;
             }
 
+            // Resolve the cultures and read the satellites outside the lock (GetCultureInfo and
+            // GetSatelliteAssembly do nontrivial work and take the loader lock).
             var produced = new List<(Assembly Assembly, string Culture, List<Catalog> Catalogs)>(missing.Count);
-            foreach ((Assembly assembly, CultureInfo culture) in missing)
+            foreach ((Assembly assembly, var cultureName) in missing)
             {
-                produced.Add((assembly, culture.Name, ProduceSatellites(assembly, culture)));
+                produced.Add((assembly, cultureName, ProduceSatellites(assembly, CultureInfo.GetCultureInfo(cultureName))));
             }
 
             lock (_gate)
@@ -495,7 +501,11 @@ public static class Localization
             return catalogs;
         }
 
-        foreach (var file in Directory.EnumerateFiles(directory))
+        // Order by ordinal path so the directory layer is deterministic regardless of the file system's
+        // enumeration order; on an overlapping key the later path wins.
+        var files = new List<string>(Directory.EnumerateFiles(directory));
+        files.Sort(string.CompareOrdinal);
+        foreach (var file in files)
         {
             Catalog? catalog = TryReadFile(file);
             if (catalog is not null)

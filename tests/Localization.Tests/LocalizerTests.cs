@@ -266,6 +266,33 @@ public sealed class LocalizerTests : IDisposable
         return directory;
     }
 
+    [Fact]
+    public void Directory_TwoSameFormatFilesOverlap_ResolveADeterministicWinner()
+    {
+        var directory = NewDirectory();
+        WriteArbFile(directory, "a.arb", "de", Entry("k", "fromA"));
+        WriteArbFile(directory, "b.arb", "de", Entry("k", "fromB"));
+
+        using Localizer localizer = Make(directory);
+
+        // Equal-rank files (same format, same culture) are ordered by ordinal path, so the later file wins
+        // deterministically rather than depending on the file system's enumeration order.
+        Assert.Equal(
+            "fromB",
+            localizer.Translate(System.Globalization.CultureInfo.GetCultureInfo("de"), "k", "k", context: null));
+    }
+
+    private static void WriteArbFile(string directory, string fileName, string culture, string entriesJson)
+    {
+        var json = $$"""
+            {
+              "@@locale": "{{culture}}",
+            {{entriesJson}}
+            }
+            """;
+        File.WriteAllText(Path.Combine(directory, fileName), json);
+    }
+
     private static void WriteArb(string directory, string culture, string entriesJson)
     {
         var json = $$"""

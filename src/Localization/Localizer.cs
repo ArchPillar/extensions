@@ -261,7 +261,17 @@ public sealed class Localizer : IDisposable, ILocalizer
     /// <inheritdoc />
     public void Dispose()
     {
-        _watcher?.Dispose();
+        // Stop and unsubscribe the watcher before disposing the timer, so no in-flight change event can call
+        // Change(...) on a disposed timer.
+        if (_watcher is not null)
+        {
+            _watcher.EnableRaisingEvents = false;
+            _watcher.Changed -= OnChanged;
+            _watcher.Created -= OnChanged;
+            _watcher.Deleted -= OnChanged;
+            _watcher.Dispose();
+        }
+
         _debounce?.Dispose();
     }
 
