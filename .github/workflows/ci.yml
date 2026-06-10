@@ -32,3 +32,37 @@ jobs:
       - name: Test
         # --blame-hang-timeout names and dumps a test that wedges, instead of hanging until the job cap.
         run: dotnet test -c Release --no-build --verbosity normal --blame-hang-timeout 5m
+
+  trim-aot-publish:
+    name: Trim & NativeAOT publish
+    runs-on: ubuntu-latest
+    # NativeAOT native compilation is slower than a normal build, so this job gets its own cap.
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+
+      - name: Install NativeAOT prerequisites
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      # The samples self-validate: they print OK/BROKEN and return exit 0 only when every embed/file/satellite
+      # translation resolved, so a non-zero exit (a trimmer or AOT regression in the library) fails the job.
+      - name: Publish and run the trim + single-file sample
+        run: |
+          dotnet publish samples/Localization/Localization.TrimSample/Localization.TrimSample.csproj \
+            -c Release -r linux-x64 --self-contained true -o artifacts/trim
+          ./artifacts/trim/TrimSample
+
+      - name: Publish and run the NativeAOT sample
+        run: |
+          dotnet publish samples/Localization/Localization.AotSample/Localization.AotSample.csproj \
+            -c Release -r linux-x64 -o artifacts/aot
+          ./artifacts/aot/AotSample
