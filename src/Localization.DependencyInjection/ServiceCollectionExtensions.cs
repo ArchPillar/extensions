@@ -38,8 +38,10 @@ public static class ServiceCollectionExtensions
 
         LocalizerOptions resolved = options ?? new LocalizerOptions();
 
-        // Feed the ambient store so DI and the ambient share one source of truth.
+        // Feed the ambient store so DI and the ambient share one source of truth — including the formatting
+        // policy, so an injected interface, a non-DI caller, and the directly injected Localizer agree.
         Ambient.SourceCulture = resolved.SourceCulture;
+        Ambient.MissingArguments = resolved.MissingArguments;
         if (!string.IsNullOrEmpty(resolved.TranslationsDirectory))
         {
             Ambient.TranslationsDirectory = resolved.TranslationsDirectory;

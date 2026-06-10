@@ -1,4 +1,5 @@
 using System.Globalization;
+using ArchPillar.Extensions.Localization.MessageFormat;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
 using Ambient = ArchPillar.Extensions.Localization.Localization;
@@ -174,6 +175,25 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
             List<LocalizedString> all = [.. localizer.GetAllStrings(includeParentCultures: false)];
             Assert.Contains(all, s => s.Name == "save" && s.Value == "Speichern");
         });
+    }
+
+    [Fact]
+    public void AmbientInterface_HonorsTheConfiguredMissingArgumentPolicy()
+    {
+        // The injected interface goes through the ambient store; the Throw policy configured via options must
+        // apply there too, not only on a directly constructed Localizer.
+        Ambient.Reset();
+        var services = new ServiceCollection();
+        services.AddArchPillarLocalization(new LocalizerOptions
+        {
+            SourceCulture = "en",
+            MissingArguments = MissingArgumentPolicy.Throw
+        });
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        ILocalizer localizer = provider.GetRequiredService<ILocalizer>();
+
+        Assert.Throws<MissingArgumentException>(() => localizer.Translate("greet", "Hello {name}"));
     }
 
     [Fact]

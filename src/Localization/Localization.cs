@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Reflection;
 using ArchPillar.Extensions.Localization.Formats;
+using ArchPillar.Extensions.Localization.MessageFormat;
 
 namespace ArchPillar.Extensions.Localization;
 
@@ -33,6 +34,7 @@ public static class Localization
     private static readonly TranslationFormatRegistry _registry = BuildRegistry();
     private static HashSet<string> _loadedCultures = new(StringComparer.OrdinalIgnoreCase);
     private static string _sourceCulture = "en";
+    private static MissingArgumentPolicy _missingArguments = MissingArgumentPolicy.PassThrough;
     private static string _directory = DefaultDirectory();
     private static bool _subscribed;
     private static bool _scannedLoaded;
@@ -51,6 +53,24 @@ public static class Localization
             lock (_gate)
             {
                 _sourceCulture = value ?? "en";
+                Rebuild();
+            }
+        }
+    }
+
+    /// <summary>
+    /// How the formatter handles a message that references an argument no value was supplied for; defaults
+    /// to <see cref="MissingArgumentPolicy.PassThrough"/>. Applied to every ambient-resolved translation, so
+    /// an injected interface and a non-DI caller share the same policy as a directly constructed localizer.
+    /// </summary>
+    public static MissingArgumentPolicy MissingArguments
+    {
+        get => _missingArguments;
+        set
+        {
+            lock (_gate)
+            {
+                _missingArguments = value;
                 Rebuild();
             }
         }
@@ -167,6 +187,7 @@ public static class Localization
             _satellitePairs.Clear();
             _loadedCultures = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             _sourceCulture = "en";
+            _missingArguments = MissingArgumentPolicy.PassThrough;
             _directory = DefaultDirectory();
             _scannedLoaded = false;
             _hasSatellites = false;
@@ -511,7 +532,7 @@ public static class Localization
         // Layered low-to-high precedence: embedded and satellite (library-shipped) < directory (app-local
         // files) < host (explicit AddCatalog). A later catalog wins on overlap inside the merge.
         List<Catalog> all = [.. _embeddedCatalogs, .. _satelliteCatalogs, .. _directoryCatalogs, .. _hostCatalogs];
-        var options = new LocalizerOptions { SourceCulture = _sourceCulture, Sources = [.. _sources] };
+        var options = new LocalizerOptions { SourceCulture = _sourceCulture, Sources = [.. _sources], MissingArguments = _missingArguments };
         var next = new Localizer(all, options);
         Interlocked.Exchange(ref _current, next).Dispose();
     }

@@ -41,7 +41,7 @@ part of an entry's on-disk identity and is never dropped** — the serialized ke
 ## ORANGE — DI / CLI safety
 - [x] D-F2  Registration-time mutation of process-global ambient state; AddSource not idempotent; double-registration / multi-host cross-pollution; `""` directory ignored.
 - [ ] D-F3  AddLocalization() after AddArchPillarLocalization() silently drops all .resx (TryAdd no-ops, inner captured null).
-- [ ] D-F4  Injected concrete Localizer reads a different store than the interfaces; MissingArguments/FormatPrecedence/hot-reload options ignored on ambient paths.
+- [x] D-F4  Injected concrete Localizer reads a different store than the interfaces; MissingArguments ignored on ambient paths. — FIXED: ambient now honors the configured MissingArgumentPolicy (threaded into Rebuild and set by AddArchPillarLocalization). FormatPrecedence/hot-reload and the separate-snapshot aspect of the directly-injected Localizer remain by design (TODO if a single shared instance is wanted).
 - [x] D-F5  IStringLocalizer.GetAllStrings omits ambient entries.
 - [x] T-O5  `merge --output == --input` clobbers translator files; refuse equal paths.
 - [x] T-O8  All tool output (incl. errors) vanishes when stdout is redirected (Spectre no-TTY); write errors via Console.Error.
