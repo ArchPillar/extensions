@@ -170,6 +170,25 @@ public sealed class ArbTranslationFormatTests
     }
 
     [Fact]
+    public async Task Read_UntranslatedEntry_HasNoTranslationSoItPicksUpNewSourceAsync()
+    {
+        const string Arb = """
+            {
+              "@@locale": "de",
+              "::home": "Home",
+              "@::home": { "x-state": "NeedsTranslation", "x-source-fingerprint": "fp" }
+            }
+            """;
+
+        Catalog catalog = await ReadAsync(Encoding.UTF8.GetBytes(Arb));
+
+        CatalogEntry entry = Assert.Single(catalog.Entries);
+        Assert.Equal("home", entry.Key);
+        Assert.Null(entry.TranslatedMessage);
+        Assert.Equal("Home", entry.SourceMessage);
+    }
+
+    [Fact]
     public async Task RoundTrip_KeyBeginningWithAt_IsPreservedAsync()
     {
         // A key starting with '@' is now safe: the qualified member is "::@weird", never mistaken for metadata.
@@ -221,7 +240,8 @@ public sealed class ArbTranslationFormatTests
                 Key = key,
                 SourceMessage = message,
                 TranslatedMessage = message,
-                SourceFingerprint = "fp"
+                SourceFingerprint = "fp",
+                State = TranslationState.Translated
             }
         ]
     };

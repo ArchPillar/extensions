@@ -96,6 +96,20 @@ public sealed class ReconcilerTests
     }
 
     [Fact]
+    public void Reconcile_ArbStyleDrift_DoesNotRecordTheTranslationAsPreviousSource()
+    {
+        Catalog template = MakeCatalog("en", Entry("home", "Homepage", "fp2"));
+        // An ARB target stores one value per entry, so source == translation; there is no distinct prior
+        // source to record on drift (formerly it wrote the translation as x-previous-source).
+        Catalog target = MakeCatalog("de", Entry("home", "Startseite", "fp1", "Startseite", TranslationState.Translated));
+
+        CatalogEntry entry = Single(Reconciler.Reconcile(template, target));
+
+        Assert.Equal(TranslationState.NeedsReview, entry.State);
+        Assert.Null(entry.PreviousSource);
+    }
+
+    [Fact]
     public void Reconcile_SameKeyInTwoCategories_ReconciledIndependentlyAndCategoryPreserved()
     {
         Catalog template = MakeCatalog(

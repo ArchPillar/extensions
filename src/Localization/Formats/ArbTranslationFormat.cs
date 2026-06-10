@@ -133,11 +133,17 @@ public sealed class ArbTranslationFormat : ITranslationFormat
         metadata.TryGetValue(member, out JsonElement meta);
         var category = GetString(meta, "x-category") ?? defaultCategory;
         var context = GetString(meta, "context");
+        var stateText = GetString(meta, "x-state");
         return new CatalogEntry
         {
             Key = QualifiedKey.Unqualify(member, category, context),
             SourceMessage = value,
-            TranslatedMessage = value,
+            // An entry explicitly marked NeedsTranslation has no translation (its value is the source
+            // placeholder), so it picks up a refreshed source on the next sync instead of pinning the old one.
+            // A file without x-state (a hand-authored or Flutter ARB) carries the value as the translation.
+            TranslatedMessage = string.Equals(stateText, nameof(TranslationState.NeedsTranslation), StringComparison.Ordinal)
+                ? null
+                : value,
             Category = category,
             Context = context,
             Comment = GetString(meta, "description"),
@@ -145,7 +151,7 @@ public sealed class ArbTranslationFormat : ITranslationFormat
             Placeholders = GetPlaceholders(meta),
             References = GetReferences(meta),
             SourceFingerprint = GetString(meta, "x-source-fingerprint") ?? string.Empty,
-            State = ParseState(GetString(meta, "x-state"))
+            State = ParseState(stateText)
         };
     }
 

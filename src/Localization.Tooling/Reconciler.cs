@@ -54,8 +54,12 @@ internal static class Reconciler
             Comment = source.Comment,
             Placeholders = source.Placeholders,
             SourceFingerprint = source.SourceFingerprint,
-            // Record the prior source on drift so a translator can diff; never blank the translation.
-            PreviousSource = sourceDrifted ? current.SourceMessage : current.PreviousSource,
+            // Record the prior source on drift so a translator can diff; never blank the translation. ARB
+            // targets store one value per entry (source == translation), so there is no distinct prior source
+            // to record — only do so when the two differ (PO/XLIFF, which carry both).
+            PreviousSource = sourceDrifted && !string.Equals(current.SourceMessage, current.TranslatedMessage, StringComparison.Ordinal)
+                ? current.SourceMessage
+                : current.PreviousSource,
             // Flag for review only when a translation exists; an untranslated entry stays as-is.
             State = needsReview && current.State != TranslationState.NeedsTranslation
                 ? TranslationState.NeedsReview
