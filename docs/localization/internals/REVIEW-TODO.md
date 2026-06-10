@@ -36,7 +36,7 @@ part of an entry's on-disk identity and is never dropped** — the serialized ke
 - [x] P-O6  `Localized<TSelf>` args overload gets no APL0003/0004 (SuppliedArguments only handles params).
 - [x] P-O7  Extension-method (and object-creation) receivers lose the [TranslationScope] category → extracted global, resolved per-T.
 - [x] P-O8  Documented roll-your-own forwarder hits hard APL0001; recognize a forwarder (param carries the attribute) or add an opt-out.
-- [ ] P-O9  Publish merge swaps stale bundles when the tool fails (apl-merged never cleaned; swap not gated on exit code).
+- [x] P-O9  Publish merge swaps stale bundles when the tool fails (apl-merged never cleaned; swap not gated on exit code).
 
 ## ORANGE — DI / CLI safety
 - [ ] D-F2  Registration-time mutation of process-global ambient state; AddSource not idempotent; double-registration / multi-host cross-pollution; `""` directory ignored.

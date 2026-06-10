@@ -54,14 +54,23 @@
   <Target Name="ArchPillarLocalizationMergeOnPublish"
           AfterTargets="Publish"
           Condition="'$(ArchPillarLocalizationMergeOnPublish)' == 'true' and Exists('$(PublishDir)Translations')">
+    <!--
+      Start from a clean intermediate folder. Otherwise a merge that fails this run (ContinueOnError) would
+      leave the previous run's bundles in place, and the swap below would publish those stale catalogs.
+    -->
+    <RemoveDir Directories="$(IntermediateOutputPath)apl-merged" />
     <Exec Command="dotnet apl merge --input &quot;$(PublishDir)Translations&quot; --output &quot;$(IntermediateOutputPath)apl-merged&quot; --source $(ArchPillarLocalizationSourceLanguage)"
           ContinueOnError="true"
-          StandardOutputImportance="low" />
-    <ItemGroup>
+          StandardOutputImportance="low">
+      <Output TaskParameter="ExitCode" PropertyName="_ArchPillarMergeExitCode" />
+    </Exec>
+    <!-- Only consider the merged bundles when the tool actually succeeded (exit 0); a missing tool or a
+         failed merge returns nonzero, leaving the item groups empty so the swap below is a no-op. -->
+    <ItemGroup Condition="'$(_ArchPillarMergeExitCode)' == '0'">
       <_ArchPillarMergedCatalogs Include="$(IntermediateOutputPath)apl-merged\*" />
       <_ArchPillarPublishedCatalogs Include="$(PublishDir)Translations\*.arb;$(PublishDir)Translations\*.xliff;$(PublishDir)Translations\*.xlf;$(PublishDir)Translations\*.po" />
     </ItemGroup>
-    <!-- Only swap when the merge actually produced bundles; otherwise leave the per-library files in place. -->
+    <!-- Only swap when the merge succeeded and produced bundles; otherwise leave the per-library files in place. -->
     <Delete Files="@(_ArchPillarPublishedCatalogs)" Condition="'@(_ArchPillarMergedCatalogs)' != ''" />
     <Copy SourceFiles="@(_ArchPillarMergedCatalogs)"
           DestinationFiles="@(_ArchPillarMergedCatalogs->'$(PublishDir)Translations\%(Filename)%(Extension)')"
