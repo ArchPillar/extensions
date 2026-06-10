@@ -197,6 +197,22 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
     }
 
     [Fact]
+    public void AddLocalizationAfterUs_StillRegistersTheResourceManagerFactory()
+    {
+        // Reverse of the documented order: the host calls AddLocalization after us. Its TryAdd would be
+        // suppressed by our composing factory, silently dropping all .resx — so we register the ResourceManager
+        // factory ourselves, and it must be present regardless of order.
+        Ambient.Reset();
+        var services = new ServiceCollection();
+        services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" });
+        services.AddLocalization();
+
+        Assert.Contains(services, descriptor =>
+            descriptor.ServiceType == typeof(IStringLocalizerFactory)
+            && descriptor.ImplementationType == typeof(ResourceManagerStringLocalizerFactory));
+    }
+
+    [Fact]
     public void AddArchPillarLocalization_CalledTwice_IsIdempotent()
     {
         Ambient.Reset();
@@ -204,8 +220,12 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
         services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" });
         services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" });
 
+        // The second call is a no-op (the Localizer marker is registered exactly once), so it does not stack
+        // a second composing factory over the first.
         Assert.Equal(1, services.Count(descriptor => descriptor.ServiceType == typeof(Localizer)));
-        Assert.Equal(1, services.Count(descriptor => descriptor.ServiceType == typeof(IStringLocalizerFactory)));
+        Assert.Equal(1, services.Count(descriptor =>
+            descriptor.ServiceType == typeof(IStringLocalizerFactory)
+            && descriptor.ImplementationFactory is not null));
 
         using ServiceProvider provider = services.BuildServiceProvider();
         Assert.NotNull(provider.GetRequiredService<IStringLocalizer>());
