@@ -60,6 +60,32 @@ public sealed class TranslationAnalyzerTests
     }
 
     [Fact]
+    public async Task Analyzer_DuplicateKeyAcrossTwoFiles_ReportsApl0006Async()
+    {
+        // The conflicting call sites live in different files; the whole-compilation pass must still pair them
+        // (a per-file/per-node decision would miss this and depend on analysis order).
+        const string Shared = """
+            using ArchPillar.Extensions.Localization;
+
+            public static class T
+            {
+                public static string Translate([Translatable] string key, [TranslationDefault] string message) => message;
+            }
+            """;
+        const string FileA = """
+            public class A { public void Run() => T.Translate("dup", "First wording"); }
+            """;
+        const string FileB = """
+            public class B { public void Run() => T.Translate("dup", "Second wording"); }
+            """;
+
+        ImmutableArray<Diagnostic> diagnostics = await RoslynTestHost.RunAnalyzerAsync(
+            RoslynTestHost.CreateCompilation([Shared, FileA, FileB]));
+
+        Assert.Contains(diagnostics, d => d.Id == "APL0006");
+    }
+
+    [Fact]
     public async Task Analyzer_SameKeyDifferentCategories_DoesNotReportApl0006Async()
     {
         const string Source = """

@@ -8,9 +8,11 @@ namespace ArchPillar.Extensions.Localization.Detection.Tests;
 
 internal static class RoslynTestHost
 {
-    public static Compilation CreateCompilation(string source)
+    public static Compilation CreateCompilation(string source) => CreateCompilation([source]);
+
+    public static Compilation CreateCompilation(IReadOnlyList<string> sources)
     {
-        SyntaxTree tree = CSharpSyntaxTree.ParseText(source);
+        SyntaxTree[] trees = [.. sources.Select((source, index) => CSharpSyntaxTree.ParseText(source, path: $"File{index}.cs"))];
         var trustedAssemblies = (string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!;
         var references = trustedAssemblies
             .Split(Path.PathSeparator)
@@ -21,7 +23,7 @@ internal static class RoslynTestHost
 
         return CSharpCompilation.Create(
             "Tests",
-            [tree],
+            trees,
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
     }

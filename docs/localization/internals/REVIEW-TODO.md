@@ -31,7 +31,7 @@ part of an entry's on-disk identity and is never dropped** — the serialized ke
 
 ## ORANGE — generator / analyzer
 - [x] P-O2  Generated key registry fails to compile (no `\n\r\t\0` escaping; identifier collisions with category class / `TranslationKeys`). — FIXED: control-char literal escaping; single shared top-level member set seeded with enclosing type; per-class const set seeded with class name.
-- [ ] P-O4  Analyzer APL0006/0007 order-dependent + blind to cross-file duplicates in the IDE — move to CompilationEndAction.
+- [x] P-O4  Analyzer APL0006/0007 order-dependent + blind to cross-file duplicates in the IDE — move to CompilationEndAction.
 - [x] P-O5  Invalid `ArchPillarLocalizationKeyPattern` regex → AD0001 disables all APL diagnostics; add try/catch + match timeout.
 - [x] P-O6  `Localized<TSelf>` args overload gets no APL0003/0004 (SuppliedArguments only handles params).
 - [x] P-O7  Extension-method (and object-creation) receivers lose the [TranslationScope] category → extracted global, resolved per-T.

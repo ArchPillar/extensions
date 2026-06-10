@@ -47,15 +47,21 @@ public sealed class TranslationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var state = new AnalysisState(KeyPatternOf(context.Options));
+        Regex? keyPattern = KeyPatternOf(context.Options);
+        var sites = new ConcurrentBag<RecordedSite>();
         context.RegisterSyntaxNodeAction(
-            nodeContext => Analyze(nodeContext, state),
+            nodeContext => Analyze(nodeContext, keyPattern, sites),
             SyntaxKind.InvocationExpression,
             SyntaxKind.ObjectCreationExpression,
             SyntaxKind.ImplicitObjectCreationExpression);
+
+        // Duplicate-key (APL0006) and identical-text (APL0007) need the whole compilation: deciding them
+        // per node made the result depend on analysis order and blind to cross-file pairs in the IDE. They
+        // are computed once, deterministically, after every site has been collected.
+        context.RegisterCompilationEndAction(endContext => ReportCrossSiteConflicts(endContext, sites));
     }
 
-    private static void Analyze(SyntaxNodeAnalysisContext context, AnalysisState state)
+    private static void Analyze(SyntaxNodeAnalysisContext context, Regex? keyPattern, ConcurrentBag<RecordedSite> sites)
     {
         TranslationSiteResult? result = TranslationSiteDetector.DetectAt(
             context.SemanticModel,
@@ -73,7 +79,7 @@ public sealed class TranslationAnalyzer : DiagnosticAnalyzer
 
         if (result.Site is not null)
         {
-            CheckSite(context, result.Site, state);
+            CheckSite(context, result.Site, keyPattern, sites);
         }
     }
 
@@ -95,31 +101,74 @@ public sealed class TranslationAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static void CheckSite(SyntaxNodeAnalysisContext context, TranslationSite site, AnalysisState state)
+    private static void CheckSite(SyntaxNodeAnalysisContext context, TranslationSite site, Regex? keyPattern, ConcurrentBag<RecordedSite> sites)
     {
         Location location = context.Node.GetLocation();
 
-        // Duplicate detection is scoped by category: the same key under two different categories is a
-        // different string, not a conflict.
+        // The key pattern is a per-site rule with no cross-site state, so it stays on the node action.
+        if (keyPattern is not null && !Matches(keyPattern, site.Key))
+        {
+            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.KeyPattern, location, site.Key, keyPattern.ToString()));
+        }
+
+        // Duplicate-key and identical-text are decided over the whole compilation, so record the site for the
+        // end action. Identity is scoped by category: the same key under two categories is a different string.
         var composite = site.Category + TranslationKey.Separator + TranslationKey.Compose(site.Key, site.Context);
-
-        var firstDefault = state.DefaultsByKey.GetOrAdd(composite, site.DefaultMessage);
-        if (!string.Equals(firstDefault, site.DefaultMessage, StringComparison.Ordinal))
-        {
-            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.DuplicateKey, location, site.Key));
-        }
-
         var textKey = site.Category + TranslationKey.Separator + site.DefaultMessage + TranslationKey.Separator + (site.Context ?? string.Empty);
-        var firstKey = state.KeysByDefault.GetOrAdd(textKey, site.Key);
-        if (!string.Equals(firstKey, site.Key, StringComparison.Ordinal))
+        sites.Add(new RecordedSite(composite, textKey, site.Key, site.DefaultMessage, location));
+    }
+
+    // Reports the conflicts that need a whole-compilation view, deterministically: within each conflicting
+    // group the earliest site (by file then position) is the canonical one and the others are flagged, so the
+    // result does not depend on the order nodes were analyzed or on which file the IDE happened to open.
+    private static void ReportCrossSiteConflicts(CompilationAnalysisContext context, ConcurrentBag<RecordedSite> sites)
+    {
+        RecordedSite[] all = [.. sites];
+
+        // APL0006 — one (category, key, context) bound to more than one default message.
+        foreach (IGrouping<string, RecordedSite> group in all.GroupBy(site => site.Composite, StringComparer.Ordinal))
         {
-            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.IdenticalText, location, firstKey));
+            if (group.Select(site => site.DefaultMessage).Distinct(StringComparer.Ordinal).Take(2).Count() < 2)
+            {
+                continue;
+            }
+
+            RecordedSite canonical = Canonical(group);
+            foreach (RecordedSite site in group)
+            {
+                if (!string.Equals(site.DefaultMessage, canonical.DefaultMessage, StringComparison.Ordinal))
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(Diagnostics.DuplicateKey, site.Location, site.Key));
+                }
+            }
         }
 
-        if (state.KeyPattern is not null && !Matches(state.KeyPattern, site.Key))
+        // APL0007 — identical (category, default text, context) used under more than one key.
+        foreach (IGrouping<string, RecordedSite> group in all.GroupBy(site => site.TextKey, StringComparer.Ordinal))
         {
-            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.KeyPattern, location, site.Key, state.KeyPattern.ToString()));
+            if (group.Select(site => site.Key).Distinct(StringComparer.Ordinal).Take(2).Count() < 2)
+            {
+                continue;
+            }
+
+            RecordedSite canonical = Canonical(group);
+            foreach (RecordedSite site in group)
+            {
+                if (!string.Equals(site.Key, canonical.Key, StringComparison.Ordinal))
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(Diagnostics.IdenticalText, site.Location, canonical.Key));
+                }
+            }
         }
+    }
+
+    private static RecordedSite Canonical(IEnumerable<RecordedSite> group) =>
+        group.OrderBy(site => LocationOrder(site.Location), StringComparer.Ordinal).First();
+
+    private static string LocationOrder(Location location)
+    {
+        FileLinePositionSpan span = location.GetLineSpan();
+        return $"{span.Path}:{span.StartLinePosition.Line:D8}:{span.StartLinePosition.Character:D8}";
     }
 
     private static bool Matches(Regex pattern, string key)
@@ -157,17 +206,25 @@ public sealed class TranslationAnalyzer : DiagnosticAnalyzer
         return null;
     }
 
-    private sealed class AnalysisState
+    private sealed class RecordedSite
     {
-        public AnalysisState(Regex? keyPattern)
+        public RecordedSite(string composite, string textKey, string key, string defaultMessage, Location location)
         {
-            KeyPattern = keyPattern;
+            Composite = composite;
+            TextKey = textKey;
+            Key = key;
+            DefaultMessage = defaultMessage;
+            Location = location;
         }
 
-        public Regex? KeyPattern { get; }
+        public string Composite { get; }
 
-        public ConcurrentDictionary<string, string> DefaultsByKey { get; } = new(StringComparer.Ordinal);
+        public string TextKey { get; }
 
-        public ConcurrentDictionary<string, string> KeysByDefault { get; } = new(StringComparer.Ordinal);
+        public string Key { get; }
+
+        public string DefaultMessage { get; }
+
+        public Location Location { get; }
     }
 }
