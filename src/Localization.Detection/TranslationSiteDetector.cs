@@ -80,8 +80,27 @@ public static class TranslationSiteDetector
         }
 
         IArgumentOperation? keyArgument = FindArgument(arguments, symbols.Translatable);
-        return keyArgument is null ? null : Build(arguments, keyArgument, symbols, node, ReceiverType(operation));
+        if (keyArgument is null)
+        {
+            return null;
+        }
+
+        // A forwarder passes its own [Translatable] parameter straight through to an inner translatable call
+        // (the documented thin-wrapper pattern, and how Localized<TSelf>.Translate itself is written). The
+        // literal lives at the forwarder's own call sites, which are analyzed independently, so this
+        // pass-through is plumbing rather than a non-constant violation — skip it instead of flagging APL0001.
+        if (IsForwardedParameter(keyArgument, symbols.Translatable))
+        {
+            return null;
+        }
+
+        return Build(arguments, keyArgument, symbols, node, ReceiverType(operation));
     }
+
+    private static bool IsForwardedParameter(IArgumentOperation argument, INamedTypeSymbol? attribute) =>
+        attribute is not null
+        && Unwrap(argument.Value) is IParameterReferenceOperation parameterReference
+        && HasAttribute(parameterReference.Parameter, attribute);
 
     // IStringLocalizer interop: recognize the BCL indexer (this[name] / this[name, params object[]]) by
     // symbol, not attribute — it's a fixed shape we cannot annotate. The indexed literal is both the key and
@@ -315,9 +334,12 @@ public static class TranslationSiteDetector
 
     private static IReadOnlyList<string>? SuppliedArguments(ImmutableArray<IArgumentOperation> arguments)
     {
+        // The supplied names come from the argument tuple array — whether it is the params form
+        // (params (string, object?)[]) or the explicit-array overload ((string, object?)[] arguments, as on
+        // Localized<TSelf>.Translate). Both are an array of value tuples, so match by type, not by IsParams.
         foreach (IArgumentOperation argument in arguments)
         {
-            if (argument.Parameter is { IsParams: true })
+            if (argument.Parameter is { Type: IArrayTypeSymbol { ElementType: INamedTypeSymbol { IsTupleType: true } } })
             {
                 return ExtractTupleNames(argument.Value);
             }
@@ -328,13 +350,20 @@ public static class TranslationSiteDetector
 
     private static IReadOnlyList<string>? ExtractTupleNames(IOperation value)
     {
-        if (value is not IArrayCreationOperation array || array.Initializer is null)
+        IEnumerable<IOperation>? elements = Unwrap(value) switch
+        {
+            IArrayCreationOperation { Initializer: not null } array => array.Initializer.ElementValues,
+            ICollectionExpressionOperation collection => collection.Elements,
+            _ => null
+        };
+
+        if (elements is null)
         {
             return null;
         }
 
         var names = new List<string>();
-        foreach (IOperation element in array.Initializer.ElementValues)
+        foreach (IOperation element in elements)
         {
             var name = TupleFirstConstant(element);
             if (name is null)

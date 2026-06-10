@@ -185,6 +185,58 @@ public sealed class TranslationAnalyzerTests
         """;
 
     [Fact]
+    public async Task Analyzer_ExplicitArrayArgumentsOverload_ValidatesPlaceholdersApl0003Apl0004Async()
+    {
+        // The arguments are passed as an explicit (string, object?)[] (the Localized<TSelf> shape), not a
+        // params array; placeholder/argument validation must still run.
+        const string Source = """
+            using ArchPillar.Extensions.Localization;
+
+            public static class T
+            {
+                public static string Translate(
+                    [Translatable] string key,
+                    [TranslationDefault] string message,
+                    (string Name, object? Value)[] arguments) => message;
+            }
+
+            public class Consumer
+            {
+                public void Run() => T.Translate("greet", "Hello {name}", [("extra", 1)]);
+            }
+            """;
+
+        ImmutableArray<Diagnostic> diagnostics = await RoslynTestHost.RunAnalyzerAsync(RoslynTestHost.CreateCompilation(Source));
+
+        Assert.Contains(diagnostics, d => d.Id == "APL0003"); // {name} not supplied
+        Assert.Contains(diagnostics, d => d.Id == "APL0004"); // "extra" not used
+    }
+
+    [Fact]
+    public async Task Analyzer_Forwarder_DoesNotReportNonConstantApl0001Async()
+    {
+        // The documented roll-your-own forwarder threads its own [Translatable] parameter into an inner
+        // translatable call; this must not be reported as a non-constant key.
+        const string Source = """
+            using ArchPillar.Extensions.Localization;
+
+            public static class T
+            {
+                public static string Translate([Translatable] string key, [TranslationDefault] string message) => message;
+            }
+
+            public static class MyStrings
+            {
+                public static string Tr([Translatable] string key, [TranslationDefault] string message) => T.Translate(key, message);
+            }
+            """;
+
+        ImmutableArray<Diagnostic> diagnostics = await RoslynTestHost.RunAnalyzerAsync(RoslynTestHost.CreateCompilation(Source));
+
+        Assert.DoesNotContain(diagnostics, d => d.Id == "APL0001");
+    }
+
+    [Fact]
     public async Task Analyzer_WithoutLibrary_ReportsNothingAsync()
     {
         const string Source = """

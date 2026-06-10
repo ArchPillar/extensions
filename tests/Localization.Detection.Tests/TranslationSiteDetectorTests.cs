@@ -269,6 +269,32 @@ public sealed class TranslationSiteDetectorTests
         Assert.Equal("Buttons", Single(results, "save").Category);
     }
 
+    [Fact]
+    public void Detect_Forwarder_PassesItsOwnTranslatableParameterThrough_IsSkipped()
+    {
+        // A thin wrapper whose [Translatable] parameter is forwarded to an inner translatable call is
+        // plumbing: the literal is at the wrapper's own call sites, so the forwarding call is not extracted
+        // and is not flagged as a non-constant key.
+        const string Forwarder = """
+            using ArchPillar.Extensions.Localization;
+
+            public static class T
+            {
+                public static string Translate([Translatable] string key, [TranslationDefault] string message) => message;
+            }
+
+            public static class MyStrings
+            {
+                public static string Tr([Translatable] string key, [TranslationDefault] string message) => T.Translate(key, message);
+            }
+            """;
+
+        var results = TranslationSiteDetector.Detect(RoslynTestHost.CreateCompilation(Forwarder), CancellationToken.None).ToList();
+
+        Assert.DoesNotContain(results, r => r.Site is not null);
+        Assert.Empty(results.SelectMany(r => r.Problems));
+    }
+
     private static List<TranslationSiteResult> DetectStringLocalizer() =>
         TranslationSiteDetector.Detect(RoslynTestHost.CreateCompilation(StringLocalizerSource), CancellationToken.None).ToList();
 
