@@ -149,6 +149,38 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
         Directory.Delete(_directory, recursive: true);
     }
 
+    [Fact]
+    public void StringLocalizer_NameWithCompositeFormat_DoesNotThrowAndIsNotIcuFormatted()
+    {
+        // A ResourceManager-style name like "Price: {0:C}" is not ICU; the adapter must not run it through the
+        // ICU formatter on a miss. With no inner factory it returns the name with string.Format applied.
+        using ServiceProvider provider = BuildProvider();
+        IStringLocalizer localizer = provider.GetRequiredService<IStringLocalizer>();
+
+        LocalizedString result = localizer["Price: {0:C}", 9.99m];
+
+        Assert.True(result.ResourceNotFound);
+        Assert.DoesNotContain("{0:C}", result.Value);
+    }
+
+    [Fact]
+    public void StringLocalizer_NameWithCompositeFormat_FallsThroughToInnerFactory()
+    {
+        // The migration case: the value lives in the existing .resx factory. The adapter must reach it, not
+        // throw on the ICU-incompatible name first.
+        Ambient.Reset();
+        var services = new ServiceCollection();
+        services.AddSingleton<IStringLocalizerFactory>(new FakeFactory());
+        services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" });
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        IStringLocalizer localizer = provider.GetRequiredService<IStringLocalizerFactory>().Create(typeof(Buttons));
+        LocalizedString result = localizer["Price: {0:C}", 9.99m];
+
+        Assert.False(result.ResourceNotFound);
+        Assert.Contains("9.99", result.Value);
+    }
+
     private ServiceProvider BuildProvider()
     {
         Ambient.Reset();
@@ -188,7 +220,10 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
             ? new LocalizedString(name, "FromInner", resourceNotFound: false)
             : new LocalizedString(name, name, resourceNotFound: true);
 
-        public LocalizedString this[string name, params object[] arguments] => this[name];
+        public LocalizedString this[string name, params object[] arguments] =>
+            name.StartsWith("Price:", StringComparison.Ordinal)
+                ? new LocalizedString(name, string.Format(CultureInfo.InvariantCulture, name, arguments), resourceNotFound: false)
+                : this[name];
 
         public IEnumerable<LocalizedString> GetAllStrings(bool includeParentCultures) => [];
     }

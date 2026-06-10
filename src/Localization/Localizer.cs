@@ -218,6 +218,22 @@ public sealed class Localizer : IDisposable, ILocalizer
             : _formatter.Format(defaultMessage, _sourceCulture, arguments);
     }
 
+    // Resolves and formats a loaded override (or a source result) within a category for the current UI
+    // culture, or returns null when there is none. Unlike TranslateInCategory it never renders a default —
+    // the IStringLocalizer adapter uses this so a miss does not push the name (which may be ResourceManager
+    // composite-format text like "{0:C}", not ICU) through the ICU formatter before the inner factory is tried.
+    internal string? TranslateOverride(
+        string category,
+        string key,
+        string? context,
+        (string Name, object? Value)[] arguments)
+    {
+        CultureInfo culture = CultureInfo.CurrentUICulture;
+        var composite = TranslationKey.Compose(key, context);
+        var message = ResolveOverride(culture, category, composite, defaultMessage: key);
+        return message is null ? null : _formatter.Format(message, culture, arguments);
+    }
+
     // Consults the custom sources (a later source wins) before the loaded catalogs. When no sources are
     // configured the loop is skipped and the catalog lookup is unchanged, so the literal path stays
     // allocation-free.

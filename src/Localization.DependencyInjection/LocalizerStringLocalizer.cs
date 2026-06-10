@@ -33,10 +33,13 @@ internal sealed class LocalizerStringLocalizer : IStringLocalizer
 
     private LocalizedString Resolve(string name, object[] arguments)
     {
-        var value = Ambient.TranslateInCategory(_category, name, name, ToNamedArguments(arguments), out var overrideFound);
-        if (overrideFound)
+        // A loaded override is a real (ICU) translation, so format it; on a miss, do NOT run the name through
+        // the ICU formatter — the name is a ResourceManager-style key that may contain composite-format text
+        // like "{0:C}". Fall through to the inner factory, then return the name verbatim / string.Format'd.
+        var overrideValue = Ambient.TranslateOverride(_category, name, ToNamedArguments(arguments));
+        if (overrideValue is not null)
         {
-            return new LocalizedString(name, value, resourceNotFound: false);
+            return new LocalizedString(name, overrideValue, resourceNotFound: false);
         }
 
         if (_inner is not null)
@@ -48,7 +51,26 @@ internal sealed class LocalizerStringLocalizer : IStringLocalizer
             }
         }
 
-        return new LocalizedString(name, value, resourceNotFound: true);
+        return new LocalizedString(name, Format(name, arguments), resourceNotFound: true);
+    }
+
+    // The IStringLocalizer not-found convention: the name with its arguments applied via string.Format (not
+    // ICU), and the name verbatim when that fails — matching ResourceManagerStringLocalizer.
+    private static string Format(string name, object[] arguments)
+    {
+        if (arguments.Length == 0)
+        {
+            return name;
+        }
+
+        try
+        {
+            return string.Format(CultureInfo.CurrentCulture, name, arguments);
+        }
+        catch (FormatException)
+        {
+            return name;
+        }
     }
 
     private static (string Name, object? Value)[] ToNamedArguments(object[] arguments)

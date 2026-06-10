@@ -192,6 +192,14 @@ public static class Localization
         return Current.TranslateInCategory(category, key, defaultMessage, context: null, out overrideFound, arguments);
     }
 
+    // The override-or-null ambient lookup the IStringLocalizer adapter uses so it never renders the name as a
+    // default before consulting the inner factory (the name may be ResourceManager composite-format text).
+    internal static string? TranslateOverride(string category, string key, (string Name, object? Value)[] arguments)
+    {
+        EnsureCulture(CultureInfo.CurrentUICulture);
+        return Current.TranslateOverride(category, key, context: null, arguments);
+    }
+
     // One-time startup: subscribe to assembly loads, read the directory layer, and discover every
     // already-loaded assembly. _startupGate (not _gate) serializes this so concurrent first calls run it
     // once; the reflection and I/O inside run WITHOUT _gate, which is taken only for the short commits.
