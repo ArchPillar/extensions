@@ -18,9 +18,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorComponents();
 
-// English ships in code; the German catalog (Translations/de.arb) loads as a runtime override. Both the
-// Localizer and the IStringLocalizer adapter are registered, so components can inject either.
-builder.Services.AddArchPillarLocalization(new LocalizerOptions
+// English ships in code; the German catalog (Translations/de.arb) loads as a runtime override. The
+// StringLocalizer interop package registers both the native Localizer and the IStringLocalizer adapter, so
+// components can inject either.
+builder.Services.AddArchPillarStringLocalizer(new LocalizerOptions
 {
     TranslationsDirectory = Path.Combine(AppContext.BaseDirectory, "Translations"),
     SourceCulture = "en"

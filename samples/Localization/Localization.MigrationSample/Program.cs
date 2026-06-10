@@ -27,11 +27,12 @@ services.AddLogging();
 // 1) The app's EXISTING setup: ResourceManager-backed IStringLocalizer over Resources/Greeting[.de].resx.
 services.AddLocalization(options => options.ResourcesPath = "Resources");
 
-// 2) Adopt ArchPillar. Its IStringLocalizer adapter COMPOSES over the ResourceManager factory registered
-//    above: ambient hit wins, otherwise it falls through to the existing .resx, otherwise the name. The
-//    ambient store loads the new German translation from Translations/de.arb (files-by-default), with no
-//    call-site changes.
-services.AddArchPillarLocalization();
+// 2) Adopt ArchPillar via the StringLocalizer interop package — the migration on-ramp. Its IStringLocalizer
+//    adapter COMPOSES over the ResourceManager factory registered above: ambient hit wins, otherwise it falls
+//    through to the existing .resx, otherwise the name. The ambient store loads the new German translation
+//    from Translations/de.arb (files-by-default), with no call-site changes. Once the app no longer depends
+//    on IStringLocalizer, drop this package and call AddArchPillarLocalization instead.
+services.AddArchPillarStringLocalizer();
 
 using ServiceProvider provider = services.BuildServiceProvider();
 IStringLocalizer<Greeting> localizer = provider.GetRequiredService<IStringLocalizer<Greeting>>();

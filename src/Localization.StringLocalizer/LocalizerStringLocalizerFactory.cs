@@ -1,7 +1,7 @@
 using ArchPillar.Extensions.Localization.Internal;
 using Microsoft.Extensions.Localization;
 
-namespace ArchPillar.Extensions.Localization.DependencyInjection;
+namespace ArchPillar.Extensions.Localization.StringLocalizer;
 
 /// <summary>
 /// Composing <see cref="IStringLocalizerFactory"/> over the ambient store. <see cref="Create(Type)"/> scopes

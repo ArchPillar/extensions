@@ -24,13 +24,13 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 // Blazor WebAssembly has no readable file system, so the directory source finds nothing. Instead the
 // catalogs are fetched over HTTP from the app's static web assets, parsed with the ARB provider, and fed
 // into the ambient store; English ships in code, so only the German override is fetched. AddArchPillar-
-// Localization then registers the injectable views over that same ambient store.
+// StringLocalizer then registers the native views and the IStringLocalizer adapter over that same store.
 using var http = new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) };
 await using (Stream de = await http.GetStreamAsync("Translations/de.arb"))
 {
     Ambient.AddCatalog(await new ArbTranslationFormat().ReadAsync(de, CancellationToken.None));
 }
 
-builder.Services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" });
+builder.Services.AddArchPillarStringLocalizer(new LocalizerOptions { SourceCulture = "en" });
 
 await builder.Build().RunAsync();

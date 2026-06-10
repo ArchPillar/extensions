@@ -111,6 +111,9 @@
   <Folder Name="/src/Localization.DependencyInjection/">
     <Project Path="src/Localization.DependencyInjection/ArchPillar.Extensions.Localization.DependencyInjection.csproj" />
   </Folder>
+  <Folder Name="/src/Localization.StringLocalizer/">
+    <Project Path="src/Localization.StringLocalizer/ArchPillar.Extensions.Localization.StringLocalizer.csproj" />
+  </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/Mapper.Tests/">
     <Project Path="tests/Mapper.Tests/ArchPillar.Extensions.Mapper.Tests.csproj" />
@@ -150,5 +153,8 @@
   </Folder>
   <Folder Name="/tests/Localization.DependencyInjection.Tests/">
     <Project Path="tests/Localization.DependencyInjection.Tests/ArchPillar.Extensions.Localization.DependencyInjection.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Localization.StringLocalizer.Tests/">
+    <Project Path="tests/Localization.StringLocalizer.Tests/ArchPillar.Extensions.Localization.StringLocalizer.Tests.csproj" />
   </Folder>
 </Solution>

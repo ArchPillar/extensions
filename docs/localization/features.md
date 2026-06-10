@@ -125,25 +125,31 @@ a build side effect.
 ## Dependency injection
 
 `AddArchPillarLocalization` (in the `…Localization.DependencyInjection` package) feeds the ambient
-store from `LocalizerOptions` and registers `ILocalizer`, `ILocalizer<T>`, the `IStringLocalizer`
-adapters, and a concrete `Localizer`:
+store from `LocalizerOptions` and registers the native views — `ILocalizer`, `ILocalizer<T>`, and a
+concrete `Localizer`:
 
 ```csharp
 services.AddArchPillarLocalization(new LocalizerOptions { TranslationsDirectory = "Translations", SourceCulture = "en" });
 ```
 
 No extra wiring is needed for request culture — the localizers read `CurrentUICulture`, which
-`app.UseRequestLocalization(...)` sets per request.
+`app.UseRequestLocalization(...)` sets per request. This package depends only on the DI abstractions;
+`IStringLocalizer` interop lives in a separate package (below).
 
 ## IStringLocalizer interop
 
-For existing code, the adapter exposes the store as `IStringLocalizer` / `IStringLocalizer<T>`: the
-name is the key, the category is `typeof(T)`, and positional arguments map to `{0}`, `{1}`, …
-Critically it **composes** — if you registered `AddLocalization()` (the `.resx` factory) first, the
-adapter tries the ambient store and **falls through to that factory on a miss**, so existing `.resx`
-keeps resolving.
+For existing code, add the separate `…Localization.StringLocalizer` package and call
+`AddArchPillarStringLocalizer` (it performs the native registration above and adds the adapters). It
+exposes the store as `IStringLocalizer` / `IStringLocalizer<T>`: the name is the key, the category is
+`typeof(T)`, and positional arguments map to `{0}`, `{1}`, … Critically it **composes** — it registers the
+`.resx` factory itself and **falls through to it on an ambient miss**, so existing `.resx` keeps resolving
+regardless of whether you call `AddLocalization()` before or after it. Because this is the framework's
+single `IStringLocalizerFactory` seam, MVC `IViewLocalizer`/`IHtmlLocalizer` and
+`AddDataAnnotationsLocalization` resolve through it too.
 
 ```csharp
+services.AddArchPillarStringLocalizer(new LocalizerOptions { SourceCulture = "en" });
+// ...
 public sealed class LegacyModel(IStringLocalizer<LegacyModel> loc)
 {
     public string Title => loc["Home"];
@@ -153,7 +159,8 @@ public sealed class LegacyModel(IStringLocalizer<LegacyModel> loc)
 
 ## Migration on-ramp
 
-Adopting the library next to an existing `IStringLocalizer` / `.resx` codebase costs almost nothing:
+Adopting the library next to an existing `IStringLocalizer` / `.resx` codebase costs almost nothing, and the
+interop package is meant to be dropped once you no longer depend on `IStringLocalizer`:
 
 - **Existing translations keep working** via the composing adapter above.
 - **`IStringLocalizer` indexer literals are extracted automatically** (on by default): the literal is

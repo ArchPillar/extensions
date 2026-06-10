@@ -93,14 +93,16 @@ Console.WriteLine(greeter.Inbox(5));        // "Sie haben 5 Nachrichten"
 
 ## 6. (Optional) Wire up dependency injection
 
-In a host, register the library and inject `ILocalizer<T>` (or the `IStringLocalizer` adapter for
-existing code). `UseRequestLocalization` drives the culture in ASP.NET Core:
+In a host, register the library and inject `ILocalizer<T>`. `UseRequestLocalization` drives the culture in
+ASP.NET Core:
 
 ```csharp
 builder.Services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" });
 ```
 
-DI feeds the same ambient store, so injected and ambient lookups share one source.
+DI feeds the same ambient store, so injected and ambient lookups share one source. Migrating existing
+`IStringLocalizer` code? Add the `…Localization.StringLocalizer` package and call
+`AddArchPillarStringLocalizer` instead — see the migration on-ramp in [features.md](features.md).
 
 ## Next
 

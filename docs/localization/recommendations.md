@@ -3,20 +3,23 @@
 Production patterns and the non-obvious rules. Each is an imperative with the reasoning behind it; the
 ordering and trimming items in particular are easy to get wrong and hard to debug after the fact.
 
-## Register `AddLocalization()` before `AddArchPillarLocalization()`
+## Use `AddArchPillarStringLocalizer` to migrate an `IStringLocalizer` / `.resx` app
 
-When migrating an app that already uses `IStringLocalizer` / `.resx`, register the framework's
-localization **first**. The adapter captures whatever `IStringLocalizerFactory` was registered before
-it and composes over it — so your existing `.resx` keeps resolving on an ambient miss. Register it
-after, and there is no inner factory to fall through to.
+When adopting the library next to existing `IStringLocalizer` / `.resx` code, add the
+`ArchPillar.Extensions.Localization.StringLocalizer` package and call `AddArchPillarStringLocalizer`. It
+registers the native views **and** an `IStringLocalizer` adapter that composes over your existing
+`ResourceManager` factory — so your `.resx` keeps resolving on an ambient miss. It also registers that
+factory itself (via `AddLocalization()`, which no-ops when you have already called it), so **call order no
+longer matters**: your `.resx` survives whether you register the framework's localization before or after.
 
 ```csharp
-services.AddLocalization(options => options.ResourcesPath = "Resources"); // existing, first
-services.AddArchPillarLocalization();                                     // composes over it
+services.AddLocalization(options => options.ResourcesPath = "Resources"); // your existing setup (any order)
+services.AddArchPillarStringLocalizer();                                  // composes over it
 ```
 
-> Registering ArchPillar first (or instead) makes the adapter authoritative with no fallback — every
-> key the ambient store lacks returns the name, shadowing your `.resx`.
+> Once your code no longer depends on `IStringLocalizer`, drop the package and call
+> `AddArchPillarLocalization` (native registration only) instead — the migration on-ramp is meant to be
+> removed.
 
 ## Set `SourceCulture` to the language your defaults are written in
 

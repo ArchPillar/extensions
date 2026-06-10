@@ -62,8 +62,8 @@ embedded catalog, or `Localization.AddCatalog(...)`. See [getting-started.md](ge
 | Files / embedded / satellites | Loose files by default (trim/AOT-safe); opt-in embedding routes catalogs into culture satellite assemblies. |
 | ICU MessageFormat | Arguments, `plural` / `selectordinal` / `select`, embedded CLDR plural data. |
 | Standard formats | ARB (default), XLIFF 2.1, and Portable Object — round-tripped by the bundled providers. |
-| Dependency injection | `AddArchPillarLocalization` feeds the ambient store and registers injectable localizers. |
-| `IStringLocalizer` interop + migration | A composing adapter, on-by-default extraction of indexer literals, and a no-op `L(...)` marker. |
+| Dependency injection | `AddArchPillarLocalization` feeds the ambient store and registers injectable native localizers. |
+| `IStringLocalizer` interop + migration | A separate `…StringLocalizer` package (`AddArchPillarStringLocalizer`): a composing adapter, on-by-default extraction of indexer literals, and a no-op `L(...)` marker — droppable once migration is done. |
 | Publishing | A publish-time merge to one bundle per culture; a documented trim / single-file / AOT matrix. |
 
 ## Performance

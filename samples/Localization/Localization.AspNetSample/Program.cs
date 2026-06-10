@@ -18,8 +18,9 @@ using Microsoft.Extensions.Localization;
 var builder = WebApplication.CreateBuilder(args);
 
 // English ships in code; a German catalog (Translations/de.arb) loads as an override at runtime. The
-// Localizer and the IStringLocalizer adapter are both registered by AddArchPillarLocalization.
-builder.Services.AddArchPillarLocalization(new LocalizerOptions
+// StringLocalizer interop package registers both the native Localizer and the IStringLocalizer adapter via
+// AddArchPillarStringLocalizer.
+builder.Services.AddArchPillarStringLocalizer(new LocalizerOptions
 {
     TranslationsDirectory = Path.Combine(AppContext.BaseDirectory, "Translations"),
     SourceCulture = "en"

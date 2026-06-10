@@ -10,7 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\Localization\ArchPillar.Extensions.Localization.csproj" />
-    <ProjectReference Include="..\..\..\src\Localization.DependencyInjection\ArchPillar.Extensions.Localization.DependencyInjection.csproj" />
+    <ProjectReference Include="..\..\..\src\Localization.StringLocalizer\ArchPillar.Extensions.Localization.StringLocalizer.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -200,6 +200,21 @@ how `IStringLocalizer` actually works (verified against the docs):
   the text; null receiver → global category). It piggybacks entirely on the current attribute-driven
   detection — no special-casing.
 
+- **The interop ships as its own package, separable by design.** The `IStringLocalizer` adapters live in
+  `ArchPillar.Extensions.Localization.StringLocalizer` (registered via `AddArchPillarStringLocalizer`), apart
+  from the native DI registration in `ArchPillar.Extensions.Localization.DependencyInjection`
+  (`AddArchPillarLocalization`). The interop package depends on the DI package (and on the full
+  `Microsoft.Extensions.Localization`, for the `ResourceManager`/`.resx` factory it composes over and
+  registers itself — Decision D-F3); nothing native or core depends back on it, so the registrations are
+  purely additive. A consumer drops the package and its one `AddArchPillarStringLocalizer` call once their code
+  no longer touches `IStringLocalizer`. The dependency direction (interop → DI → core) keeps the native path
+  dependency-light: a DI-only consumer never drags in the `ResourceManager` machinery. Our composing
+  `IStringLocalizerFactory` is the single seam every opt-in framework feature flows through — MVC's
+  `IViewLocalizer`/`IHtmlLocalizer` and `AddDataAnnotationsLocalization` all resolve through
+  `IStringLocalizerFactory.Create(...)` — so the one package covers them without per-feature adapters, and
+  ASP.NET Core/Blazor need nothing more (the framework itself never consumes `IStringLocalizer`; request
+  culture flows through `CultureInfo.CurrentUICulture`, which the native path already reads).
+
 This refines D-5 (interop is no longer a one-way value-or-name adapter — it composes) and extends D-3
 (attribute-driven detection still covers the marker; the `IStringLocalizer` indexer is the one symbol-based
 exception, justified by it being a fixed BCL shape we cannot annotate).
@@ -247,7 +262,7 @@ for runtime assemblies).
 
 | # | Phase | Delivers |
 |---|---|---|
-| 9 | Integration ✅ | `ArchPillar.Extensions.Localization.DependencyInjection`: `AddArchPillarLocalization`, the `IStringLocalizer`/`IStringLocalizer<T>`/`IStringLocalizerFactory` adapter (name-is-key, missing→name, positional args → `{0}`), and ASP.NET request-culture via `CurrentUICulture` (D-5). The core stays dependency-free. |
+| 9 | Integration ✅ | Two packages: `ArchPillar.Extensions.Localization.DependencyInjection` (`AddArchPillarLocalization` — native `ILocalizer`/`ILocalizer<T>`/`Localizer` registration, depends only on DI abstractions) and `ArchPillar.Extensions.Localization.StringLocalizer` (`AddArchPillarStringLocalizer` — the `IStringLocalizer`/`IStringLocalizer<T>`/`IStringLocalizerFactory` migration adapter: name-is-key, missing→name, positional args → `{0}`, composing over `.resx`). ASP.NET request-culture flows via `CurrentUICulture` (D-5). The core stays dependency-free; the interop package is separable and droppable (D-J). |
 | 10.1 ✅ | Contracts (D-H) | `ILocalizer`/`ILocalizer<T>`/`ILocalizerFactory` modeled on `ILogger`; `[TranslationScope]`; the `Localized<TSelf>` self-scoped base (member name → key via `[CallerMemberName]`). |
 | 10.2 ✅ | Category tier | `CatalogEntry.Category`; snapshot/loader tiered `culture → category → key → message`; `Localizer : ILocalizer`; `Localizer<T>` + `LocalizerFactory`; zero-alloc preserved. *(Re-pointed at the ambient store in 10.3.)* |
 | 10.3 | Ambient layered store (D-I) | The `IConfiguration`-style store: layered sources, last-wins merge + atomic swap, lazy `AssemblyLoad`-driven discovery, embedded-catalog loader + advertising attribute; re-point the views at the store; test reset; trimming/single-file/AOT spike. **Amended:** the store, lookup, `ILocalizer`/`ILocalizer<T>`, and the null-renderer **stay in the runtime** (`net8.0;net9.0;net10.0`), *not* the `netstandard2.0` layer. They use `AppDomain.AssemblyLoad`, `FileSystemWatcher`, and runtime APIs the Roslyn host neither has nor needs. `Abstractions` (netstandard2.0) carries only the SPI the compiler loads — attributes, `Catalog`/`CatalogEntry`, the provider interface, the qualified-key/composite-key helpers — so the analyzer and generator can share types with the runtime without depending on a net8-only assembly (the reason `Abstractions` is kept rather than folded into the runtime). |

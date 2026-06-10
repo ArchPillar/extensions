@@ -2,7 +2,7 @@ using System.Globalization;
 using Microsoft.Extensions.Localization;
 using Ambient = ArchPillar.Extensions.Localization.Localization;
 
-namespace ArchPillar.Extensions.Localization.DependencyInjection;
+namespace ArchPillar.Extensions.Localization.StringLocalizer;
 
 /// <summary>
 /// Composing adapter from the ambient store to <see cref="IStringLocalizer"/>. The name is the key; a hit in
