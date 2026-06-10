@@ -56,11 +56,11 @@ part of an entry's on-disk identity and is never dropped** — the serialized ke
 - [ ] Misc yellows (incrementality comparers, write-if-changed extract, conditional element access `loc?[...]`, reproducible-build paths, copy-to-output glob flatten) — TODO.
 
 ## Packaging (pre-publish; breaking later)
-- [ ] PK-1  Roslyn pin 4.14 vs SDK floor — DECISION: keep the modern Roslyn pin, do NOT lower it; **document a
+- [x] PK-1  Roslyn pin 4.14 vs SDK floor — DECISION: keep the modern Roslyn pin, do NOT lower it; **document a
        minimum SDK** instead (SDK ≠ TFM: net8.0 targets build fine on a new SDK). Floor ≈ .NET SDK 9.0.3xx /
        VS 17.14 / .NET 10 SDK (the line shipping Roslyn 4.14+). Add to getting-started / recommendations and
        optionally a build-time check. Old-SDK consumers: extraction is silently off — the doc makes it explicit.
 - [ ] PK-2  Move `TranslationMarkers.L` from Abstractions to the runtime (inert in Abstractions).
-- [ ] PK-3  Amend DECISIONS 10.3 vs D-I — ILocalizer stays in the runtime (record the decision).
+- [x] PK-3  Amend DECISIONS 10.3 vs D-I — ILocalizer stays in the runtime (record the decision).
 - [x] PK-4  Tooling accidentally net10.0-only — multi-target net8;9;10.
 - [ ] PK-5  Pack MSBuild assets under build/ not buildTransitive/.

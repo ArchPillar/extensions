@@ -11,6 +11,15 @@ dotnet add package ArchPillar.Extensions.Localization
 
 Referencing the package also activates the analyzer and the source generator — no extra setup.
 
+### SDK requirement
+
+The analyzer and generator are built against a modern Roslyn, so the **build** needs a recent .NET SDK —
+roughly **.NET SDK 9.0.3xx or newer** (Visual Studio 17.14+, or any .NET 10 SDK). This is independent of
+your *target framework*: a project targeting `net8.0` builds fine, it just has to be built with a new
+enough SDK. On an older SDK the package still restores and the runtime still works, but **extraction and
+the analyzer silently do nothing** — no template is generated and no `APL` diagnostics appear. If your
+keys are not being extracted, check `dotnet --version` first.
+
 ## 2. Write a translatable call site
 
 Inject `ILocalizer<T>`; the type argument is the *category* that scopes your keys (the `ILogger<T>`
