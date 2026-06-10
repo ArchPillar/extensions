@@ -2,8 +2,6 @@ using System.Globalization;
 using System.Text;
 using ArchPillar.Extensions.Localization.Formats;
 using ArchPillar.Extensions.Localization.Tooling;
-using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp;
 using Ambient = ArchPillar.Extensions.Localization.Localization;
 
 namespace ArchPillar.Extensions.Localization.EndToEnd.Tests;
@@ -50,7 +48,7 @@ public sealed class GoldenPathTests : IDisposable
 
         // 2. The build runs the generator, which extracts the source strings into a template (here decoded
         //    from the assembly attribute the generator bakes — exactly what the tool reads at sync time).
-        Catalog template = await ReadArbAsync(ExtractTemplateArb(DeveloperCode));
+        Catalog template = await ReadArbAsync(GeneratorPipeline.ExtractTemplateArb(DeveloperCode));
         CatalogEntry source = Assert.Single(template.Entries);
         Assert.Equal("home.title", source.Key);
         Assert.Equal("Home", source.SourceMessage);
@@ -109,7 +107,7 @@ public sealed class GoldenPathTests : IDisposable
             }
             """;
 
-        Catalog template = await ReadArbAsync(ExtractTemplateArb(DeveloperCode));
+        Catalog template = await ReadArbAsync(GeneratorPipeline.ExtractTemplateArb(DeveloperCode));
 
         Catalog handedBack = new()
         {
@@ -139,47 +137,6 @@ public sealed class GoldenPathTests : IDisposable
     {
         Ambient.Reset();
         Directory.Delete(_translationsDirectory, recursive: true);
-    }
-
-    // Runs the real source generator over the developer's code and returns the ARB the build extracts. The
-    // generator bakes it as base64 into a [GeneratedLocalizationTemplate] assembly attribute; decoding it here
-    // is the faithful equivalent of what the dotnet tool reads from the compiled assembly at sync time.
-    private static string ExtractTemplateArb(string developerCode)
-    {
-        GeneratorDriver driver = CSharpGeneratorDriver.Create(new Generator.TranslationGenerator());
-        GeneratorDriverRunResult result = driver.RunGenerators(Compile(developerCode)).GetRunResult();
-        var template = result.Results
-            .SelectMany(r => r.GeneratedSources)
-            .Single(s => s.HintName == "LocalizationTemplate.g.cs")
-            .SourceText
-            .ToString();
-
-        const string Marker = "GeneratedLocalizationTemplate(";
-        var open = template.IndexOf(Marker, StringComparison.Ordinal) + Marker.Length;
-        var close = template.IndexOf(")]", open, StringComparison.Ordinal);
-        var parts = template[open..close].Split([", "], StringSplitOptions.None);
-        var base64 = parts[2].Trim().Trim('"');
-        return Encoding.UTF8.GetString(Convert.FromBase64String(base64));
-    }
-
-    private static Compilation Compile(string source)
-    {
-        SyntaxTree tree = CSharpSyntaxTree.ParseText(source, path: "Program.cs");
-        var trustedAssemblies = (string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!;
-        List<MetadataReference> references =
-        [
-            .. trustedAssemblies
-                .Split(Path.PathSeparator)
-                .Where(path => path.Length > 0)
-                .Select(path => (MetadataReference)MetadataReference.CreateFromFile(path))
-        ];
-        references.Add(MetadataReference.CreateFromFile(typeof(TranslatableAttribute).Assembly.Location));
-
-        return CSharpCompilation.Create(
-            "GoldenPath",
-            [tree],
-            references,
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
     }
 
     private static async Task<Catalog> ReadArbAsync(string arb)
