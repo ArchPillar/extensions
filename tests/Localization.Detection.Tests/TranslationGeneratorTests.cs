@@ -78,6 +78,32 @@ public sealed class TranslationGeneratorTests
         Assert.Equal(2, CountOccurrences(registry, "public const string Label = \"label\";"));
     }
 
+    [Fact]
+    public void Generator_ExtractsIStringLocalizerIndexerSites()
+    {
+        // The generator (not just the test-only whole-compilation Detect) must pick up indexer call sites.
+        const string Indexer = """
+            using Microsoft.Extensions.Localization;
+
+            public sealed class Home;
+
+            public sealed class Consumer(IStringLocalizer<Home> loc)
+            {
+                public string Title() => loc["Email is required"];
+            }
+            """;
+
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(new Generator.TranslationGenerator());
+        GeneratorDriverRunResult result = driver.RunGenerators(RoslynTestHost.CreateCompilation(Indexer)).GetRunResult();
+        var template = result.Results
+            .SelectMany(r => r.GeneratedSources)
+            .Single(s => s.HintName == "LocalizationTemplate.g.cs")
+            .SourceText
+            .ToString();
+
+        Assert.Contains("Email is required", DecodeTemplate(template));
+    }
+
     private static int CountOccurrences(string text, string value)
     {
         var count = 0;

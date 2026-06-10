@@ -56,7 +56,9 @@ public static class TranslationSiteDetector
     public static TranslationSiteResult? DetectAt(SemanticModel model, SyntaxNode node, CancellationToken cancellationToken)
     {
         var symbols = AttributeSymbols.From(model.Compilation);
-        return symbols.Translatable is null ? null : DetectCore(model, node, symbols, cancellationToken);
+        return symbols.Translatable is null && symbols.StringLocalizer is null
+            ? null
+            : DetectCore(model, node, symbols, cancellationToken);
     }
 
     private static TranslationSiteResult? DetectCore(

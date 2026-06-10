@@ -22,7 +22,7 @@ public sealed class TranslationGenerator : IIncrementalGenerator
     {
         IncrementalValueProvider<ImmutableArray<TranslationSite?>> sites = context.SyntaxProvider
             .CreateSyntaxProvider(
-                static (node, _) => node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax,
+                static (node, _) => node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax or ElementAccessExpressionSyntax,
                 static (syntaxContext, ct) =>
                     TranslationSiteDetector.DetectAt(syntaxContext.SemanticModel, syntaxContext.Node, ct)?.Site)
             .Where(static site => site is not null)
