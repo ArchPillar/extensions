@@ -42,9 +42,13 @@ internal static class Reconciler
 
     private static CatalogEntry Merge(CatalogEntry source, CatalogEntry current)
     {
+        // The fingerprint is computed from the source message (and context), and the placeholder set is
+        // derived from that same source message, so any placeholder change is already a fingerprint change.
+        // Comparing placeholders separately is redundant — and actively harmful for formats that do not
+        // persist them (PO, XLIFF), whose targets read back with no placeholders and would otherwise be
+        // re-flagged for review on every sync. Drift is therefore decided by the fingerprint alone.
         var sourceDrifted = !string.Equals(current.SourceFingerprint, source.SourceFingerprint, StringComparison.Ordinal);
-        var placeholdersChanged = !current.Placeholders.SequenceEqual(source.Placeholders, StringComparer.Ordinal);
-        var needsReview = sourceDrifted || placeholdersChanged;
+        var needsReview = sourceDrifted;
 
         return current with
         {

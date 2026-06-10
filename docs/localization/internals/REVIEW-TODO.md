@@ -25,7 +25,7 @@ part of an entry's on-disk identity and is never dropped** — the serialized ke
 - [x] T-O4  `merge` to ARB with same key in two categories → duplicate JSON keys. — FIXED: qualified member per category.
 - [x] T-O1  Untranslated ARB keeps stale source after a template change (ARB read sets TranslatedMessage even when NeedsTranslation). — FIXED: read returns null translation for explicit NeedsTranslation.
 - [x] T-O7  ARB drift writes the translation as x-previous-source, not the old source (same root as T-O1). — FIXED: reconciler skips previous-source when source==translation.
-- [ ] T-O2  PO/XLIFF re-flag fuzzy on every sync (placeholders never persisted, always "changed").
+- [x] T-O2  PO/XLIFF re-flag fuzzy on every sync (placeholders never persisted, always "changed").
 - [x] T-O3  PO drops translators' `# ` comments on every sync. — FIXED: added CatalogEntry.TranslatorComment, round-tripped in PO, preserved by reconciler. (non-fuzzy flags / `#~` obsolete preservation still TODO.)
 - [ ] T-O6  `convert` silently lossy; FormatCapabilities consumed by nothing — warn per lost capability.
 

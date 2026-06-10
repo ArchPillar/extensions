@@ -43,14 +43,30 @@ public sealed class ReconcilerTests
     }
 
     [Fact]
-    public void Reconcile_PlaceholderChange_FlagsReview()
+    public void Reconcile_SourceWithPlaceholderChange_FlagsReviewViaFingerprint()
     {
-        Catalog template = MakeCatalog("en", Entry("greet", "Hi {name}", "fp1", placeholders: ["name"]));
+        // A placeholder change is a source-message change, so it carries a new fingerprint — that is what
+        // flags the review, not a separate placeholder comparison.
+        Catalog template = MakeCatalog("en", Entry("greet", "Hi {name}", "fp2", placeholders: ["name"]));
         Catalog target = MakeCatalog("de", Entry("greet", "Hi", "fp1", "Hallo", TranslationState.Translated));
 
         CatalogEntry entry = Single(Reconciler.Reconcile(template, target));
 
         Assert.Equal(TranslationState.NeedsReview, entry.State);
+        Assert.Equal("Hallo", entry.TranslatedMessage);
+    }
+
+    [Fact]
+    public void Reconcile_TargetMissingPlaceholders_DoesNotReFlagWhenSourceUnchanged()
+    {
+        // PO/XLIFF do not persist placeholders, so a translated target reads back with none. With the source
+        // unchanged (same fingerprint) this must stay Translated rather than be re-flagged on every sync.
+        Catalog template = MakeCatalog("en", Entry("greet", "Hi {name}", "fp1", placeholders: ["name"]));
+        Catalog target = MakeCatalog("de", Entry("greet", "Hi {name}", "fp1", "Hallo", TranslationState.Translated));
+
+        CatalogEntry entry = Single(Reconciler.Reconcile(template, target));
+
+        Assert.Equal(TranslationState.Translated, entry.State);
         Assert.Equal("Hallo", entry.TranslatedMessage);
     }
 
