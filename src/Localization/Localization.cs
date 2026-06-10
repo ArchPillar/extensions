@@ -137,6 +137,13 @@ public static class Localization
 
         lock (_gate)
         {
+            // Idempotent for the same source instance: re-registering (e.g. AddArchPillarLocalization called
+            // twice with the same options) must not stack duplicate layers onto the process-global store.
+            if (_sources.Contains(source))
+            {
+                return;
+            }
+
             _sources.Add(source);
             Rebuild();
         }

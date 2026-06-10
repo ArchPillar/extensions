@@ -39,7 +39,7 @@ part of an entry's on-disk identity and is never dropped** — the serialized ke
 - [x] P-O9  Publish merge swaps stale bundles when the tool fails (apl-merged never cleaned; swap not gated on exit code).
 
 ## ORANGE — DI / CLI safety
-- [ ] D-F2  Registration-time mutation of process-global ambient state; AddSource not idempotent; double-registration / multi-host cross-pollution; `""` directory ignored.
+- [x] D-F2  Registration-time mutation of process-global ambient state; AddSource not idempotent; double-registration / multi-host cross-pollution; `""` directory ignored.
 - [ ] D-F3  AddLocalization() after AddArchPillarLocalization() silently drops all .resx (TryAdd no-ops, inner captured null).
 - [ ] D-F4  Injected concrete Localizer reads a different store than the interfaces; MissingArguments/FormatPrecedence/hot-reload options ignored on ambient paths.
 - [ ] D-F5  IStringLocalizer.GetAllStrings omits ambient entries.

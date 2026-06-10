@@ -28,6 +28,14 @@ public static class ServiceCollectionExtensions
             throw new ArgumentNullException(nameof(services));
         }
 
+        // Idempotent per collection: a second call (a common double-registration footgun, and what makes the
+        // process-global ambient mutation below dangerous) is a no-op rather than stacking duplicate sources
+        // and chaining the composing factory over itself. The first registration's options win.
+        if (services.Any(descriptor => descriptor.ServiceType == typeof(Localizer)))
+        {
+            return services;
+        }
+
         LocalizerOptions resolved = options ?? new LocalizerOptions();
 
         // Feed the ambient store so DI and the ambient share one source of truth.

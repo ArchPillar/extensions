@@ -143,6 +143,21 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
         });
     }
 
+    [Fact]
+    public void AddArchPillarLocalization_CalledTwice_IsIdempotent()
+    {
+        Ambient.Reset();
+        var services = new ServiceCollection();
+        services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" });
+        services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" });
+
+        Assert.Equal(1, services.Count(descriptor => descriptor.ServiceType == typeof(Localizer)));
+        Assert.Equal(1, services.Count(descriptor => descriptor.ServiceType == typeof(IStringLocalizerFactory)));
+
+        using ServiceProvider provider = services.BuildServiceProvider();
+        Assert.NotNull(provider.GetRequiredService<IStringLocalizer>());
+    }
+
     public void Dispose()
     {
         Ambient.Reset();
