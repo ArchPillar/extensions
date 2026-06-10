@@ -142,6 +142,28 @@ public sealed class TranslationAnalyzerTests
         Assert.Contains(diagnostics, d => d.Id == "APL0008");
     }
 
+    [Fact]
+    public async Task Analyzer_InvalidKeyPattern_DoesNotCrashAndKeepsOtherDiagnosticsAsync()
+    {
+        // A syntactically invalid pattern must not throw out of the analyzer (Roslyn would surface AD0001
+        // and disable every APL diagnostic); it degrades to no key-pattern check while the rest run.
+        var options = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["build_property.ArchPillarLocalizationKeyPattern"] = "[unterminated("
+        };
+
+        ImmutableArray<Diagnostic> diagnostics = await RoslynTestHost.RunAnalyzerAsync(
+            RoslynTestHost.CreateCompilation(Wrap("""
+                T.Translate("dup", "First wording");
+                T.Translate("dup", "Second wording");
+            """)),
+            options);
+
+        Assert.DoesNotContain(diagnostics, d => d.Id == "AD0001");
+        Assert.DoesNotContain(diagnostics, d => d.Id == "APL0008");
+        Assert.Contains(diagnostics, d => d.Id == "APL0006");
+    }
+
     private static string Wrap(string body) => $$"""
         using ArchPillar.Extensions.Localization;
 

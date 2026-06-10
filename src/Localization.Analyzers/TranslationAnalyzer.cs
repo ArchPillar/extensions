@@ -116,9 +116,22 @@ public sealed class TranslationAnalyzer : DiagnosticAnalyzer
             context.ReportDiagnostic(Diagnostic.Create(Diagnostics.IdenticalText, location, firstKey));
         }
 
-        if (state.KeyPattern?.IsMatch(site.Key) == false)
+        if (state.KeyPattern is not null && !Matches(state.KeyPattern, site.Key))
         {
             context.ReportDiagnostic(Diagnostic.Create(Diagnostics.KeyPattern, location, site.Key, state.KeyPattern.ToString()));
+        }
+    }
+
+    private static bool Matches(Regex pattern, string key)
+    {
+        try
+        {
+            return pattern.IsMatch(key);
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            // A pathological pattern timed out on this key; accept the key rather than crash the analyzer.
+            return true;
         }
     }
 
@@ -127,7 +140,18 @@ public sealed class TranslationAnalyzer : DiagnosticAnalyzer
         if (options.AnalyzerConfigOptionsProvider.GlobalOptions.TryGetValue("build_property.ArchPillarLocalizationKeyPattern", out var pattern)
             && pattern.Length > 0)
         {
-            return new Regex(pattern, RegexOptions.CultureInvariant);
+            try
+            {
+                // A user-authored pattern may be syntactically invalid (throwing at construction) or
+                // pathological (hanging on match). A bounded match timeout caps the latter; catching the
+                // former degrades to "no key-pattern check" instead of throwing out of CompilationStart,
+                // which Roslyn would surface as AD0001 and which disables every APL diagnostic.
+                return new Regex(pattern, RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(250));
+            }
+            catch (ArgumentException)
+            {
+                return null;
+            }
         }
 
         return null;

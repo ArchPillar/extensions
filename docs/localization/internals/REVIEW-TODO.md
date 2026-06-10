@@ -23,16 +23,16 @@ part of an entry's on-disk identity and is never dropped** — the serialized ke
 - [ ] P-O1  Same key, different context dropped from the template (dedup ignores context).
 - [ ] P-O3  `@`-prefixed key corrupts the ARB template (no guard, unlike the runtime writer).
 - [ ] T-O4  `merge` to ARB with same key in two categories → duplicate JSON keys.
-- [ ] T-O1  Untranslated ARB keeps stale source after a template change (ARB read sets TranslatedMessage even when NeedsTranslation).
-- [ ] T-O7  ARB drift writes the translation as x-previous-source, not the old source (same root as T-O1).
+- [x] T-O1  Untranslated ARB keeps stale source after a template change (ARB read sets TranslatedMessage even when NeedsTranslation). — FIXED: read returns null translation for explicit NeedsTranslation.
+- [x] T-O7  ARB drift writes the translation as x-previous-source, not the old source (same root as T-O1). — FIXED: reconciler skips previous-source when source==translation.
 - [ ] T-O2  PO/XLIFF re-flag fuzzy on every sync (placeholders never persisted, always "changed").
-- [ ] T-O3  PO drops translators' `# ` comments (and non-fuzzy flags, `#~` obsolete) on every sync.
+- [x] T-O3  PO drops translators' `# ` comments on every sync. — FIXED: added CatalogEntry.TranslatorComment, round-tripped in PO, preserved by reconciler. (non-fuzzy flags / `#~` obsolete preservation still TODO.)
 - [ ] T-O6  `convert` silently lossy; FormatCapabilities consumed by nothing — warn per lost capability.
 
 ## ORANGE — generator / analyzer
-- [ ] P-O2  Generated key registry fails to compile (no `\n\r\t\0` escaping; identifier collisions with category class / `TranslationKeys`).
+- [x] P-O2  Generated key registry fails to compile (no `\n\r\t\0` escaping; identifier collisions with category class / `TranslationKeys`). — FIXED: control-char literal escaping; single shared top-level member set seeded with enclosing type; per-class const set seeded with class name.
 - [ ] P-O4  Analyzer APL0006/0007 order-dependent + blind to cross-file duplicates in the IDE — move to CompilationEndAction.
-- [ ] P-O5  Invalid `ArchPillarLocalizationKeyPattern` regex → AD0001 disables all APL diagnostics; add try/catch + match timeout.
+- [x] P-O5  Invalid `ArchPillarLocalizationKeyPattern` regex → AD0001 disables all APL diagnostics; add try/catch + match timeout.
 - [ ] P-O6  `Localized<TSelf>` args overload gets no APL0003/0004 (SuppliedArguments only handles params).
 - [ ] P-O7  Extension-method (and object-creation) receivers lose the [TranslationScope] category → extracted global, resolved per-T.
 - [ ] P-O8  Documented roll-your-own forwarder hits hard APL0001; recognize a forwarder (param carries the attribute) or add an opt-out.
