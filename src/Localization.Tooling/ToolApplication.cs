@@ -16,6 +16,18 @@ internal static class ToolApplication
 {
     private const string TemplateAttribute = "ArchPillar.Extensions.Localization.GeneratedLocalizationTemplateAttribute";
 
+    // The options each command accepts. An option outside its command's set is rejected rather than
+    // silently ignored, so a typo (e.g. "--chek" for "--check") cannot turn a read-only check into a write.
+    private static readonly IReadOnlyDictionary<string, IReadOnlyCollection<string>> _knownOptions =
+        new Dictionary<string, IReadOnlyCollection<string>>(StringComparer.Ordinal)
+        {
+            ["extract"] = new HashSet<string>(StringComparer.Ordinal) { "--assembly", "--output" },
+            ["add"] = new HashSet<string>(StringComparer.Ordinal) { "--template", "--output", "--force" },
+            ["sync"] = new HashSet<string>(StringComparer.Ordinal) { "--template", "--target", "--check" },
+            ["convert"] = new HashSet<string>(StringComparer.Ordinal) { "--from", "--to", "--output" },
+            ["merge"] = new HashSet<string>(StringComparer.Ordinal) { "--input", "--output", "--format", "--source" }
+        };
+
     public static async Task<int> RunAsync(string[] arguments)
     {
         if (arguments.Length == 0)
@@ -23,17 +35,29 @@ internal static class ToolApplication
             return Usage();
         }
 
+        var command = arguments[0];
+        if (!_knownOptions.TryGetValue(command, out IReadOnlyCollection<string>? allowed))
+        {
+            return Fail($"Unknown command '{command}'.");
+        }
+
         Dictionary<string, string> options = ParseOptions(arguments);
+        var unknown = options.Keys.FirstOrDefault(key => !allowed.Contains(key));
+        if (unknown is not null)
+        {
+            return Fail($"Unknown option '{unknown}' for '{command}'.");
+        }
+
         try
         {
-            return arguments[0] switch
+            return command switch
             {
                 "extract" => await ExtractAsync(options).ConfigureAwait(false),
                 "add" => await AddAsync(arguments, options).ConfigureAwait(false),
                 "sync" => await SyncAsync(options).ConfigureAwait(false),
                 "convert" => await ConvertAsync(options).ConfigureAwait(false),
                 "merge" => await MergeAsync(options).ConfigureAwait(false),
-                _ => Fail($"Unknown command '{arguments[0]}'.")
+                _ => Fail($"Unknown command '{command}'.")
             };
         }
         catch (Exception exception)
@@ -60,7 +84,9 @@ internal static class ToolApplication
 
     private static async Task<int> AddAsync(string[] arguments, IReadOnlyDictionary<string, string> options)
     {
-        if (arguments.Length < 2)
+        // The language is the first positional argument; an option in its place (e.g. "add --template …")
+        // means it was omitted, which would otherwise create a junk "--template.arb" file and exit 0.
+        if (arguments.Length < 2 || arguments[1].StartsWith("--", StringComparison.Ordinal))
         {
             return Fail("Usage: add <lang> --template <path> --output <dir> [--force]");
         }
@@ -110,6 +136,11 @@ internal static class ToolApplication
         var from = Require(options, "--from");
         var toFormat = Require(options, "--to");
         var output = Require(options, "--output");
+        if (SamePath(from, output))
+        {
+            return Fail("--output must differ from --from; converting in place would overwrite the source file.");
+        }
+
         TranslationFormatRegistry registry = BuildRegistry();
 
         ITranslationFormat target = registry.ResolveById(toFormat) ?? throw new ArgumentException($"Unknown format '{toFormat}'.");
@@ -123,6 +154,12 @@ internal static class ToolApplication
     {
         var input = Require(options, "--input");
         var output = Require(options, "--output");
+        var inputDirectory = File.Exists(input) ? Path.GetDirectoryName(Path.GetFullPath(input))! : input;
+        if (SamePath(inputDirectory, output))
+        {
+            return Fail("--output must differ from the --input location; merging into it would overwrite the source catalogs.");
+        }
+
         var formatId = options.TryGetValue("--format", out var f) && f.Length > 0 ? f : "arb";
         var sourceCulture = options.TryGetValue("--source", out var s) && s.Length > 0 ? s : "en";
         TranslationFormatRegistry registry = BuildRegistry();
@@ -198,6 +235,12 @@ internal static class ToolApplication
         ?? throw new ArgumentException($"No provider for '{path}'.");
 
     private static string Extension(ITranslationFormat provider) => provider.Extensions.First();
+
+    private static bool SamePath(string left, string right) =>
+        string.Equals(
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(left)),
+            Path.TrimEndingDirectorySeparator(Path.GetFullPath(right)),
+            StringComparison.Ordinal);
 
     private static async Task<Catalog> ReadFileAsync(ITranslationFormat provider, string path)
     {

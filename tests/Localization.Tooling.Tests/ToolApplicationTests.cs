@@ -86,6 +86,44 @@ public sealed class ToolApplicationTests : IDisposable
         Assert.Equal(2, de.Entries.Count); // both libraries' de entries merged into one bundle
     }
 
+    [Fact]
+    public async Task Sync_TypoedCheckOption_IsRejectedAndDoesNotWriteAsync()
+    {
+        await WriteTemplateAsync();
+        await ToolApplication.RunAsync(["add", "de", "--template", _template, "--output", _directory]);
+        var targetPath = Path.Combine(_directory, "de.arb");
+        var before = await File.ReadAllBytesAsync(targetPath);
+
+        // "--chek" is a typo for "--check"; silently ignoring it would turn the read-only gate into a write.
+        var exit = await ToolApplication.RunAsync(["sync", "--template", _template, "--target", targetPath, "--chek"]);
+
+        Assert.Equal(1, exit);
+        Assert.Equal(before, await File.ReadAllBytesAsync(targetPath));
+    }
+
+    [Fact]
+    public async Task Add_WithoutLanguage_FailsInsteadOfCreatingJunkFileAsync()
+    {
+        await WriteTemplateAsync();
+
+        var exit = await ToolApplication.RunAsync(["add", "--template", _template, "--output", _directory]);
+
+        Assert.Equal(1, exit);
+        Assert.False(File.Exists(Path.Combine(_directory, "--template.arb")));
+    }
+
+    [Fact]
+    public async Task Merge_OutputEqualsInput_IsRefusedAsync()
+    {
+        var input = Path.Combine(_directory, "input");
+        Directory.CreateDirectory(input);
+        await WriteCatalogAsync(Path.Combine(input, "LibA.de.arb"), "de", ("save", "Speichern"));
+
+        var exit = await ToolApplication.RunAsync(["merge", "--input", input, "--output", input, "--source", "en"]);
+
+        Assert.Equal(1, exit);
+    }
+
     public void Dispose() => Directory.Delete(_directory, recursive: true);
 
     private async Task WriteCatalogAsync(string path, string culture, params (string Key, string Message)[] entries)

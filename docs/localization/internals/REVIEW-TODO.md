@@ -13,16 +13,16 @@ part of an entry's on-disk identity and is never dropped** — the serialized ke
 - Tool reconciler identity becomes `(category, composite(key, context))`.
 
 ## RED
-- [ ] P-R1  Generator never extracts IStringLocalizer indexer sites (predicate lacks ElementAccessExpression; whole-compilation Detect() unused). + relax DetectAt guard.
-- [ ] T-R2  Bare `dotnet apl` crashes (Spectre parses `[options]`); escape `[[options]]`, move Usage() into try.
-- [ ] P-R2  Same key in two categories → duplicate ARB JSON members (qualify the member name).
-- [ ] T-R1  Reconciler drops Category (New() + Composite() ignore it) → tool-produced translations unreachable.
-- [ ] D-F1  IStringLocalizer adapter renders the name as ICU before consulting the inner factory → throws on `{0:C}`/`{{`. Add a raw (non-formatting) found-aware ambient lookup; consult inner before the default.
+- [x] P-R1  Generator never extracts IStringLocalizer indexer sites (predicate lacks ElementAccessExpression; whole-compilation Detect() unused). + relax DetectAt guard. — FIXED.
+- [x] T-R2  Bare `dotnet apl` crashes (Spectre parses `[options]`); escape `[[options]]`, move Usage() into try. — FIXED: Spectre dropped, plain Console usage; `RunAsync([])` returns 1.
+- [x] P-R2  Same key in two categories → duplicate ARB JSON members (qualify the member name). — FIXED via QualifiedKey.
+- [x] T-R1  Reconciler drops Category (New() + Composite() ignore it) → tool-produced translations unreachable. — FIXED.
+- [x] D-F1  IStringLocalizer adapter renders the name as ICU before consulting the inner factory → throws on `{0:C}`/`{{`. — FIXED: raw found-aware ambient lookup; inner consulted before the default.
 
 ## ORANGE — formats / template (category-qualification cluster)
-- [ ] P-O1  Same key, different context dropped from the template (dedup ignores context).
-- [ ] P-O3  `@`-prefixed key corrupts the ARB template (no guard, unlike the runtime writer).
-- [ ] T-O4  `merge` to ARB with same key in two categories → duplicate JSON keys.
+- [x] P-O1  Same key, different context dropped from the template (dedup ignores context). — FIXED: dedup keys on (category, key, context).
+- [x] P-O3  `@`-prefixed key corrupts the ARB template (no guard, unlike the runtime writer). — FIXED: qualified member (`::@weird`) is never mistaken for metadata.
+- [x] T-O4  `merge` to ARB with same key in two categories → duplicate JSON keys. — FIXED: qualified member per category.
 - [x] T-O1  Untranslated ARB keeps stale source after a template change (ARB read sets TranslatedMessage even when NeedsTranslation). — FIXED: read returns null translation for explicit NeedsTranslation.
 - [x] T-O7  ARB drift writes the translation as x-previous-source, not the old source (same root as T-O1). — FIXED: reconciler skips previous-source when source==translation.
 - [ ] T-O2  PO/XLIFF re-flag fuzzy on every sync (placeholders never persisted, always "changed").
@@ -43,12 +43,12 @@ part of an entry's on-disk identity and is never dropped** — the serialized ke
 - [ ] D-F3  AddLocalization() after AddArchPillarLocalization() silently drops all .resx (TryAdd no-ops, inner captured null).
 - [ ] D-F4  Injected concrete Localizer reads a different store than the interfaces; MissingArguments/FormatPrecedence/hot-reload options ignored on ambient paths.
 - [ ] D-F5  IStringLocalizer.GetAllStrings omits ambient entries.
-- [ ] T-O5  `merge --output == --input` clobbers translator files; refuse equal paths.
+- [x] T-O5  `merge --output == --input` clobbers translator files; refuse equal paths.
 - [ ] T-O8  All tool output (incl. errors) vanishes when stdout is redirected (Spectre no-TTY); write errors via Console.Error.
-- [ ] T-O9  `add` without <lang> creates a junk file with exit 0.
+- [x] T-O9  `add` without <lang> creates a junk file with exit 0.
 
 ## YELLOW (key ones to fix; rest are TODO)
-- [ ] T-Y1  Typo'd `--check` makes CI write files + exit 0 — reject unknown options.
+- [x] T-Y1  Typo'd `--check` makes CI write files + exit 0 — reject unknown options.
 - [ ] T-Y2  sync --check can't distinguish drift (1) from error — use distinct exit codes.
 - [ ] T-Y3  Malformed-file errors omit the file path.
 - [ ] P-O2b "Registry must compile" property test over adversarial keys.
