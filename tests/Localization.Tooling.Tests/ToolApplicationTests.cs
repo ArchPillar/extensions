@@ -21,7 +21,7 @@ public sealed class ToolApplicationTests : IDisposable
     {
         var exit = await ToolApplication.RunAsync([]);
 
-        Assert.Equal(1, exit);
+        Assert.Equal(2, exit);
     }
 
     [Fact]
@@ -97,8 +97,27 @@ public sealed class ToolApplicationTests : IDisposable
         // "--chek" is a typo for "--check"; silently ignoring it would turn the read-only gate into a write.
         var exit = await ToolApplication.RunAsync(["sync", "--template", _template, "--target", targetPath, "--chek"]);
 
-        Assert.Equal(1, exit);
+        Assert.Equal(2, exit);
         Assert.Equal(before, await File.ReadAllBytesAsync(targetPath));
+    }
+
+    [Fact]
+    public async Task Sync_Check_DriftReturns1_DistinctFromErrorCode2Async()
+    {
+        await WriteTemplateAsync();
+        await ToolApplication.RunAsync(["add", "de", "--template", _template, "--output", _directory]);
+        var targetPath = Path.Combine(_directory, "de.arb");
+
+        // Drop an entry so the target diverges from a fresh reconcile (which would re-add it); --check must
+        // report this drift as 1, distinct from the error code 2.
+        Catalog target = await ReadAsync(targetPath);
+        await WriteCatalogRawAsync(targetPath, target with { Entries = [target.Entries[0]] });
+
+        var drift = await ToolApplication.RunAsync(["sync", "--template", _template, "--target", targetPath, "--check"]);
+        var error = await ToolApplication.RunAsync(["sync", "--template", _template, "--target", Path.Combine(_directory, "missing.arb"), "--check"]);
+
+        Assert.Equal(1, drift);
+        Assert.Equal(2, error);
     }
 
     [Fact]
@@ -108,8 +127,31 @@ public sealed class ToolApplicationTests : IDisposable
 
         var exit = await ToolApplication.RunAsync(["add", "--template", _template, "--output", _directory]);
 
-        Assert.Equal(1, exit);
+        Assert.Equal(2, exit);
         Assert.False(File.Exists(Path.Combine(_directory, "--template.arb")));
+    }
+
+    [Fact]
+    public async Task Sync_MalformedTarget_ErrorNamesTheFileAsync()
+    {
+        await WriteTemplateAsync();
+        var targetPath = Path.Combine(_directory, "de.arb");
+        await File.WriteAllTextAsync(targetPath, "{ not valid json");
+
+        TextWriter error = Console.Error;
+        using var captured = new StringWriter();
+        Console.SetError(captured);
+        try
+        {
+            var exit = await ToolApplication.RunAsync(["sync", "--template", _template, "--target", targetPath]);
+            Assert.Equal(2, exit);
+        }
+        finally
+        {
+            Console.SetError(error);
+        }
+
+        Assert.Contains("de.arb", captured.ToString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -121,7 +163,7 @@ public sealed class ToolApplicationTests : IDisposable
 
         var exit = await ToolApplication.RunAsync(["merge", "--input", input, "--output", input, "--source", "en"]);
 
-        Assert.Equal(1, exit);
+        Assert.Equal(2, exit);
     }
 
     public void Dispose() => Directory.Delete(_directory, recursive: true);
@@ -145,6 +187,12 @@ public sealed class ToolApplicationTests : IDisposable
             ]
         };
 
+        using FileStream stream = File.Create(path);
+        await _arb.WriteAsync(stream, catalog, CancellationToken.None);
+    }
+
+    private static async Task WriteCatalogRawAsync(string path, Catalog catalog)
+    {
         using FileStream stream = File.Create(path);
         await _arb.WriteAsync(stream, catalog, CancellationToken.None);
     }

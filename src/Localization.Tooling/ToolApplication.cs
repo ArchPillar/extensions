@@ -123,7 +123,7 @@ internal static class ToolApplication
         if (options.ContainsKey("--check"))
         {
             var current = File.ReadAllBytes(targetPath);
-            return current.AsSpan().SequenceEqual(updated) ? 0 : Fail($"'{targetPath}' is out of date.");
+            return current.AsSpan().SequenceEqual(updated) ? 0 : Drift($"'{targetPath}' is out of date; run sync to update it.");
         }
 
         File.WriteAllBytes(targetPath, updated);
@@ -245,7 +245,15 @@ internal static class ToolApplication
     private static async Task<Catalog> ReadFileAsync(ITranslationFormat provider, string path)
     {
         using FileStream stream = File.OpenRead(path);
-        return await provider.ReadAsync(stream, CancellationToken.None).ConfigureAwait(false);
+        try
+        {
+            return await provider.ReadAsync(stream, CancellationToken.None).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // A parse failure from the provider names no file; prepend the path so the error is actionable.
+            throw new InvalidOperationException($"Failed to read '{path}': {exception.Message}", exception);
+        }
     }
 
     private static async Task<Catalog> ReadAsync(ITranslationFormat provider, Stream stream)
@@ -298,17 +306,25 @@ internal static class ToolApplication
 
     private static void Success(string message) => Console.Out.WriteLine("done " + message);
 
+    // Exit codes follow the diff/check convention so a CI gate can tell the two apart: 0 = success,
+    // 1 = the catalog drifted (an expected, actionable "diff" outcome of sync --check), 2 = an error
+    // (bad invocation, missing/malformed file). Errors and drift both go to stderr so they survive a
+    // redirected stdout.
+    private static int Drift(string message)
+    {
+        Console.Error.WriteLine("drift: " + message);
+        return 1;
+    }
+
     private static int Fail(string message)
     {
-        // Errors go to stderr as plain text so they are visible (and separable from data) under redirection —
-        // a CI gate or a pipe must always see why it failed.
         Console.Error.WriteLine("error: " + message);
-        return 1;
+        return 2;
     }
 
     private static int Usage()
     {
         Console.Error.WriteLine("dotnet apl <extract|add|sync|convert|merge> [options]");
-        return 1;
+        return 2;
     }
 }

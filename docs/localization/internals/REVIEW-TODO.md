@@ -44,13 +44,13 @@ part of an entry's on-disk identity and is never dropped** — the serialized ke
 - [ ] D-F4  Injected concrete Localizer reads a different store than the interfaces; MissingArguments/FormatPrecedence/hot-reload options ignored on ambient paths.
 - [ ] D-F5  IStringLocalizer.GetAllStrings omits ambient entries.
 - [x] T-O5  `merge --output == --input` clobbers translator files; refuse equal paths.
-- [ ] T-O8  All tool output (incl. errors) vanishes when stdout is redirected (Spectre no-TTY); write errors via Console.Error.
+- [x] T-O8  All tool output (incl. errors) vanishes when stdout is redirected (Spectre no-TTY); write errors via Console.Error.
 - [x] T-O9  `add` without <lang> creates a junk file with exit 0.
 
 ## YELLOW (key ones to fix; rest are TODO)
 - [x] T-Y1  Typo'd `--check` makes CI write files + exit 0 — reject unknown options.
-- [ ] T-Y2  sync --check can't distinguish drift (1) from error — use distinct exit codes.
-- [ ] T-Y3  Malformed-file errors omit the file path.
+- [x] T-Y2  sync --check can't distinguish drift (1) from error — use distinct exit codes.
+- [x] T-Y3  Malformed-file errors omit the file path.
 - [ ] P-O2b "Registry must compile" property test over adversarial keys.
 - [ ] D-F6/7/8  Inner factory built outside container disposal / no TryAdd guard / keyed-descriptor skips an earlier unkeyed factory.
 - [ ] Misc yellows (incrementality comparers, write-if-changed extract, conditional element access `loc?[...]`, reproducible-build paths, copy-to-output glob flatten) — TODO.

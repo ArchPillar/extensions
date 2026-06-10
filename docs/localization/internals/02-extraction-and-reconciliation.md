@@ -139,7 +139,7 @@ dotnet apl convert   (--template | --lang <lang>) --to <po|xliff|arb>
                          --output <dir>
 ```
 
-- `--check` (on `template` and `sync`) is the continuous-integration gate: run in memory, exit nonzero if the on-disk template or any target file is out of date, write nothing.
+- `--check` (on `template` and `sync`) is the continuous-integration gate: run in memory, write nothing, and use diff-style exit codes — `0` up to date, `1` drift detected (re-run `sync` to fix), `2` an error (bad invocation, missing or malformed file). A gate that only needs pass/fail still treats any nonzero as failure; one that wants to retry on drift but stop on error can tell them apart. Diagnostics (drift and errors alike) go to stderr.
 - `add` refuses to overwrite an existing target file unless `--force`; this is the only way a *new* language enters, and it is explicit and human-driven.
 - `--report` drives dashboards (per-language counts of new, stale, removed, untranslated).
 - The tool's `template` and the generator produce byte-identical templates for the same inputs (shared core); this is a test gate.
