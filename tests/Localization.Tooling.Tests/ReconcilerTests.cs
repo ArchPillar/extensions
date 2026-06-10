@@ -133,6 +133,24 @@ public sealed class ReconcilerTests
         Assert.Equal("App.Buttons", buttons.Category);
     }
 
+    [Fact]
+    public void Reconcile_TranslatorComment_IsPreservedWhileDeveloperCommentRefreshes()
+    {
+        Catalog template = MakeCatalog("en", Entry("home", "Home", "fp1") with { Comment = "new dev note" });
+        Catalog target = MakeCatalog(
+            "de",
+            Entry("home", "Home", "fp1", "Startseite", TranslationState.Translated) with
+            {
+                Comment = "old dev note",
+                TranslatorComment = "translator's own note"
+            });
+
+        CatalogEntry entry = Single(Reconciler.Reconcile(template, target));
+
+        Assert.Equal("translator's own note", entry.TranslatorComment);
+        Assert.Equal("new dev note", entry.Comment);
+    }
+
     private static CatalogEntry Entry(
         string key,
         string source,

@@ -182,6 +182,15 @@ public sealed class PoTranslationFormat : ITranslationFormat
 
     private static void WriteComments(StringBuilder builder, CatalogEntry entry, GettextPlural? plural)
     {
+        if (!string.IsNullOrEmpty(entry.TranslatorComment))
+        {
+            // Translator comments ("# ") come first, ahead of the extracted ("#.") comments, per gettext order.
+            foreach (var line in entry.TranslatorComment!.Split('\n'))
+            {
+                builder.Append("# ").Append(line).Append('\n');
+            }
+        }
+
         if (plural is not null)
         {
             builder.Append("#. ").Append(IcuArgPrefix).Append(plural.ArgumentName).Append('\n');
@@ -280,6 +289,7 @@ public sealed class PoTranslationFormat : ITranslationFormat
     private sealed class PoEntry
     {
         private readonly List<string> _comments = [];
+        private readonly List<string> _translatorComments = [];
         private readonly Dictionary<int, string> _plurals = [];
         private Field _last;
         private int _lastIndex;
@@ -343,6 +353,7 @@ public sealed class PoTranslationFormat : ITranslationFormat
                 SourceMessage = source,
                 TranslatedMessage = translated,
                 Comment = _comments.Count == 0 ? null : string.Join("\n", _comments),
+                TranslatorComment = _translatorComments.Count == 0 ? null : string.Join("\n", _translatorComments),
                 PreviousSource = PreviousSource,
                 References = References,
                 Placeholders = [],
@@ -420,6 +431,13 @@ public sealed class PoTranslationFormat : ITranslationFormat
                     IsObsolete = true;
                     break;
                 default:
+                    // A "# " line (marker is a space, or any other unrecognised marker) is a
+                    // translator-authored comment. Preserve it so it survives the next sync.
+                    if (rest.Length > 0)
+                    {
+                        _translatorComments.Add(rest);
+                    }
+
                     break;
             }
         }

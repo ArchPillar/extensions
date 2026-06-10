@@ -180,6 +180,39 @@ public sealed class PoTranslationFormatTests
     }
 
     [Fact]
+    public async Task Read_TranslatorComment_IsCapturedAndKeptDistinctFromExtractedAsync()
+    {
+        const string Po = """
+            # please keep this formal
+            #. developer note
+            msgctxt "k"
+            msgid "src"
+            msgstr "t"
+            """;
+
+        Catalog catalog = await ReadAsync(Encoding.UTF8.GetBytes(Po));
+
+        CatalogEntry entry = Assert.Single(catalog.Entries);
+        Assert.Equal("please keep this formal", entry.TranslatorComment);
+        Assert.Equal("developer note", entry.Comment);
+    }
+
+    [Fact]
+    public async Task RoundTrip_TranslatorComment_SurvivesAndWritesAsHashSpaceAsync()
+    {
+        Catalog catalog = SingleEntry("greeting", "Hallo") with
+        {
+            Entries = [SingleEntry("greeting", "Hallo").Entries[0] with { TranslatorComment = "keep it formal" }]
+        };
+
+        var text = Encoding.UTF8.GetString(await WriteAsync(catalog));
+        Assert.Contains("# keep it formal\n", text, StringComparison.Ordinal);
+
+        Catalog roundTripped = await RoundTripAsync(catalog);
+        Assert.Equal("keep it formal", Assert.Single(roundTripped.Entries).TranslatorComment);
+    }
+
+    [Fact]
     public async Task Read_MultipleReferencesOnOneLine_ParsesEachAsync()
     {
         const string Po = """

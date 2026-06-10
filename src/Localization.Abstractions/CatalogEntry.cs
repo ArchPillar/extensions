@@ -26,8 +26,17 @@ public sealed record CatalogEntry
     /// <summary>The translated message, or <see langword="null"/>/empty in a template or untranslated entry.</summary>
     public string? TranslatedMessage { get; init; }
 
-    /// <summary>The translator comment, if any.</summary>
+    /// <summary>
+    /// The developer-facing comment extracted from source (the gettext <c>#.</c> extracted comment, the
+    /// ARB <c>description</c>, the XLIFF <c>note</c>). Refreshed from the template on reconciliation.
+    /// </summary>
     public string? Comment { get; init; }
+
+    /// <summary>
+    /// The translator-authored comment (the gettext <c>#</c> translator-comment channel), owned by the
+    /// translator and preserved verbatim across reconciliation. <see langword="null"/> when absent.
+    /// </summary>
+    public string? TranslatorComment { get; init; }
 
     /// <summary>
     /// The prior source default recorded when the source drifted, so a translator can diff against it.
