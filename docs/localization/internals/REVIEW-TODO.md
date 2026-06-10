@@ -27,7 +27,7 @@ part of an entry's on-disk identity and is never dropped** — the serialized ke
 - [x] T-O7  ARB drift writes the translation as x-previous-source, not the old source (same root as T-O1). — FIXED: reconciler skips previous-source when source==translation.
 - [x] T-O2  PO/XLIFF re-flag fuzzy on every sync (placeholders never persisted, always "changed").
 - [x] T-O3  PO drops translators' `# ` comments on every sync. — FIXED: added CatalogEntry.TranslatorComment, round-tripped in PO, preserved by reconciler. (non-fuzzy flags / `#~` obsolete preservation still TODO.)
-- [ ] T-O6  `convert` silently lossy; FormatCapabilities consumed by nothing — warn per lost capability.
+- [x] T-O6  `convert` silently lossy; FormatCapabilities consumed by nothing — warn per lost capability.
 
 ## ORANGE — generator / analyzer
 - [x] P-O2  Generated key registry fails to compile (no `\n\r\t\0` escaping; identifier collisions with category class / `TranslationKeys`). — FIXED: control-char literal escaping; single shared top-level member set seeded with enclosing type; per-class const set seeded with class name.

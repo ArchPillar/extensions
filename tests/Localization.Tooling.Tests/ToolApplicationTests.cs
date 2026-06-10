@@ -155,6 +155,37 @@ public sealed class ToolApplicationTests : IDisposable
     }
 
     [Fact]
+    public async Task Convert_LosingExplicitState_WarnsButSucceedsAsync()
+    {
+        // ARB carries an explicit state; PO infers it. Converting an entry that is not simply Translated
+        // must warn about the lossy capability (to stderr) while still succeeding.
+        await WriteCatalogRawAsync(_template, new Catalog
+        {
+            Culture = "en",
+            Entries = [new CatalogEntry { Key = "home", SourceMessage = "Home", SourceFingerprint = "fp", State = TranslationState.NeedsReview }]
+        });
+        var poPath = Path.Combine(_directory, "en.po");
+
+        TextWriter error = Console.Error;
+        using var captured = new StringWriter();
+        Console.SetError(captured);
+        int exit;
+        try
+        {
+            exit = await ToolApplication.RunAsync(["convert", "--from", _template, "--to", "po", "--output", poPath]);
+        }
+        finally
+        {
+            Console.SetError(error);
+        }
+
+        Assert.Equal(0, exit);
+        Assert.True(File.Exists(poPath));
+        Assert.Contains("warning:", captured.ToString(), StringComparison.Ordinal);
+        Assert.Contains("state", captured.ToString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Merge_OutputEqualsInput_IsRefusedAsync()
     {
         var input = Path.Combine(_directory, "input");

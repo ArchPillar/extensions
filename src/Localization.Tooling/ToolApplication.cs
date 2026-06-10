@@ -143,11 +143,54 @@ internal static class ToolApplication
 
         TranslationFormatRegistry registry = BuildRegistry();
 
+        ITranslationFormat source = ProviderFor(registry, from);
         ITranslationFormat target = registry.ResolveById(toFormat) ?? throw new ArgumentException($"Unknown format '{toFormat}'.");
-        Catalog catalog = await ReadFileAsync(ProviderFor(registry, from), from).ConfigureAwait(false);
+        Catalog catalog = await ReadFileAsync(source, from).ConfigureAwait(false);
+        WarnOnLostCapabilities(source, target, catalog);
         await WriteFileAsync(target, output, catalog).ConfigureAwait(false);
         Success($"Converted {from} to {output}");
         return 0;
+    }
+
+    // Surfaces what the target format cannot represent. FormatCapabilities is otherwise inert; here it lets a
+    // lossy conversion warn (to stderr, without failing) for each capability the source uses but the target
+    // lacks. Plural representation is excluded — the converter bridges native and ICU plurals, keeping any
+    // unrepresentable plural verbatim — so only genuinely droppable data is reported.
+    private static void WarnOnLostCapabilities(ITranslationFormat source, ITranslationFormat target, Catalog catalog)
+    {
+        FormatCapabilities lost = source.Capabilities & ~target.Capabilities;
+        foreach (var message in DescribeLosses(lost, catalog))
+        {
+            Console.Error.WriteLine("warning: " + message);
+        }
+    }
+
+    private static IEnumerable<string> DescribeLosses(FormatCapabilities lost, Catalog catalog)
+    {
+        if (lost.HasFlag(FormatCapabilities.Context) && catalog.Entries.Any(entry => !string.IsNullOrEmpty(entry.Context)))
+        {
+            yield return "target format cannot store a disambiguation context; it will be dropped.";
+        }
+
+        if (lost.HasFlag(FormatCapabilities.Comments) && catalog.Entries.Any(entry => !string.IsNullOrEmpty(entry.Comment) || !string.IsNullOrEmpty(entry.TranslatorComment)))
+        {
+            yield return "target format cannot store comments; developer and translator comments will be dropped.";
+        }
+
+        if (lost.HasFlag(FormatCapabilities.SourceReferences) && catalog.Entries.Any(entry => entry.References.Count > 0))
+        {
+            yield return "target format cannot store source references; they will be dropped.";
+        }
+
+        if (lost.HasFlag(FormatCapabilities.PreviousSource) && catalog.Entries.Any(entry => !string.IsNullOrEmpty(entry.PreviousSource)))
+        {
+            yield return "target format cannot store the previous source; drift history will be dropped.";
+        }
+
+        if (lost.HasFlag(FormatCapabilities.ExplicitState) && catalog.Entries.Any(entry => entry.State != TranslationState.Translated))
+        {
+            yield return "target format has no explicit state field; translation state will be inferred and may be approximate.";
+        }
     }
 
     private static async Task<int> MergeAsync(IReadOnlyDictionary<string, string> options)
