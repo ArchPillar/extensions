@@ -144,6 +144,39 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
     }
 
     [Fact]
+    public void GetAllStrings_IncludesAmbientEntriesForTheCategory()
+    {
+        Ambient.Reset();
+        Ambient.AddCatalog(new Catalog
+        {
+            Culture = "de",
+            Entries =
+            [
+                new CatalogEntry
+                {
+                    Category = typeof(Buttons).FullName!,
+                    Key = "save",
+                    SourceMessage = "Save",
+                    TranslatedMessage = "Speichern",
+                    SourceFingerprint = "fp",
+                    State = TranslationState.Translated
+                }
+            ]
+        });
+
+        var services = new ServiceCollection();
+        services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" });
+        using ServiceProvider provider = services.BuildServiceProvider();
+        IStringLocalizer localizer = provider.GetRequiredService<IStringLocalizerFactory>().Create(typeof(Buttons));
+
+        WithCulture(_german, () =>
+        {
+            List<LocalizedString> all = [.. localizer.GetAllStrings(includeParentCultures: false)];
+            Assert.Contains(all, s => s.Name == "save" && s.Value == "Speichern");
+        });
+    }
+
+    [Fact]
     public void AddArchPillarLocalization_CalledTwice_IsIdempotent()
     {
         Ambient.Reset();

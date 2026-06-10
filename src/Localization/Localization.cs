@@ -207,6 +207,15 @@ public static class Localization
         return Current.TranslateOverride(category, key, context: null, arguments);
     }
 
+    // Enumerates the loaded overrides for a category in the current UI culture, so the IStringLocalizer
+    // adapter's GetAllStrings includes ambient entries rather than only the inner factory's.
+    internal static IReadOnlyList<KeyValuePair<string, string>> EnumerateOverrides(string category, bool includeParentCultures)
+    {
+        CultureInfo culture = CultureInfo.CurrentUICulture;
+        EnsureCulture(culture);
+        return Current.EnumerateCategory(culture, category, includeParentCultures);
+    }
+
     // One-time startup: subscribe to assembly loads, read the directory layer, and discover every
     // already-loaded assembly. _startupGate (not _gate) serializes this so concurrent first calls run it
     // once; the reflection and I/O inside run WITHOUT _gate, which is taken only for the short commits.

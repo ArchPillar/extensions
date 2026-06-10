@@ -28,8 +28,30 @@ internal sealed class LocalizerStringLocalizer : IStringLocalizer
 
     public LocalizedString this[string name, params object[] arguments] => Resolve(name, arguments);
 
-    public IEnumerable<LocalizedString> GetAllStrings(bool includeParentCultures) =>
-        _inner?.GetAllStrings(includeParentCultures) ?? [];
+    public IEnumerable<LocalizedString> GetAllStrings(bool includeParentCultures)
+    {
+        // The ambient overrides for this category come first (they win on a key collision), then any of the
+        // inner factory's strings not already covered — so the listing reflects what a lookup would resolve.
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (KeyValuePair<string, string> pair in Ambient.EnumerateOverrides(_category, includeParentCultures))
+        {
+            seen.Add(pair.Key);
+            yield return new LocalizedString(pair.Key, pair.Value, resourceNotFound: false);
+        }
+
+        if (_inner is null)
+        {
+            yield break;
+        }
+
+        foreach (LocalizedString localized in _inner.GetAllStrings(includeParentCultures))
+        {
+            if (seen.Add(localized.Name))
+            {
+                yield return localized;
+            }
+        }
+    }
 
     private LocalizedString Resolve(string name, object[] arguments)
     {

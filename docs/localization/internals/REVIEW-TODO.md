@@ -42,7 +42,7 @@ part of an entry's on-disk identity and is never dropped** — the serialized ke
 - [x] D-F2  Registration-time mutation of process-global ambient state; AddSource not idempotent; double-registration / multi-host cross-pollution; `""` directory ignored.
 - [ ] D-F3  AddLocalization() after AddArchPillarLocalization() silently drops all .resx (TryAdd no-ops, inner captured null).
 - [ ] D-F4  Injected concrete Localizer reads a different store than the interfaces; MissingArguments/FormatPrecedence/hot-reload options ignored on ambient paths.
-- [ ] D-F5  IStringLocalizer.GetAllStrings omits ambient entries.
+- [x] D-F5  IStringLocalizer.GetAllStrings omits ambient entries.
 - [x] T-O5  `merge --output == --input` clobbers translator files; refuse equal paths.
 - [x] T-O8  All tool output (incl. errors) vanishes when stdout is redirected (Spectre no-TTY); write errors via Console.Error.
 - [x] T-O9  `add` without <lang> creates a junk file with exit 0.

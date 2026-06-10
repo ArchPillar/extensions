@@ -234,6 +234,39 @@ public sealed class Localizer : IDisposable, ILocalizer
         return message is null ? null : _formatter.Format(message, culture, arguments);
     }
 
+    // Enumerates the loaded overrides for a category in the given culture as (compositeKey, message) pairs —
+    // the IStringLocalizer adapter's GetAllStrings reads this so ambient entries are listed, not just the
+    // inner factory's. Dynamic sources are not enumerable, so only the catalog snapshot is included. When
+    // parents are included, a more specific culture's entry wins on overlap.
+    internal IReadOnlyList<KeyValuePair<string, string>> EnumerateCategory(CultureInfo culture, string category, bool includeParentCultures)
+    {
+        TranslationSnapshot snapshot = Volatile.Read(ref _snapshot);
+        var chain = new List<string>();
+        for (CultureInfo? current = culture; current is not null && !string.IsNullOrEmpty(current.Name); current = current.Parent)
+        {
+            chain.Add(current.Name);
+            if (!includeParentCultures)
+            {
+                break;
+            }
+        }
+
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        for (var index = chain.Count - 1; index >= 0; index--)
+        {
+            if (snapshot.ByCulture.TryGetValue(chain[index], out IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>? byCategory)
+                && byCategory.TryGetValue(category, out IReadOnlyDictionary<string, string>? map))
+            {
+                foreach (KeyValuePair<string, string> pair in map)
+                {
+                    result[pair.Key] = pair.Value;
+                }
+            }
+        }
+
+        return [.. result];
+    }
+
     // Consults the custom sources (a later source wins) before the loaded catalogs. When no sources are
     // configured the loop is skipped and the catalog lookup is unchanged, so the literal path stays
     // allocation-free.
