@@ -215,6 +215,60 @@ public sealed class TranslationSiteDetectorTests
         Assert.Equal("Box`1", Single(results, "title").Category);
     }
 
+    [Fact]
+    public void Detect_ExtensionMethodReceiver_TakesCategoryFromTheScopedThisParameter()
+    {
+        // A reduced extension-method call has no Instance; the receiver (the `this` parameter) carries the
+        // [TranslationScope], so the category must still be resolved from it rather than falling to global.
+        const string Scoped = """
+            using ArchPillar.Extensions.Localization;
+
+            public interface IScoped<[TranslationScope] T>;
+
+            public sealed class Save;
+
+            public static class ScopedExtensions
+            {
+                public static string Translate<T>(this IScoped<T> scope, [Translatable] string key, [TranslationDefault] string message) => message;
+            }
+
+            public sealed class Consumer(IScoped<Save> scope)
+            {
+                public string Run() => scope.Translate("label", "Save");
+            }
+            """;
+
+        var results = TranslationSiteDetector.Detect(RoslynTestHost.CreateCompilation(Scoped), CancellationToken.None).ToList();
+
+        Assert.Equal("Save", Single(results, "label").Category);
+    }
+
+    [Fact]
+    public void Detect_ObjectCreationReceiver_TakesCategoryFromTheConstructedType()
+    {
+        // The translation site is the construction itself; the constructed generic type carries the
+        // [TranslationScope], so the category comes from its type argument, not global.
+        const string Scoped = """
+            using ArchPillar.Extensions.Localization;
+
+            public sealed class Buttons;
+
+            public sealed class Widget<[TranslationScope] TScope>
+            {
+                public Widget([Translatable] string key, [TranslationDefault] string message) { }
+            }
+
+            public sealed class Consumer
+            {
+                public object Run() => new Widget<Buttons>("save", "Save");
+            }
+            """;
+
+        var results = TranslationSiteDetector.Detect(RoslynTestHost.CreateCompilation(Scoped), CancellationToken.None).ToList();
+
+        Assert.Equal("Buttons", Single(results, "save").Category);
+    }
+
     private static List<TranslationSiteResult> DetectStringLocalizer() =>
         TranslationSiteDetector.Detect(RoslynTestHost.CreateCompilation(StringLocalizerSource), CancellationToken.None).ToList();
 

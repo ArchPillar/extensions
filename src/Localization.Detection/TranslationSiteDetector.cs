@@ -137,8 +137,28 @@ public static class TranslationSiteDetector
         return string.Empty;
     }
 
-    private static INamedTypeSymbol? ReceiverType(IOperation? operation) =>
-        operation is IInvocationOperation invocation ? invocation.Instance?.Type as INamedTypeSymbol : null;
+    // The receiver whose type carries the [TranslationScope]: the instance for an ordinary call; the first
+    // argument (the `this` parameter) for a reduced extension-method call, which has no Instance; and the
+    // constructed type itself for an object-creation site. Missing any of these silently dropped the
+    // category, so the call was extracted as global but resolved per-T at runtime.
+    private static INamedTypeSymbol? ReceiverType(IOperation? operation) => operation switch
+    {
+        IInvocationOperation invocation => InvocationReceiver(invocation),
+        IObjectCreationOperation creation => creation.Type as INamedTypeSymbol,
+        _ => null
+    };
+
+    private static INamedTypeSymbol? InvocationReceiver(IInvocationOperation invocation)
+    {
+        if (invocation.Instance is not null)
+        {
+            return invocation.Instance.Type as INamedTypeSymbol;
+        }
+
+        return invocation.TargetMethod.IsExtensionMethod && invocation.Arguments.Length > 0
+            ? invocation.Arguments[0].Value.Type as INamedTypeSymbol
+            : null;
+    }
 
     private static TranslationSiteResult Build(
         ImmutableArray<IArgumentOperation> arguments,
