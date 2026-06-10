@@ -75,6 +75,11 @@ Copy it to the output so it sits beside the binary:
 </ItemGroup>
 ```
 
+> `x-category` must equal the type's full name **exactly** (namespace included). If it does not match —
+> or the key does not — the lookup misses and the string silently renders its in-code default rather than
+> erroring. This is the main reason a hand-authored override "does nothing"; the generated files below get
+> it right for you.
+
 > In a normal build the generator also emits a source-language template from your call sites, and the
 > `dotnet apl` tool turns that into per-language files for translators — so you usually do not
 > hand-author the catalog. This step shows the shape of what lands beside the binary.
