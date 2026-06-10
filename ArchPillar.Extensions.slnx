@@ -157,4 +157,7 @@
   <Folder Name="/tests/Localization.StringLocalizer.Tests/">
     <Project Path="tests/Localization.StringLocalizer.Tests/ArchPillar.Extensions.Localization.StringLocalizer.Tests.csproj" />
   </Folder>
+  <Folder Name="/tests/Localization.EndToEnd.Tests/">
+    <Project Path="tests/Localization.EndToEnd.Tests/ArchPillar.Extensions.Localization.EndToEnd.Tests.csproj" />
+  </Folder>
 </Solution>

@@ -27,6 +27,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.Tooling.Tests" />
+    <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.EndToEnd.Tests" />
   </ItemGroup>
 
   <ItemGroup>

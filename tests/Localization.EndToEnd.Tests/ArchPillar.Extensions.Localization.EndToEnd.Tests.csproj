@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>ArchPillar.Extensions.Localization.EndToEnd.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The whole pipeline, one project: the generator (extract), the tool's reconciler (translator files),
+         and the runtime (load + render). The golden-path test drives all three as a developer would. -->
+    <ProjectReference Include="..\..\src\Localization.Generator\ArchPillar.Extensions.Localization.Generator.csproj" />
+    <ProjectReference Include="..\..\src\Localization.Tooling\ArchPillar.Extensions.Localization.Tooling.csproj" />
+    <ProjectReference Include="..\..\src\Localization\ArchPillar.Extensions.Localization.csproj" />
+    <ProjectReference Include="..\..\src\Localization.Abstractions\ArchPillar.Extensions.Localization.Abstractions.csproj" />
+  </ItemGroup>
+
+</Project>
