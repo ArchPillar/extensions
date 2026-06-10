@@ -62,5 +62,5 @@ part of an entry's on-disk identity and is never dropped** — the serialized ke
        optionally a build-time check. Old-SDK consumers: extraction is silently off — the doc makes it explicit.
 - [ ] PK-2  Move `TranslationMarkers.L` from Abstractions to the runtime (inert in Abstractions).
 - [ ] PK-3  Amend DECISIONS 10.3 vs D-I — ILocalizer stays in the runtime (record the decision).
-- [ ] PK-4  Tooling accidentally net10.0-only — multi-target net8;9;10.
+- [x] PK-4  Tooling accidentally net10.0-only — multi-target net8;9;10.
 - [ ] PK-5  Pack MSBuild assets under build/ not buildTransitive/.
