@@ -3,7 +3,6 @@ using System.Runtime.Loader;
 using System.Text;
 using ArchPillar.Extensions.Localization.Formats;
 using ArchPillar.Extensions.Localization.Internal;
-using Spectre.Console;
 
 namespace ArchPillar.Extensions.Localization.Tooling;
 
@@ -254,17 +253,19 @@ internal static class ToolApplication
             ? value
             : throw new ArgumentException($"Missing required option '{name}'.");
 
-    private static void Success(string message) => AnsiConsole.MarkupLineInterpolated($"[green]done[/] {message}");
+    private static void Success(string message) => Console.Out.WriteLine("done " + message);
 
     private static int Fail(string message)
     {
-        AnsiConsole.MarkupLineInterpolated($"[red]error:[/] {message}");
+        // Errors go to stderr as plain text so they are visible (and separable from data) under redirection —
+        // a CI gate or a pipe must always see why it failed.
+        Console.Error.WriteLine("error: " + message);
         return 1;
     }
 
     private static int Usage()
     {
-        AnsiConsole.MarkupLine("[bold]dotnet apl[/] [grey]<extract|add|sync|convert|merge> [options][/]");
+        Console.Error.WriteLine("dotnet apl <extract|add|sync|convert|merge> [options]");
         return 1;
     }
 }

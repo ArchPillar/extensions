@@ -17,6 +17,14 @@ public sealed class ToolApplicationTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_NoArguments_PrintsUsageWithoutCrashingAsync()
+    {
+        var exit = await ToolApplication.RunAsync([]);
+
+        Assert.Equal(1, exit);
+    }
+
+    [Fact]
     public async Task Add_CreatesTargetCatalogWithUntranslatedEntriesAsync()
     {
         await WriteTemplateAsync();
