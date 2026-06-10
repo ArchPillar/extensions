@@ -29,6 +29,7 @@ internal static class Reconciler
     private static CatalogEntry New(CatalogEntry source) => new()
     {
         Key = source.Key,
+        Category = source.Category,
         Context = source.Context,
         SourceMessage = source.SourceMessage,
         TranslatedMessage = null,
@@ -94,5 +95,8 @@ internal static class Reconciler
         return byLine != 0 ? byLine : string.CompareOrdinal(left.Key, right.Key);
     }
 
-    private static string Composite(CatalogEntry entry) => TranslationKey.Compose(entry.Key, entry.Context);
+    // Identity includes the category: the same key under two categories is two distinct entries (matching
+    // the template, the runtime snapshot, and the on-disk qualified member), reconciled independently.
+    private static string Composite(CatalogEntry entry) =>
+        entry.Category + TranslationKey.Separator + TranslationKey.Compose(entry.Key, entry.Context);
 }

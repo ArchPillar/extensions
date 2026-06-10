@@ -17,8 +17,11 @@ internal static class ArbTemplateWriter
         var members = new List<string> { JsonString("@@locale") + ": " + JsonString(sourceLanguage) };
         foreach (TranslationSite site in OrderAndDistinct(sites))
         {
-            members.Add(JsonString(site.Key) + ": " + JsonString(site.DefaultMessage));
-            members.Add(JsonString("@" + site.Key) + ": " + Metadata(site));
+            // The member is the category-qualified identity, so the same key under two categories (or two
+            // contexts) produces two distinct members instead of duplicate JSON keys.
+            var member = QualifiedKey.Qualify(site.Category, site.Key, site.Context);
+            members.Add(JsonString(member) + ": " + JsonString(site.DefaultMessage));
+            members.Add(JsonString("@" + member) + ": " + Metadata(site));
         }
 
         return "{\n  " + string.Join(",\n  ", members) + "\n}\n";
@@ -32,7 +35,7 @@ internal static class ArbTemplateWriter
             .OrderBy(s => s.Reference.FilePath, StringComparer.Ordinal)
             .ThenBy(s => s.Reference.Line))
         {
-            if (seen.Add(site.Category + "\0" + site.Key))
+            if (seen.Add(site.Category + "\0" + site.Key + "\0" + (site.Context ?? string.Empty)))
             {
                 ordered.Add(site);
             }

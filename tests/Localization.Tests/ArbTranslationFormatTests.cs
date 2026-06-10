@@ -170,13 +170,46 @@ public sealed class ArbTranslationFormatTests
     }
 
     [Fact]
-    public async Task Write_KeyBeginningWithAt_ThrowsRatherThanProduceUnreadableFileAsync()
+    public async Task RoundTrip_KeyBeginningWithAt_IsPreservedAsync()
     {
-        FormatException exception = await Assert.ThrowsAsync<FormatException>(
-            async () => await WriteAsync(SingleEntry("@weird", "value")));
+        // A key starting with '@' is now safe: the qualified member is "::@weird", never mistaken for metadata.
+        Catalog roundTripped = await RoundTripAsync(SingleEntry("@weird", "value"));
 
-        Assert.Contains("@weird", exception.Message);
+        Assert.Equal("@weird", Assert.Single(roundTripped.Entries).Key);
     }
+
+    [Fact]
+    public async Task RoundTrip_SameKeyInTwoCategories_KeepsBothWithTheirOwnCategoryAsync()
+    {
+        var catalog = new Catalog
+        {
+            Culture = "de",
+            Entries =
+            [
+                Entry("save", "Acme.Labels", "Speichern"),
+                Entry("save", "Acme.Buttons", "Sichern")
+            ]
+        };
+
+        Catalog roundTripped = await RoundTripAsync(catalog);
+
+        Assert.Equal(2, roundTripped.Entries.Count);
+        Assert.Equal("Speichern", Single(roundTripped, "save", "Acme.Labels").TranslatedMessage);
+        Assert.Equal("Sichern", Single(roundTripped, "save", "Acme.Buttons").TranslatedMessage);
+    }
+
+    private static CatalogEntry Entry(string key, string category, string message) => new()
+    {
+        Key = key,
+        Category = category,
+        SourceMessage = message,
+        TranslatedMessage = message,
+        SourceFingerprint = "fp",
+        State = TranslationState.Translated
+    };
+
+    private static CatalogEntry Single(Catalog catalog, string key, string category) =>
+        catalog.Entries.Single(e => e.Key == key && e.Category == category);
 
     private static Catalog SingleEntry(string key, string message) => new()
     {

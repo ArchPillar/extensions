@@ -128,16 +128,18 @@ public sealed class ArbTranslationFormat : ITranslationFormat
         headers[property.Name[2..]] = value;
     }
 
-    private static CatalogEntry BuildEntry(string key, string value, Dictionary<string, JsonElement> metadata, string defaultCategory)
+    private static CatalogEntry BuildEntry(string member, string value, Dictionary<string, JsonElement> metadata, string defaultCategory)
     {
-        metadata.TryGetValue(key, out JsonElement meta);
+        metadata.TryGetValue(member, out JsonElement meta);
+        var category = GetString(meta, "x-category") ?? defaultCategory;
+        var context = GetString(meta, "context");
         return new CatalogEntry
         {
-            Key = key,
+            Key = QualifiedKey.Unqualify(member, category, context),
             SourceMessage = value,
             TranslatedMessage = value,
-            Category = GetString(meta, "x-category") ?? defaultCategory,
-            Context = GetString(meta, "context"),
+            Category = category,
+            Context = context,
             Comment = GetString(meta, "description"),
             PreviousSource = GetString(meta, "x-previous-source"),
             Placeholders = GetPlaceholders(meta),
@@ -228,15 +230,12 @@ public sealed class ArbTranslationFormat : ITranslationFormat
 
     private static void WriteEntry(Utf8JsonWriter writer, CatalogEntry entry)
     {
-        // ARB reserves a leading "@" for metadata: a key beginning with "@" would write a "@@key" sidecar
-        // that reads back as file metadata and is unrecoverable. Fail fast rather than emit a corrupt file.
-        if (entry.Key.StartsWith("@", StringComparison.Ordinal))
-        {
-            throw new FormatException($"ARB does not support a key beginning with '@' (key '{entry.Key}'); '@' is reserved for metadata.");
-        }
-
-        writer.WriteString(entry.Key, entry.TranslatedMessage ?? entry.SourceMessage);
-        writer.WritePropertyName("@" + entry.Key);
+        // The member name is the category-qualified identity, so entries from different categories (or with
+        // different contexts) never collide as JSON members, and a key beginning with "@" becomes a member
+        // beginning with the category (or "::"), never mistaken for metadata.
+        var member = QualifiedKey.Qualify(entry.Category, entry.Key, entry.Context);
+        writer.WriteString(member, entry.TranslatedMessage ?? entry.SourceMessage);
+        writer.WritePropertyName("@" + member);
         writer.WriteStartObject();
         WriteOptionalString(writer, "description", entry.Comment);
         WriteOptionalString(writer, "context", entry.Context);

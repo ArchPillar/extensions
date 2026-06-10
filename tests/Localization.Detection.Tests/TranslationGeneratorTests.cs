@@ -36,7 +36,8 @@ public sealed class TranslationGeneratorTests
         Assert.Contains("GeneratedLocalizationTemplate(", template);
         var arb = DecodeTemplate(template);
         Assert.Contains("\"@@locale\": \"en\"", arb);
-        Assert.Contains("\"home.title\": \"Home\"", arb);
+        // A global (uncategorized) key is qualified with a leading "::" (the empty namespace).
+        Assert.Contains("\"::home.title\": \"Home\"", arb);
         Assert.Contains("x-source-fingerprint", arb);
     }
 
@@ -76,6 +77,15 @@ public sealed class TranslationGeneratorTests
         Assert.Contains("public static class Cancel", registry);
         // The same key "label" lives once per category, with no top-level collision.
         Assert.Equal(2, CountOccurrences(registry, "public const string Label = \"label\";"));
+
+        // The baked ARB qualifies each member by category, so the same key is two distinct members.
+        var arb = DecodeTemplate(result.Results
+            .SelectMany(r => r.GeneratedSources)
+            .Single(s => s.HintName == "LocalizationTemplate.g.cs")
+            .SourceText
+            .ToString());
+        Assert.Contains("\"Save::label\":", arb);
+        Assert.Contains("\"Cancel::label\":", arb);
     }
 
     [Fact]

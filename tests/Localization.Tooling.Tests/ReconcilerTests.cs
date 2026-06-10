@@ -95,15 +95,41 @@ public sealed class ReconcilerTests
         Assert.Equal(first.SourceFingerprint, second.SourceFingerprint);
     }
 
+    [Fact]
+    public void Reconcile_SameKeyInTwoCategories_ReconciledIndependentlyAndCategoryPreserved()
+    {
+        Catalog template = MakeCatalog(
+            "en",
+            Entry("save", "Save", "fp1", category: "App.Labels"),
+            Entry("save", "Save", "fp1", category: "App.Buttons"));
+        Catalog target = MakeCatalog(
+            "de",
+            Entry("save", "Save", "fp1", "Speichern", TranslationState.Translated, category: "App.Labels"));
+
+        Catalog result = Reconciler.Reconcile(template, target);
+
+        Assert.Equal(2, result.Entries.Count);
+        CatalogEntry labels = result.Entries.Single(e => e.Category == "App.Labels");
+        CatalogEntry buttons = result.Entries.Single(e => e.Category == "App.Buttons");
+        // The existing translation is kept under its category; the other category is a new, untranslated entry
+        // whose category is carried through (it was dropped before, leaving it unreachable at runtime).
+        Assert.Equal("Speichern", labels.TranslatedMessage);
+        Assert.Null(buttons.TranslatedMessage);
+        Assert.Equal(TranslationState.NeedsTranslation, buttons.State);
+        Assert.Equal("App.Buttons", buttons.Category);
+    }
+
     private static CatalogEntry Entry(
         string key,
         string source,
         string fingerprint,
         string? translated = null,
         TranslationState state = TranslationState.NeedsTranslation,
-        IReadOnlyList<string>? placeholders = null) => new()
+        IReadOnlyList<string>? placeholders = null,
+        string category = "") => new()
     {
         Key = key,
+        Category = category,
         SourceMessage = source,
         SourceFingerprint = fingerprint,
         TranslatedMessage = translated,
