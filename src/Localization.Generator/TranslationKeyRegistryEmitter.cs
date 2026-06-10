@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Text;
 using ArchPillar.Extensions.Localization.Detection;
 using ArchPillar.Extensions.Localization.Generator.Internal;
@@ -21,14 +22,18 @@ internal static class TranslationKeyRegistryEmitter
         builder.Append("/// <summary>Strongly-typed translation keys discovered at compile time, grouped by category.</summary>\n");
         builder.Append("internal static class TranslationKeys\n{\n");
 
+        // Global constants and the nested category classes share one member namespace, so they must be
+        // made unique against each other and against the enclosing type name (a member may not match the
+        // name of its containing type — CS0542).
+        var topLevel = new HashSet<string>(StringComparer.Ordinal) { "TranslationKeys" };
+
         // Global (uncategorized) keys sit at the top level; each category becomes a nested class, so the
         // same key under two categories produces two distinct constants instead of colliding.
         if (byCategory.TryGetValue(string.Empty, out SortedSet<string>? globalKeys))
         {
-            AppendConstants(builder, globalKeys, "    ");
+            AppendConstants(builder, globalKeys, "    ", topLevel);
         }
 
-        var usedClasses = new HashSet<string>(StringComparer.Ordinal);
         foreach (KeyValuePair<string, SortedSet<string>> category in byCategory)
         {
             if (category.Key.Length == 0)
@@ -36,10 +41,12 @@ internal static class TranslationKeyRegistryEmitter
                 continue;
             }
 
-            var className = Unique(KeyIdentifier.ToIdentifier(category.Key), usedClasses);
-            builder.Append("\n    /// <summary>Keys for category <c>").Append(Escape(category.Key)).Append("</c>.</summary>\n");
+            var className = Unique(KeyIdentifier.ToIdentifier(category.Key), topLevel);
+            builder.Append("\n    /// <summary>Keys for category <c>").Append(EscapeXml(category.Key)).Append("</c>.</summary>\n");
             builder.Append("    public static class ").Append(className).Append("\n    {\n");
-            AppendConstants(builder, category.Value, "        ");
+            // The constants inside the class must also avoid colliding with the class name itself (CS0542).
+            var members = new HashSet<string>(StringComparer.Ordinal) { className };
+            AppendConstants(builder, category.Value, "        ", members);
             builder.Append("    }\n");
         }
 
@@ -47,13 +54,12 @@ internal static class TranslationKeyRegistryEmitter
         return builder.ToString();
     }
 
-    private static void AppendConstants(StringBuilder builder, SortedSet<string> keys, string indent)
+    private static void AppendConstants(StringBuilder builder, SortedSet<string> keys, string indent, HashSet<string> used)
     {
-        var used = new HashSet<string>(StringComparer.Ordinal);
         foreach (var key in keys)
         {
             var identifier = Unique(KeyIdentifier.ToIdentifier(key), used);
-            builder.Append(indent).Append("public const string ").Append(identifier).Append(" = \"").Append(Escape(key)).Append("\";\n");
+            builder.Append(indent).Append("public const string ").Append(identifier).Append(" = \"").Append(EscapeLiteral(key)).Append("\";\n");
         }
     }
 
@@ -92,7 +98,53 @@ internal static class TranslationKeyRegistryEmitter
         return candidate;
     }
 
-    private static string Escape(string value) => value
-        .Replace("\\", "\\\\")
-        .Replace("\"", "\\\"");
+    private static string EscapeLiteral(string value)
+    {
+        // The key becomes the value of a C# string literal, so every character that would terminate the
+        // literal or break the line (quote, backslash, and any control character such as \n \r \t \0) is
+        // escaped. Without this a key containing a newline or tab produces source that does not compile.
+        var builder = new StringBuilder(value.Length);
+        foreach (var character in value)
+        {
+            switch (character)
+            {
+                case '\\':
+                    builder.Append("\\\\");
+                    break;
+                case '"':
+                    builder.Append("\\\"");
+                    break;
+                case '\n':
+                    builder.Append("\\n");
+                    break;
+                case '\r':
+                    builder.Append("\\r");
+                    break;
+                case '\t':
+                    builder.Append("\\t");
+                    break;
+                case '\0':
+                    builder.Append("\\0");
+                    break;
+                default:
+                    if (character < ' ')
+                    {
+                        builder.Append("\\u").Append(((int)character).ToString("x4", CultureInfo.InvariantCulture));
+                    }
+                    else
+                    {
+                        builder.Append(character);
+                    }
+
+                    break;
+            }
+        }
+
+        return builder.ToString();
+    }
+
+    private static string EscapeXml(string value) => value
+        .Replace("&", "&amp;")
+        .Replace("<", "&lt;")
+        .Replace(">", "&gt;");
 }
