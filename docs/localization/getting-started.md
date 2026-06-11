@@ -22,23 +22,25 @@ keys are not being extracted, check `dotnet --version` first.
 
 ## 2. Translate a string
 
-Call the ambient localizer wherever you need text — no setup, no DI, no class to wire up. The first
-argument is a stable **key**; the second is the **in-code default** (the source-language text, and the
-terminal fallback); the trailing `(name, value)` pairs fill the ICU placeholders:
+Add one `using static` and call `Translate(...)` directly — the way `using static System.Console;` gives
+you `WriteLine(...)`. No setup, no DI, no class to wire up. The first argument is a stable **key**; the
+second is the **in-code default** (the source-language text, and the terminal fallback); the trailing
+`(name, value)` pairs fill the ICU placeholders:
 
 ```csharp
-using ArchPillar.Extensions.Localization;
+using static ArchPillar.Extensions.Localization.Localization;
 
 string Greet(string name) =>
-    Localization.Default.Translate("greeting", "Hello {name}!", ("name", name));
+    Translate("greeting", "Hello {name}!", ("name", name));
 
 string Inbox(int count) =>
-    Localization.Default.Translate("inbox", "You have {count, plural, one {# message} other {# messages}}", ("count", count));
+    Translate("inbox", "You have {count, plural, one {# message} other {# messages}}", ("count", count));
 ```
 
-`Localization.Default` is the process-wide ambient store (the `IConfiguration` model): reachable from
+`Translate` goes through the process-wide ambient store (the `IConfiguration` model): reachable from
 anywhere — a service, a static helper, even an exception thrown before any container exists. There is
-nothing to register and no constructor to thread.
+nothing to register and no constructor to thread. Prefer an explicit receiver? `Localization.Default`
+is the same store: `Localization.Default.Translate(...)` is the identical call without the `using static`.
 
 > **As your app grows**, scope keys by *category* so two components can both use `"title"` without
 > colliding — call `Localization.For<T>()`, or inject `ILocalizer<T>` (the `ILogger<T>` model). A set of

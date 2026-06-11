@@ -29,6 +29,19 @@ public sealed class LocalizationTests
     }
 
     [Fact]
+    public void Translate_StaticGlobal_RendersDefaultThenResolvesTheGlobalOverride()
+    {
+        Localization.Reset();
+
+        // No catalog: the static free-function form renders the in-code default through the global category.
+        Assert.Equal("Hello Ada", Localization.Translate("greeting", "Hello {name}", ("name", "Ada")));
+
+        // A global-category (empty category) override is what the receiver-less Translate resolves against.
+        Localization.AddCatalog(DeCatalog(string.Empty, "greeting", "Hallo {name}"));
+        WithCulture(_german, () => Assert.Equal("Hallo Ada", Localization.Translate("greeting", "Hello {name}", ("name", "Ada"))));
+    }
+
+    [Fact]
     public void AddSource_LayersOverTheStore()
     {
         Localization.Reset();

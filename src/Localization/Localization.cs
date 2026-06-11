@@ -42,7 +42,7 @@ public static class Localization
     private static Localizer _current = new([], new LocalizerOptions());
 
     /// <summary>The global-namespace ambient localizer (the uncategorized bucket).</summary>
-    public static ILocalizer Default { get; } = new AmbientLocalizer();
+    public static ILocalizer Default { get; } = new Internal.AmbientLocalizer();
 
     /// <summary>The source culture used to render in-code defaults; defaults to <c>en</c>.</summary>
     public static string SourceCulture
@@ -120,7 +120,40 @@ public static class Localization
     /// </summary>
     /// <typeparam name="T">The type whose full name is the translation category.</typeparam>
     /// <returns>The ambient category-scoped localizer.</returns>
-    public static ILocalizer<T> For<T>() => new AmbientCategoryLocalizer<T>();
+    public static ILocalizer<T> For<T>() => new Internal.AmbientCategoryLocalizer<T>();
+
+    /// <summary>
+    /// Translates <paramref name="key"/> through the global ambient store, falling back to
+    /// <paramref name="defaultMessage"/>. The free-function form of <see cref="Default"/>, for
+    /// <c>using static ArchPillar.Extensions.Localization.Localization;</c> — the call site then reads
+    /// <c>Translate("greeting", "Hello {name}!", ("name", name))</c> with no receiver.
+    /// </summary>
+    /// <param name="key">The stable symbolic key.</param>
+    /// <param name="defaultMessage">The in-code source default (ICU MessageFormat).</param>
+    /// <param name="arguments">The message arguments as <c>(name, value)</c> tuples.</param>
+    /// <returns>The rendered string.</returns>
+    public static string Translate(
+        [Translatable] string key,
+        [TranslationDefault] string defaultMessage,
+        params (string Name, object? Value)[] arguments) =>
+        Default.Translate(key, defaultMessage, arguments);
+
+    /// <summary>
+    /// Translates <paramref name="key"/> with a disambiguation <paramref name="context"/> through the global
+    /// ambient store, falling back to <paramref name="defaultMessage"/>. The free-function form of
+    /// <see cref="Default"/> for <c>using static</c>.
+    /// </summary>
+    /// <param name="key">The stable symbolic key.</param>
+    /// <param name="defaultMessage">The in-code source default (ICU MessageFormat).</param>
+    /// <param name="context">The disambiguation context.</param>
+    /// <param name="arguments">The message arguments as <c>(name, value)</c> tuples.</param>
+    /// <returns>The rendered string.</returns>
+    public static string Translate(
+        [Translatable] string key,
+        [TranslationDefault] string defaultMessage,
+        [TranslationContext] string context,
+        params (string Name, object? Value)[] arguments) =>
+        Default.Translate(key, defaultMessage, context, arguments);
 
     /// <summary>
     /// Layers a catalog into the store as a host source (a later source wins). Use this to override or add
@@ -340,7 +373,7 @@ public static class Localization
 
     // Loads the satellite catalogs for a culture (and its parents) the first time the culture is used. The
     // fast path is a volatile bool plus a lock-free set read, so a files-only app pays almost nothing.
-    private static void EnsureCulture(CultureInfo culture)
+    internal static void EnsureCulture(CultureInfo culture)
     {
         EnsureStarted();
         if (!_hasSatellites)
@@ -606,39 +639,5 @@ public static class Localization
         registry.Register(new XliffTranslationFormat());
         registry.Register(new PoTranslationFormat());
         return registry;
-    }
-
-    private sealed class AmbientLocalizer : ILocalizer
-    {
-        public string Translate(string key, string defaultMessage, params (string Name, object? Value)[] arguments)
-        {
-            CultureInfo culture = CultureInfo.CurrentUICulture;
-            EnsureCulture(culture);
-            return Current.Translate(culture, key, defaultMessage, context: null, arguments);
-        }
-
-        public string Translate(string key, string defaultMessage, string context, params (string Name, object? Value)[] arguments)
-        {
-            CultureInfo culture = CultureInfo.CurrentUICulture;
-            EnsureCulture(culture);
-            return Current.Translate(culture, key, defaultMessage, context, arguments);
-        }
-    }
-
-    private sealed class AmbientCategoryLocalizer<T> : ILocalizer<T>
-    {
-        private static readonly string _category = Internal.CategoryName.Of(typeof(T));
-
-        public string Translate(string key, string defaultMessage, params (string Name, object? Value)[] arguments)
-        {
-            EnsureCulture(CultureInfo.CurrentUICulture);
-            return Current.TranslateInCategory(_category, key, defaultMessage, context: null, arguments);
-        }
-
-        public string Translate(string key, string defaultMessage, string context, params (string Name, object? Value)[] arguments)
-        {
-            EnsureCulture(CultureInfo.CurrentUICulture);
-            return Current.TranslateInCategory(_category, key, defaultMessage, context, arguments);
-        }
     }
 }

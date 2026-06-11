@@ -22,12 +22,12 @@ in one ambient store that needs no DI, so even an exception thrown before any co
 ## Quick Start
 
 ```csharp
-using ArchPillar.Extensions.Localization;
+using static ArchPillar.Extensions.Localization.Localization;
 using System.Globalization;
 
-// Translate anywhere — no setup, no DI, no class to wire up. "greeting" is the key;
-// "Hello {name}!" is the in-code default (the source-language text and the fallback).
-string Greet(string name) => Localization.Default.Translate("greeting", "Hello {name}!", ("name", name));
+// Translate anywhere with a using static, the way `using static System.Console;` gives you WriteLine.
+// "greeting" is the key; "Hello {name}!" is the in-code default (the source text and the fallback).
+string Greet(string name) => Translate("greeting", "Hello {name}!", ("name", name));
 
 Console.WriteLine(Greet("Ada"));                  // "Hello Ada!" (the in-code default)
 
@@ -35,8 +35,9 @@ CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("de");
 Console.WriteLine(Greet("Ada"));                  // "Hallo Ada!" once a de catalog is loaded
 ```
 
-`Localization.Default` is the process-wide ambient store, reachable with no services. Translations come
-from a `Translations/de.arb` file beside the binary (loaded automatically), an embedded catalog, or
+`Translate` goes through the process-wide ambient store, reachable with no services (or call
+`Localization.Default.Translate(...)` without the `using static`). Translations come from a
+`Translations/de.arb` file beside the binary (loaded automatically), an embedded catalog, or
 `Localization.AddCatalog(...)`. Scope keys by category with `ILocalizer<T>` as an app grows.
 
 ## Dependency injection and IStringLocalizer

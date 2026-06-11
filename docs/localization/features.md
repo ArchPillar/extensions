@@ -47,10 +47,14 @@ public sealed class ButtonLabels(ILocalizer<ButtonLabels> loc) : Localized<Butto
 
 Translations live in one process-wide, layered store modeled on `IConfiguration`, reachable with no
 services — so a string localizes from anywhere, including an exception thrown before any container
-exists. Read it through `Localization.Default` (global category) or `Localization.For<T>()`.
+exists. Read it through `Localization.Default` (global category) or `Localization.For<T>()`. For the
+global category there is also a static `Localization.Translate`: add `using static
+ArchPillar.Extensions.Localization.Localization;` and call `Translate(...)` with no receiver, the way
+`using static System.Console;` gives you `WriteLine(...)`.
 
 ```csharp
 string s = Localization.Default.Translate("home.title", "Home");
+string t = Translate("home.title", "Home");             // with `using static …Localization;` — the same call
 Localization.AddCatalog(catalog);                       // layer a host override (last source wins)
 Localization.SourceCulture = "en";                      // language the in-code defaults are written in
 Localization.TranslationsDirectory = "Translations";    // where loose files are read from
