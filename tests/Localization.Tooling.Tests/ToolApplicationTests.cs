@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using ArchPillar.Extensions.Localization.Formats;
 
 namespace ArchPillar.Extensions.Localization.Tooling.Tests;
@@ -195,6 +196,36 @@ public sealed class ToolApplicationTests : IDisposable
         var exit = await ToolApplication.RunAsync(["merge", "--input", input, "--output", input, "--source", "en"]);
 
         Assert.Equal(2, exit);
+    }
+
+    [Fact]
+    public async Task ExportThenImport_RoundTripsPerAssemblyCatalogsForALanguageAsync()
+    {
+        var catalogs = Path.Combine(_directory, "catalogs");
+        Directory.CreateDirectory(catalogs);
+        await WriteCatalogAsync(Path.Combine(catalogs, "LibA.de.arb"), "de", ("save", "Speichern"));
+        await WriteCatalogAsync(Path.Combine(catalogs, "LibB.de.arb"), "de", ("cancel", "Abbrechen"));
+        await WriteCatalogAsync(Path.Combine(catalogs, "LibA.en.arb"), "en", ("save", "Save")); // other language, not exported
+
+        // Export bundles one XLIFF per assembly for the requested language into a zip the translator receives.
+        var kit = Path.Combine(_directory, "kit.zip");
+        Assert.Equal(0, await ToolApplication.RunAsync(["export", "--input", catalogs, "--lang", "de", "--output", kit]));
+
+        using (ZipArchive archive = ZipFile.OpenRead(kit))
+        {
+            Assert.Equal(2, archive.Entries.Count);
+            Assert.Contains(archive.Entries, e => e.Name == "LibA.de.xliff");
+            Assert.Contains(archive.Entries, e => e.Name == "LibB.de.xliff");
+        }
+
+        // Import routes each returned file back to its origin assembly's dev catalog, in ARB.
+        var imported = Path.Combine(_directory, "imported");
+        Assert.Equal(0, await ToolApplication.RunAsync(["import", "--input", kit, "--output", imported]));
+
+        Catalog libA = await ReadAsync(Path.Combine(imported, "LibA.de.arb"));
+        Assert.Equal("de", libA.Culture);
+        Assert.Equal("Speichern", Assert.Single(libA.Entries).TranslatedMessage);
+        Assert.True(File.Exists(Path.Combine(imported, "LibB.de.arb")));
     }
 
     public void Dispose() => Directory.Delete(_directory, recursive: true);

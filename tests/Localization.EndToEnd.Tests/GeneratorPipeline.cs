@@ -1,6 +1,7 @@
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Emit;
 
 namespace ArchPillar.Extensions.Localization.EndToEnd.Tests;
 
@@ -32,7 +33,32 @@ internal static class GeneratorPipeline
         return Encoding.UTF8.GetString(Convert.FromBase64String(base64));
     }
 
-    private static Compilation Compile(string source)
+    /// <summary>
+    /// Compiles the developer's code, runs the real generator over it, and emits a genuine assembly carrying
+    /// the baked <c>[GeneratedLocalizationTemplate]</c> attribute — the input the scope-aware tool scans for.
+    /// Returns the assembly path.
+    /// </summary>
+    public static string EmitAssemblyWithTemplate(string developerCode, string assemblyName, string outputDirectory)
+    {
+        Compilation compilation = Compile(developerCode, assemblyName);
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(new Generator.TranslationGenerator());
+        driver.RunGeneratorsAndUpdateCompilation(compilation, out Compilation updated, out _);
+
+        Directory.CreateDirectory(outputDirectory);
+        var path = Path.Combine(outputDirectory, assemblyName + ".dll");
+        using FileStream stream = File.Create(path);
+        EmitResult result = updated.Emit(stream);
+        if (!result.Success)
+        {
+            throw new InvalidOperationException("Emit failed: " + string.Join("; ", result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error)));
+        }
+
+        return path;
+    }
+
+    private static Compilation Compile(string source) => Compile(source, "GoldenPath");
+
+    private static Compilation Compile(string source, string assemblyName)
     {
         SyntaxTree tree = CSharpSyntaxTree.ParseText(source, path: "Program.cs");
         var trustedAssemblies = (string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!;
@@ -46,7 +72,7 @@ internal static class GeneratorPipeline
         references.Add(MetadataReference.CreateFromFile(typeof(TranslatableAttribute).Assembly.Location));
 
         return CSharpCompilation.Create(
-            "GoldenPath",
+            assemblyName,
             [tree],
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));

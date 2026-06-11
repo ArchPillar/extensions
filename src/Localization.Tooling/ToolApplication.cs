@@ -1,30 +1,36 @@
-using System.Reflection;
-using System.Runtime.Loader;
+using System.IO.Compression;
 using System.Text;
 using ArchPillar.Extensions.Localization.Formats;
 using ArchPillar.Extensions.Localization.Internal;
+using ArchPillar.Extensions.Localization.Tooling.Internal;
 
 namespace ArchPillar.Extensions.Localization.Tooling;
 
 /// <summary>
-/// The <c>dotnet apl</c> command-line surface: <c>extract</c> the baked template from a built
-/// assembly, <c>add</c> a new language, <c>sync</c> a target against the template, <c>convert</c>
-/// between formats, and <c>merge</c> a set of catalogs into one flattened bundle per culture (the publish
-/// step). Every command works on explicit paths and runs on demand, never as part of a build.
+/// The <c>dotnet apl</c> command-line surface. Authoring commands (<c>status</c>, <c>extract</c>, <c>add</c>,
+/// <c>sync</c>) work over a project / solution / directory scope so a whole app is handled at once; the
+/// translator handover commands (<c>export</c>, <c>import</c>) bundle per-assembly catalogs to and from a zip;
+/// <c>convert</c> changes a single file's format; and <c>merge</c> flattens a set of catalogs into one bundle
+/// per culture for deployment. Every command works on explicit paths and runs on demand, never as part of a
+/// build. Dev/source catalogs are named <c>{AssemblyName}.{culture}.{ext}</c> so catalogs from different
+/// assemblies never collide and a translation can always be routed back to its origin.
 /// </summary>
 internal static class ToolApplication
 {
-    private const string TemplateAttribute = "ArchPillar.Extensions.Localization.GeneratedLocalizationTemplateAttribute";
+    private static readonly IReadOnlyCollection<string> _scopeOptions = ["--assembly", "--input", "--project", "--solution", "--recurse"];
 
     // The options each command accepts. An option outside its command's set is rejected rather than
     // silently ignored, so a typo (e.g. "--chek" for "--check") cannot turn a read-only check into a write.
     private static readonly IReadOnlyDictionary<string, IReadOnlyCollection<string>> _knownOptions =
         new Dictionary<string, IReadOnlyCollection<string>>(StringComparer.Ordinal)
         {
-            ["extract"] = new HashSet<string>(StringComparer.Ordinal) { "--assembly", "--output" },
-            ["add"] = new HashSet<string>(StringComparer.Ordinal) { "--template", "--output", "--force" },
-            ["sync"] = new HashSet<string>(StringComparer.Ordinal) { "--template", "--target", "--check" },
+            ["status"] = Scope("--output"),
+            ["extract"] = Scope("--output"),
+            ["add"] = Scope("--template", "--output", "--force"),
+            ["sync"] = Scope("--template", "--target", "--output", "--check"),
             ["convert"] = new HashSet<string>(StringComparer.Ordinal) { "--from", "--to", "--output" },
+            ["export"] = new HashSet<string>(StringComparer.Ordinal) { "--input", "--lang", "--output", "--format" },
+            ["import"] = new HashSet<string>(StringComparer.Ordinal) { "--input", "--output" },
             ["merge"] = new HashSet<string>(StringComparer.Ordinal) { "--input", "--output", "--format", "--source" }
         };
 
@@ -52,10 +58,13 @@ internal static class ToolApplication
         {
             return command switch
             {
+                "status" => await StatusAsync(options).ConfigureAwait(false),
                 "extract" => await ExtractAsync(options).ConfigureAwait(false),
                 "add" => await AddAsync(arguments, options).ConfigureAwait(false),
                 "sync" => await SyncAsync(options).ConfigureAwait(false),
                 "convert" => await ConvertAsync(options).ConfigureAwait(false),
+                "export" => await ExportAsync(options).ConfigureAwait(false),
+                "import" => await ImportAsync(options).ConfigureAwait(false),
                 "merge" => await MergeAsync(options).ConfigureAwait(false),
                 _ => Fail($"Unknown command '{command}'.")
             };
@@ -66,19 +75,62 @@ internal static class ToolApplication
         }
     }
 
-    private static async Task<int> ExtractAsync(IReadOnlyDictionary<string, string> options)
+    private static async Task<int> StatusAsync(IReadOnlyDictionary<string, string> options)
     {
-        var assemblyPath = Require(options, "--assembly");
-        var output = Require(options, "--output");
-        (var format, var sourceLanguage, var arb) = ReadBakedTemplate(assemblyPath);
+        IReadOnlyList<BakedTemplate> templates = ScopeResolver.Resolve(ParseScope(options));
+        if (templates.Count == 0)
+        {
+            Console.Out.WriteLine("No assemblies with localizable strings found in the given scope. Build first, then point --input/--project/--solution at the output.");
+            return 0;
+        }
 
         TranslationFormatRegistry registry = BuildRegistry();
-        Catalog catalog = await ReadAsync(registry.ResolveById("arb")!, new MemoryStream(Encoding.UTF8.GetBytes(arb))).ConfigureAwait(false);
-        catalog = catalog with { Culture = sourceLanguage };
+        var catalogDirectory = options.TryGetValue("--output", out var dir) ? dir : null;
+        var totalKeys = 0;
+        foreach (BakedTemplate baked in templates)
+        {
+            Catalog template = await TemplateCatalogAsync(registry, baked).ConfigureAwait(false);
+            totalKeys += template.Entries.Count;
+            Console.Out.WriteLine($"{baked.AssemblyName}  (source {baked.SourceLanguage})  {template.Entries.Count} string(s)");
+            if (catalogDirectory is not null)
+            {
+                await ReportLanguageStateAsync(registry, catalogDirectory, baked, template.Entries.Count).ConfigureAwait(false);
+            }
+        }
 
-        ITranslationFormat provider = registry.ResolveById(format) ?? registry.ResolveById("arb")!;
-        await WriteFileAsync(provider, Path.Combine(output, sourceLanguage + Extension(provider)), catalog).ConfigureAwait(false);
-        Success($"Extracted template for {sourceLanguage} to {output}");
+        Console.Out.WriteLine($"{templates.Count} assembly(ies), {totalKeys} string(s) total.");
+        return 0;
+    }
+
+    private static async Task ReportLanguageStateAsync(TranslationFormatRegistry registry, string catalogDirectory, BakedTemplate baked, int keyCount)
+    {
+        foreach (var path in TargetCatalogsFor(catalogDirectory, baked.AssemblyName, baked.SourceLanguage, registry))
+        {
+            (_, var culture) = SplitCatalogName(Path.GetFileNameWithoutExtension(path));
+            Catalog catalog = await ReadFileAsync(ProviderFor(registry, path), path).ConfigureAwait(false);
+            var translated = catalog.Entries.Count(entry => entry.State == TranslationState.Translated);
+            Console.Out.WriteLine($"    {culture}: {translated}/{keyCount} translated");
+        }
+    }
+
+    private static async Task<int> ExtractAsync(IReadOnlyDictionary<string, string> options)
+    {
+        var output = Require(options, "--output");
+        TranslationFormatRegistry registry = BuildRegistry();
+        IReadOnlyList<BakedTemplate> templates = ScopeResolver.Resolve(ParseScope(options));
+        if (templates.Count == 0)
+        {
+            return Fail("No assemblies with localizable strings found in the given scope. Build first, then point --input/--project/--solution at the output.");
+        }
+
+        foreach (BakedTemplate baked in templates)
+        {
+            ITranslationFormat provider = registry.ResolveById(baked.Format) ?? registry.ResolveById("arb")!;
+            Catalog catalog = await TemplateCatalogAsync(registry, baked).ConfigureAwait(false);
+            await WriteFileAsync(provider, Path.Combine(output, CatalogFileName(baked.AssemblyName, baked.SourceLanguage, provider)), catalog).ConfigureAwait(false);
+        }
+
+        Success($"Extracted {templates.Count} template(s) to {output}");
         return 0;
     }
 
@@ -88,46 +140,125 @@ internal static class ToolApplication
         // means it was omitted, which would otherwise create a junk "--template.arb" file and exit 0.
         if (arguments.Length < 2 || arguments[1].StartsWith("--", StringComparison.Ordinal))
         {
-            return Fail("Usage: add <lang> --template <path> --output <dir> [--force]");
+            return Fail("Usage: add <lang> (--input|--project|--solution) --output <dir> [--force]  |  add <lang> --template <path> --output <dir> [--force]");
         }
 
         var language = arguments[1];
-        var templatePath = Require(options, "--template");
-        var output = options.TryGetValue("--output", out var dir) ? dir : Path.GetDirectoryName(templatePath)!;
+        var force = options.ContainsKey("--force");
         TranslationFormatRegistry registry = BuildRegistry();
 
-        ITranslationFormat provider = ProviderFor(registry, templatePath);
-        Catalog template = await ReadFileAsync(provider, templatePath).ConfigureAwait(false);
-        var target = Path.Combine(output, language + Extension(provider));
-        if (File.Exists(target) && !options.ContainsKey("--force"))
+        if (options.ContainsKey("--template"))
         {
-            return Fail($"'{target}' already exists; pass --force to overwrite.");
+            var templatePath = Require(options, "--template");
+            var output = options.TryGetValue("--output", out var dir) ? dir : Path.GetDirectoryName(templatePath)!;
+            ITranslationFormat provider = ProviderFor(registry, templatePath);
+            Catalog template = await ReadFileAsync(provider, templatePath).ConfigureAwait(false);
+            (var name, _) = SplitCatalogName(Path.GetFileNameWithoutExtension(templatePath));
+            var target = Path.Combine(output, CatalogFileName(name, language, provider));
+            if (File.Exists(target) && !force)
+            {
+                return Fail($"'{target}' already exists; pass --force to overwrite.");
+            }
+
+            await WriteFileAsync(provider, target, Reconciler.CreateLanguage(template, language)).ConfigureAwait(false);
+            Success($"Added {language} at {target}");
+            return 0;
         }
 
-        await WriteFileAsync(provider, target, Reconciler.CreateLanguage(template, language)).ConfigureAwait(false);
-        Success($"Added {language} at {target}");
+        var outputDir = Require(options, "--output");
+        IReadOnlyList<BakedTemplate> templates = ScopeResolver.Resolve(ParseScope(options));
+        if (templates.Count == 0)
+        {
+            return Fail("No assemblies with localizable strings found in the given scope.");
+        }
+
+        var created = 0;
+        var skipped = 0;
+        foreach (BakedTemplate baked in templates)
+        {
+            ITranslationFormat provider = registry.ResolveById(baked.Format) ?? registry.ResolveById("arb")!;
+            var target = Path.Combine(outputDir, CatalogFileName(baked.AssemblyName, language, provider));
+            // Skip an existing language file rather than overwrite it — re-creating would reset every
+            // translation to NeedsTranslation. Updating an existing language is `sync`'s job.
+            if (File.Exists(target) && !force)
+            {
+                skipped++;
+                continue;
+            }
+
+            Catalog template = await TemplateCatalogAsync(registry, baked).ConfigureAwait(false);
+            await WriteFileAsync(provider, target, Reconciler.CreateLanguage(template, language)).ConfigureAwait(false);
+            created++;
+        }
+
+        Success($"Added {language} for {created} assembly catalog(s){(skipped > 0 ? $"; skipped {skipped} existing (use --force to overwrite)" : string.Empty)}");
         return 0;
     }
 
     private static async Task<int> SyncAsync(IReadOnlyDictionary<string, string> options)
     {
-        var templatePath = Require(options, "--template");
-        var targetPath = Require(options, "--target");
         TranslationFormatRegistry registry = BuildRegistry();
+        var check = options.ContainsKey("--check");
 
-        Catalog template = await ReadFileAsync(ProviderFor(registry, templatePath), templatePath).ConfigureAwait(false);
-        ITranslationFormat targetProvider = ProviderFor(registry, targetPath);
-        Catalog reconciled = Reconciler.Reconcile(template, await ReadFileAsync(targetProvider, targetPath).ConfigureAwait(false));
-
-        var updated = await SerializeAsync(targetProvider, reconciled).ConfigureAwait(false);
-        if (options.ContainsKey("--check"))
+        if (options.ContainsKey("--template") || options.ContainsKey("--target"))
         {
-            var current = File.ReadAllBytes(targetPath);
-            return current.AsSpan().SequenceEqual(updated) ? 0 : Drift($"'{targetPath}' is out of date; run sync to update it.");
+            var templatePath = Require(options, "--template");
+            var targetPath = Require(options, "--target");
+            Catalog template = await ReadFileAsync(ProviderFor(registry, templatePath), templatePath).ConfigureAwait(false);
+            ITranslationFormat targetProvider = ProviderFor(registry, targetPath);
+            Catalog reconciled = Reconciler.Reconcile(template, await ReadFileAsync(targetProvider, targetPath).ConfigureAwait(false));
+            var updated = await SerializeAsync(targetProvider, reconciled).ConfigureAwait(false);
+            if (check)
+            {
+                var current = File.ReadAllBytes(targetPath);
+                return current.AsSpan().SequenceEqual(updated) ? 0 : Drift($"'{targetPath}' is out of date; run sync to update it.");
+            }
+
+            File.WriteAllBytes(targetPath, updated);
+            Success($"Synced {targetPath}");
+            return 0;
         }
 
-        File.WriteAllBytes(targetPath, updated);
-        Success($"Synced {targetPath}");
+        var outputDir = Require(options, "--output");
+        IReadOnlyList<BakedTemplate> templates = ScopeResolver.Resolve(ParseScope(options));
+        if (templates.Count == 0)
+        {
+            return Fail("No assemblies with localizable strings found in the given scope.");
+        }
+
+        var drifted = new List<string>();
+        var synced = 0;
+        foreach (BakedTemplate baked in templates)
+        {
+            Catalog template = await TemplateCatalogAsync(registry, baked).ConfigureAwait(false);
+            foreach (var targetPath in TargetCatalogsFor(outputDir, baked.AssemblyName, baked.SourceLanguage, registry))
+            {
+                ITranslationFormat targetProvider = ProviderFor(registry, targetPath);
+                Catalog reconciled = Reconciler.Reconcile(template, await ReadFileAsync(targetProvider, targetPath).ConfigureAwait(false));
+                var updated = await SerializeAsync(targetProvider, reconciled).ConfigureAwait(false);
+                if (check)
+                {
+                    if (!File.ReadAllBytes(targetPath).AsSpan().SequenceEqual(updated))
+                    {
+                        drifted.Add(targetPath);
+                    }
+                }
+                else
+                {
+                    File.WriteAllBytes(targetPath, updated);
+                    synced++;
+                }
+            }
+        }
+
+        if (check)
+        {
+            return drifted.Count == 0
+                ? 0
+                : Drift($"{drifted.Count} catalog(s) out of date ({string.Join(", ", drifted.Select(Path.GetFileName))}); run sync to update them.");
+        }
+
+        Success($"Synced {synced} catalog(s) in {outputDir}");
         return 0;
     }
 
@@ -149,6 +280,89 @@ internal static class ToolApplication
         WarnOnLostCapabilities(source, target, catalog);
         await WriteFileAsync(target, output, catalog).ConfigureAwait(false);
         Success($"Converted {from} to {output}");
+        return 0;
+    }
+
+    private static async Task<int> ExportAsync(IReadOnlyDictionary<string, string> options)
+    {
+        var catalogDirectory = Require(options, "--input");
+        var language = Require(options, "--lang");
+        var outputZip = Require(options, "--output");
+        var formatId = options.TryGetValue("--format", out var f) && f.Length > 0 ? f : "xliff";
+        TranslationFormatRegistry registry = BuildRegistry();
+        ITranslationFormat target = registry.ResolveById(formatId) ?? throw new ArgumentException($"Unknown format '{formatId}'.");
+
+        var matched = EnumerateCatalogFiles(catalogDirectory, registry)
+            .Where(file => string.Equals(CultureOf(file), language, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (matched.Count == 0)
+        {
+            return Fail($"No '{language}' catalogs found in '{catalogDirectory}'.");
+        }
+
+        var directory = Path.GetDirectoryName(Path.GetFullPath(outputZip));
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory!);
+        }
+
+        if (File.Exists(outputZip))
+        {
+            File.Delete(outputZip);
+        }
+
+        using (ZipArchive zip = ZipFile.Open(outputZip, ZipArchiveMode.Create))
+        {
+            foreach (var file in matched)
+            {
+                Catalog catalog = await ReadFileAsync(ProviderFor(registry, file), file).ConfigureAwait(false);
+                (var name, _) = SplitCatalogName(Path.GetFileNameWithoutExtension(file));
+                var bytes = await SerializeAsync(target, catalog).ConfigureAwait(false);
+                ZipArchiveEntry entry = zip.CreateEntry(CatalogFileName(name, language, target), CompressionLevel.Optimal);
+                using Stream stream = entry.Open();
+                await stream.WriteAsync(bytes, 0, bytes.Length).ConfigureAwait(false);
+            }
+        }
+
+        Success($"Exported {matched.Count} '{language}' catalog(s) to {outputZip}");
+        return 0;
+    }
+
+    private static async Task<int> ImportAsync(IReadOnlyDictionary<string, string> options)
+    {
+        var zipPath = Require(options, "--input");
+        var outputDir = Require(options, "--output");
+        TranslationFormatRegistry registry = BuildRegistry();
+        ITranslationFormat arb = registry.ResolveById("arb")!;
+        Directory.CreateDirectory(outputDir);
+
+        var imported = 0;
+        using ZipArchive archive = ZipFile.OpenRead(zipPath);
+        foreach (ZipArchiveEntry entry in archive.Entries)
+        {
+            ITranslationFormat? source = registry.ResolveByExtension(Path.GetExtension(entry.Name));
+            if (source is null)
+            {
+                continue;
+            }
+
+            Catalog catalog;
+            using (Stream entryStream = entry.Open())
+            using (var buffer = new MemoryStream())
+            {
+                await entryStream.CopyToAsync(buffer).ConfigureAwait(false);
+                buffer.Position = 0;
+                catalog = await source.ReadAsync(buffer, CancellationToken.None).ConfigureAwait(false);
+            }
+
+            // Route the returned translation back to its origin and the dev format: the entry name carries the
+            // assembly and culture (set by export), so {AssemblyName}.{culture}.arb lands beside the others.
+            (var name, var culture) = SplitCatalogName(Path.GetFileNameWithoutExtension(entry.Name));
+            await WriteFileAsync(arb, Path.Combine(outputDir, CatalogFileName(name, culture, arb)), catalog).ConfigureAwait(false);
+            imported++;
+        }
+
+        Success($"Imported {imported} catalog(s) to {outputDir}");
         return 0;
     }
 
@@ -247,22 +461,63 @@ internal static class ToolApplication
         }
     }
 
-    private static (string Format, string SourceLanguage, string Arb) ReadBakedTemplate(string assemblyPath)
+    // The dev/source catalog naming: {AssemblyName}.{culture}.{ext}, or {culture}.{ext} when there is no
+    // assembly prefix (the legacy single-file shape). The inverse is SplitCatalogName.
+    private static string CatalogFileName(string assemblyName, string culture, ITranslationFormat provider) =>
+        string.IsNullOrEmpty(assemblyName)
+            ? culture + Extension(provider)
+            : assemblyName + "." + culture + Extension(provider);
+
+    // Splits a catalog file's base name (no extension) into its assembly prefix and culture: "App.Core.de"
+    // -> ("App.Core", "de"), "de" -> ("", "de"). Culture tags never contain '.', so the last segment is it.
+    private static (string Name, string Culture) SplitCatalogName(string baseName)
     {
-        Assembly assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.GetFullPath(assemblyPath));
-        foreach (CustomAttributeData data in assembly.GetCustomAttributesData())
+        var lastDot = baseName.LastIndexOf('.');
+        return lastDot > 0 ? (baseName[..lastDot], baseName[(lastDot + 1)..]) : (string.Empty, baseName);
+    }
+
+    private static string CultureOf(string path) => SplitCatalogName(Path.GetFileNameWithoutExtension(path)).Culture;
+
+    // The target catalogs for one assembly in a directory: files named {AssemblyName}.{culture}.{ext} whose
+    // culture is not the source language (the extracted template is not a sync target).
+    private static IEnumerable<string> TargetCatalogsFor(string directory, string assemblyName, string sourceLanguage, TranslationFormatRegistry registry)
+    {
+        if (!Directory.Exists(directory))
         {
-            if (data.AttributeType.FullName == TemplateAttribute && data.ConstructorArguments.Count == 3)
-            {
-                var format = (string)data.ConstructorArguments[0].Value!;
-                var sourceLanguage = (string)data.ConstructorArguments[1].Value!;
-                var arb = Encoding.UTF8.GetString(Convert.FromBase64String((string)data.ConstructorArguments[2].Value!));
-                return (format, sourceLanguage, arb);
-            }
+            yield break;
         }
 
-        throw new InvalidOperationException($"No baked localization template found in '{assemblyPath}'.");
+        foreach (var file in Directory.EnumerateFiles(directory))
+        {
+            if (registry.ResolveByExtension(Path.GetExtension(file)) is null)
+            {
+                continue;
+            }
+
+            (var name, var culture) = SplitCatalogName(Path.GetFileNameWithoutExtension(file));
+            if (string.Equals(name, assemblyName, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(culture, sourceLanguage, StringComparison.OrdinalIgnoreCase))
+            {
+                yield return file;
+            }
+        }
     }
+
+    private static async Task<Catalog> TemplateCatalogAsync(TranslationFormatRegistry registry, BakedTemplate baked)
+    {
+        Catalog catalog = await ReadAsync(registry.ResolveById("arb")!, new MemoryStream(Encoding.UTF8.GetBytes(baked.Arb))).ConfigureAwait(false);
+        return catalog with { Culture = baked.SourceLanguage };
+    }
+
+    private static ScopeOptions ParseScope(IReadOnlyDictionary<string, string> options) => new(
+        options.TryGetValue("--assembly", out var assembly) ? assembly : null,
+        options.TryGetValue("--input", out var input) ? input : null,
+        options.TryGetValue("--project", out var project) ? project : null,
+        options.TryGetValue("--solution", out var solution) ? solution : null,
+        options.ContainsKey("--recurse"));
+
+    private static HashSet<string> Scope(params string[] extra) =>
+        [.. _scopeOptions, .. extra];
 
     private static TranslationFormatRegistry BuildRegistry()
     {
@@ -367,7 +622,8 @@ internal static class ToolApplication
 
     private static int Usage()
     {
-        Console.Error.WriteLine("dotnet apl <extract|add|sync|convert|merge> [options]");
+        Console.Error.WriteLine("dotnet apl <status|extract|add|sync|export|import|convert|merge> [options]");
+        Console.Error.WriteLine("  scope (status/extract/add/sync): --assembly <dll> | --input <dir> | --project <csproj> [--recurse] | --solution <sln>");
         return 2;
     }
 }
