@@ -1,9 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- This sample embeds its catalog as a culture satellite (below); it does not use the loose-file extract
-         path, so opt out of the samples' automatic package-build wiring. -->
-    <ArchPillarLocalizationSampleAuthoring>false</ArchPillarLocalizationSampleAuthoring>
+    <!-- Extract this library's template like any project, but it ships its catalog as an embedded satellite
+         (below), so don't ALSO copy loose catalog files to the output — disable only the copy step, not the
+         whole authoring wiring (which would stop extraction entirely). -->
+    <ArchPillarLocalizationCopyTargetsToOutput>false</ArchPillarLocalizationCopyTargetsToOutput>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <IsPackable>false</IsPackable>
