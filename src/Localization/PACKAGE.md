@@ -23,29 +23,21 @@ in one ambient store that needs no DI, so even an exception thrown before any co
 
 ```csharp
 using ArchPillar.Extensions.Localization;
-
-public sealed class Greeter(ILocalizer<Greeter>? localizer = null)
-{
-    // Default to the ambient store, so a no-DI caller can just `new Greeter()`.
-    private readonly ILocalizer<Greeter> _localizer = localizer ?? Localization.For<Greeter>();
-
-    // "greeting" is the key; "Hello {name}!" is the in-code default and the fallback.
-    public string Greet(string name) => _localizer.Translate("greeting", "Hello {name}!", ("name", name));
-}
-```
-
-```csharp
 using System.Globalization;
 
-var greeter = new Greeter();
-Console.WriteLine(greeter.Greet("Ada"));                  // "Hello Ada!" (the in-code default)
+// Translate anywhere — no setup, no DI, no class to wire up. "greeting" is the key;
+// "Hello {name}!" is the in-code default (the source-language text and the fallback).
+string Greet(string name) => Localization.Default.Translate("greeting", "Hello {name}!", ("name", name));
+
+Console.WriteLine(Greet("Ada"));                  // "Hello Ada!" (the in-code default)
 
 CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("de");
-Console.WriteLine(greeter.Greet("Ada"));                  // "Hallo Ada!" once a de catalog is loaded
+Console.WriteLine(Greet("Ada"));                  // "Hallo Ada!" once a de catalog is loaded
 ```
 
-Translations come from a `Translations/de.arb` file beside the binary (loaded automatically), an
-embedded catalog, or `Localization.AddCatalog(...)`.
+`Localization.Default` is the process-wide ambient store, reachable with no services. Translations come
+from a `Translations/de.arb` file beside the binary (loaded automatically), an embedded catalog, or
+`Localization.AddCatalog(...)`. Scope keys by category with `ILocalizer<T>` as an app grows.
 
 ## Dependency injection and IStringLocalizer
 

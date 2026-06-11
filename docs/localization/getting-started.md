@@ -20,36 +20,41 @@ enough SDK. On an older SDK the package still restores and the runtime still wor
 the analyzer silently do nothing** — no template is generated and no `APL` diagnostics appear. If your
 keys are not being extracted, check `dotnet --version` first.
 
-## 2. Write a translatable call site
+## 2. Translate a string
 
-Inject `ILocalizer<T>`; the type argument is the *category* that scopes your keys (the `ILogger<T>`
-model). Default it to the ambient store so the type works with or without DI:
+Call the ambient localizer wherever you need text — no setup, no DI, no class to wire up. The first
+argument is a stable **key**; the second is the **in-code default** (the source-language text, and the
+terminal fallback); the trailing `(name, value)` pairs fill the ICU placeholders:
 
 ```csharp
 using ArchPillar.Extensions.Localization;
 
-public sealed class Greeter(ILocalizer<Greeter>? localizer = null)
-{
-    private readonly ILocalizer<Greeter> _localizer = localizer ?? Localization.For<Greeter>();
+string Greet(string name) =>
+    Localization.Default.Translate("greeting", "Hello {name}!", ("name", name));
 
-    // key, in-code ICU default, then (name, value) arguments.
-    public string Greet(string name) => _localizer.Translate("greeting", "Hello {name}!", ("name", name));
-
-    public string Inbox(int count) =>
-        _localizer.Translate("inbox", "You have {count, plural, one {# message} other {# messages}}", ("count", count));
-}
+string Inbox(int count) =>
+    Localization.Default.Translate("inbox", "You have {count, plural, one {# message} other {# messages}}", ("count", count));
 ```
+
+`Localization.Default` is the process-wide ambient store (the `IConfiguration` model): reachable from
+anywhere — a service, a static helper, even an exception thrown before any container exists. There is
+nothing to register and no constructor to thread.
+
+> **As your app grows**, scope keys by *category* so two components can both use `"title"` without
+> colliding — call `Localization.For<T>()`, or inject `ILocalizer<T>` (the `ILogger<T>` model). A set of
+> shared strings lives in its own scope type. None of that is needed to start; see
+> [categories](features.md#categories--the-iloggert-model) and
+> [`Localized<TSelf>`](features.md#localizedtself--a-bundle-of-strings).
 
 ## 3. Run with the in-code defaults
 
-With no catalogs, every string renders its in-code default — the app is fully functional in the
-source language:
+With no catalogs present, every call renders its in-code default — the app is fully functional in the
+source language from day one:
 
 ```csharp
-var greeter = new Greeter();
-Console.WriteLine(greeter.Greet("Ada"));   // "Hello Ada!"
-Console.WriteLine(greeter.Inbox(1));       // "You have 1 message"
-Console.WriteLine(greeter.Inbox(5));       // "You have 5 messages"
+Console.WriteLine(Greet("Ada"));   // "Hello Ada!"
+Console.WriteLine(Inbox(1));       // "You have 1 message"
+Console.WriteLine(Inbox(5));       // "You have 5 messages"
 ```
 
 ## 4. Generate the translator files
@@ -92,8 +97,8 @@ The ambient store loads `Translations/` automatically and resolves against `Curr
 using System.Globalization;
 
 CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("de");
-Console.WriteLine(greeter.Greet("Ada"));   // "Hallo Ada!"
-Console.WriteLine(greeter.Inbox(5));        // "Sie haben 5 Nachrichten"
+Console.WriteLine(Greet("Ada"));   // "Hallo Ada!"
+Console.WriteLine(Inbox(5));        // "Sie haben 5 Nachrichten"
 ```
 
 ## 6. (Optional) Wire up dependency injection
