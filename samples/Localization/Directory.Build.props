@@ -13,12 +13,4 @@
   -->
   <Import Project="$(MSBuildThisFileDirectory)..\..\src\Localization.Analyzers\build\ArchPillar.Extensions.Localization.props" />
 
-  <PropertyGroup>
-    <!-- The package targets call `dotnet apl`; this repo runs the tool from source instead of installing it
-         globally, and the tool multi-targets, so a framework is pinned (samples target net10.0). -->
-    <ArchPillarLocalizationToolCommand>dotnet run --project "$(MSBuildThisFileDirectory)..\..\src\Localization.Tooling\ArchPillar.Extensions.Localization.Tooling.csproj" -c $(Configuration) -f net10.0 --</ArchPillarLocalizationToolCommand>
-    <!-- The tool is always available here (from source), so a real failure should fail the build, not warn. -->
-    <ArchPillarLocalizationToolContinueOnError>false</ArchPillarLocalizationToolContinueOnError>
-  </PropertyGroup>
-
 </Project>

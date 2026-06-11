@@ -3,6 +3,15 @@
   <!-- Chain the parent (the empty samples shield that keeps the root analyzer injection off the samples). -->
   <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.targets', '$(MSBuildThisFileDirectory)../'))" />
 
+  <PropertyGroup>
+    <!-- The package targets call `dotnet apl`; this repo runs the tool from source (it multi-targets, so the
+         framework is pinned). Set here, NOT in Directory.Build.props, because $(Configuration) is not yet
+         defined that early — there it would expand to empty and `dotnet run -c` would fail. -->
+    <ArchPillarLocalizationToolCommand>dotnet run --project "$(MSBuildThisFileDirectory)..\..\src\Localization.Tooling\ArchPillar.Extensions.Localization.Tooling.csproj" -c $(Configuration) -f net10.0 --</ArchPillarLocalizationToolCommand>
+    <!-- The tool is always available here (from source), so a real failure should fail the build, not warn. -->
+    <ArchPillarLocalizationToolContinueOnError>false</ArchPillarLocalizationToolContinueOnError>
+  </PropertyGroup>
+
   <!--
     Wire the generator (as analyzers, the set the package ships) and the package's extract/copy/merge targets,
     EXCEPT for samples that manage their own catalogs (embedded satellites, a fetched-asset model, …) which set
