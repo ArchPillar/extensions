@@ -1,6 +1,5 @@
 using ArchPillar.Extensions.Localization;
 using ArchPillar.Extensions.Localization.DependencyInjection;
-using Ambient = ArchPillar.Extensions.Localization.Localizer;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
@@ -28,29 +27,35 @@ public static class ServiceCollectionExtensions
             throw new ArgumentNullException(nameof(services));
         }
 
-        // Idempotent per collection: a second call (a common double-registration footgun, and what makes the
-        // process-global ambient mutation below dangerous) is a no-op rather than stacking duplicate sources.
-        // The first registration's options win.
-        if (services.Any(descriptor => descriptor.ServiceType == typeof(DefaultLocalizer)))
+        // Idempotent per collection: a second call (a common double-registration footgun) is a no-op rather
+        // than stacking duplicate registrations. The first registration's options win.
+        if (services.Any(descriptor => descriptor.ServiceType == typeof(LocalizationContext)))
         {
             return services;
         }
 
         LocalizerOptions resolved = options ?? new LocalizerOptions();
 
-        // Feed the ambient store in one go so DI and the ambient share one source of truth — including the
-        // formatting policy, so an injected interface, a non-DI caller, and the directly injected
-        // DefaultLocalizer agree.
-        Ambient.Configure(resolved);
+        if (resolved.UseAmbient)
+        {
+            // Feed and register the single process-wide ambient context, so DI, a non-DI caller, and an
+            // exception text all read one store. Registered as an instance, so the container does not dispose
+            // the process-global ambient.
+            Localizer.Configure(resolved);
+            services.AddSingleton(Localizer.Ambient);
+        }
+        else
+        {
+            // Pure DI: forbid the static ambient (any accidental use throws) and register a fresh,
+            // container-owned context. The container disposes it, since it created it via the factory.
+            Localizer.Disable();
+            services.AddSingleton(_ => new LocalizationContext(resolved));
+        }
 
-        // Native interfaces over the ambient store.
-        services.AddSingleton(Ambient.Default);
+        // The native views over whichever context was registered.
+        services.AddSingleton<ILocalizer>(provider => provider.GetRequiredService<LocalizationContext>().Default);
         services.AddSingleton(typeof(ILocalizer<>), typeof(AmbientLocalizer<>));
-
-        // A directory-backed CatalogStore (disposed by the container) and a concrete DefaultLocalizer over it
-        // remain available for direct injection.
-        services.AddSingleton(_ => new CatalogStore(resolved));
-        services.AddSingleton(provider => new DefaultLocalizer(provider.GetRequiredService<CatalogStore>()));
+        services.AddSingleton(provider => provider.GetRequiredService<LocalizationContext>().Engine);
         return services;
     }
 }

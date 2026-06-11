@@ -39,8 +39,12 @@ public static class Localizer
         set => Ambient.TranslationsDirectory = value;
     }
 
-    // The single ambient environment, created on first use unless disabled.
-    internal static LocalizationContext Ambient
+    /// <summary>
+    /// The single process-wide ambient <see cref="LocalizationContext"/>, created on first use. Throws if the
+    /// ambient context has been disabled via <see cref="Disable"/>.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The ambient context is disabled.</exception>
+    public static LocalizationContext Ambient
     {
         get
         {
