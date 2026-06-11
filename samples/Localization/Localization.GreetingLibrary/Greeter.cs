@@ -10,7 +10,7 @@ namespace Acme.Greeting;
 /// </summary>
 public sealed class Greeter(ILocalizer<Greeter>? localizer = null)
 {
-    private readonly ILocalizer<Greeter> _localizer = localizer ?? Localization.For<Greeter>();
+    private readonly ILocalizer<Greeter> _localizer = localizer ?? Localizer.For<Greeter>();
 
     public string Greet(string name) =>
         _localizer.Translate("greeting", "Hello {name}!", ("name", name));

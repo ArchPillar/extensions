@@ -1,7 +1,7 @@
 using System.Globalization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
-using Ambient = ArchPillar.Extensions.Localization.Localization;
+using Ambient = ArchPillar.Extensions.Localization.Localizer;
 
 namespace ArchPillar.Extensions.Localization.StringLocalizer.Tests;
 

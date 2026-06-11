@@ -28,7 +28,7 @@ public sealed class AssemblyExtractionTests : IDisposable
                 loc.Translate("menu.file", "File", "menubar");                                   // with disambiguation context
                 _ = strings["inbox.summary", 3];                                                 // IStringLocalizer indexer
                 _ = loc["greeting", "Hello"];                                                    // ILocalizer indexer
-                _ = Localization.Translate("tagline", "Welcome");                                // static using-static form, global
+                _ = Localizer.Translate("tagline", "Welcome");                                // static using-static form, global
                 L("Email is required");                                                          // L(...) marker, global category
             }
         }
@@ -71,7 +71,7 @@ public sealed class AssemblyExtractionTests : IDisposable
         Assert.Equal("Hello", greeting.Default);
         Assert.Equal("App.Home", greeting.Category);
 
-        // The static Localization.Translate (the using-static free-function form): recognised by the same
+        // The static Localizer.Translate (the using-static free-function form): recognised by the same
         // attribute contract, under the global category (a receiver-less static call).
         RawCallSite tagline = Assert.Single(sites, s => s.Key == "tagline");
         Assert.Equal("Welcome", tagline.Default);

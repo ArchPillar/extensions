@@ -17,8 +17,8 @@ using ArchPillar.Extensions.Localization;
 // ---------------------------------------------------------------------------
 CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("de");
 
-var fromMain = Localization.Default.Translate("fromMain", "from main (default)");
-var fromSatellite = Localization.Default.Translate("fromSatellite", "from satellite (default)");
+var fromMain = Localizer.Default.Translate("fromMain", "from main (default)");
+var fromSatellite = Localizer.Default.Translate("fromSatellite", "from satellite (default)");
 
 Console.WriteLine("main assembly: " + fromMain);
 Console.WriteLine("satellite:     " + fromSatellite);

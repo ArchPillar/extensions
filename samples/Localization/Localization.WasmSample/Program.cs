@@ -4,7 +4,7 @@ using Localization.WasmSample;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.Extensions.DependencyInjection;
-using Ambient = ArchPillar.Extensions.Localization.Localization;
+using Ambient = ArchPillar.Extensions.Localization.Localizer;
 
 // ---------------------------------------------------------------------------
 // Localization.WasmSample

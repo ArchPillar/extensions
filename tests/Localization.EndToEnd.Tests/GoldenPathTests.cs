@@ -2,7 +2,7 @@ using System.Globalization;
 using System.Text;
 using ArchPillar.Extensions.Localization.Formats;
 using ArchPillar.Extensions.Localization.Tooling;
-using Ambient = ArchPillar.Extensions.Localization.Localization;
+using Ambient = ArchPillar.Extensions.Localization.Localizer;
 
 namespace ArchPillar.Extensions.Localization.EndToEnd.Tests;
 

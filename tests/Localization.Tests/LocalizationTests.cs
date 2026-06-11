@@ -22,40 +22,40 @@ public sealed class LocalizationTests
     [Fact]
     public void AddCatalog_ResolvesThroughAmbientTypedLocalizer()
     {
-        Localization.Reset();
-        Localization.AddCatalog(DeCatalog(typeof(Greeting).FullName!, "hello", "Hallo"));
+        Localizer.Reset();
+        Localizer.AddCatalog(DeCatalog(typeof(Greeting).FullName!, "hello", "Hallo"));
 
-        WithCulture(_german, () => Assert.Equal("Hallo", Localization.For<Greeting>().Translate("hello", "Hello")));
+        WithCulture(_german, () => Assert.Equal("Hallo", Localizer.For<Greeting>().Translate("hello", "Hello")));
     }
 
     [Fact]
     public void Translate_StaticGlobal_RendersDefaultThenResolvesTheGlobalOverride()
     {
-        Localization.Reset();
+        Localizer.Reset();
 
         // No catalog: the static free-function form renders the in-code default through the global category.
-        Assert.Equal("Hello Ada", Localization.Translate("greeting", "Hello {name}", ("name", "Ada")));
+        Assert.Equal("Hello Ada", Localizer.Translate("greeting", "Hello {name}", ("name", "Ada")));
 
         // A global-category (empty category) override is what the receiver-less Translate resolves against.
-        Localization.AddCatalog(DeCatalog(string.Empty, "greeting", "Hallo {name}"));
-        WithCulture(_german, () => Assert.Equal("Hallo Ada", Localization.Translate("greeting", "Hello {name}", ("name", "Ada"))));
+        Localizer.AddCatalog(DeCatalog(string.Empty, "greeting", "Hallo {name}"));
+        WithCulture(_german, () => Assert.Equal("Hallo Ada", Localizer.Translate("greeting", "Hello {name}", ("name", "Ada"))));
     }
 
     [Fact]
     public void AddSource_LayersOverTheStore()
     {
-        Localization.Reset();
-        Localization.AddSource(new PseudoLocalizationSource("qps-ploc"));
+        Localizer.Reset();
+        Localizer.AddSource(new PseudoLocalizationSource("qps-ploc"));
 
-        WithCulture(_pseudo, () => Assert.Equal("XXXXX", Localization.For<Greeting>().Translate("hello", "Hello")));
+        WithCulture(_pseudo, () => Assert.Equal("XXXXX", Localizer.For<Greeting>().Translate("hello", "Hello")));
     }
 
     [Fact]
     public void EmbeddedCatalog_IsDiscoveredFromTheAssembly()
     {
-        Localization.Reset();
+        Localizer.Reset();
 
-        WithCulture(_german, () => Assert.Equal("Eingebettet", Localization.For<EmbeddedStrings>().Translate("embedded.key", "Embedded")));
+        WithCulture(_german, () => Assert.Equal("Eingebettet", Localizer.For<EmbeddedStrings>().Translate("embedded.key", "Embedded")));
     }
 
     [Fact]
@@ -74,10 +74,10 @@ public sealed class LocalizationTests
                 }
                 """);
 
-            Localization.Reset();
-            Localization.TranslationsDirectory = directory;
+            Localizer.Reset();
+            Localizer.TranslationsDirectory = directory;
 
-            WithCulture(_german, () => Assert.Equal("Hallo", Localization.For<Greeting>().Translate("hello", "Hello")));
+            WithCulture(_german, () => Assert.Equal("Hallo", Localizer.For<Greeting>().Translate("hello", "Hello")));
         }
         finally
         {
@@ -88,19 +88,19 @@ public sealed class LocalizationTests
     [Fact]
     public void SatelliteCatalog_IsLoadedLazilyForTheRequestedCulture()
     {
-        Localization.Reset();
+        Localizer.Reset();
 
-        WithCulture(_german, () => Assert.Equal("Aus dem Satelliten", Localization.For<SatelliteStrings>().Translate("sat.key", "From satellite")));
+        WithCulture(_german, () => Assert.Equal("Aus dem Satelliten", Localizer.For<SatelliteStrings>().Translate("sat.key", "From satellite")));
     }
 
     [Fact]
     public void Reset_DropsHostAddedCatalogs()
     {
-        Localization.Reset();
-        Localization.AddCatalog(DeCatalog(typeof(Greeting).FullName!, "hello", "Hallo"));
-        Localization.Reset();
+        Localizer.Reset();
+        Localizer.AddCatalog(DeCatalog(typeof(Greeting).FullName!, "hello", "Hallo"));
+        Localizer.Reset();
 
-        WithCulture(_german, () => Assert.Equal("Hello", Localization.For<Greeting>().Translate("hello", "Hello")));
+        WithCulture(_german, () => Assert.Equal("Hello", Localizer.For<Greeting>().Translate("hello", "Hello")));
     }
 
     private static Catalog DeCatalog(string category, string key, string message) => new()

@@ -9,7 +9,7 @@ namespace Acme.Greeting;
 /// </summary>
 public sealed class Validator(ILocalizer<Validator>? localizer = null)
 {
-    private readonly ILocalizer<Validator> _localizer = localizer ?? Localization.For<Validator>();
+    private readonly ILocalizer<Validator> _localizer = localizer ?? Localizer.For<Validator>();
 
     public void ValidateRequired(string field, string? value)
     {

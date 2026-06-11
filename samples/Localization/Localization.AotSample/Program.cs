@@ -12,14 +12,14 @@ using ArchPillar.Extensions.Localization;
 //   - deliberately NO culture satellite: NativeAOT cannot load one, so it would
 //     silently degrade to the in-code default
 //
-// Both translations resolve from Localization.Default with no services; the
+// Both translations resolve from Localizer.Default with no services; the
 // embed attribute lives in AssemblyInfo.cs, the files under Translations/ and
 // Embedded/.
 // ---------------------------------------------------------------------------
 CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("de");
 
-var fromFiles = Localization.Default.Translate("fromFiles", "from files (default)");
-var fromMainEmbed = Localization.Default.Translate("fromMainEmbed", "from embed (default)");
+var fromFiles = Localizer.Default.Translate("fromFiles", "from files (default)");
+var fromMainEmbed = Localizer.Default.Translate("fromMainEmbed", "from embed (default)");
 
 Console.WriteLine("files:         " + fromFiles);
 Console.WriteLine("main assembly: " + fromMainEmbed);

@@ -1,6 +1,6 @@
 using ArchPillar.Extensions.Localization;
 using ArchPillar.Extensions.Localization.DependencyInjection;
-using Ambient = ArchPillar.Extensions.Localization.Localization;
+using Ambient = ArchPillar.Extensions.Localization.Localizer;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
@@ -10,7 +10,7 @@ namespace Microsoft.Extensions.DependencyInjection;
 public static class ServiceCollectionExtensions
 {
     /// <summary>
-    /// Configures the ambient <see cref="Localization"/> store from <paramref name="options"/> and registers
+    /// Configures the ambient <see cref="Localizer"/> store from <paramref name="options"/> and registers
     /// the native localization views — <see cref="ILocalizer"/>, <see cref="ILocalizer{T}"/>, and a concrete
     /// <see cref="DefaultLocalizer"/> for direct injection — over it, so an injected localizer, a non-DI caller, and
     /// an exception text all read the same store (Decision D-I). For <c>IStringLocalizer</c> interop while

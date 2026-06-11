@@ -2,13 +2,13 @@ namespace ArchPillar.Extensions.Localization.DependencyInjection;
 
 /// <summary>
 /// The DI bridge for <see cref="ILocalizer{T}"/>: a registrable concrete type that forwards to the ambient
-/// <see cref="Localization.For{T}"/>, so an injected <c>ILocalizer&lt;T&gt;</c> reads the same store as an
+/// <see cref="Localizer.For{T}"/>, so an injected <c>ILocalizer&lt;T&gt;</c> reads the same store as an
 /// exception text or a non-DI caller.
 /// </summary>
 /// <typeparam name="T">The type whose full name is the translation category.</typeparam>
 internal sealed class AmbientLocalizer<T> : ILocalizer<T>
 {
-    private readonly ILocalizer<T> _inner = Localization.For<T>();
+    private readonly ILocalizer<T> _inner = Localizer.For<T>();
 
     public string Translate(string key, string defaultMessage, params (string Name, object? Value)[] arguments) =>
         _inner.Translate(key, defaultMessage, arguments);

@@ -13,7 +13,7 @@ namespace ArchPillar.Extensions.Localization;
 /// lazily as assemblies load (an assembly cannot run a translatable call before it is loaded), so nothing
 /// has to be configured for a library's translations to work.
 /// </summary>
-public static class Localization
+public static class Localizer
 {
     // _gate guards ONLY the in-memory bookkeeping: the catalog lists, the discovery sets, and the snapshot
     // rebuild/swap — all short, allocation-light operations. Reflection and I/O (reading assembly attributes,
@@ -125,7 +125,7 @@ public static class Localization
     /// <summary>
     /// Translates <paramref name="key"/> through the global ambient store, falling back to
     /// <paramref name="defaultMessage"/>. The free-function form of <see cref="Default"/>, for
-    /// <c>using static ArchPillar.Extensions.Localization.Localization;</c> — the call site then reads
+    /// <c>using static ArchPillar.Extensions.Localization.Localizer;</c> — the call site then reads
     /// <c>Translate("greeting", "Hello {name}!", ("name", name))</c> with no receiver.
     /// </summary>
     /// <param name="key">The stable symbolic key.</param>
