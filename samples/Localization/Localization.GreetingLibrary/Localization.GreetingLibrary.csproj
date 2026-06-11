@@ -19,8 +19,8 @@
     store discovers it. A consuming app needs no configuration, no DI, and no files on disk.
   -->
   <ItemGroup>
-    <None Remove="Translations/de.arb" />
-    <EmbeddedResource Include="Translations/de.arb" Culture="de" Link="Acme.Greeting.de.arb" />
+    <None Remove="Translations/Acme.Greeting.de.arb" />
+    <EmbeddedResource Include="Translations/Acme.Greeting.de.arb" Culture="de" Link="Acme.Greeting.de.arb" />
     <AssemblyAttribute Include="ArchPillar.Extensions.Localization.LocalizationSatelliteCatalogsAttribute" />
   </ItemGroup>
 

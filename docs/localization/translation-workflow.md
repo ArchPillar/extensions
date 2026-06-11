@@ -147,7 +147,16 @@ translator file. For the trim / single-file / NativeAOT support matrix, see
 
 ## Naming convention
 
-Dev/source catalogs are `{AssemblyName}.{culture}.{ext}` (e.g. `App.Web.de.arb`). The assembly prefix keeps
-two libraries' `de` catalogs from colliding and lets `import` route a returned translation back to its
-origin. The runtime reads each catalog's culture from its **content** (`@@locale`), not its file name, so
-the prefix never affects resolution. Production bundles (after merge) are bare `{culture}.{ext}`.
+These names are a **convention, not a rule** — the runtime reads each catalog's culture from its **content**
+(`@@locale`), never its file name, so any name resolves. The convention exists because the names are the one
+thing the *tooling* keys on:
+
+- **Per-assembly dev/source catalogs** are `{AssemblyName}.{culture}.{ext}` (e.g. `App.Web.de.arb`). The
+  assembly prefix keeps two libraries' `de` catalogs from colliding in one folder, and lets `import` route a
+  returned translation back to its origin assembly by file name. The authoring commands write this shape, and
+  the samples follow it.
+- **Bundled / published catalogs** are bare `{culture}.{ext}` (e.g. `de.arb`) — one per culture after `merge`.
+  At that point the per-assembly identity has been flattened away, so the simple name is the convention.
+
+Because resolution is content-based, you can deviate (a hand-authored `de.arb` dropped in a folder still
+loads); the convention just keeps the tool-driven workflow unambiguous.

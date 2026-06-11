@@ -15,7 +15,7 @@ using Ambient = ArchPillar.Extensions.Localization.Localization;
 //   - Switching culture in code at runtime with a button — no reload, no request middleware
 //   - A missing override surfacing via IStringLocalizer's ResourceNotFound (the key shows through)
 //
-// The UI lives in Pages/Home.razor; the German catalog is wwwroot/Translations/de.arb.
+// The UI lives in Pages/Home.razor; the German catalog is wwwroot/Translations/Localization.WasmSample.de.arb.
 // ---------------------------------------------------------------------------
 WebAssemblyHostBuilder builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
@@ -26,7 +26,7 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 // into the ambient store; English ships in code, so only the German override is fetched. AddArchPillar-
 // StringLocalizer then registers the native views and the IStringLocalizer adapter over that same store.
 using var http = new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) };
-await using (Stream de = await http.GetStreamAsync("Translations/de.arb"))
+await using (Stream de = await http.GetStreamAsync("Translations/Localization.WasmSample.de.arb"))
 {
     Ambient.AddCatalog(await new ArbTranslationFormat().ReadAsync(de, CancellationToken.None));
 }
