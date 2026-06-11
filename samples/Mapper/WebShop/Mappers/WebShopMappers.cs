@@ -91,7 +91,7 @@ public sealed class WebShopMappers : MapperContext
             CustomerFullName = src.Customer.FirstName + " " + src.Customer.LastName,
             IsOwner          = src.Customer.UserId == CurrentUserId,
         })
-        .Optional(p => p.Lines, src => src.Lines.Project(OrderLine))
+        .Optional(p => p.Lines, src => src.Lines.Project(OrderLine).ToList())
         .Build();
 
         // Customer flattens User.Email and computes aggregate spend.
