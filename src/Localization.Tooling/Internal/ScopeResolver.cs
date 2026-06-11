@@ -50,13 +50,38 @@ internal static class ScopeResolver
             { Project: { } project } => ProjectBinDirectories(ResolveSingleFile(project, "project", "*.csproj"), scope.Recurse),
             { Solution: { } solution } => SolutionProjects(ResolveSingleFile(solution, "solution", "*.sln", "*.slnx"))
                 .SelectMany(p => ProjectBinDirectories(p, recurse: false)),
-            _ => throw new ArgumentException("Specify a scope: --assembly <dll>, --input <dir>, --project [<csproj>|<dir>] [--recurse], or --solution [<sln>|<dir>].")
+            _ => DiscoverInCurrentDirectory(scope.Recurse)
         };
 
         return roots
             .Where(Directory.Exists)
             .SelectMany(dir => Directory.EnumerateFiles(dir, "*.dll", SearchOption.AllDirectories))
             .Distinct(StringComparer.OrdinalIgnoreCase);
+    }
+
+    // With no scope at all, default to the current directory like `dotnet build`: a lone solution wins, else
+    // a lone project; an ambiguous or empty directory is an error rather than a guess.
+    private static IEnumerable<string> DiscoverInCurrentDirectory(bool recurse)
+    {
+        var directory = Directory.GetCurrentDirectory();
+        List<string> solutions = [.. Directory.EnumerateFiles(directory, "*.sln").Concat(Directory.EnumerateFiles(directory, "*.slnx"))];
+        if (solutions.Count > 1)
+        {
+            throw new ArgumentException("Multiple solution files in the current directory; pass one with --solution <path>.");
+        }
+
+        if (solutions.Count == 1)
+        {
+            return SolutionProjects(solutions[0]).SelectMany(p => ProjectBinDirectories(p, recurse: false));
+        }
+
+        List<string> projects = [.. Directory.EnumerateFiles(directory, "*.csproj")];
+        return projects.Count switch
+        {
+            1 => ProjectBinDirectories(projects[0], recurse),
+            0 => throw new ArgumentException("No project or solution found in the current directory. Run from your app folder, or pass --project, --solution, or --input <dir>."),
+            _ => throw new ArgumentException("Multiple project files in the current directory; pass one with --project <path>.")
+        };
     }
 
     // Resolves a --project / --solution value to a single file. A file path is used as-is; an empty value

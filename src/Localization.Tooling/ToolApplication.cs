@@ -623,7 +623,8 @@ internal static class ToolApplication
     private static int Usage()
     {
         Console.Error.WriteLine("dotnet apl <status|extract|add|sync|export|import|convert|merge> [options]");
-        Console.Error.WriteLine("  scope (status/extract/add/sync): --assembly <dll> | --input <dir> | --project <csproj> [--recurse] | --solution <sln>");
+        Console.Error.WriteLine("  scope (status/extract/add/sync): defaults to the project/solution in the current directory;");
+        Console.Error.WriteLine("    or --assembly <dll> | --input <dir> | --project [<csproj>|<dir>] [--recurse] | --solution [<sln>|<dir>]");
         return 2;
     }
 }
