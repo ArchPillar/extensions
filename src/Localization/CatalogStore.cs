@@ -40,8 +40,7 @@ public sealed class CatalogStore : IDisposable
     private readonly IReadOnlyList<string> _formatPrecedence;
     private readonly IReadOnlyList<string>? _cultures;
     private HashSet<string> _loadedCultures = new(StringComparer.OrdinalIgnoreCase);
-    private string _sourceCulture;
-    private MissingArgumentPolicy _missingArguments;
+    private LocalizationContext _context;
     private string _directory;
     private bool _subscribed;
     private bool _scannedLoaded;
@@ -73,8 +72,7 @@ public sealed class CatalogStore : IDisposable
     private CatalogStore(LocalizerOptions options, bool discover)
     {
         _discover = discover;
-        _sourceCulture = options.SourceCulture;
-        _missingArguments = options.MissingArguments;
+        _context = LocalizationContext.For(options.SourceCulture, options.MissingArguments);
         _formatPrecedence = options.FormatPrecedence;
         _cultures = options.Cultures;
         _directory = options.TranslationsDirectory;
@@ -87,12 +85,15 @@ public sealed class CatalogStore : IDisposable
     /// assemblies load and reads its directory lazily on first use.</summary>
     internal static CatalogStore CreateAmbient() => new(new LocalizerOptions(), discover: true);
 
-    /// <summary>The configuration this store currently reflects, so a localizer over it shares the same source
-    /// culture, missing-argument policy, and dynamic sources.</summary>
+    /// <summary>The shared rendering context (source culture, missing-argument policy, formatter) — read live
+    /// by a localizer over this store, so a configuration change is observed without rebuilding it.</summary>
+    internal LocalizationContext Context => Volatile.Read(ref _context);
+
+    /// <summary>The configuration this store currently reflects, used when merging the catalog layers.</summary>
     internal LocalizerOptions Options => new()
     {
-        SourceCulture = _sourceCulture,
-        MissingArguments = _missingArguments,
+        SourceCulture = Context.SourceCultureName,
+        MissingArguments = Context.MissingArguments,
         Sources = [.. _sources],
         FormatPrecedence = _formatPrecedence,
         Cultures = _cultures,
@@ -133,12 +134,12 @@ public sealed class CatalogStore : IDisposable
 
     internal string SourceCulture
     {
-        get => _sourceCulture;
+        get => Context.SourceCultureName;
         set
         {
             lock (_gate)
             {
-                _sourceCulture = value ?? "en";
+                Volatile.Write(ref _context, LocalizationContext.For(value, _context.MissingArguments));
                 Rebuild();
             }
         }
@@ -146,13 +147,61 @@ public sealed class CatalogStore : IDisposable
 
     internal MissingArgumentPolicy MissingArguments
     {
-        get => _missingArguments;
+        get => Context.MissingArguments;
         set
         {
             lock (_gate)
             {
-                _missingArguments = value;
+                Volatile.Write(ref _context, LocalizationContext.For(_context.SourceCultureName, value));
                 Rebuild();
+            }
+        }
+    }
+
+    // Applies source culture, missing-argument policy, the directory, and additional sources in one rebuild —
+    // the single-shot configuration the ambient store is set up with (e.g. by AddArchPillarLocalization).
+    internal void Configure(LocalizerOptions options)
+    {
+        var context = LocalizationContext.For(options.SourceCulture, options.MissingArguments);
+        var directory = string.IsNullOrEmpty(options.TranslationsDirectory) ? null : options.TranslationsDirectory;
+
+        lock (_startupGate)
+        {
+            lock (_gate)
+            {
+                Volatile.Write(ref _context, context);
+                if (directory is not null)
+                {
+                    _directory = directory;
+                }
+
+                foreach (ITranslationSource source in options.Sources ?? [])
+                {
+                    if (!_sources.Contains(source))
+                    {
+                        _sources.Add(source);
+                    }
+                }
+            }
+
+            // Already started: re-read the directory layer against the new directory; otherwise EnsureStarted
+            // reads it on first use. I/O (the file read) stays off _gate.
+            if (Volatile.Read(ref _scannedLoaded))
+            {
+                List<Catalog> catalogs = CatalogLoader.LoadDirectory(Options);
+                lock (_gate)
+                {
+                    _directoryCatalogs.Clear();
+                    _directoryCatalogs.AddRange(catalogs);
+                    Rebuild();
+                }
+            }
+            else
+            {
+                lock (_gate)
+                {
+                    Rebuild();
+                }
             }
         }
     }
@@ -243,8 +292,7 @@ public sealed class CatalogStore : IDisposable
             _seen.Clear();
             _satellitePairs.Clear();
             _loadedCultures = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            _sourceCulture = "en";
-            _missingArguments = MissingArgumentPolicy.PassThrough;
+            Volatile.Write(ref _context, LocalizationContext.Default);
             _directory = DefaultDirectory();
             _scannedLoaded = false;
             _hasSatellites = false;

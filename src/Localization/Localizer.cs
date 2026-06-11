@@ -16,7 +16,6 @@ namespace ArchPillar.Extensions.Localization;
 public static class Localizer
 {
     private static readonly CatalogStore _store = CatalogStore.CreateAmbient();
-    private static DefaultLocalizer _current = new(_store);
 
     /// <summary>The global-namespace ambient localizer (the uncategorized bucket).</summary>
     public static ILocalizer Default { get; } = new Internal.AmbientLocalizer();
@@ -25,11 +24,7 @@ public static class Localizer
     public static string SourceCulture
     {
         get => _store.SourceCulture;
-        set
-        {
-            _store.SourceCulture = value;
-            RefreshCurrent();
-        }
+        set => _store.SourceCulture = value;
     }
 
     /// <summary>
@@ -40,11 +35,24 @@ public static class Localizer
     public static MissingArgumentPolicy MissingArguments
     {
         get => _store.MissingArguments;
-        set
+        set => _store.MissingArguments = value;
+    }
+
+    /// <summary>
+    /// Applies the source culture, missing-argument policy, translations directory, and any additional sources
+    /// from <paramref name="options"/> to the ambient store in one go (a single rebuild) — the single entry
+    /// point for configuring the global store, used by <c>AddArchPillarLocalization</c>.
+    /// </summary>
+    /// <param name="options">The configuration to apply.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
+    public static void Configure(LocalizerOptions options)
+    {
+        if (options is null)
         {
-            _store.MissingArguments = value;
-            RefreshCurrent();
+            throw new ArgumentNullException(nameof(options));
         }
+
+        _store.Configure(options);
     }
 
     /// <summary>
@@ -129,22 +137,17 @@ public static class Localizer
         }
 
         _store.AddSource(source);
-        RefreshCurrent();
     }
 
     /// <summary>
     /// Clears all layered catalogs, sources, and discovery state, returning the store to empty. Intended
     /// for test isolation against the shared ambient state.
     /// </summary>
-    public static void Reset()
-    {
-        _store.Reset();
-        RefreshCurrent();
-    }
+    public static void Reset() => _store.Reset();
 
-    // The current localizer over the global store. It reads the store's snapshot live, so a catalog change
-    // (AddCatalog, discovery, reload, directory) is seen without rebuilding it; a config change rebuilds it.
-    internal static DefaultLocalizer Current => Volatile.Read(ref _current);
+    // The single localizer over the global store, built once and reading its layers and rendering context
+    // live, so every configuration change is observed through the store with no rebuild.
+    internal static DefaultLocalizer Current { get; } = new(_store);
 
     internal static void EnsureCulture(CultureInfo culture) => _store.EnsureCulture(culture);
 
@@ -179,8 +182,4 @@ public static class Localizer
         EnsureCulture(culture);
         return Current.EnumerateCategory(culture, category, includeParentCultures);
     }
-
-    // A config change (source culture, missing-argument policy, sources) is baked into the engine at
-    // construction, so rebuild it over the same store; a catalog change is observed live and needs no rebuild.
-    private static void RefreshCurrent() => Volatile.Write(ref _current, new DefaultLocalizer(_store));
 }

@@ -38,28 +38,19 @@ public static class ServiceCollectionExtensions
 
         LocalizerOptions resolved = options ?? new LocalizerOptions();
 
-        // Feed the ambient store so DI and the ambient share one source of truth — including the formatting
-        // policy, so an injected interface, a non-DI caller, and the directly injected DefaultLocalizer agree.
-        Ambient.SourceCulture = resolved.SourceCulture;
-        Ambient.MissingArguments = resolved.MissingArguments;
-        if (!string.IsNullOrEmpty(resolved.TranslationsDirectory))
-        {
-            Ambient.TranslationsDirectory = resolved.TranslationsDirectory;
-        }
-
-        foreach (ITranslationSource source in resolved.Sources)
-        {
-            Ambient.AddSource(source);
-        }
+        // Feed the ambient store in one go so DI and the ambient share one source of truth — including the
+        // formatting policy, so an injected interface, a non-DI caller, and the directly injected
+        // DefaultLocalizer agree.
+        Ambient.Configure(resolved);
 
         // Native interfaces over the ambient store.
         services.AddSingleton(Ambient.Default);
         services.AddSingleton(typeof(ILocalizer<>), typeof(AmbientLocalizer<>));
 
-        // A directory-backed CatalogStore (disposed by the container) and a concrete DefaultLocalizer over it remain
-        // available for direct injection.
+        // A directory-backed CatalogStore (disposed by the container) and a concrete DefaultLocalizer over it
+        // remain available for direct injection.
         services.AddSingleton(_ => new CatalogStore(resolved));
-        services.AddSingleton(provider => new DefaultLocalizer(provider.GetRequiredService<CatalogStore>(), resolved));
+        services.AddSingleton(provider => new DefaultLocalizer(provider.GetRequiredService<CatalogStore>()));
         return services;
     }
 }

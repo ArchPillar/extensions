@@ -1,6 +1,5 @@
 using System.Globalization;
 using ArchPillar.Extensions.Localization.Internal;
-using ArchPillar.Extensions.Localization.MessageFormat;
 
 namespace ArchPillar.Extensions.Localization;
 
@@ -13,31 +12,23 @@ namespace ArchPillar.Extensions.Localization;
 /// </summary>
 public sealed class DefaultLocalizer : ILocalizer
 {
-    private readonly MessageFormatter _formatter;
-    private readonly CultureInfo _sourceCulture;
     private readonly CatalogStore? _store;
+    private readonly LocalizationContext? _context;
     private readonly TranslationSnapshot _fixedSnapshot;
     private readonly IReadOnlyList<ITranslationSource> _fixedLayers;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DefaultLocalizer"/> class over a <see cref="CatalogStore"/>,
-    /// resolving against the store's current snapshot so a reload (or hot-reload) of the store is observed on
-    /// the next lookup. The store is owned by the caller; the localizer only reads it.
+    /// resolving against the store's current layers and rendering through its <see cref="CatalogStore.Context"/>,
+    /// both read live so a reload or configuration change is observed on the next lookup. The store is owned by
+    /// the caller; the localizer only reads it.
     /// </summary>
     /// <param name="store">The catalogue store to resolve against.</param>
-    /// <param name="options">The localizer configuration, or <see langword="null"/> to use the store's.</param>
     /// <exception cref="ArgumentNullException"><paramref name="store"/> is <see langword="null"/>.</exception>
-    public DefaultLocalizer(CatalogStore store, LocalizerOptions? options = null)
+    public DefaultLocalizer(CatalogStore store)
     {
-        if (store is null)
-        {
-            throw new ArgumentNullException(nameof(store));
-        }
-
-        LocalizerOptions resolved = options ?? store.Options;
-        _formatter = new MessageFormatter(resolved.MissingArguments);
-        _sourceCulture = CreateCulture(resolved.SourceCulture);
-        _store = store;
+        _store = store ?? throw new ArgumentNullException(nameof(store));
+        _context = null;
         _fixedSnapshot = TranslationSnapshot.Empty;
         _fixedLayers = [];
     }
@@ -59,9 +50,8 @@ public sealed class DefaultLocalizer : ILocalizer
         }
 
         LocalizerOptions resolved = options ?? new LocalizerOptions();
-        _formatter = new MessageFormatter(resolved.MissingArguments);
-        _sourceCulture = CreateCulture(resolved.SourceCulture);
         _store = null;
+        _context = LocalizationContext.For(resolved.SourceCulture, resolved.MissingArguments);
         _fixedSnapshot = CatalogLoader.BuildSnapshot([.. catalogs], resolved);
         _fixedLayers = BuildLayers(resolved.Sources, _fixedSnapshot);
     }
@@ -179,9 +169,10 @@ public sealed class DefaultLocalizer : ILocalizer
         // An override was authored for the requested culture, so render it with that culture's rules.
         // The in-code default is source-language text, so render it with the source culture's rules —
         // otherwise an English default shown under, say, Japanese rules would pluralize incorrectly.
+        LocalizationContext rendering = CurrentContext();
         return message is not null
-            ? _formatter.Format(message, culture, arguments)
-            : _formatter.Format(defaultMessage, _sourceCulture, arguments);
+            ? rendering.Formatter.Format(message, culture, arguments)
+            : rendering.Formatter.Format(defaultMessage, rendering.SourceCulture, arguments);
     }
 
     // The category-scoped core used by ILocalizer<T> (via the factory). It looks the key up within the
@@ -211,9 +202,10 @@ public sealed class DefaultLocalizer : ILocalizer
         var composite = TranslationKey.Compose(key, context);
         var message = ResolveOverride(culture, category, composite, defaultMessage);
         overrideFound = message is not null;
+        LocalizationContext rendering = CurrentContext();
         return message is not null
-            ? _formatter.Format(message, culture, arguments)
-            : _formatter.Format(defaultMessage, _sourceCulture, arguments);
+            ? rendering.Formatter.Format(message, culture, arguments)
+            : rendering.Formatter.Format(defaultMessage, rendering.SourceCulture, arguments);
     }
 
     // Resolves and formats a loaded override (or a source result) within a category for the current UI
@@ -229,7 +221,7 @@ public sealed class DefaultLocalizer : ILocalizer
         CultureInfo culture = CultureInfo.CurrentUICulture;
         var composite = TranslationKey.Compose(key, context);
         var message = ResolveOverride(culture, category, composite, defaultMessage: key);
-        return message is null ? null : _formatter.Format(message, culture, arguments);
+        return message is null ? null : CurrentContext().Formatter.Format(message, culture, arguments);
     }
 
     // Enumerates the loaded overrides for a category in the given culture as (compositeKey, message) pairs —
@@ -308,15 +300,7 @@ public sealed class DefaultLocalizer : ILocalizer
         return layers;
     }
 
-    private static CultureInfo CreateCulture(string name)
-    {
-        try
-        {
-            return CultureInfo.GetCultureInfo(name);
-        }
-        catch (CultureNotFoundException)
-        {
-            return CultureInfo.InvariantCulture;
-        }
-    }
+    // The rendering context: a store-backed localizer reads the store's live context (so a configuration
+    // change is observed immediately and the formatter instance is shared); an isolated one uses its own.
+    private LocalizationContext CurrentContext() => _store is not null ? _store.Context : _context!;
 }
