@@ -13,10 +13,11 @@ namespace ArchPillar.Extensions.Localization.Tooling.Internal;
 internal static class TemplateBuilder
 {
     /// <summary>Returns the template for <paramref name="assemblyPath"/>, or <see langword="null"/> when the
-    /// assembly has no translatable strings.</summary>
-    public static Catalog? Build(string assemblyPath, string sourceLanguage)
+    /// assembly has no translatable strings. The <paramref name="extractor"/> is shared across a batch so its
+    /// resolver and method cache are reused for every assembly in one scan.</summary>
+    public static Catalog? Build(AssemblyStringExtractor extractor, string assemblyPath, string sourceLanguage)
     {
-        IReadOnlyList<RawCallSite> sites = AssemblyStringExtractor.Extract(assemblyPath);
+        IReadOnlyList<RawCallSite> sites = extractor.Extract(assemblyPath);
         if (sites.Count == 0)
         {
             return null;

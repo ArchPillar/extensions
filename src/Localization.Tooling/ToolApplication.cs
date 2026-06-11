@@ -81,9 +81,10 @@ internal static class ToolApplication
         var catalogDirectory = options.TryGetValue("--output", out var dir) ? dir : null;
         var totalKeys = 0;
         var found = 0;
+        using var extractor = new AssemblyStringExtractor();
         foreach (var path in ScopeResolver.Resolve(ParseScope(options)))
         {
-            Catalog? template = TemplateBuilder.Build(path, sourceLanguage);
+            Catalog? template = TemplateBuilder.Build(extractor, path, sourceLanguage);
             if (template is null)
             {
                 continue;
@@ -127,9 +128,10 @@ internal static class ToolApplication
         TranslationFormatRegistry registry = BuildRegistry();
         ITranslationFormat provider = FormatOf(options, registry);
         var count = 0;
+        using var extractor = new AssemblyStringExtractor();
         foreach (var path in ScopeResolver.Resolve(ParseScope(options)))
         {
-            Catalog? template = TemplateBuilder.Build(path, sourceLanguage);
+            Catalog? template = TemplateBuilder.Build(extractor, path, sourceLanguage);
             if (template is null)
             {
                 continue;
@@ -188,9 +190,10 @@ internal static class ToolApplication
         ITranslationFormat scopeProvider = FormatOf(options, registry);
         var created = 0;
         var skipped = 0;
+        using var extractor = new AssemblyStringExtractor();
         foreach (var path in ScopeResolver.Resolve(ParseScope(options)))
         {
-            Catalog? template = TemplateBuilder.Build(path, sourceLanguage);
+            Catalog? template = TemplateBuilder.Build(extractor, path, sourceLanguage);
             if (template is null)
             {
                 continue;
@@ -249,9 +252,10 @@ internal static class ToolApplication
         var drifted = new List<string>();
         var synced = 0;
         var any = false;
+        using var extractor = new AssemblyStringExtractor();
         foreach (var path in ScopeResolver.Resolve(ParseScope(options)))
         {
-            Catalog? template = TemplateBuilder.Build(path, sourceLanguage);
+            Catalog? template = TemplateBuilder.Build(extractor, path, sourceLanguage);
             if (template is null)
             {
                 continue;

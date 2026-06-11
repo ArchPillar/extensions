@@ -46,7 +46,8 @@ public sealed class AssemblyExtractionTests : IDisposable
     {
         var assembly = GeneratorPipeline.EmitAssemblyWithTemplate(ConsumerCode, "ExtractTarget", _directory);
 
-        IReadOnlyList<RawCallSite> sites = AssemblyStringExtractor.Extract(assembly);
+        using var extractor = new AssemblyStringExtractor();
+        IReadOnlyList<RawCallSite> sites = extractor.Extract(assembly);
 
         // Translate with an empty params list (the Array.Empty shape that defeated a naive scan).
         RawCallSite title = Assert.Single(sites, s => s.Key == "home.title");

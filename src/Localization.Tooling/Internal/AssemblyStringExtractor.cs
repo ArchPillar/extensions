@@ -21,28 +21,43 @@ internal sealed record RawCallSite(string Key, string Default, string Category, 
 /// recovers the constant string each call consumes and the static type of the receiver (whose generic argument
 /// is the category). Placeholder names are derived later from the ICU default, not the IL.
 /// </summary>
-internal static class AssemblyStringExtractor
+internal sealed class AssemblyStringExtractor : IDisposable
 {
     private const string StringLocalizerNamespace = "Microsoft.Extensions.Localization";
     private const string TranslatableAttribute = "ArchPillar.Extensions.Localization.TranslatableAttribute";
     private const string TranslationDefaultAttribute = "ArchPillar.Extensions.Localization.TranslationDefaultAttribute";
     private const string TranslationContextAttribute = "ArchPillar.Extensions.Localization.TranslationContextAttribute";
 
+    // One resolver and one method-binding cache for the whole batch: scanning a solution, the shared dependency
+    // assemblies (ArchPillar.*, the framework) are loaded once rather than once per assembly, and a method called
+    // across many assemblies (ILocalizer.Translate above all) is resolved once for the run. Both are keyed
+    // globally — the resolver by assembly name, the cache by the method's declaring assembly + signature — so
+    // nothing assembly-local leaks between scans.
+    private readonly DefaultAssemblyResolver _resolver = new();
+    private readonly Dictionary<string, Binding?> _bindings = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _searchDirectories = new(StringComparer.OrdinalIgnoreCase);
+
+    public AssemblyStringExtractor()
+    {
+        // The tool's own base directory carries the ArchPillar reference assemblies when running in-process.
+        AddSearchDirectory(AppContext.BaseDirectory);
+    }
+
     // A simulated evaluation-stack slot: the constant string it holds (from ldstr) and its static type (for a
     // receiver), either of which may be unknown.
     private readonly record struct Slot(string? Constant, TypeReference? Type);
 
-    public static IReadOnlyList<RawCallSite> Extract(string assemblyPath)
+    // Where a translatable method carries its key, default, and (optional, -1 when absent) context arguments.
+    private readonly record struct Binding(int KeyIndex, int DefaultIndex, int ContextIndex);
+
+    public IReadOnlyList<RawCallSite> Extract(string assemblyPath)
     {
         var fullPath = Path.GetFullPath(assemblyPath);
 
         // Resolving a call target to its definition (to read its parameter attributes) needs the referenced
-        // ArchPillar assemblies. They sit beside the assembly being read in a real build output, and in the
-        // tool's own base directory when running in-process; search both so resolution never silently fails.
-        var resolver = new DefaultAssemblyResolver();
-        resolver.AddSearchDirectory(Path.GetDirectoryName(fullPath)!);
-        resolver.AddSearchDirectory(AppContext.BaseDirectory);
-        using var module = ModuleDefinition.ReadModule(fullPath, new ReaderParameters { AssemblyResolver = resolver });
+        // ArchPillar assemblies, which sit beside the assembly being read in a real build output.
+        AddSearchDirectory(Path.GetDirectoryName(fullPath)!);
+        using var module = ModuleDefinition.ReadModule(fullPath, new ReaderParameters { AssemblyResolver = _resolver });
 
         // Early-out: an assembly that references neither localizer cannot contain a translatable call, so skip
         // reading its method bodies entirely — keeping a solution-wide scan cheap over unrelated assemblies.
@@ -60,12 +75,25 @@ internal static class AssemblyStringExtractor
             {
                 if (method.HasBody)
                 {
-                    ScanMethod(method, sites);
+                    ScanMethod(method, sites, _bindings);
                 }
             }
         }
 
         return sites;
+    }
+
+    /// <inheritdoc />
+    public void Dispose() => _resolver.Dispose();
+
+    // Adds a probe directory to the shared resolver once, so repeated scans over the same output tree do not
+    // pile up duplicate search paths.
+    private void AddSearchDirectory(string directory)
+    {
+        if (_searchDirectories.Add(directory))
+        {
+            _resolver.AddSearchDirectory(directory);
+        }
     }
 
     private static IEnumerable<TypeDefinition> AllTypes(IEnumerable<TypeDefinition> types)
@@ -80,7 +108,7 @@ internal static class AssemblyStringExtractor
         }
     }
 
-    private static void ScanMethod(MethodDefinition method, List<RawCallSite> sites)
+    private static void ScanMethod(MethodDefinition method, List<RawCallSite> sites, Dictionary<string, Binding?> bindings)
     {
         var stack = new List<Slot>();
         foreach (Instruction instruction in method.Body.Instructions)
@@ -97,7 +125,7 @@ internal static class AssemblyStringExtractor
             {
                 var argCount = target.Parameters.Count + (target.HasThis ? 1 : 0);
                 IReadOnlyList<Slot> args = Pop(stack, argCount);
-                Recognize(target, args, sites);
+                Recognize(target, args, sites, bindings);
                 if (target.ReturnType.FullName != "System.Void")
                 {
                     stack.Add(new Slot(null, target.ReturnType));
@@ -128,7 +156,7 @@ internal static class AssemblyStringExtractor
         }
     }
 
-    private static void Recognize(MethodReference target, IReadOnlyList<Slot> args, List<RawCallSite> sites)
+    private static void Recognize(MethodReference target, IReadOnlyList<Slot> args, List<RawCallSite> sites, Dictionary<string, Binding?> bindings)
     {
         var receiver = target.HasThis ? 1 : 0; // arg 0 is the localizer instance for an instance call
 
@@ -143,39 +171,67 @@ internal static class AssemblyStringExtractor
             return;
         }
 
-        // Two cheap gates before the (costly) resolve, the skip the D-K decision prescribed. A recognised site
-        // always binds a constant key, so a call with no string-literal argument cannot be one. And a
-        // translatable method lives in user code or our localizer assemblies, never in the framework — so a
-        // call into System.* / Microsoft.* is skipped without resolving (and thus loading) that assembly. Both
-        // keep the scan from resolving the declaring assembly of every BCL call, which is what made it slow.
-        if (!HasConstantArgument(args) || IsFrameworkScope(target.DeclaringType.Scope))
+        // A recognised site always binds a constant key, so a call with no string-literal argument cannot be
+        // one — a per-call-site check costing only a stack scan, no resolve.
+        if (!HasConstantArgument(args))
         {
             return;
         }
 
-        // Recognise every other site by the same rule the source-level detector applies: a parameter carrying
-        // [Translatable] is the key and one carrying [TranslationDefault] is the in-code default. Reading those
-        // off the resolved definition finds the native Translate, the loc["key", "default"] indexer, the L(...)
-        // marker (one parameter carries both), and any user wrapper — without naming a single type or method.
+        // Whether this method is translatable (and which parameters are the key/default/context) is resolved
+        // once per distinct method and cached, so the resolve does not repeat across its many call sites.
+        if (BindingFor(target, bindings) is not { } binding)
+        {
+            return;
+        }
+
+        if (ConstantAt(args, receiver, binding.KeyIndex) is { } key && ConstantAt(args, receiver, binding.DefaultIndex) is { } def)
+        {
+            var context = binding.ContextIndex >= 0 ? ConstantAt(args, receiver, binding.ContextIndex) : null;
+            sites.Add(new RawCallSite(key, def, CategoryOf(args, receiver), context));
+        }
+    }
+
+    // The translation binding for a distinct method, computed once and cached (null = not a translation method).
+    // The key folds in the declaring assembly so two distinct methods that share a signature across assemblies
+    // are never conflated, while the same method referenced from many assemblies maps to one entry.
+    private static Binding? BindingFor(MethodReference target, Dictionary<string, Binding?> bindings)
+    {
+        var key = target.DeclaringType.Scope.Name + "/" + target.FullName;
+        if (bindings.TryGetValue(key, out Binding? cached))
+        {
+            return cached;
+        }
+
+        Binding? binding = ComputeBinding(target);
+        bindings[key] = binding;
+        return binding;
+    }
+
+    // Decides translatability by the same rule the source-level detector applies: a parameter carrying
+    // [Translatable] is the key and one carrying [TranslationDefault] is the in-code default. Reading those off
+    // the resolved definition finds the native Translate, the loc["key", "default"] indexer, the L(...) marker
+    // (one parameter carries both), and any user wrapper — without naming a single type or method. A translatable
+    // method is never declared in the framework, so a System.* / Microsoft.* method is rejected by scope without
+    // resolving (and thus loading) that assembly.
+    private static Binding? ComputeBinding(MethodReference target)
+    {
+        if (IsFrameworkScope(target.DeclaringType.Scope))
+        {
+            return null;
+        }
+
         MethodDefinition? definition = TryResolve(target);
         if (definition is null)
         {
-            return;
+            return null;
         }
 
         var keyIndex = IndexOfParameterWith(definition, TranslatableAttribute);
         var defaultIndex = IndexOfParameterWith(definition, TranslationDefaultAttribute);
-        if (keyIndex < 0 || defaultIndex < 0)
-        {
-            return;
-        }
-
-        if (ConstantAt(args, receiver, keyIndex) is { } key && ConstantAt(args, receiver, defaultIndex) is { } def)
-        {
-            var contextIndex = IndexOfParameterWith(definition, TranslationContextAttribute);
-            var context = contextIndex >= 0 ? ConstantAt(args, receiver, contextIndex) : null;
-            sites.Add(new RawCallSite(key, def, CategoryOf(args, receiver), context));
-        }
+        return keyIndex < 0 || defaultIndex < 0
+            ? null
+            : new Binding(keyIndex, defaultIndex, IndexOfParameterWith(definition, TranslationContextAttribute));
     }
 
     // The constant a parameter received at the call site: argument <paramref name="parameterIndex"/> sits after
