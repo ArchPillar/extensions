@@ -9,21 +9,40 @@ namespace ArchPillar.Extensions.Localization.Internal;
 /// </summary>
 internal static class CatalogLoader
 {
-    public static TranslationSnapshot Load(LocalizerOptions options)
+    public static TranslationSnapshot Load(LocalizerOptions options) =>
+        BuildSnapshot(LoadDirectory(options), options);
+
+    /// <summary>
+    /// Reads every translation file in the configured directory into a list of catalogs, ordered so the
+    /// lowest-precedence format comes first — a later catalog wins on overlap, so the layered merge reproduces
+    /// the format precedence (<c>xliff</c> &gt; <c>arb</c> &gt; <c>po</c> by default). Filtering (source
+    /// culture, untranslated entries) is left to <see cref="BuildSnapshot"/>, which the directory layer feeds.
+    /// </summary>
+    public static List<Catalog> LoadDirectory(LocalizerOptions options)
     {
+        var catalogs = new List<Catalog>();
         if (!Directory.Exists(options.TranslationsDirectory))
         {
-            return TranslationSnapshot.Empty;
+            return catalogs;
         }
 
         TranslationFormatRegistry registry = BuildRegistry();
-        Dictionary<string, Dictionary<string, Dictionary<string, string>>> byCulture = NewCultureMap();
         foreach (var file in OrderedFiles(options.TranslationsDirectory, registry, options.FormatPrecedence))
         {
-            LoadFile(file, registry, options, byCulture);
+            ITranslationFormat? format = registry.ResolveByExtension(Path.GetExtension(file));
+            if (format is null)
+            {
+                continue;
+            }
+
+            Catalog? catalog = TryRead(format, file);
+            if (catalog is not null)
+            {
+                catalogs.Add(catalog);
+            }
         }
 
-        return ToSnapshot(byCulture);
+        return catalogs;
     }
 
     public static TranslationSnapshot BuildSnapshot(IEnumerable<Catalog> catalogs, LocalizerOptions options)
@@ -144,27 +163,6 @@ internal static class CatalogLoader
         }
 
         return int.MaxValue;
-    }
-
-    private static void LoadFile(
-        string file,
-        TranslationFormatRegistry registry,
-        LocalizerOptions options,
-        Dictionary<string, Dictionary<string, Dictionary<string, string>>> byCulture)
-    {
-        ITranslationFormat? format = registry.ResolveByExtension(Path.GetExtension(file));
-        if (format is null)
-        {
-            return;
-        }
-
-        Catalog? catalog = TryRead(format, file);
-        if (catalog is null || ShouldSkipCulture(catalog.Culture, options))
-        {
-            return;
-        }
-
-        MergeEntries(catalog, byCulture);
     }
 
     private static bool ShouldSkipCulture(string culture, LocalizerOptions options)
