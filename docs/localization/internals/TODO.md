@@ -8,11 +8,11 @@ like the code.
 ## Done
 - [x] 10.1 Contracts: `ILocalizer` / `ILocalizer<T>` / `ILocalizerFactory`, `[TranslationScope]`, `Localized<TSelf>`
 - [x] 10.2 Category tier in snapshot/loader; `Localizer<T>`; `LocalizerFactory`; zero-alloc preserved
-- [x] 10.3 Ambient store core: `Localization` static, lazy `AssemblyLoad` embedded discovery, `Reset()`
+- [x] 10.3 Ambient store core: `Localizer` static, lazy `AssemblyLoad` embedded discovery, `Reset()`
 - [x] `ITranslationSource` extension point + built-in `PseudoLocalizationSource`
 - [x] ARB / PO / XLIFF persist `Category`; emitted template carries it (dedup by `(category,key)`)
 - [x] Detection derives category from the `[TranslationScope]` receiver; `Localized<TSelf>` marked
-- [x] Catalog-accepting `Localizer` constructors (test isolation)
+- [x] Catalog-accepting `DefaultLocalizer` constructors (test isolation)
 - [x] CLI renamed to `dotnet apl`
 - [x] TODO app sample (en + de/fr + pseudo smoke test)
 
@@ -41,7 +41,7 @@ in-box, so no package deps and no `#if`/polyfill work. (B1's package-version pre
 - [x] D3. Merged bundle resolves identically to the many-files path — guaranteed by construction (it *is* the runtime's loaded data; covered by the `Flatten` test)
 
 ### E. DI integration (10.5) feeds the ambient
-- [x] E1. `AddArchPillarLocalization` populates the ambient store + registers `ILocalizer`/`ILocalizer<T>` over it (kept `Localizer` for direct injection; dropped the `Localizer`-instance overload)
+- [x] E1. `AddArchPillarLocalization` populates the ambient store + registers `ILocalizer`/`ILocalizer<T>` over it (kept `DefaultLocalizer` for direct injection; dropped the `DefaultLocalizer`-instance overload)
 - [x] E2. `IStringLocalizer`/`<T>`/factory adapters read the ambient (no found-awareness — just value-or-name)
 - [x] E3. Tests restructured: functionality uses explicit catalogs via `Localizer.AddCatalog` + `Reset()`; WASM sample fed via the ambient
 
@@ -52,7 +52,7 @@ in-box, so no package deps and no `#if`/polyfill work. (B1's package-version pre
 
 ### G. Docs
 - [x] G1. Rewrote `runtime.md` (ambient store + `ILocalizer`/`ILocalizer<T>` + categories + `Localized<TSelf>`;
-  isolated `Localizer`; loading via files vs. embed/satellites; publish-merge) and `integration.md` (ambient-
+  isolated `DefaultLocalizer`; loading via files vs. embed/satellites; publish-merge) and `integration.md` (ambient-
   feeding DI; the **composing** `IStringLocalizer` adapter — found-aware, `typeof(T)` category; the **migration
   on-ramp** — `L(...)` marker, on-by-default indexer extraction, what is *not* extracted; updated sample
   index). Added a "practical guides" pointer to `README.md`.

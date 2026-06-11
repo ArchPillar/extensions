@@ -127,7 +127,7 @@ which doubles as honest code deduplication. This refines D-5 and supersedes the 
   parameter carries `[TranslationScope]`, so detection reads the type argument's full name without
   hardcoding any type or method name, and anyone can roll their own scoped localizer. The compile-time
   category therefore matches the runtime category exactly.
-- `Localizer` (concrete) becomes an `ILocalizer` implementation; the sealed implementations sit behind
+- `DefaultLocalizer` (concrete) becomes an `ILocalizer` implementation; the sealed implementations sit behind
   the interfaces.
 
 ### D-I — Translations load through one ambient, layered store (the configuration model); DI is an escape hatch.
@@ -142,7 +142,7 @@ from **layered sources where the last source wins**.
   one priority-ordered, lock-free read; a miss falls to the in-code default (the floor, supplied at the call
   site, never stored). The category (D-H) is how sources are keyed.
 - **The lookup/merge code lives in archpillar.** A library references archpillar and calls in; nothing is
-  duplicated per library. `ILocalizer<T>`, the generated per-assembly localizer, and the bare `Localizer`
+  duplicated per library. `ILocalizer<T>`, the generated per-assembly localizer, and the bare `DefaultLocalizer`
   are category-scoped read views over the one store.
 - **Lazy, assembly-load-driven.** Assemblies load on demand, so sources are discovered by reacting to loads,
   not by an up-front scan: read embedded translations from already-loaded assemblies at init, and subscribe
@@ -154,7 +154,7 @@ from **layered sources where the last source wins**.
   the existing lock-free machinery — so lookups stay zero-allocation.
 - **DI is the escape hatch.** `AddArchPillarLocalization` feeds the same ambient store and offers injectable
   views; it is a convenience over the ambient, never a parallel system or a requirement. An explicitly
-  constructed isolated `Localizer` remains available for tests and multi-tenant scenarios, and a test reset
+  constructed isolated `DefaultLocalizer` remains available for tests and multi-tenant scenarios, and a test reset
   keeps the suite deterministic against the shared store.
 - **Targeting: `net8.0;net9.0;net10.0` — nothing before .NET 8.** The maintainer supports no .NET Framework
   and no `netstandard` for consumers. The runtime therefore stays `net8.0;net9.0;net10.0`; a library that
@@ -294,7 +294,7 @@ for runtime assemblies).
 | 1 | `MessageFormat` | ICU parser / AST / validator / formatter; CLDR plural codegen (`PluralRules`, operands, `GettextOrder`); placeholder extraction |
 | 2 | `Abstractions` | attributes; `Catalog` / `CatalogEntry`; provider interface + capability flags; composite-key convention; format registry |
 | 3 | `Formats.Arb` | default ARB provider; byte-stable round-trip; state via `x-state`; fingerprint persistence |
-| 4 | **Runtime** `Localization` | `Localizer`, fallback chain, lock-free snapshot, loading + precedence, hot reload, static helper — first usable slice (hand-authored ARB) + sample |
+| 4 | **Runtime** `Localizer` | `DefaultLocalizer`, fallback chain, lock-free snapshot, loading + precedence, hot reload, static helper — first usable slice (hand-authored ARB) + sample |
 | 5 | `Formats.Po` + `Formats.Xliff` | gettext↔ICU plural conversion, `msgctxt`-as-key; XLIFF native state; mixed-format runtime end-to-end |
 | 6 | `Detection` + `Analyzers` | shared detection core + the nine `APL` diagnostics + code fixes |
 | 7 | `Generator` + `Reconcile` (extract) + MSBuild | in-compiler template emission (build-only, write-if-changed, atomic), typed key registry, `.props`/`.targets`, analyzer packaging |
@@ -304,7 +304,7 @@ for runtime assemblies).
 
 | # | Phase | Delivers |
 |---|---|---|
-| 9 | Integration ✅ | Two packages: `ArchPillar.Extensions.Localization.DependencyInjection` (`AddArchPillarLocalization` — native `ILocalizer`/`ILocalizer<T>`/`Localizer` registration, depends only on DI abstractions) and `ArchPillar.Extensions.Localization.StringLocalizer` (`AddArchPillarStringLocalizer` — the `IStringLocalizer`/`IStringLocalizer<T>`/`IStringLocalizerFactory` migration adapter: name-is-key, missing→name, positional args → `{0}`, composing over `.resx`). ASP.NET request-culture flows via `CurrentUICulture` (D-5). The core stays dependency-free; the interop package is separable and droppable (D-J). |
+| 9 | Integration ✅ | Two packages: `ArchPillar.Extensions.Localization.DependencyInjection` (`AddArchPillarLocalization` — native `ILocalizer`/`ILocalizer<T>`/`DefaultLocalizer` registration, depends only on DI abstractions) and `ArchPillar.Extensions.Localization.StringLocalizer` (`AddArchPillarStringLocalizer` — the `IStringLocalizer`/`IStringLocalizer<T>`/`IStringLocalizerFactory` migration adapter: name-is-key, missing→name, positional args → `{0}`, composing over `.resx`). ASP.NET request-culture flows via `CurrentUICulture` (D-5). The core stays dependency-free; the interop package is separable and droppable (D-J). |
 | 10.1 ✅ | Contracts (D-H) | `ILocalizer`/`ILocalizer<T>`/`ILocalizerFactory` modeled on `ILogger`; `[TranslationScope]`; the `Localized<TSelf>` self-scoped base (member name → key via `[CallerMemberName]`). |
 | 10.2 ✅ | Category tier | `CatalogEntry.Category`; snapshot/loader tiered `culture → category → key → message`; `Localizer : ILocalizer`; `Localizer<T>` + `LocalizerFactory`; zero-alloc preserved. *(Re-pointed at the ambient store in 10.3.)* |
 | 10.3 | Ambient layered store (D-I) | The `IConfiguration`-style store: layered sources, last-wins merge + atomic swap, lazy `AssemblyLoad`-driven discovery, embedded-catalog loader + advertising attribute; re-point the views at the store; test reset; trimming/single-file/AOT spike. **Amended:** the store, lookup, `ILocalizer`/`ILocalizer<T>`, and the null-renderer **stay in the runtime** (`net8.0;net9.0;net10.0`), *not* the `netstandard2.0` layer. They use `AppDomain.AssemblyLoad`, `FileSystemWatcher`, and runtime APIs the Roslyn host neither has nor needs. `Abstractions` (netstandard2.0) carries only the SPI the compiler loads — attributes, `Catalog`/`CatalogEntry`, the provider interface, the qualified-key/composite-key helpers — so the analyzer and generator can share types with the runtime without depending on a net8-only assembly (the reason `Abstractions` is kept rather than folded into the runtime). |

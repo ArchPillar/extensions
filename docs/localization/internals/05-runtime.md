@@ -8,12 +8,22 @@ Render translatable call sites at runtime: look up the loaded override for the r
 
 ## The call Application Programming Interface
 
-The attributed surface from spec 01, on a `Localizer`:
+The attributed surface from spec 01, on a `DefaultLocalizer`. The engine is a pure resolver: it takes a
+snapshot source — a `CatalogStore` (directory-backed, optionally watched) or a fixed set of catalogs —
+and resolves against it. Loading and the file watcher belong to `CatalogStore`, not the engine.
 
 ```csharp
-public sealed class Localizer
+public sealed class CatalogStore : IDisposable   // owns the directory load + watcher; exposes the snapshot
 {
-    public Localizer(LocalizerOptions options);
+    public CatalogStore(LocalizerOptions options);
+    public void Reload();
+}
+
+public sealed class DefaultLocalizer : ILocalizer
+{
+    public DefaultLocalizer(CatalogStore store, LocalizerOptions? options = null);   // resolves store.Snapshot live
+    public DefaultLocalizer(IEnumerable<Catalog> catalogs, LocalizerOptions? options = null);   // isolated, fixed
+    public static DefaultLocalizer FromCatalogs(IEnumerable<Catalog> catalogs, LocalizerOptions? options = null);
 
     public string Translate(
         [Translatable] string key,
@@ -106,7 +116,7 @@ public sealed class LocalizerOptions
 
 ## Threading and lifetime
 
-- `Localizer` is thread-safe for concurrent `Translate` calls and concurrent reload.
+- `DefaultLocalizer` is thread-safe for concurrent `Translate` calls; a `CatalogStore` reload swaps its snapshot atomically, so a resolving localizer observes it on the next lookup without tearing.
 - It owns the `FileSystemWatcher` (when enabled) and is `IDisposable`.
 - Designed to be a singleton; multiple instances are permitted (e.g., different directories) and independent.
 
