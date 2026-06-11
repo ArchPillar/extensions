@@ -52,37 +52,37 @@ Console.WriteLine(greeter.Inbox(1));       // "You have 1 message"
 Console.WriteLine(greeter.Inbox(5));       // "You have 5 messages"
 ```
 
-## 4. Add a translation
+## 4. Generate the translator files
 
-Create a `Translations/` folder beside your project and add `de.arb` (ARB is the default format). The
-`x-category` matches the type's full name, and the keys match the call sites:
+You do **not** hand-author catalogs — the `dotnet apl` tool produces them from your code, filling in the
+category, placeholders, and source fingerprints for you. Install it once:
 
-```json
-{
-  "@@locale": "de",
-  "greeting": "Hallo {name}!",
-  "@greeting": { "x-category": "YourNamespace.Greeter", "x-state": "Translated" },
-  "inbox": "Sie haben {count, plural, one {# Nachricht} other {# Nachrichten}}",
-  "@inbox": { "x-category": "YourNamespace.Greeter", "x-state": "Translated" }
-}
+```bash
+dotnet tool install --global ArchPillar.Extensions.Localization.Tooling   # command: dotnet apl
 ```
 
-Copy it to the output so it sits beside the binary:
+Build, then create a language file for the translator:
 
-```xml
-<ItemGroup>
-  <Content Include="Translations\**\*.arb" CopyToOutputDirectory="PreserveNewest" />
-</ItemGroup>
+```bash
+dotnet build
+# Add German across everything in the solution that has strings:
+dotnet apl add de --solution YourApp.sln --output Translations
+#   -> Translations/YourApp.de.arb  (every entry x-state: NeedsTranslation)
 ```
 
-> `x-category` must equal the type's full name **exactly** (namespace included). If it does not match —
-> or the key does not — the lookup misses and the string silently renders its in-code default rather than
-> erroring. This is the main reason a hand-authored override "does nothing"; the generated files below get
-> it right for you.
+`YourApp.de.arb` is what you hand off. The translator fills in the German and marks each entry
+`Translated`; you commit the file. The catalogs are named `{AssemblyName}.{culture}.arb` so libraries
+never collide, and the build copies them beside the binary automatically.
 
-> In a normal build the generator also emits a source-language template from your call sites, and the
-> `dotnet apl` tool turns that into per-language files for translators — so you usually do not
-> hand-author the catalog. This step shows the shape of what lands beside the binary.
+> **Smaller scopes:** `--project YourApp.csproj` (add `--recurse` to include its project dependencies) or
+> `--input bin/Debug/net10.0` instead of `--solution`. Run `dotnet apl status --solution YourApp.sln` to
+> see which assemblies have strings and how many.
+
+> When you reference the package, the build also runs `extract` for you after each real build, so the
+> source-language template (`{AssemblyName}.en.arb`) appears in `Translations/` without you asking. As code
+> changes, `dotnet apl sync --solution YourApp.sln --output Translations` reconciles every language file
+> (and `--check` is your CI gate). The full lifecycle — including handing files to translators as a zip and
+> shipping for production — is in [translation-workflow.md](translation-workflow.md).
 
 ## 5. Switch culture and see the override
 
@@ -98,6 +98,12 @@ Console.WriteLine(greeter.Inbox(5));        // "Sie haben 5 Nachrichten"
 
 ## 6. (Optional) Wire up dependency injection
 
+DI registration lives in a separate package:
+
+```bash
+dotnet add package ArchPillar.Extensions.Localization.DependencyInjection
+```
+
 In a host, register the library and inject `ILocalizer<T>`. `UseRequestLocalization` drives the culture in
 ASP.NET Core:
 
@@ -109,8 +115,18 @@ DI feeds the same ambient store, so injected and ambient lookups share one sourc
 `IStringLocalizer` code? Add the `…Localization.StringLocalizer` package and call
 `AddArchPillarStringLocalizer` instead — see the migration on-ramp in [features.md](features.md).
 
+## 7. Ship it
+
+In development each library keeps its own `{AssemblyName}.{culture}.arb` files, which the build copies
+beside the binary. On **publish**, the build flattens them into one bundle per culture (`de.arb`, `fr.arb`,
+…) so production ships a handful of files instead of one per library — automatically, no configuration. For
+single-file or NativeAOT publish, opt into embedding instead (`ArchPillarLocalizationEmbedTargets=true`).
+See [translation-workflow.md](translation-workflow.md#deployment) for the details and the trim/AOT matrix.
+
 ## Next
 
+- [translation-workflow.md](translation-workflow.md) — the full lifecycle: scopes, `status`/`extract`/`add`/
+  `sync`, the translator handoff (export/import), and deployment.
 - [features.md](features.md) — categories, the ambient store, embedding and satellites, formats, ICU
   plurals, DI, and the `IStringLocalizer` migration on-ramp.
 - [recommendations.md](recommendations.md) — production patterns and the trimming / AOT guidance.

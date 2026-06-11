@@ -80,6 +80,7 @@ resolves with **zero allocations**, pinned by allocation tests, and tracked by
 ## Documentation
 
 - [getting-started.md](getting-started.md) — install to first translated string, step by step.
+- [translation-workflow.md](translation-workflow.md) — the full authoring → translate → ship lifecycle and the `dotnet apl` commands.
 - [features.md](features.md) — every feature, with examples.
 - [recommendations.md](recommendations.md) — production patterns, ordering constraints, and the
   trim / AOT guidance.
