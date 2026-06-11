@@ -12,29 +12,31 @@ namespace ArchPillar.Extensions.Localization;
 /// </summary>
 public sealed class Localizer : IDisposable, ILocalizer
 {
-    private readonly LocalizerOptions _options;
-    private readonly Func<TranslationSnapshot> _load;
     private readonly IReadOnlyList<ITranslationSource> _sources;
     private readonly MessageFormatter _formatter;
     private readonly CultureInfo _sourceCulture;
-    private readonly object _reloadGate = new();
-    private TranslationSnapshot _snapshot;
-    private FileSystemWatcher? _watcher;
-    private Timer? _debounce;
+    private readonly CatalogStore? _store;
+    private readonly TranslationSnapshot _fixedSnapshot;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="Localizer"/> class, loading catalogs from the
-    /// configured directory immediately.
+    /// Initializes a new instance of the <see cref="Localizer"/> class over a directory-backed
+    /// <see cref="CatalogStore"/>, loading catalogs from the configured directory immediately and resolving
+    /// against the store's current snapshot (so a reload is observed on the next lookup).
     /// </summary>
     /// <param name="options">The localizer configuration.</param>
     /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
     public Localizer(LocalizerOptions options)
-        : this(options ?? throw new ArgumentNullException(nameof(options)), () => CatalogLoader.Load(options!))
     {
-        if (_options.EnableHotReload)
+        if (options is null)
         {
-            StartWatching();
+            throw new ArgumentNullException(nameof(options));
         }
+
+        _sources = options.Sources ?? [];
+        _formatter = new MessageFormatter(options.MissingArguments);
+        _sourceCulture = CreateCulture(options.SourceCulture);
+        _store = new CatalogStore(options);
+        _fixedSnapshot = TranslationSnapshot.Empty;
     }
 
     /// <summary>
@@ -47,8 +49,18 @@ public sealed class Localizer : IDisposable, ILocalizer
     /// <param name="options">The localizer configuration, or <see langword="null"/> for the defaults.</param>
     /// <exception cref="ArgumentNullException"><paramref name="catalogs"/> is <see langword="null"/>.</exception>
     public Localizer(IEnumerable<Catalog> catalogs, LocalizerOptions? options = null)
-        : this(options ?? new LocalizerOptions(), catalogs ?? throw new ArgumentNullException(nameof(catalogs)))
     {
+        if (catalogs is null)
+        {
+            throw new ArgumentNullException(nameof(catalogs));
+        }
+
+        LocalizerOptions resolved = options ?? new LocalizerOptions();
+        _sources = resolved.Sources ?? [];
+        _formatter = new MessageFormatter(resolved.MissingArguments);
+        _sourceCulture = CreateCulture(resolved.SourceCulture);
+        _store = null;
+        _fixedSnapshot = CatalogLoader.BuildSnapshot([.. catalogs], resolved);
     }
 
     /// <summary>
@@ -61,21 +73,6 @@ public sealed class Localizer : IDisposable, ILocalizer
     public Localizer(Catalog catalog, LocalizerOptions? options = null)
         : this(Single(catalog), options)
     {
-    }
-
-    private Localizer(LocalizerOptions options, IEnumerable<Catalog> catalogs)
-        : this(options, BuildCatalogLoader(catalogs, options))
-    {
-    }
-
-    private Localizer(LocalizerOptions options, Func<TranslationSnapshot> load)
-    {
-        _options = options;
-        _load = load;
-        _sources = options.Sources ?? [];
-        _formatter = new MessageFormatter(_options.MissingArguments);
-        _sourceCulture = CreateCulture(_options.SourceCulture);
-        _snapshot = load();
     }
 
     /// <summary>
@@ -94,11 +91,9 @@ public sealed class Localizer : IDisposable, ILocalizer
     private static IEnumerable<Catalog> Single(Catalog catalog) =>
         catalog is null ? throw new ArgumentNullException(nameof(catalog)) : [catalog];
 
-    private static Func<TranslationSnapshot> BuildCatalogLoader(IEnumerable<Catalog> catalogs, LocalizerOptions options)
-    {
-        List<Catalog> source = [.. catalogs];
-        return () => CatalogLoader.BuildSnapshot(source, options);
-    }
+    // The snapshot to resolve against: a directory-backed localizer reads the store's current snapshot (so a
+    // reload is observed immediately); an in-memory one resolves against its fixed snapshot.
+    private TranslationSnapshot CurrentSnapshot() => _store is not null ? _store.Snapshot : _fixedSnapshot;
 
     /// <summary>
     /// Translates <paramref name="key"/> for the current UI culture, falling back to
@@ -240,7 +235,7 @@ public sealed class Localizer : IDisposable, ILocalizer
     // parents are included, a more specific culture's entry wins on overlap.
     internal IReadOnlyList<KeyValuePair<string, string>> EnumerateCategory(CultureInfo culture, string category, bool includeParentCultures)
     {
-        TranslationSnapshot snapshot = Volatile.Read(ref _snapshot);
+        TranslationSnapshot snapshot = CurrentSnapshot();
         var chain = new List<string>();
         for (CultureInfo? current = culture; current is not null && !string.IsNullOrEmpty(current.Name); current = current.Parent)
         {
@@ -295,38 +290,17 @@ public sealed class Localizer : IDisposable, ILocalizer
         Translate(culture, key, defaultMessage, context, out _, arguments);
 
     /// <summary>
-    /// Rebuilds the loaded snapshot from its source (the translations directory, or the supplied catalogs)
-    /// and swaps it in atomically.
+    /// Reloads the catalogs from the translations directory and swaps them in atomically. A no-op for an
+    /// in-memory localizer, whose snapshot is fixed.
     /// </summary>
-    public void Reload()
-    {
-        lock (_reloadGate)
-        {
-            TranslationSnapshot snapshot = _load();
-            Volatile.Write(ref _snapshot, snapshot);
-        }
-    }
+    public void Reload() => _store?.Reload();
 
     /// <inheritdoc />
-    public void Dispose()
-    {
-        // Stop and unsubscribe the watcher before disposing the timer, so no in-flight change event can call
-        // Change(...) on a disposed timer.
-        if (_watcher is not null)
-        {
-            _watcher.EnableRaisingEvents = false;
-            _watcher.Changed -= OnChanged;
-            _watcher.Created -= OnChanged;
-            _watcher.Deleted -= OnChanged;
-            _watcher.Dispose();
-        }
-
-        _debounce?.Dispose();
-    }
+    public void Dispose() => _store?.Dispose();
 
     private string? Resolve(CultureInfo culture, string category, string compositeKey)
     {
-        TranslationSnapshot snapshot = Volatile.Read(ref _snapshot);
+        TranslationSnapshot snapshot = CurrentSnapshot();
         CultureInfo? current = culture;
         while (current is not null && !string.IsNullOrEmpty(current.Name))
         {
@@ -342,23 +316,6 @@ public sealed class Localizer : IDisposable, ILocalizer
 
         return null;
     }
-
-    private void StartWatching()
-    {
-        if (!Directory.Exists(_options.TranslationsDirectory))
-        {
-            return;
-        }
-
-        _debounce = new Timer(_ => Reload(), state: null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
-        _watcher = new FileSystemWatcher(_options.TranslationsDirectory) { EnableRaisingEvents = true };
-        _watcher.Changed += OnChanged;
-        _watcher.Created += OnChanged;
-        _watcher.Deleted += OnChanged;
-    }
-
-    private void OnChanged(object sender, FileSystemEventArgs e) =>
-        _debounce?.Change(_options.HotReloadDebounce, Timeout.InfiniteTimeSpan);
 
     private static CultureInfo CreateCulture(string name)
     {
