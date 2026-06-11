@@ -21,6 +21,10 @@
     <!-- How the build invokes the dotnet tool. Defaults to the installed global tool; a consumer with a
          local-tool manifest or a custom path (or this repo's samples, which run it from source) overrides it. -->
     <ArchPillarLocalizationToolCommand Condition="'$(ArchPillarLocalizationToolCommand)' == ''">dotnet apl</ArchPillarLocalizationToolCommand>
+    <!-- The tool is optional for a consumer (a missing `dotnet apl` should warn, not fail the build), so the
+         extract/merge invocations continue on error by default. A context where the tool is guaranteed (this
+         repo's samples) sets this to false so a real failure surfaces instead of hiding behind a warning. -->
+    <ArchPillarLocalizationToolContinueOnError Condition="'$(ArchPillarLocalizationToolContinueOnError)' == ''">true</ArchPillarLocalizationToolContinueOnError>
   </PropertyGroup>
 
   <ItemGroup>

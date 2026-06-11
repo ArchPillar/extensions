@@ -14,8 +14,12 @@
 
   <PropertyGroup>
     <!-- The package targets call `dotnet apl`; this repo builds the tool from source instead of installing it
-         globally, so point the command at the source project. A real consumer leaves this at the default. -->
-    <ArchPillarLocalizationToolCommand>dotnet run --project "$(MSBuildThisFileDirectory)..\..\src\Localization.Tooling\ArchPillar.Extensions.Localization.Tooling.csproj" -c $(Configuration) --</ArchPillarLocalizationToolCommand>
+         globally, so point the command at the source project. The tool multi-targets, so a framework is
+         pinned (samples target net10.0). A real consumer leaves this at the default. -->
+    <ArchPillarLocalizationToolCommand>dotnet run --project "$(MSBuildThisFileDirectory)..\..\src\Localization.Tooling\ArchPillar.Extensions.Localization.Tooling.csproj" -c $(Configuration) -f net10.0 --</ArchPillarLocalizationToolCommand>
+    <!-- In a sample the tool is always available (from source), so a failed extract is a real problem and
+         should fail the build, not warn. (The package default stays best-effort, since the tool is optional.) -->
+    <ArchPillarLocalizationToolContinueOnError>false</ArchPillarLocalizationToolContinueOnError>
   </PropertyGroup>
 
   <!--

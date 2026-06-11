@@ -10,7 +10,7 @@
           AfterTargets="Build"
           Condition="'$(ArchPillarLocalizationEmit)' == 'true' and '$(DesignTimeBuild)' != 'true' and '$(BuildingProject)' == 'true'">
     <Exec Command="$(ArchPillarLocalizationToolCommand) extract --assembly &quot;$(TargetPath)&quot; --output &quot;$([MSBuild]::NormalizePath('$(ArchPillarLocalizationOutputPath)'))&quot;"
-          ContinueOnError="true"
+          ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)"
           StandardOutputImportance="low" />
   </Target>
 
@@ -61,7 +61,7 @@
     -->
     <RemoveDir Directories="$(IntermediateOutputPath)apl-merged" />
     <Exec Command="$(ArchPillarLocalizationToolCommand) merge --input &quot;$([MSBuild]::NormalizePath('$(PublishDir)Translations'))&quot; --output &quot;$([MSBuild]::NormalizePath('$(IntermediateOutputPath)apl-merged'))&quot; --source $(ArchPillarLocalizationSourceLanguage)"
-          ContinueOnError="true"
+          ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)"
           StandardOutputImportance="low">
       <Output TaskParameter="ExitCode" PropertyName="_ArchPillarMergeExitCode" />
     </Exec>
