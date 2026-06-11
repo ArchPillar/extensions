@@ -13,11 +13,11 @@ namespace ArchPillar.Extensions.Localization;
 /// </summary>
 public sealed class DefaultLocalizer : ILocalizer
 {
-    private readonly IReadOnlyList<ITranslationSource> _sources;
     private readonly MessageFormatter _formatter;
     private readonly CultureInfo _sourceCulture;
     private readonly CatalogStore? _store;
     private readonly TranslationSnapshot _fixedSnapshot;
+    private readonly IReadOnlyList<ITranslationSource> _fixedLayers;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DefaultLocalizer"/> class over a <see cref="CatalogStore"/>,
@@ -35,11 +35,11 @@ public sealed class DefaultLocalizer : ILocalizer
         }
 
         LocalizerOptions resolved = options ?? store.Options;
-        _sources = resolved.Sources ?? [];
         _formatter = new MessageFormatter(resolved.MissingArguments);
         _sourceCulture = CreateCulture(resolved.SourceCulture);
         _store = store;
         _fixedSnapshot = TranslationSnapshot.Empty;
+        _fixedLayers = [];
     }
 
     /// <summary>
@@ -59,11 +59,11 @@ public sealed class DefaultLocalizer : ILocalizer
         }
 
         LocalizerOptions resolved = options ?? new LocalizerOptions();
-        _sources = resolved.Sources ?? [];
         _formatter = new MessageFormatter(resolved.MissingArguments);
         _sourceCulture = CreateCulture(resolved.SourceCulture);
         _store = null;
         _fixedSnapshot = CatalogLoader.BuildSnapshot([.. catalogs], resolved);
+        _fixedLayers = BuildLayers(resolved.Sources, _fixedSnapshot);
     }
 
     /// <summary>
@@ -265,21 +265,22 @@ public sealed class DefaultLocalizer : ILocalizer
         return [.. result];
     }
 
-    // Consults the custom sources (a later source wins) before the loaded catalogs. When no sources are
-    // configured the loop is skipped and the catalog lookup is unchanged, so the literal path stays
-    // allocation-free.
+    // Walks the ordered resolution layers — custom sources and the catalog snapshot alike, no special path —
+    // and returns the first override, or null for none. Reading the layers by index and the snapshot layer's
+    // own lookup keep the literal path allocation-free.
     private string? ResolveOverride(CultureInfo culture, string category, string compositeKey, string defaultMessage)
     {
-        for (var index = _sources.Count - 1; index >= 0; index--)
+        IReadOnlyList<ITranslationSource> layers = _store is not null ? _store.Layers : _fixedLayers;
+        for (var index = 0; index < layers.Count; index++)
         {
-            var fromSource = _sources[index].Resolve(culture, category, compositeKey, defaultMessage);
-            if (fromSource is not null)
+            var fromLayer = layers[index].Resolve(culture, category, compositeKey, defaultMessage);
+            if (fromLayer is not null)
             {
-                return fromSource;
+                return fromLayer;
             }
         }
 
-        return Resolve(culture, category, compositeKey);
+        return null;
     }
 
     // The non-attributed core. The public overloads carry the attributes so the extractor finds every
@@ -292,23 +293,19 @@ public sealed class DefaultLocalizer : ILocalizer
         (string Name, object? Value)[] arguments) =>
         Translate(culture, key, defaultMessage, context, out _, arguments);
 
-    private string? Resolve(CultureInfo culture, string category, string compositeKey)
+    // The resolution layers for an isolated localizer: custom sources first (a later-added source wins), then
+    // the snapshot as the lowest layer — the same shape the store builds, so resolution treats them alike.
+    private static IReadOnlyList<ITranslationSource> BuildLayers(IReadOnlyList<ITranslationSource>? sources, TranslationSnapshot snapshot)
     {
-        TranslationSnapshot snapshot = CurrentSnapshot();
-        CultureInfo? current = culture;
-        while (current is not null && !string.IsNullOrEmpty(current.Name))
+        IReadOnlyList<ITranslationSource> custom = sources ?? [];
+        var layers = new List<ITranslationSource>(custom.Count + 1);
+        for (var index = custom.Count - 1; index >= 0; index--)
         {
-            if (snapshot.ByCulture.TryGetValue(current.Name, out IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>? byCategory)
-                && byCategory.TryGetValue(category, out IReadOnlyDictionary<string, string>? map)
-                && map.TryGetValue(compositeKey, out var message))
-            {
-                return message;
-            }
-
-            current = current.Parent;
+            layers.Add(custom[index]);
         }
 
-        return null;
+        layers.Add(new SnapshotTranslationSource(snapshot));
+        return layers;
     }
 
     private static CultureInfo CreateCulture(string name)

@@ -47,6 +47,7 @@ public sealed class CatalogStore : IDisposable
     private bool _scannedLoaded;
     private volatile bool _hasSatellites;
     private TranslationSnapshot _snapshot = TranslationSnapshot.Empty;
+    private IReadOnlyList<ITranslationSource> _layers = [];
     private FileSystemWatcher? _watcher;
     private Timer? _debounce;
 
@@ -112,6 +113,21 @@ public sealed class CatalogStore : IDisposable
             }
 
             return Volatile.Read(ref _snapshot);
+        }
+    }
+
+    /// <summary>The ordered resolution layers — custom sources (a later-added source wins) above the merged
+    /// catalog snapshot — so a localizer resolves every layer the same way, with no special path for sources.</summary>
+    internal IReadOnlyList<ITranslationSource> Layers
+    {
+        get
+        {
+            if (_discover)
+            {
+                EnsureStarted();
+            }
+
+            return Volatile.Read(ref _layers);
         }
     }
 
@@ -568,7 +584,19 @@ public sealed class CatalogStore : IDisposable
     private void Rebuild()
     {
         List<Catalog> all = [.. _embeddedCatalogs, .. _satelliteCatalogs, .. _directoryCatalogs, .. _hostCatalogs];
-        Volatile.Write(ref _snapshot, CatalogLoader.BuildSnapshot(all, Options));
+        TranslationSnapshot snapshot = CatalogLoader.BuildSnapshot(all, Options);
+        Volatile.Write(ref _snapshot, snapshot);
+
+        // The resolution layers: custom sources first (a later-added source wins, so iterate newest-first),
+        // then the snapshot as the lowest layer. A localizer walks these in order, treating every layer alike.
+        var layers = new List<ITranslationSource>(_sources.Count + 1);
+        for (var index = _sources.Count - 1; index >= 0; index--)
+        {
+            layers.Add(_sources[index]);
+        }
+
+        layers.Add(new SnapshotTranslationSource(snapshot));
+        Volatile.Write(ref _layers, layers);
     }
 
     private void StartWatching()

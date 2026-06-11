@@ -36,9 +36,10 @@ public sealed class LocalizerOptions
     public MissingArgumentPolicy MissingArguments { get; init; } = MissingArgumentPolicy.PassThrough;
 
     /// <summary>
-    /// Additional dynamic translation sources consulted before the loaded catalogs and the in-code default;
-    /// a later source wins. Use for custom providers such as pseudo-localization or a live translation
-    /// service. Empty by default.
+    /// Custom translation sources, layered above the loaded catalogs (a later source wins) and resolved by the
+    /// very same path — a source is just a catalog a user implements (<see cref="ITranslationSource"/>), so the
+    /// merged catalog snapshot is itself the lowest such layer. Use for providers such as pseudo-localization
+    /// or a live translation service. Empty by default.
     /// </summary>
     public IReadOnlyList<ITranslationSource> Sources { get; init; } = [];
 
