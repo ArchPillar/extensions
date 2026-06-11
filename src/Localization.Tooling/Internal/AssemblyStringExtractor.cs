@@ -143,6 +143,16 @@ internal static class AssemblyStringExtractor
             return;
         }
 
+        // Two cheap gates before the (costly) resolve, the skip the D-K decision prescribed. A recognised site
+        // always binds a constant key, so a call with no string-literal argument cannot be one. And a
+        // translatable method lives in user code or our localizer assemblies, never in the framework — so a
+        // call into System.* / Microsoft.* is skipped without resolving (and thus loading) that assembly. Both
+        // keep the scan from resolving the declaring assembly of every BCL call, which is what made it slow.
+        if (!HasConstantArgument(args) || IsFrameworkScope(target.DeclaringType.Scope))
+        {
+            return;
+        }
+
         // Recognise every other site by the same rule the source-level detector applies: a parameter carrying
         // [Translatable] is the key and one carrying [TranslationDefault] is the in-code default. Reading those
         // off the resolved definition finds the native Translate, the loc["key", "default"] indexer, the L(...)
@@ -174,6 +184,30 @@ internal static class AssemblyStringExtractor
     {
         var position = receiver + parameterIndex;
         return position < args.Count ? args[position].Constant : null;
+    }
+
+    private static bool HasConstantArgument(IReadOnlyList<Slot> args)
+    {
+        foreach (Slot slot in args)
+        {
+            if (slot.Constant is not null)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // The framework assemblies a translatable method is never declared in. Skipping them keeps the attribute
+    // resolve from loading System.Private.CoreLib and the rest. The IStringLocalizer indexer is also a
+    // Microsoft.* scope, but it is recognised by symbol before this gate, so excluding Microsoft.* costs nothing.
+    private static bool IsFrameworkScope(IMetadataScope scope)
+    {
+        var name = scope.Name;
+        return name is "mscorlib" or "netstandard" or "System" or "WindowsBase"
+            || name.StartsWith("System.", StringComparison.Ordinal)
+            || name.StartsWith("Microsoft.", StringComparison.Ordinal);
     }
 
     private static int IndexOfParameterWith(MethodDefinition method, string attributeFullName)
