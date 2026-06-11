@@ -91,6 +91,10 @@
         <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
         <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.14.0" />
         <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />
+        <!-- IL reading for the dotnet tool's assembly-based extraction (D-K). A tool-only dependency: the
+             tool is a separate global tool, never shipped in a consumer's product, so the runtime stays
+             dependency-free. -->
+        <PackageVersion Include="Mono.Cecil" Version="0.11.5" />
     </ItemGroup>
     <ItemGroup>
         <!-- Analyzers -->

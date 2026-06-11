@@ -70,6 +70,8 @@ internal static class GeneratorPipeline
                 .Select(path => (MetadataReference)MetadataReference.CreateFromFile(path))
         ];
         references.Add(MetadataReference.CreateFromFile(typeof(TranslatableAttribute).Assembly.Location));
+        references.Add(MetadataReference.CreateFromFile(typeof(ILocalizer<>).Assembly.Location));
+        references.Add(MetadataReference.CreateFromFile(typeof(Microsoft.Extensions.Localization.IStringLocalizer).Assembly.Location));
 
         return CSharpCompilation.Create(
             assemblyName,

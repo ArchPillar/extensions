@@ -26,6 +26,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- IL reading for assembly-based extraction (Decision D-K). Tool-only; the runtime stays dependency-free. -->
+    <PackageReference Include="Mono.Cecil" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.Tooling.Tests" />
     <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.EndToEnd.Tests" />
   </ItemGroup>

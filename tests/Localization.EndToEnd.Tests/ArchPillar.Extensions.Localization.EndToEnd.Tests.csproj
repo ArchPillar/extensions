@@ -10,6 +10,8 @@
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    <!-- So the IL-extraction test can compile a consumer that uses the IStringLocalizer indexer. -->
+    <PackageReference Include="Microsoft.Extensions.Localization.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>
