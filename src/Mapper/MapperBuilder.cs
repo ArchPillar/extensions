@@ -218,31 +218,32 @@ public sealed class MapperBuilder<TSource, TDest>
             rawMappings[mapping.Destination.Name] = mapping;
         }
 
-        // Validate that every mapped destination member can actually be assigned.
-        // A read-only property (getter only, no set accessor) cannot be bound, so
-        // mapping it would fail when the projection expression is built. Catch it
-        // here so the failure surfaces at build time with a clear message.
+        // Validate each mapped destination member in a single pass:
+        //   1. A read-only property (getter only, no set accessor) cannot be bound,
+        //      so mapping it would fail when the projection expression is built.
+        //   2. The mapped source value must be assignable to the destination member.
+        //      Type inference on Map / Optional unifies the value type to the most
+        //      general common type, so a source that produces a *base* type of the
+        //      destination property (e.g. a nested mapper targeting a base DTO)
+        //      compiles but cannot bind to the more-derived destination.
+        // Catch both here at build time with a clear message rather than deferring
+        // to the first compile / projection.
         foreach (PropertyMapping mapping in rawMappings.Values)
         {
-            if (mapping.Kind != MappingKind.Ignored
-                && mapping.Destination is PropertyInfo { CanWrite: false } readOnlyProperty)
+            if (mapping.Kind == MappingKind.Ignored)
+            {
+                continue;
+            }
+
+            if (mapping.Destination is PropertyInfo { CanWrite: false } readOnlyProperty)
             {
                 throw new InvalidOperationException(
                     $"Property '{readOnlyProperty.Name}' of {typeof(TDest).Name} is read-only " +
                     "(it has no set accessor) and cannot be mapped. " +
                     "Remove the mapping or add a setter.");
             }
-        }
 
-        // Validate that each mapped source value can be assigned to its destination
-        // member. Type inference on Map / Optional unifies the value type to the most
-        // general common type, so a source that produces a *base* type of the
-        // destination property (e.g. a nested mapper targeting a base DTO) compiles
-        // but cannot bind to the more-derived destination. Surface it here at build
-        // time instead of deferring to the first compile / projection.
-        foreach (PropertyMapping mapping in rawMappings.Values)
-        {
-            if (mapping.Kind == MappingKind.Ignored || mapping.Source is null)
+            if (mapping.Source is null)
             {
                 continue;
             }
