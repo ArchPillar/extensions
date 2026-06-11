@@ -219,6 +219,48 @@ This refines D-5 (interop is no longer a one-way value-or-name adapter — it co
 (attribute-driven detection still covers the marker; the `IStringLocalizer` indexer is the one symbol-based
 exception, justified by it being a fixed BCL shape we cannot annotate).
 
+### D-K — Extraction reads the built assembly (IL), not source — so it covers Razor/Blazor/MVC.
+A source-generator-based extractor has a structural blind spot: a Roslyn source generator only sees the
+original user source, never another generator's output. Razor/`.cshtml` is compiled to C# by the *Razor*
+source generator, so every string in markup (`@Localizer.Translate("home.title", "Inbox")`,
+`Strings["inbox.summary", 3]`) is invisible to our generator. This is not Blazor-specific: it is **any string
+that exists only in another source generator's output**. (Hand-written C#, code-behind `.razor.cs`, and T4
+output are all normal source and extract fine; the boundary is "who wrote the syntax — you, or another
+generator".)
+
+Dead ends, ruled out:
+- **Move extraction to the analyzer.** Analyzers *can* see generated code (`GeneratedCodeAnalysisFlags.Analyze`),
+  but they cannot emit anything except diagnostics, and `File`/`Console`/etc. are banned in analyzer code by
+  **RS1035** (which our projects enable via `EnforceExtendedAnalyzerRules`). Exporting the catalog through the
+  diagnostic/SARIF channel is an abuse of that channel. Analyzers stay pure observers (they *may* validate
+  Razor strings, but never produce the catalog).
+- **Parse `.razor`/`.cshtml` ourselves.** That is reimplementing the Razor compiler — fragile, perpetually
+  behind, and a non-goal.
+
+**Decision:** extraction is done by the `dotnet apl` **tool**, reading the **built assembly's IL** (method
+bodies, via `System.Reflection.Metadata`). The assembly is the one artifact that contains *everything* —
+every generator's output compiled in — so this is complete by construction, with no blind spot downstream.
+The tool is a normal console app, so the I/O the analyzer is forbidden is exactly what the tool may do. Proven
+by a probe against the Blazor sample: the IL scan recovered the Razor call sites, defaults (a full ICU plural
+among them), and arguments that the generator never saw.
+
+**Consequences:**
+- The baked `[GeneratedLocalizationTemplate]` attribute is **superseded and removed** — it was only an
+  intermediate the tool read; nothing at runtime ever used it. The generator keeps only the typed key registry
+  (IDE autocomplete, C# keys). The runtime is unchanged: in-code defaults remain the source language and the
+  terminal fallback (D-1), and translation *delivery* (loose files or embedded satellites) is untouched.
+- Extraction stays a **post-build** step (the `AfterBuild` MSBuild target already is one), so there is no
+  IDE/keystroke cost. Scanning one assembly's own method bodies is tens of milliseconds — dwarfed by tool
+  startup and the build; assemblies that do not reference the localizer types are skipped via the
+  `TypeRef`/`MemberRef` tables.
+- Implementation surface: (1) stack-aware association of constant operands to each call; (2) the category from
+  the `ILocalizer<T>`/`IStringLocalizer<T>` generic instantiation in metadata; (3) source locations from the
+  PDB (Razor's `#line` maps sequence points back to the `.razor`); (4) identify translate methods by their
+  `[Translatable]`/`[TranslationDefault]` parameter attributes, so any wrapper works, not hard-coded names.
+
+This is a sizeable engine and is tracked as its own work item; it does not change the `extract` command's
+surface or output, only how it reads.
+
 ## What is unchanged from the specs
 
 All other decisions in `00-architecture.md` (D-1 … D-14) stand: the in-code default is the
