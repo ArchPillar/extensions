@@ -65,6 +65,11 @@ embedded catalog, or `Localization.AddCatalog(...)`. See [getting-started.md](ge
 | Dependency injection | `AddArchPillarLocalization` feeds the ambient store and registers injectable native localizers. |
 | `IStringLocalizer` interop + migration | A separate `…StringLocalizer` package (`AddArchPillarStringLocalizer`): a composing adapter, on-by-default extraction of indexer literals, and a no-op `L(...)` marker — droppable once migration is done. |
 | Publishing | A publish-time merge to one bundle per culture; a documented trim / single-file / AOT matrix. |
+| Zero external dependencies | The runtime, formats, and ICU parser use only the BCL — no third-party packages. |
+
+> **No external dependencies.** The parsers and format providers are hand-rolled on the BCL rather than
+> taken from existing libraries. For why — and how the maturity gap is closed — see
+> [Why no external dependencies](internals/README.md#why-no-external-dependencies).
 
 ## Performance
 
