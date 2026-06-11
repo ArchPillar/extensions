@@ -9,7 +9,7 @@ public sealed class LocalizerAllocationTests : IDisposable
 
     private readonly string _directory;
     private readonly CatalogStore _store;
-    private readonly Localizer _localizer;
+    private readonly DefaultLocalizer _localizer;
     private readonly ILocalizer<LocalizerAllocationTests> _typed;
 
     public LocalizerAllocationTests()
@@ -28,7 +28,7 @@ public sealed class LocalizerAllocationTests : IDisposable
             TranslationsDirectory = _directory,
             SourceCulture = "en"
         });
-        _localizer = new Localizer(_store);
+        _localizer = new DefaultLocalizer(_store);
         _typed = new LocalizerFactory(_localizer).Create<LocalizerAllocationTests>();
     }
 

@@ -5,7 +5,7 @@ namespace ArchPillar.Extensions.Localization;
 /// <summary>
 /// Owns a set of translation catalogs loaded from a directory and keeps them current: it reads the configured
 /// <see cref="LocalizerOptions.TranslationsDirectory"/>, optionally watches it and reloads on change, and
-/// exposes the merged snapshot for a <see cref="Localizer"/> to resolve against. It is a catalogue source, not
+/// exposes the merged snapshot for a <see cref="DefaultLocalizer"/> to resolve against. It is a catalogue source, not
 /// a localizer — resolution and formatting belong to the engine, which reads this store's current snapshot.
 /// </summary>
 public sealed class CatalogStore : IDisposable

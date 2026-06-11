@@ -17,7 +17,7 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
         services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" });
         using ServiceProvider provider = services.BuildServiceProvider();
 
-        Assert.Same(provider.GetRequiredService<Localizer>(), provider.GetRequiredService<Localizer>());
+        Assert.Same(provider.GetRequiredService<DefaultLocalizer>(), provider.GetRequiredService<DefaultLocalizer>());
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
     public void AmbientInterface_HonorsTheConfiguredMissingArgumentPolicy()
     {
         // The injected interface goes through the ambient store; the Throw policy configured via options must
-        // apply there too, not only on a directly constructed Localizer.
+        // apply there too, not only on a directly constructed DefaultLocalizer.
         Ambient.Reset();
         var services = new ServiceCollection();
         services.AddArchPillarLocalization(new LocalizerOptions
@@ -76,9 +76,9 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
         services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" });
         services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" });
 
-        // The second call is a no-op: the Localizer marker is registered exactly once, so it does not stack a
+        // The second call is a no-op: the DefaultLocalizer marker is registered exactly once, so it does not stack a
         // second set of native views.
-        Assert.Equal(1, services.Count(descriptor => descriptor.ServiceType == typeof(Localizer)));
+        Assert.Equal(1, services.Count(descriptor => descriptor.ServiceType == typeof(DefaultLocalizer)));
 
         using ServiceProvider provider = services.BuildServiceProvider();
         Assert.NotNull(provider.GetRequiredService<ILocalizer>());

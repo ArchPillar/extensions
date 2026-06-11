@@ -165,7 +165,7 @@ public sealed class StringLocalizerServiceCollectionExtensionsTests : IDisposabl
 
         // The second call is a no-op (the native marker and the interop marker are each registered exactly
         // once), so it does not stack a second composing factory over the first.
-        Assert.Equal(1, services.Count(descriptor => descriptor.ServiceType == typeof(Localizer)));
+        Assert.Equal(1, services.Count(descriptor => descriptor.ServiceType == typeof(DefaultLocalizer)));
         Assert.Equal(1, services.Count(descriptor =>
             descriptor.ServiceType == typeof(IStringLocalizerFactory)
             && descriptor.ImplementationFactory is not null));

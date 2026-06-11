@@ -14,7 +14,7 @@ public class LocalizerBenchmarks
     private static readonly CultureInfo _german = CultureInfo.GetCultureInfo("de");
 
     private CatalogStore _store = null!;
-    private Localizer _localizer = null!;
+    private DefaultLocalizer _localizer = null!;
     private string _directory = null!;
 
     [GlobalSetup]
@@ -36,7 +36,7 @@ public class LocalizerBenchmarks
             TranslationsDirectory = _directory,
             SourceCulture = "en"
         });
-        _localizer = new Localizer(_store);
+        _localizer = new DefaultLocalizer(_store);
     }
 
     [GlobalCleanup]

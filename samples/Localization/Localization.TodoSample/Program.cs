@@ -19,7 +19,7 @@ using var store = new CatalogStore(new LocalizerOptions
     SourceCulture = "en",
     Sources = [new PseudoLocalizationSource("qps-ploc")]
 });
-var localizer = new Localizer(store);
+var localizer = new DefaultLocalizer(store);
 
 var strings = new TodoStrings(new LocalizerFactory(localizer).Create<TodoStrings>());
 

@@ -11,7 +11,7 @@ namespace ArchPillar.Extensions.Localization;
 /// a fixed set of catalogs) and owns no I/O. Lookups are lock-free; designed to be a singleton and safe for
 /// concurrent use.
 /// </summary>
-public sealed class Localizer : ILocalizer
+public sealed class DefaultLocalizer : ILocalizer
 {
     private readonly IReadOnlyList<ITranslationSource> _sources;
     private readonly MessageFormatter _formatter;
@@ -20,14 +20,14 @@ public sealed class Localizer : ILocalizer
     private readonly TranslationSnapshot _fixedSnapshot;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="Localizer"/> class over a <see cref="CatalogStore"/>,
+    /// Initializes a new instance of the <see cref="DefaultLocalizer"/> class over a <see cref="CatalogStore"/>,
     /// resolving against the store's current snapshot so a reload (or hot-reload) of the store is observed on
     /// the next lookup. The store is owned by the caller; the localizer only reads it.
     /// </summary>
     /// <param name="store">The catalogue store to resolve against.</param>
     /// <param name="options">The localizer configuration, or <see langword="null"/> to use the store's.</param>
     /// <exception cref="ArgumentNullException"><paramref name="store"/> is <see langword="null"/>.</exception>
-    public Localizer(CatalogStore store, LocalizerOptions? options = null)
+    public DefaultLocalizer(CatalogStore store, LocalizerOptions? options = null)
     {
         if (store is null)
         {
@@ -51,7 +51,7 @@ public sealed class Localizer : ILocalizer
     /// <param name="catalogs">The parsed catalogs to load as overrides.</param>
     /// <param name="options">The localizer configuration, or <see langword="null"/> for the defaults.</param>
     /// <exception cref="ArgumentNullException"><paramref name="catalogs"/> is <see langword="null"/>.</exception>
-    public Localizer(IEnumerable<Catalog> catalogs, LocalizerOptions? options = null)
+    public DefaultLocalizer(IEnumerable<Catalog> catalogs, LocalizerOptions? options = null)
     {
         if (catalogs is null)
         {
@@ -73,22 +73,22 @@ public sealed class Localizer : ILocalizer
     /// <param name="catalog">The parsed catalog to load as overrides.</param>
     /// <param name="options">The localizer configuration, or <see langword="null"/> for the defaults.</param>
     /// <exception cref="ArgumentNullException"><paramref name="catalog"/> is <see langword="null"/>.</exception>
-    public Localizer(Catalog catalog, LocalizerOptions? options = null)
+    public DefaultLocalizer(Catalog catalog, LocalizerOptions? options = null)
         : this(Single(catalog), options)
     {
     }
 
     /// <summary>
-    /// Creates a <see cref="Localizer"/> from catalogs the caller has already loaded — for hosts without a
+    /// Creates a <see cref="DefaultLocalizer"/> from catalogs the caller has already loaded — for hosts without a
     /// readable file system (such as Blazor WebAssembly), where the catalogs are fetched over HTTP and
     /// parsed with an <see cref="ITranslationFormat"/> before being handed in here. Equivalent to the
-    /// <see cref="Localizer(IEnumerable{Catalog}, LocalizerOptions?)"/> constructor.
+    /// <see cref="DefaultLocalizer(IEnumerable{Catalog}, LocalizerOptions?)"/> constructor.
     /// </summary>
     /// <param name="catalogs">The parsed catalogs to load as overrides.</param>
     /// <param name="options">The localizer configuration, or <see langword="null"/> for the defaults.</param>
     /// <returns>A localizer backed by the supplied catalogs.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="catalogs"/> is <see langword="null"/>.</exception>
-    public static Localizer FromCatalogs(IEnumerable<Catalog> catalogs, LocalizerOptions? options = null) =>
+    public static DefaultLocalizer FromCatalogs(IEnumerable<Catalog> catalogs, LocalizerOptions? options = null) =>
         new(catalogs ?? throw new ArgumentNullException(nameof(catalogs)), options);
 
     private static IEnumerable<Catalog> Single(Catalog catalog) =>

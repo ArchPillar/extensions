@@ -4,13 +4,13 @@ using ArchPillar.Extensions.Localization.Internal;
 namespace ArchPillar.Extensions.Localization;
 
 /// <summary>
-/// Creates category-scoped <see cref="ILocalizer"/> instances over a single root <see cref="Localizer"/>,
+/// Creates category-scoped <see cref="ILocalizer"/> instances over a single root <see cref="DefaultLocalizer"/>,
 /// mirroring <c>ILoggerFactory</c>. Typed localizers are cached per type, so resolving the same
 /// <see cref="ILocalizer{T}"/> repeatedly does not allocate.
 /// </summary>
 public sealed class LocalizerFactory : ILocalizerFactory
 {
-    private readonly Localizer _localizer;
+    private readonly DefaultLocalizer _localizer;
     private readonly ConcurrentDictionary<Type, ILocalizer> _byType = new();
 
     /// <summary>
@@ -18,7 +18,7 @@ public sealed class LocalizerFactory : ILocalizerFactory
     /// </summary>
     /// <param name="localizer">The root localizer that holds the loaded overrides.</param>
     /// <exception cref="ArgumentNullException"><paramref name="localizer"/> is <see langword="null"/>.</exception>
-    public LocalizerFactory(Localizer localizer)
+    public LocalizerFactory(DefaultLocalizer localizer)
     {
         _localizer = localizer ?? throw new ArgumentNullException(nameof(localizer));
     }

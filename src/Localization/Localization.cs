@@ -39,7 +39,7 @@ public static class Localization
     private static bool _subscribed;
     private static bool _scannedLoaded;
     private static volatile bool _hasSatellites;
-    private static Localizer _current = new([], new LocalizerOptions());
+    private static DefaultLocalizer _current = new([], new LocalizerOptions());
 
     /// <summary>The global-namespace ambient localizer (the uncategorized bucket).</summary>
     public static ILocalizer Default { get; } = new Internal.AmbientLocalizer();
@@ -224,11 +224,11 @@ public static class Localization
             _directory = DefaultDirectory();
             _scannedLoaded = false;
             _hasSatellites = false;
-            Volatile.Write(ref _current, new Localizer([], new LocalizerOptions()));
+            Volatile.Write(ref _current, new DefaultLocalizer([], new LocalizerOptions()));
         }
     }
 
-    internal static Localizer Current
+    internal static DefaultLocalizer Current
     {
         get
         {
@@ -565,7 +565,7 @@ public static class Localization
         // files) < host (explicit AddCatalog). A later catalog wins on overlap inside the merge.
         List<Catalog> all = [.. _embeddedCatalogs, .. _satelliteCatalogs, .. _directoryCatalogs, .. _hostCatalogs];
         var options = new LocalizerOptions { SourceCulture = _sourceCulture, Sources = [.. _sources], MissingArguments = _missingArguments };
-        Volatile.Write(ref _current, new Localizer(all, options));
+        Volatile.Write(ref _current, new DefaultLocalizer(all, options));
     }
 
     // Reads every catalog file in a directory. Pure: file I/O only, no shared state, no lock.

@@ -9,7 +9,7 @@ public sealed class CategoryLocalizerTests
     [Fact]
     public void TypedLocalizer_ResolvesWithinItsOwnCategory()
     {
-        var root = Localizer.FromCatalogs(
+        var root = DefaultLocalizer.FromCatalogs(
             [DeCatalog(("save", typeof(Save).FullName!, "Speichern"), ("save", typeof(Cancel).FullName!, "Abbrechen"))],
             new LocalizerOptions { SourceCulture = "en" });
         var factory = new LocalizerFactory(root);
@@ -27,7 +27,7 @@ public sealed class CategoryLocalizerTests
     [Fact]
     public void TypedLocalizer_MissInCategory_FallsThroughToInCodeDefault()
     {
-        var root = Localizer.FromCatalogs(
+        var root = DefaultLocalizer.FromCatalogs(
             [DeCatalog(("save", typeof(Save).FullName!, "Speichern"))],
             new LocalizerOptions { SourceCulture = "en" });
         var factory = new LocalizerFactory(root);
@@ -39,7 +39,7 @@ public sealed class CategoryLocalizerTests
     [Fact]
     public void GlobalLocalizer_DoesNotSeeCategorizedOverrides()
     {
-        var root = Localizer.FromCatalogs(
+        var root = DefaultLocalizer.FromCatalogs(
             [DeCatalog(("save", typeof(Save).FullName!, "Speichern"))],
             new LocalizerOptions { SourceCulture = "en" });
 
@@ -50,7 +50,7 @@ public sealed class CategoryLocalizerTests
     [Fact]
     public void Factory_CachesTypedLocalizerPerType()
     {
-        var root = Localizer.FromCatalogs([], new LocalizerOptions { SourceCulture = "en" });
+        var root = DefaultLocalizer.FromCatalogs([], new LocalizerOptions { SourceCulture = "en" });
         var factory = new LocalizerFactory(root);
 
         Assert.Same(factory.Create<Save>(), factory.Create<Save>());
@@ -59,7 +59,7 @@ public sealed class CategoryLocalizerTests
     [Fact]
     public void Constructor_FromSingleCatalog_BuildsIsolatedLocalizer()
     {
-        var root = new Localizer(
+        var root = new DefaultLocalizer(
             DeCatalog(("save", typeof(Save).FullName!, "Speichern")),
             new LocalizerOptions { SourceCulture = "en" });
 
@@ -69,7 +69,7 @@ public sealed class CategoryLocalizerTests
     [Fact]
     public void Constructor_FromCatalogs_BuildsIsolatedLocalizer()
     {
-        var root = new Localizer(
+        var root = new DefaultLocalizer(
             [DeCatalog(("save", typeof(Save).FullName!, "Speichern"))],
             new LocalizerOptions { SourceCulture = "en" });
 
@@ -78,7 +78,7 @@ public sealed class CategoryLocalizerTests
 
     [Fact]
     public void Constructor_NullCatalog_Throws() =>
-        Assert.Throws<ArgumentNullException>(() => new Localizer((Catalog)null!));
+        Assert.Throws<ArgumentNullException>(() => new DefaultLocalizer((Catalog)null!));
 
     [Fact]
     public void TypedLocalizer_GenericScopeType_ResolvesUnderTheOpenGenericCategory()
@@ -86,7 +86,7 @@ public sealed class CategoryLocalizerTests
         // The extractor files a generic scope type under its open-generic name (Box`1); the runtime must look
         // it up under the same name, not typeof(T).FullName, which includes the assembly-qualified type args.
         var openGeneric = typeof(Box<int>).GetGenericTypeDefinition().FullName!;
-        var root = Localizer.FromCatalogs(
+        var root = DefaultLocalizer.FromCatalogs(
             [DeCatalog(("save", openGeneric, "Speichern"))],
             new LocalizerOptions { SourceCulture = "en" });
 

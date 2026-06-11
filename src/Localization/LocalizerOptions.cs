@@ -3,7 +3,7 @@ using ArchPillar.Extensions.Localization.MessageFormat;
 namespace ArchPillar.Extensions.Localization;
 
 /// <summary>
-/// Configuration for a <see cref="Localizer"/>: where to load catalogs from, the source language, the
+/// Configuration for a <see cref="DefaultLocalizer"/>: where to load catalogs from, the source language, the
 /// format precedence on overlap, and the missing-argument and hot-reload behaviour.
 /// </summary>
 public sealed class LocalizerOptions

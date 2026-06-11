@@ -298,7 +298,7 @@ internal sealed class AssemblyStringExtractor : IDisposable
 
     // The category is the receiver's generic type argument: ILocalizer<T> / IStringLocalizer<T> -> T's full
     // name (Translate/the indexer are declared on the non-generic base, so it comes from the receiver, not the
-    // method). A non-generic receiver (the concrete Localizer, or an unknown type) is the global category.
+    // method). A non-generic receiver (the concrete DefaultLocalizer, or an unknown type) is the global category.
     private static string CategoryOf(IReadOnlyList<Slot> args, int receiver) =>
         receiver > 0 && args[0].Type is GenericInstanceType { GenericArguments.Count: > 0 } generic
             ? generic.GenericArguments[0].FullName

@@ -12,7 +12,7 @@ public static class ServiceCollectionExtensions
     /// <summary>
     /// Configures the ambient <see cref="Localization"/> store from <paramref name="options"/> and registers
     /// the native localization views — <see cref="ILocalizer"/>, <see cref="ILocalizer{T}"/>, and a concrete
-    /// <see cref="Localizer"/> for direct injection — over it, so an injected localizer, a non-DI caller, and
+    /// <see cref="DefaultLocalizer"/> for direct injection — over it, so an injected localizer, a non-DI caller, and
     /// an exception text all read the same store (Decision D-I). For <c>IStringLocalizer</c> interop while
     /// migrating an existing codebase, add the <c>ArchPillar.Extensions.Localization.StringLocalizer</c>
     /// package and call <c>AddArchPillarStringLocalizer</c> instead (Decision D-J).
@@ -31,7 +31,7 @@ public static class ServiceCollectionExtensions
         // Idempotent per collection: a second call (a common double-registration footgun, and what makes the
         // process-global ambient mutation below dangerous) is a no-op rather than stacking duplicate sources.
         // The first registration's options win.
-        if (services.Any(descriptor => descriptor.ServiceType == typeof(Localizer)))
+        if (services.Any(descriptor => descriptor.ServiceType == typeof(DefaultLocalizer)))
         {
             return services;
         }
@@ -39,7 +39,7 @@ public static class ServiceCollectionExtensions
         LocalizerOptions resolved = options ?? new LocalizerOptions();
 
         // Feed the ambient store so DI and the ambient share one source of truth — including the formatting
-        // policy, so an injected interface, a non-DI caller, and the directly injected Localizer agree.
+        // policy, so an injected interface, a non-DI caller, and the directly injected DefaultLocalizer agree.
         Ambient.SourceCulture = resolved.SourceCulture;
         Ambient.MissingArguments = resolved.MissingArguments;
         if (!string.IsNullOrEmpty(resolved.TranslationsDirectory))
@@ -56,10 +56,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(Ambient.Default);
         services.AddSingleton(typeof(ILocalizer<>), typeof(AmbientLocalizer<>));
 
-        // A directory-backed CatalogStore (disposed by the container) and a concrete Localizer over it remain
+        // A directory-backed CatalogStore (disposed by the container) and a concrete DefaultLocalizer over it remain
         // available for direct injection.
         services.AddSingleton(_ => new CatalogStore(resolved));
-        services.AddSingleton(provider => new Localizer(provider.GetRequiredService<CatalogStore>(), resolved));
+        services.AddSingleton(provider => new DefaultLocalizer(provider.GetRequiredService<CatalogStore>(), resolved));
         return services;
     }
 }

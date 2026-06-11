@@ -7,7 +7,7 @@ using Microsoft.Extensions.Hosting;
 // Localization.ConsoleSample
 //
 // Demonstrates ArchPillar.Extensions.Localization in a generic-host console app:
-//   - Registering the Localizer in DI with AddArchPillarLocalization and resolving it as a service
+//   - Registering the DefaultLocalizer in DI with AddArchPillarLocalization and resolving it as a service
 //   - In-code English default overridden at runtime by a German .arb catalog beside the binary
 //   - Named arguments ({name}) and ICU plurals ({count, plural, ...}) across both cultures
 //   - English needs no file: the in-code default is the source of truth and the terminal fallback
@@ -22,7 +22,7 @@ using IHost host = Host.CreateDefaultBuilder(args)
     }))
     .Build();
 
-var localizer = host.Services.GetRequiredService<Localizer>();
+var localizer = host.Services.GetRequiredService<DefaultLocalizer>();
 
 foreach (var culture in new[] { "en", "de" })
 {

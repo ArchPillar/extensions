@@ -35,7 +35,7 @@ public static class StringLocalizerServiceCollectionExtensions
         services.AddArchPillarLocalization(options);
 
         // Idempotent per collection: a second call must not stack a second composing factory over the first.
-        // The native call above keys off the Localizer descriptor, which is already present after the first
+        // The native call above keys off the DefaultLocalizer descriptor, which is already present after the first
         // AddArchPillarLocalization, so the interop block needs its own marker.
         if (services.Any(descriptor => descriptor.ServiceType == typeof(StringLocalizerMarker)))
         {
