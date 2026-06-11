@@ -18,6 +18,12 @@ The in-code default message is the **runtime source of truth** for the source la
 
 ## Component map
 
+> **Packaging note:** the boxes below are *logical* components. The three `netstandard2.0` compile-time
+> components — Detection, Analyzers, and Generator — ship as **one assembly**
+> (`ArchPillar.Extensions.Localization.Analyzers`); code fixes ship separately because of the
+> `Microsoft.CodeAnalysis.Workspaces` boundary (see Dependency policy). The diagram shows how the concerns
+> depend on each other, not the assembly count.
+
 ```
                          ArchPillar.Localization.Detection        (netstandard2.0, pure)
                           - finds translatable call sites
@@ -132,7 +138,7 @@ The reconciler and the runtime never touch a file format directly. They operate 
 
 ## Dependency policy
 
-- `Abstractions`, `Detection`, `Analyzers`: `netstandard2.0`, no third-party runtime dependencies beyond `Microsoft.CodeAnalysis.*` (provided by the analyzer host).
+- **Compile-time components ship as one assembly.** Detection, the analyzer, and the generator are a single `netstandard2.0` assembly, `ArchPillar.Extensions.Localization.Analyzers` — they share the detection core and one `Microsoft.CodeAnalysis.CSharp` dependency profile, and load into a single analyzer context (fewer DLLs in `analyzers/dotnet/cs`, fewer load-failure surfaces). Code fixes stay in a separate `…CodeFixes` assembly because `CodeFixProvider` needs `Microsoft.CodeAnalysis.Workspaces`, which the command-line compiler does not load. `Abstractions` (`netstandard2.0`) is referenced by both. No third-party runtime dependencies beyond `Microsoft.CodeAnalysis.*` (provided by the analyzer host).
 - `MessageFormat`: no third-party dependencies. The CLDR plural data is an **embedded, version-pinned data input generated into source at build time** — a data dependency, not a package dependency.
 - `Formats.Po`, `Formats.Xliff`: hand-rolled parsers, no third-party packages. XLIFF uses `System.Xml` from the Base Class Library; ARB uses `System.Text.Json` from the Base Class Library.
 - `ArchPillar.Localization` (runtime): no third-party dependencies. Optional, separately-packaged adapter for `Microsoft.Extensions.DependencyInjection` and `Microsoft.Extensions.Localization` (`IStringLocalizer`) if interop is wanted (deferred, D-5).

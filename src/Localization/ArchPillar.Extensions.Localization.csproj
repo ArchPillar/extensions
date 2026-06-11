@@ -53,16 +53,14 @@
   <ItemGroup>
     <ProjectReference Include="..\Localization.Analyzers\ArchPillar.Extensions.Localization.Analyzers.csproj"
                       PrivateAssets="all" ReferenceOutputAssembly="false" />
-    <ProjectReference Include="..\Localization.Generator\ArchPillar.Extensions.Localization.Generator.csproj"
-                      PrivateAssets="all" ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\Localization.CodeFixes\ArchPillar.Extensions.Localization.CodeFixes.csproj"
                       PrivateAssets="all" ReferenceOutputAssembly="false" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\Localization.Generator\build\ArchPillar.Extensions.Localization.props"
+    <None Include="..\Localization.Analyzers\build\ArchPillar.Extensions.Localization.props"
           Pack="true" PackagePath="buildTransitive" Visible="false" />
-    <None Include="..\Localization.Generator\build\ArchPillar.Extensions.Localization.targets"
+    <None Include="..\Localization.Analyzers\build\ArchPillar.Extensions.Localization.targets"
           Pack="true" PackagePath="buildTransitive" Visible="false" />
   </ItemGroup>
 
@@ -70,11 +68,7 @@
     <ItemGroup>
       <None Include="..\Localization.Analyzers\bin\$(Configuration)\netstandard2.0\ArchPillar.Extensions.Localization.Analyzers.dll"
             Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
-      <None Include="..\Localization.Generator\bin\$(Configuration)\netstandard2.0\ArchPillar.Extensions.Localization.Generator.dll"
-            Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
       <None Include="..\Localization.CodeFixes\bin\$(Configuration)\netstandard2.0\ArchPillar.Extensions.Localization.CodeFixes.dll"
-            Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
-      <None Include="..\Localization.Detection\bin\$(Configuration)\netstandard2.0\ArchPillar.Extensions.Localization.Detection.dll"
             Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
       <None Include="..\Localization.MessageFormat\bin\$(Configuration)\netstandard2.0\ArchPillar.Extensions.Localization.MessageFormat.dll"
             Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />

@@ -18,9 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Localization.Detection\ArchPillar.Extensions.Localization.Detection.csproj" />
     <ProjectReference Include="..\..\src\Localization.Analyzers\ArchPillar.Extensions.Localization.Analyzers.csproj" />
-    <ProjectReference Include="..\..\src\Localization.Generator\ArchPillar.Extensions.Localization.Generator.csproj" />
     <ProjectReference Include="..\..\src\Localization.Abstractions\ArchPillar.Extensions.Localization.Abstractions.csproj" />
   </ItemGroup>
 

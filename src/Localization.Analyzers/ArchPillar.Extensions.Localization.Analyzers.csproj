@@ -13,7 +13,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Localization.Detection\ArchPillar.Extensions.Localization.Detection.csproj" />
+    <ProjectReference Include="..\Localization.Abstractions\ArchPillar.Extensions.Localization.Abstractions.csproj" />
+    <ProjectReference Include="..\Localization.MessageFormat\ArchPillar.Extensions.Localization.MessageFormat.csproj" />
   </ItemGroup>
 
 </Project>

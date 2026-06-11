@@ -16,9 +16,9 @@ source of truth for what we actually build.
 |---|---|
 | `ArchPillar.Localization.MessageFormat` | `ArchPillar.Extensions.Localization.MessageFormat` |
 | `ArchPillar.Localization.Abstractions` | `ArchPillar.Extensions.Localization.Abstractions` |
-| `ArchPillar.Localization.Detection` | `ArchPillar.Extensions.Localization.Detection` |
-| `ArchPillar.Localization.Analyzers` | `ArchPillar.Extensions.Localization.Analyzers` |
-| `ArchPillar.Localization.Generator` | `ArchPillar.Extensions.Localization.Generator` |
+| `ArchPillar.Localization.Detection` | folded into `ArchPillar.Extensions.Localization.Analyzers` |
+| `ArchPillar.Localization.Analyzers` | `ArchPillar.Extensions.Localization.Analyzers` (also contains detection + the generator) |
+| `ArchPillar.Localization.Generator` | folded into `ArchPillar.Extensions.Localization.Analyzers` |
 | `ArchPillar.Localization.Reconcile` | `ArchPillar.Extensions.Localization.Reconcile` |
 | `ArchPillar.Localization.Tooling` | `ArchPillar.Extensions.Localization.Tooling` |
 | `ArchPillar.Localization.Formats.*` | `ArchPillar.Extensions.Localization.Formats.*` |

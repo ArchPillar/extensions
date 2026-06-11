@@ -19,7 +19,7 @@
   <ItemGroup>
     <!-- The whole pipeline, one project: the generator (extract), the tool's reconciler (translator files),
          and the runtime (load + render). The golden-path test drives all three as a developer would. -->
-    <ProjectReference Include="..\..\src\Localization.Generator\ArchPillar.Extensions.Localization.Generator.csproj" />
+    <ProjectReference Include="..\..\src\Localization.Analyzers\ArchPillar.Extensions.Localization.Analyzers.csproj" />
     <ProjectReference Include="..\..\src\Localization.Tooling\ArchPillar.Extensions.Localization.Tooling.csproj" />
     <ProjectReference Include="..\..\src\Localization\ArchPillar.Extensions.Localization.csproj" />
     <ProjectReference Include="..\..\src\Localization.Abstractions\ArchPillar.Extensions.Localization.Abstractions.csproj" />

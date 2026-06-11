@@ -1,6 +1,6 @@
 # 02 — Extraction, Template Emission & Reconciliation
 
-> Assemblies: `ArchPillar.Localization.Reconcile` (the shared extract/merge core), `ArchPillar.Localization.Generator` (the compile-time `IIncrementalGenerator` that emits the **template**), and `ArchPillar.Localization.Tooling` (the `dotnet` tool that adds/syncs/converts **target** files on demand). References `Detection` (spec 01), the `Catalog` model and provider interface (spec 03), and `MessageFormat` (spec 04).
+> Assemblies: the compile-time `IIncrementalGenerator` that emits the **template** ships inside `ArchPillar.Extensions.Localization.Analyzers` (consolidated with detection and the analyzer — see spec 01), and `ArchPillar.Extensions.Localization.Tooling` is the `dotnet` tool that adds/syncs/converts **target** files on demand (it carries the shared extract/merge core). References the detection core (spec 01), the `Catalog` model and provider interface (spec 03), and `MessageFormat` (spec 04).
 
 ## Purpose
 

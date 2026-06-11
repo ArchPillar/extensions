@@ -1,6 +1,6 @@
 # 01 — Detection Core & Diagnostic Analyzer
 
-> Assemblies: `ArchPillar.Localization.Abstractions` (attributes), `ArchPillar.Localization.Detection` (pure detection), `ArchPillar.Localization.Analyzers` (diagnostics). All target `netstandard2.0`.
+> Assemblies: `ArchPillar.Localization.Abstractions` (attributes), and `ArchPillar.Extensions.Localization.Analyzers` — the single compile-time assembly holding the detection core, the diagnostics, and the generator (spec 02). Code fixes ship separately (`…CodeFixes`, the `Microsoft.CodeAnalysis.Workspaces` boundary). All target `netstandard2.0`. *(Detection, analyzer, and generator were originally three assemblies; they were consolidated into one — see [00-architecture.md](00-architecture.md) "Dependency policy".)*
 
 ## Purpose
 
