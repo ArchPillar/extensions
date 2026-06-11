@@ -36,6 +36,29 @@ public interface ILocalizer
         [TranslationDefault] string defaultMessage,
         [TranslationContext] string context,
         params (string Name, object? Value)[] arguments);
+
+    /// <summary>
+    /// Translates <paramref name="key"/> for the current UI culture, falling back to
+    /// <paramref name="defaultMessage"/>. An indexer form of <c>Translate</c> for callers who prefer
+    /// <c>loc["key", "default"]</c>; the behavior is identical and the choice is purely stylistic.
+    /// </summary>
+    /// <param name="key">The stable symbolic key.</param>
+    /// <param name="defaultMessage">The in-code source default (ICU MessageFormat).</param>
+    /// <returns>The rendered string.</returns>
+    public string this[[Translatable] string key, [TranslationDefault] string defaultMessage] =>
+        Translate(key, defaultMessage);
+
+    /// <summary>
+    /// Translates <paramref name="key"/> with ICU <paramref name="arguments"/> for the current UI culture,
+    /// falling back to <paramref name="defaultMessage"/>. The indexer form of <c>Translate</c>; identical
+    /// behavior, a matter of taste.
+    /// </summary>
+    /// <param name="key">The stable symbolic key.</param>
+    /// <param name="defaultMessage">The in-code source default (ICU MessageFormat).</param>
+    /// <param name="arguments">The message arguments as <c>(name, value)</c> tuples.</param>
+    /// <returns>The rendered string.</returns>
+    public string this[[Translatable] string key, [TranslationDefault] string defaultMessage, (string Name, object? Value)[] arguments] =>
+        Translate(key, defaultMessage, arguments);
 }
 
 /// <summary>

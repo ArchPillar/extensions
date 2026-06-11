@@ -13,6 +13,7 @@ public sealed class AssemblyExtractionTests : IDisposable
     private const string ConsumerCode = """
         using ArchPillar.Extensions.Localization;
         using Microsoft.Extensions.Localization;
+        using static ArchPillar.Extensions.Localization.TranslationMarkers;
 
         namespace App;
 
@@ -24,7 +25,9 @@ public sealed class AssemblyExtractionTests : IDisposable
             {
                 loc.Translate("home.title", "Inbox");                                            // empty params -> Array.Empty
                 loc.Translate("inbox.count", "{count, plural, other {# msgs}}", ("count", 3));    // tuple arg -> newobj
-                _ = strings["inbox.summary", 3];                                                 // indexer
+                _ = strings["inbox.summary", 3];                                                 // IStringLocalizer indexer
+                _ = loc["greeting", "Hello"];                                                    // ILocalizer indexer
+                L("Email is required");                                                          // L(...) marker, global category
             }
         }
         """;
@@ -58,6 +61,18 @@ public sealed class AssemblyExtractionTests : IDisposable
         RawCallSite summary = Assert.Single(sites, s => s.Key == "inbox.summary");
         Assert.Equal("inbox.summary", summary.Default);
         Assert.Equal("App.Home", summary.Category);
+
+        // The ILocalizer indexer (loc["key", "default"]) — recognised by the same [Translatable] /
+        // [TranslationDefault] attribute contract as Translate, not a hardcoded name.
+        RawCallSite greeting = Assert.Single(sites, s => s.Key == "greeting");
+        Assert.Equal("Hello", greeting.Default);
+        Assert.Equal("App.Home", greeting.Category);
+
+        // The L(...) marker: its single parameter carries both attributes, so the literal is key and default,
+        // under the global category.
+        RawCallSite marker = Assert.Single(sites, s => s.Key == "Email is required");
+        Assert.Equal("Email is required", marker.Default);
+        Assert.Equal(string.Empty, marker.Category);
     }
 
     public void Dispose() => Directory.Delete(_directory, recursive: true);
