@@ -243,9 +243,16 @@ public sealed class MapperBuilder<TSource, TDest>
                     "Remove the mapping or add a setter.");
             }
 
+            // Invariant: only Ignored mappings carry a null source, and those were
+            // skipped above. A null source on a Required/Optional mapping means the
+            // builder constructed a PropertyMapping incorrectly — fail loudly rather
+            // than silently dropping the binding. (This also narrows Source to
+            // non-null for the dereference below, satisfying the nullable checker.)
             if (mapping.Source is null)
             {
-                continue;
+                throw new InvalidOperationException(
+                    $"Internal error: mapping for destination property '{mapping.Destination.Name}' " +
+                    $"of {typeof(TDest).Name} has kind '{mapping.Kind}' but no source expression.");
             }
 
             Type destinationType = TypeDisplay.MemberType(mapping.Destination);
