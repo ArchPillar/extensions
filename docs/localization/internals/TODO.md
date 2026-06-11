@@ -43,7 +43,7 @@ in-box, so no package deps and no `#if`/polyfill work. (B1's package-version pre
 ### E. DI integration (10.5) feeds the ambient
 - [x] E1. `AddArchPillarLocalization` populates the ambient store + registers `ILocalizer`/`ILocalizer<T>` over it (kept `Localizer` for direct injection; dropped the `Localizer`-instance overload)
 - [x] E2. `IStringLocalizer`/`<T>`/factory adapters read the ambient (no found-awareness — just value-or-name)
-- [x] E3. Tests restructured: functionality uses explicit catalogs via `Localization.AddCatalog` + `Reset()`; WASM sample fed via the ambient
+- [x] E3. Tests restructured: functionality uses explicit catalogs via `Localizer.AddCatalog` + `Reset()`; WASM sample fed via the ambient
 
 ### F. Samples (after the milestones)
 - [x] F1. No-DI batteries-included library sample (`Localization.GreetingLibrary` ships German embedded as a satellite; `Localization.LibraryConsumer` uses it with **zero** config) — verified running

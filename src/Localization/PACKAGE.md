@@ -22,7 +22,7 @@ in one ambient store that needs no DI, so even an exception thrown before any co
 ## Quick Start
 
 ```csharp
-using static ArchPillar.Extensions.Localization.Localization;
+using static ArchPillar.Extensions.Localization.Localizer;
 using System.Globalization;
 
 // Translate anywhere with a using static, the way `using static System.Console;` gives you WriteLine.
@@ -36,9 +36,9 @@ Console.WriteLine(Greet("Ada"));                  // "Hallo Ada!" once a de cata
 ```
 
 `Translate` goes through the process-wide ambient store, reachable with no services (or call
-`Localization.Default.Translate(...)` without the `using static`). Translations come from a
+`Localizer.Default.Translate(...)` without the `using static`). Translations come from a
 `Translations/de.arb` file beside the binary (loaded automatically), an embedded catalog, or
-`Localization.AddCatalog(...)`. Scope keys by category with `ILocalizer<T>` as an app grows.
+`Localizer.AddCatalog(...)`. Scope keys by category with `ILocalizer<T>` as an app grows.
 
 ## Dependency injection and IStringLocalizer
 

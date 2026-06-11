@@ -28,7 +28,7 @@ second is the **in-code default** (the source-language text, and the terminal fa
 `(name, value)` pairs fill the ICU placeholders:
 
 ```csharp
-using static ArchPillar.Extensions.Localization.Localization;
+using static ArchPillar.Extensions.Localization.Localizer;
 
 string Greet(string name) =>
     Translate("greeting", "Hello {name}!", ("name", name));
@@ -39,11 +39,11 @@ string Inbox(int count) =>
 
 `Translate` goes through the process-wide ambient store (the `IConfiguration` model): reachable from
 anywhere — a service, a static helper, even an exception thrown before any container exists. There is
-nothing to register and no constructor to thread. Prefer an explicit receiver? `Localization.Default`
-is the same store: `Localization.Default.Translate(...)` is the identical call without the `using static`.
+nothing to register and no constructor to thread. Prefer an explicit receiver? `Localizer.Default`
+is the same store: `Localizer.Default.Translate(...)` is the identical call without the `using static`.
 
 > **As your app grows**, scope keys by *category* so two components can both use `"title"` without
-> colliding — call `Localization.For<T>()`, or inject `ILocalizer<T>` (the `ILogger<T>` model). A set of
+> colliding — call `Localizer.For<T>()`, or inject `ILocalizer<T>` (the `ILogger<T>` model). A set of
 > shared strings lives in its own scope type. None of that is needed to start; see
 > [categories](features.md#categories--the-iloggert-model) and
 > [`Localized<TSelf>`](features.md#localizedtself--a-bundle-of-strings).

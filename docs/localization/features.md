@@ -47,21 +47,21 @@ public sealed class ButtonLabels(ILocalizer<ButtonLabels> loc) : Localized<Butto
 
 Translations live in one process-wide, layered store modeled on `IConfiguration`, reachable with no
 services — so a string localizes from anywhere, including an exception thrown before any container
-exists. Read it through `Localization.Default` (global category) or `Localization.For<T>()`. For the
-global category there is also a static `Localization.Translate`: add `using static
-ArchPillar.Extensions.Localization.Localization;` and call `Translate(...)` with no receiver, the way
+exists. Read it through `Localizer.Default` (global category) or `Localizer.For<T>()`. For the
+global category there is also a static `Localizer.Translate`: add `using static
+ArchPillar.Extensions.Localization.Localizer;` and call `Translate(...)` with no receiver, the way
 `using static System.Console;` gives you `WriteLine(...)`.
 
 ```csharp
-string s = Localization.Default.Translate("home.title", "Home");
-string t = Translate("home.title", "Home");             // with `using static …Localization;` — the same call
-Localization.AddCatalog(catalog);                       // layer a host override (last source wins)
-Localization.SourceCulture = "en";                      // language the in-code defaults are written in
-Localization.TranslationsDirectory = "Translations";    // where loose files are read from
+string s = Localizer.Default.Translate("home.title", "Home");
+string t = Translate("home.title", "Home");             // with `using static …Localizer;` — the same call
+Localizer.AddCatalog(catalog);                       // layer a host override (last source wins)
+Localizer.SourceCulture = "en";                      // language the in-code defaults are written in
+Localizer.TranslationsDirectory = "Translations";    // where loose files are read from
 ```
 
 Sources layer **embedded < satellite < directory < host**, last-wins; a lookup is one lock-free read
-that falls to the in-code default on a miss. `Localization.Reset()` clears everything (for test
+that falls to the in-code default on a miss. `Localizer.Reset()` clears everything (for test
 isolation). See [recommendations.md](recommendations.md) for why the store is global and how to keep
 tests deterministic against it.
 
@@ -130,7 +130,7 @@ a build side effect.
 
 `AddArchPillarLocalization` (in the `…Localization.DependencyInjection` package) feeds the ambient
 store from `LocalizerOptions` and registers the native views — `ILocalizer`, `ILocalizer<T>`, and a
-concrete `Localizer`:
+concrete `DefaultLocalizer`:
 
 ```csharp
 services.AddArchPillarLocalization(new LocalizerOptions { TranslationsDirectory = "Translations", SourceCulture = "en" });
@@ -200,20 +200,26 @@ preserving ICU placeholders — a quick way to spot un-extracted strings and lay
 longer text:
 
 ```csharp
-Localization.AddSource(new PseudoLocalizationSource());
+Localizer.AddSource(new PseudoLocalizationSource());
 ```
 
 ## Hot reload
 
-An isolated `Localizer` can watch its directory and reload on change (`EnableHotReload`, debounced).
-The rebuild swaps an immutable snapshot atomically, so concurrent `Translate` calls never tear.
+A `CatalogStore` can watch its directory and reload on change (`EnableHotReload`, debounced); a
+`DefaultLocalizer` over the store resolves against its latest snapshot, so concurrent `Translate`
+calls never tear and a reload is observed on the next lookup.
+
+```csharp
+using var store = new CatalogStore(new LocalizerOptions { TranslationsDirectory = "Translations", EnableHotReload = true });
+var localizer = new DefaultLocalizer(store);   // reads store.Snapshot live
+```
 
 ## Isolated localizers
 
-For tests or multi-tenant scenarios, construct a `Localizer` that bypasses the ambient store and reads
-only the catalogs you hand it (`Localizer.FromCatalogs(...)` for hosts without a file system, such as
-Blazor WebAssembly — fetch and parse the catalogs, then hand them in):
+For tests or multi-tenant scenarios, construct a `DefaultLocalizer` that bypasses the ambient store and
+reads only the catalogs you hand it (`DefaultLocalizer.FromCatalogs(...)` for hosts without a file
+system, such as Blazor WebAssembly — fetch and parse the catalogs, then hand them in):
 
 ```csharp
-using var localizer = new Localizer(catalogs, new LocalizerOptions { SourceCulture = "en" });
+var localizer = new DefaultLocalizer(catalogs, new LocalizerOptions { SourceCulture = "en" });
 ```

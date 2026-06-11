@@ -74,13 +74,13 @@ pin the two equal (or apply `[assembly: RootNamespace]`) so the legacy resources
 
 ## Reset the ambient store between tests, and test functionality with explicit catalogs
 
-The ambient store is process-wide global state, so tests share it. Call `Localization.Reset()` in
-setup/teardown for determinism. Test most behavior with an **isolated** `Localizer` over explicit
+The ambient store is process-wide global state, so tests share it. Call `Localizer.Reset()` in
+setup/teardown for determinism. Test most behavior with an **isolated** `DefaultLocalizer` over explicit
 catalogs; reserve the ambient store for the handful of tests that specifically cover ambient loading.
 
 ```csharp
-Localization.Reset();
-using var localizer = new Localizer(catalogs); // isolated — no shared state
+Localizer.Reset();
+var localizer = new DefaultLocalizer(catalogs); // isolated — no shared state
 ```
 
 ## Treat `IStringLocalizer` extraction as a bridge, not a source
@@ -93,6 +93,6 @@ extracted indexer literal, or an `L(...)` marker. Migrate hot paths to the nativ
 
 ## Register the localizer as a singleton
 
-The `Localizer` and the ambient store are built for concurrent use and cache their snapshot; the DI
-registration is a singleton for this reason. Do not construct a `Localizer` per request — that
-re-parses catalogs and discards the cached snapshot on every call.
+The `DefaultLocalizer` and the ambient store are built for concurrent use and cache their snapshot;
+the DI registration is a singleton for this reason. Do not construct a `CatalogStore` per request —
+that re-parses catalogs and discards the cached snapshot on every call.
