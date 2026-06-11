@@ -36,7 +36,7 @@ public static class TranslationSiteDetector
             {
                 if (node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax or ElementAccessExpressionSyntax)
                 {
-                    TranslationSiteResult? result = DetectCore(model, node, symbols, cancellationToken);
+                    TranslationSiteResult? result = DetectCore(model, node, symbols, includeStringLocalizer: true, cancellationToken);
                     if (result is not null)
                     {
                         yield return result;
@@ -47,30 +47,41 @@ public static class TranslationSiteDetector
     }
 
     /// <summary>
-    /// Detects the translation site at <paramref name="node"/>, if any (used by the analyzer per node).
+    /// Detects the translation site at <paramref name="node"/>, if any (used per node by the analyzer and the
+    /// generator).
     /// </summary>
     /// <param name="model">The semantic model for the node's tree.</param>
-    /// <param name="node">An invocation or object-creation node.</param>
+    /// <param name="node">An invocation, object-creation, or element-access node.</param>
+    /// <param name="includeStringLocalizer">
+    /// Whether to recognise the BCL <c>IStringLocalizer</c> indexer. The generator passes <see langword="true"/>
+    /// so those strings are extracted; the editor analyzer passes <see langword="false"/> so migrating code is
+    /// not lit up with diagnostics. Our own attribute-annotated indexer is detected either way.
+    /// </param>
     /// <param name="cancellationToken">A token to cancel the analysis.</param>
     /// <returns>The result, or <see langword="null"/> when the node is not a translation site.</returns>
-    public static TranslationSiteResult? DetectAt(SemanticModel model, SyntaxNode node, CancellationToken cancellationToken)
+    public static TranslationSiteResult? DetectAt(
+        SemanticModel model,
+        SyntaxNode node,
+        bool includeStringLocalizer,
+        CancellationToken cancellationToken)
     {
         var symbols = AttributeSymbols.From(model.Compilation);
         return symbols.Translatable is null && symbols.StringLocalizer is null
             ? null
-            : DetectCore(model, node, symbols, cancellationToken);
+            : DetectCore(model, node, symbols, includeStringLocalizer, cancellationToken);
     }
 
     private static TranslationSiteResult? DetectCore(
         SemanticModel model,
         SyntaxNode node,
         AttributeSymbols symbols,
+        bool includeStringLocalizer,
         CancellationToken cancellationToken)
     {
         IOperation? operation = model.GetOperation(node, cancellationToken);
         if (operation is IPropertyReferenceOperation propertyReference)
         {
-            return DetectStringLocalizer(propertyReference, symbols, node);
+            return DetectIndexer(propertyReference, symbols, includeStringLocalizer, node);
         }
 
         ImmutableArray<IArgumentOperation> arguments = ExtractArguments(operation);
@@ -97,6 +108,28 @@ public static class TranslationSiteDetector
         return Build(arguments, keyArgument, symbols, node, ReceiverType(operation));
     }
 
+    // An indexer site. Our own ILocalizer indexer carries [Translatable] / [TranslationDefault], so it is
+    // detected exactly like a translatable method call — the editor flags a non-constant key, invalid ICU, or a
+    // placeholder mismatch just as it does for Translate. The BCL IStringLocalizer indexer cannot carry the
+    // attributes, so it is recognised by symbol and only when extracting the whole compilation, never in the
+    // editor.
+    private static TranslationSiteResult? DetectIndexer(
+        IPropertyReferenceOperation reference,
+        AttributeSymbols symbols,
+        bool includeStringLocalizer,
+        SyntaxNode node)
+    {
+        IArgumentOperation? keyArgument = FindArgument(reference.Arguments, symbols.Translatable);
+        if (keyArgument is not null)
+        {
+            return IsForwardedParameter(keyArgument, symbols.Translatable)
+                ? null
+                : Build(reference.Arguments, keyArgument, symbols, node, reference.Instance?.Type as INamedTypeSymbol);
+        }
+
+        return includeStringLocalizer ? DetectStringLocalizer(reference, symbols, node) : null;
+    }
+
     private static bool IsForwardedParameter(IArgumentOperation argument, INamedTypeSymbol? attribute) =>
         attribute is not null
         && Unwrap(argument.Value) is IParameterReferenceOperation parameterReference
@@ -108,8 +141,8 @@ public static class TranslationSiteDetector
     // constant, valid-ICU literal and skip everything else silently: a dynamic key has no static text, and a
     // string.Format-style literal ({0:C}) isn't ICU — flagging either would break a migrating build (a
     // non-constant key is APL0001/Error on the native path). Category is typeof(T) for IStringLocalizer<T>,
-    // global otherwise. Only the whole-compilation Detect walk reaches here (the analyzer ignores element
-    // access), so existing IStringLocalizer code is extracted without lighting up editor diagnostics.
+    // global otherwise. Only the whole-compilation Detect walk reaches here (DetectIndexer gates this off for
+    // the analyzer), so existing IStringLocalizer code is extracted without lighting up editor diagnostics.
     private static TranslationSiteResult? DetectStringLocalizer(
         IPropertyReferenceOperation reference,
         AttributeSymbols symbols,

@@ -53,7 +53,8 @@ public sealed class TranslationAnalyzer : DiagnosticAnalyzer
             nodeContext => Analyze(nodeContext, keyPattern, sites),
             SyntaxKind.InvocationExpression,
             SyntaxKind.ObjectCreationExpression,
-            SyntaxKind.ImplicitObjectCreationExpression);
+            SyntaxKind.ImplicitObjectCreationExpression,
+            SyntaxKind.ElementAccessExpression);
 
         // Duplicate-key (APL0006) and identical-text (APL0007) need the whole compilation: deciding them
         // per node made the result depend on analysis order and blind to cross-file pairs in the IDE. They
@@ -63,9 +64,12 @@ public sealed class TranslationAnalyzer : DiagnosticAnalyzer
 
     private static void Analyze(SyntaxNodeAnalysisContext context, Regex? keyPattern, ConcurrentBag<RecordedSite> sites)
     {
+        // The editor analyzer recognises our own attribute-annotated indexer (so a non-constant key or bad ICU
+        // is flagged there too) but suppresses the BCL IStringLocalizer indexer, which is extraction-only.
         TranslationSiteResult? result = TranslationSiteDetector.DetectAt(
             context.SemanticModel,
             context.Node,
+            includeStringLocalizer: false,
             context.CancellationToken);
         if (result is null)
         {

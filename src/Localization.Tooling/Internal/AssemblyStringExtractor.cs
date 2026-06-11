@@ -3,9 +3,10 @@ using Mono.Cecil.Cil;
 
 namespace ArchPillar.Extensions.Localization.Tooling.Internal;
 
-/// <summary>A translatable call site recovered from compiled IL: the key, the in-code default, and the
-/// category (the localizer's type argument, empty for a global/non-generic localizer).</summary>
-internal sealed record RawCallSite(string Key, string Default, string Category);
+/// <summary>A translatable call site recovered from compiled IL: the key, the in-code default, the category
+/// (the localizer's type argument, empty for a global/non-generic localizer), and the optional disambiguation
+/// context.</summary>
+internal sealed record RawCallSite(string Key, string Default, string Category, string? Context);
 
 /// <summary>
 /// Recovers translatable call sites from a built assembly's IL, so extraction covers strings the source
@@ -25,6 +26,7 @@ internal static class AssemblyStringExtractor
     private const string StringLocalizerNamespace = "Microsoft.Extensions.Localization";
     private const string TranslatableAttribute = "ArchPillar.Extensions.Localization.TranslatableAttribute";
     private const string TranslationDefaultAttribute = "ArchPillar.Extensions.Localization.TranslationDefaultAttribute";
+    private const string TranslationContextAttribute = "ArchPillar.Extensions.Localization.TranslationContextAttribute";
 
     // A simulated evaluation-stack slot: the constant string it holds (from ldstr) and its static type (for a
     // receiver), either of which may be unknown.
@@ -137,7 +139,7 @@ internal static class AssemblyStringExtractor
             && args.Count >= receiver + 1
             && args[receiver].Constant is { } name)
         {
-            sites.Add(new RawCallSite(name, name, CategoryOf(args, receiver)));
+            sites.Add(new RawCallSite(name, name, CategoryOf(args, receiver), Context: null));
             return;
         }
 
@@ -160,7 +162,9 @@ internal static class AssemblyStringExtractor
 
         if (ConstantAt(args, receiver, keyIndex) is { } key && ConstantAt(args, receiver, defaultIndex) is { } def)
         {
-            sites.Add(new RawCallSite(key, def, CategoryOf(args, receiver)));
+            var contextIndex = IndexOfParameterWith(definition, TranslationContextAttribute);
+            var context = contextIndex >= 0 ? ConstantAt(args, receiver, contextIndex) : null;
+            sites.Add(new RawCallSite(key, def, CategoryOf(args, receiver), context));
         }
     }
 

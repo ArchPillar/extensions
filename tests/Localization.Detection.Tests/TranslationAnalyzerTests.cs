@@ -34,6 +34,59 @@ public sealed class TranslationAnalyzerTests
     }
 
     [Fact]
+    public async Task Analyzer_IndexerSyntax_FlagsNonConstantAndInvalidMessageAsync()
+    {
+        // The optional indexer form is a first-class translation site: a non-constant key (APL0001) and invalid
+        // ICU (APL0002) are real bugs whichever syntax is used, so the editor must flag them here too.
+        const string Source = """
+            using ArchPillar.Extensions.Localization;
+
+            public interface ILoc
+            {
+                string this[[Translatable] string key, [TranslationDefault] string message] { get; }
+            }
+
+            public class Consumer
+            {
+                public void Run(ILoc loc, string dynamicKey)
+                {
+                    _ = loc["ok", "OK"];
+                    _ = loc[dynamicKey, "Dynamic"];
+                    _ = loc["broken", "{count, plural, one {x}"];
+                }
+            }
+            """;
+
+        ImmutableArray<Diagnostic> diagnostics = await RoslynTestHost.RunAnalyzerAsync(RoslynTestHost.CreateCompilation(Source));
+
+        Assert.Contains(diagnostics, d => d.Id == "APL0001");
+        Assert.Contains(diagnostics, d => d.Id == "APL0002");
+    }
+
+    [Fact]
+    public async Task Analyzer_StringLocalizerIndexer_StaysQuietInTheEditorAsync()
+    {
+        // The BCL IStringLocalizer indexer cannot carry the attributes and is extraction-only; migrating code
+        // must not be lit up with diagnostics, not even a non-constant lookup.
+        const string Source = """
+            using Microsoft.Extensions.Localization;
+
+            public class Consumer
+            {
+                public void Run(IStringLocalizer strings, string dynamicKey)
+                {
+                    _ = strings["greeting"];
+                    _ = strings[dynamicKey];
+                }
+            }
+            """;
+
+        ImmutableArray<Diagnostic> diagnostics = await RoslynTestHost.RunAnalyzerAsync(RoslynTestHost.CreateCompilation(Source));
+
+        Assert.DoesNotContain(diagnostics, d => d.Id.StartsWith("APL", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public async Task Analyzer_DuplicateKeyWithConflictingDefault_ReportsApl0006Async()
     {
         const string Source = """

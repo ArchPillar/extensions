@@ -6,8 +6,9 @@ namespace ArchPillar.Extensions.Localization.Tooling.Internal;
 
 /// <summary>
 /// Builds the source-language template <see cref="Catalog"/> for an assembly from its IL (Decision D-K),
-/// replacing the read of the generator's baked attribute. One entry per distinct (category, key), the source
-/// default as the value, the same drift fingerprint the generator computes, and <c>NeedsTranslation</c> state.
+/// replacing the read of the generator's baked attribute. One entry per distinct (category, key, context), the
+/// source default as the value, the same drift fingerprint the generator computes, and <c>NeedsTranslation</c>
+/// state.
 /// </summary>
 internal static class TemplateBuilder
 {
@@ -25,7 +26,9 @@ internal static class TemplateBuilder
         var entries = new List<CatalogEntry>();
         foreach (RawCallSite site in sites)
         {
-            if (!seen.Add(site.Category + "\0" + site.Key))
+            // One entry per distinct (category, key, context): the same key under a different context is a
+            // different string, exactly as the catalog model defines identity.
+            if (!seen.Add(site.Category + "\0" + site.Key + "\0" + (site.Context ?? string.Empty)))
             {
                 continue;
             }
@@ -34,8 +37,9 @@ internal static class TemplateBuilder
             {
                 Key = site.Key,
                 Category = site.Category,
+                Context = site.Context,
                 SourceMessage = site.Default,
-                SourceFingerprint = Fingerprint(site.Default, context: null),
+                SourceFingerprint = Fingerprint(site.Default, site.Context),
                 State = TranslationState.NeedsTranslation
             });
         }

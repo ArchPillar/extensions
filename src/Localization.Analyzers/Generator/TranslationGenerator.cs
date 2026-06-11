@@ -24,7 +24,7 @@ public sealed class TranslationGenerator : IIncrementalGenerator
             .CreateSyntaxProvider(
                 static (node, _) => node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax or ElementAccessExpressionSyntax,
                 static (syntaxContext, ct) =>
-                    TranslationSiteDetector.DetectAt(syntaxContext.SemanticModel, syntaxContext.Node, ct)?.Site)
+                    TranslationSiteDetector.DetectAt(syntaxContext.SemanticModel, syntaxContext.Node, includeStringLocalizer: true, ct)?.Site)
             .Where(static site => site is not null)
             .Collect();
 
