@@ -234,6 +234,33 @@ public sealed class MapperBuilder<TSource, TDest>
             }
         }
 
+        // Validate that each mapped source value can be assigned to its destination
+        // member. Type inference on Map / Optional unifies the value type to the most
+        // general common type, so a source that produces a *base* type of the
+        // destination property (e.g. a nested mapper targeting a base DTO) compiles
+        // but cannot bind to the more-derived destination. Surface it here at build
+        // time instead of deferring to the first compile / projection.
+        foreach (PropertyMapping mapping in rawMappings.Values)
+        {
+            if (mapping.Kind == MappingKind.Ignored || mapping.Source is null)
+            {
+                continue;
+            }
+
+            Type destinationType = TypeDisplay.MemberType(mapping.Destination);
+            Type sourceType      = mapping.Source.Body.Type;
+
+            if (!destinationType.IsAssignableFrom(sourceType))
+            {
+                throw new InvalidOperationException(
+                    $"Mapper '{TypeDisplay.Describe(typeof(TSource))}' -> '{TypeDisplay.Describe(typeof(TDest))}': the mapping for " +
+                    $"destination property '{mapping.Destination.Name}' (of type '{TypeDisplay.Describe(destinationType)}') " +
+                    $"has a source of type '{TypeDisplay.Describe(sourceType)}', which cannot be assigned to it. " +
+                    "This usually means type inference widened the mapped value to a base type — for example a nested " +
+                    "mapper that targets a base type of the destination property. Map to the destination's exact type.");
+            }
+        }
+
         // Validate that every settable destination property is accounted for.
         if (_coverageValidation != CoverageValidation.None)
         {
