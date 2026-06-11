@@ -1,8 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Run the generator on this sample so `dotnet apl extract/add` can be tested against it. -->
-  <Import Project="..\Localization.Authoring.props" />
-
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <Nullable>enable</Nullable>

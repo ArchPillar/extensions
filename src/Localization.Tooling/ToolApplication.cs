@@ -120,7 +120,10 @@ internal static class ToolApplication
         IReadOnlyList<BakedTemplate> templates = ScopeResolver.Resolve(ParseScope(options));
         if (templates.Count == 0)
         {
-            return Fail("No assemblies with localizable strings found in the given scope. Build first, then point --input/--project/--solution at the output.");
+            // No strings is a valid state (a project may simply have none), not an error — the per-build
+            // extract runs on every project, so this must be a clean no-op rather than a failure.
+            Console.Out.WriteLine("No translatable strings found in scope; nothing to extract.");
+            return 0;
         }
 
         foreach (BakedTemplate baked in templates)
@@ -169,7 +172,8 @@ internal static class ToolApplication
         IReadOnlyList<BakedTemplate> templates = ScopeResolver.Resolve(ParseScope(options));
         if (templates.Count == 0)
         {
-            return Fail("No assemblies with localizable strings found in the given scope.");
+            Console.Out.WriteLine("No translatable strings found in scope; nothing to add.");
+            return 0;
         }
 
         var created = 0;
@@ -223,7 +227,8 @@ internal static class ToolApplication
         IReadOnlyList<BakedTemplate> templates = ScopeResolver.Resolve(ParseScope(options));
         if (templates.Count == 0)
         {
-            return Fail("No assemblies with localizable strings found in the given scope.");
+            Console.Out.WriteLine("No translatable strings found in scope; nothing to sync.");
+            return 0;
         }
 
         var drifted = new List<string>();

@@ -1,0 +1,29 @@
+<Project>
+
+  <!-- Chain the parent (the empty samples shield that keeps the root analyzer injection off the samples). -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.targets', '$(MSBuildThisFileDirectory)../'))" />
+
+  <!--
+    Wire the generator (as analyzers, the set the package ships) and the package's extract/copy/merge targets,
+    EXCEPT for samples that manage their own catalogs (embedded satellites, a fetched-asset model, …) which set
+    ArchPillarLocalizationSampleAuthoring=false, and the trimmed / AOT samples, whose netstandard2.0 analyzer
+    references must not be pulled in. Decided here, in .targets, so PublishTrimmed/PublishAot set in the project
+    body are visible.
+  -->
+  <PropertyGroup>
+    <_ArchPillarSampleAuthoring Condition="'$(ArchPillarLocalizationSampleAuthoring)' != 'false' and '$(PublishTrimmed)' != 'true' and '$(PublishAot)' != 'true'">true</_ArchPillarSampleAuthoring>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(_ArchPillarSampleAuthoring)' == 'true'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\src\Localization.Analyzers\ArchPillar.Extensions.Localization.Analyzers.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\src\Localization.Abstractions\ArchPillar.Extensions.Localization.Abstractions.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\src\Localization.MessageFormat\ArchPillar.Extensions.Localization.MessageFormat.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <Import Project="$(MSBuildThisFileDirectory)..\..\src\Localization.Analyzers\build\ArchPillar.Extensions.Localization.targets"
+          Condition="'$(_ArchPillarSampleAuthoring)' == 'true'" />
+
+</Project>

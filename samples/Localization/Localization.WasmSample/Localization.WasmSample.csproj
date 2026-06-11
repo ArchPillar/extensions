@@ -1,6 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
 
   <PropertyGroup>
+    <!-- This sample fetches its catalog from wwwroot over HTTP, not the loose-file extract path, so opt out of
+         the samples' automatic package-build wiring. -->
+    <ArchPillarLocalizationSampleAuthoring>false</ArchPillarLocalizationSampleAuthoring>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
