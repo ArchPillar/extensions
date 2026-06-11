@@ -1,14 +1,26 @@
 <Project>
 
   <!--
-    Activates the localization source generator (and its analyzer) on a sample so the build bakes the
-    source-language template into the sample assembly. That lets you exercise the authoring tool against a
-    real build, e.g. `dotnet apl extract` / `dotnet apl add de` pointed at this project.
+    Give a localization sample the SAME build integration a real consumer gets from the NuGet package, so
+    `dotnet build` bakes the template and writes/stages the catalogs (`{AssemblyName}.{culture}.arb`) — exactly
+    as if the package were installed. Samples use a ProjectReference to the runtime, so the package's
+    buildTransitive assets do not flow; this file imports them directly.
 
-    A plain ProjectReference to the runtime does NOT flow the generator (it is marked PrivateAssets=all on
-    the runtime package), so a sample that wants to test extraction imports this file. The compile-time
-    assembly and its dependencies are referenced as analyzers, mirroring the set the NuGet package ships, so
-    the generator's load context can resolve them.
+    Import it only from samples that use the default loose-file (copy) catalog path. Samples that embed
+    catalogs as satellites, or publish trimmed / AOT, manage their own catalogs and should not import this.
+  -->
+  <Import Project="$(MSBuildThisFileDirectory)..\..\src\Localization.Analyzers\build\ArchPillar.Extensions.Localization.props" />
+  <Import Project="$(MSBuildThisFileDirectory)..\..\src\Localization.Analyzers\build\ArchPillar.Extensions.Localization.targets" />
+
+  <PropertyGroup>
+    <!-- The package targets call `dotnet apl`; this repo builds the tool from source instead of installing it
+         globally, so point the command at the source project. A real consumer leaves this at the default. -->
+    <ArchPillarLocalizationToolCommand>dotnet run --project "$(MSBuildThisFileDirectory)..\..\src\Localization.Tooling\ArchPillar.Extensions.Localization.Tooling.csproj" -c $(Configuration) --</ArchPillarLocalizationToolCommand>
+  </PropertyGroup>
+
+  <!--
+    The generator and its dependencies as analyzers — the set the NuGet package ships under
+    analyzers/dotnet/cs. A plain ProjectReference to the runtime does not flow them (PrivateAssets=all).
   -->
   <ItemGroup>
     <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\src\Localization.Analyzers\ArchPillar.Extensions.Localization.Analyzers.csproj"

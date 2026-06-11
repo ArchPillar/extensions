@@ -9,7 +9,7 @@
   <Target Name="ArchPillarLocalizationExtractTemplate"
           AfterTargets="Build"
           Condition="'$(ArchPillarLocalizationEmit)' == 'true' and '$(DesignTimeBuild)' != 'true' and '$(BuildingProject)' == 'true'">
-    <Exec Command="dotnet apl extract --assembly &quot;$(TargetPath)&quot; --output &quot;$(ArchPillarLocalizationOutputPath)&quot;"
+    <Exec Command="$(ArchPillarLocalizationToolCommand) extract --assembly &quot;$(TargetPath)&quot; --output &quot;$([MSBuild]::NormalizePath('$(ArchPillarLocalizationOutputPath)'))&quot;"
           ContinueOnError="true"
           StandardOutputImportance="low" />
   </Target>
@@ -60,7 +60,7 @@
       leave the previous run's bundles in place, and the swap below would publish those stale catalogs.
     -->
     <RemoveDir Directories="$(IntermediateOutputPath)apl-merged" />
-    <Exec Command="dotnet apl merge --input &quot;$(PublishDir)Translations&quot; --output &quot;$(IntermediateOutputPath)apl-merged&quot; --source $(ArchPillarLocalizationSourceLanguage)"
+    <Exec Command="$(ArchPillarLocalizationToolCommand) merge --input &quot;$([MSBuild]::NormalizePath('$(PublishDir)Translations'))&quot; --output &quot;$([MSBuild]::NormalizePath('$(IntermediateOutputPath)apl-merged'))&quot; --source $(ArchPillarLocalizationSourceLanguage)"
           ContinueOnError="true"
           StandardOutputImportance="low">
       <Output TaskParameter="ExitCode" PropertyName="_ArchPillarMergeExitCode" />

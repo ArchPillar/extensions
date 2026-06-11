@@ -12,12 +12,15 @@
   <PropertyGroup>
     <ArchPillarLocalizationFormat Condition="'$(ArchPillarLocalizationFormat)' == ''">arb</ArchPillarLocalizationFormat>
     <ArchPillarLocalizationSourceLanguage Condition="'$(ArchPillarLocalizationSourceLanguage)' == ''">en</ArchPillarLocalizationSourceLanguage>
-    <ArchPillarLocalizationOutputPath Condition="'$(ArchPillarLocalizationOutputPath)' == ''">$(MSBuildProjectDirectory)\Translations</ArchPillarLocalizationOutputPath>
+    <ArchPillarLocalizationOutputPath Condition="'$(ArchPillarLocalizationOutputPath)' == ''">$(MSBuildProjectDirectory)/Translations</ArchPillarLocalizationOutputPath>
     <ArchPillarLocalizationEmit Condition="'$(ArchPillarLocalizationEmit)' == ''">true</ArchPillarLocalizationEmit>
     <ArchPillarLocalizationLiveExtraction Condition="'$(ArchPillarLocalizationLiveExtraction)' == ''">false</ArchPillarLocalizationLiveExtraction>
     <ArchPillarLocalizationCopyTargetsToOutput Condition="'$(ArchPillarLocalizationCopyTargetsToOutput)' == ''">true</ArchPillarLocalizationCopyTargetsToOutput>
     <ArchPillarLocalizationEmbedTargets Condition="'$(ArchPillarLocalizationEmbedTargets)' == ''">false</ArchPillarLocalizationEmbedTargets>
     <ArchPillarLocalizationMergeOnPublish Condition="'$(ArchPillarLocalizationMergeOnPublish)' == ''">true</ArchPillarLocalizationMergeOnPublish>
+    <!-- How the build invokes the dotnet tool. Defaults to the installed global tool; a consumer with a
+         local-tool manifest or a custom path (or this repo's samples, which run it from source) overrides it. -->
+    <ArchPillarLocalizationToolCommand Condition="'$(ArchPillarLocalizationToolCommand)' == ''">dotnet apl</ArchPillarLocalizationToolCommand>
   </PropertyGroup>
 
   <ItemGroup>
