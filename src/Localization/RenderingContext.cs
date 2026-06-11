@@ -10,17 +10,17 @@ namespace ArchPillar.Extensions.Localization;
 /// rebuilt as catalogs or configuration change. <see cref="Default"/> is the shared <c>en</c> / pass-through
 /// context, reused wherever the configuration is the default so those localizers share one formatter.
 /// </summary>
-public sealed class LocalizationContext
+internal sealed class RenderingContext
 {
     /// <summary>The shared default context: source culture <c>en</c>, <see cref="MissingArgumentPolicy.PassThrough"/>.</summary>
-    public static LocalizationContext Default { get; } = new();
+    public static RenderingContext Default { get; } = new();
 
     /// <summary>
-    /// Initializes a new <see cref="LocalizationContext"/>.
+    /// Initializes a new <see cref="RenderingContext"/>.
     /// </summary>
     /// <param name="sourceCulture">The language the in-code defaults are written in; defaults to <c>en</c>.</param>
     /// <param name="missingArguments">How a referenced argument with no supplied value renders.</param>
-    public LocalizationContext(string sourceCulture = "en", MissingArgumentPolicy missingArguments = MissingArgumentPolicy.PassThrough)
+    public RenderingContext(string sourceCulture = "en", MissingArgumentPolicy missingArguments = MissingArgumentPolicy.PassThrough)
     {
         SourceCultureName = sourceCulture ?? "en";
         SourceCulture = CreateCulture(SourceCultureName);
@@ -42,12 +42,12 @@ public sealed class LocalizationContext
 
     // Returns the shared Default when the configuration matches it, so default-configured stores and isolated
     // localizers share one formatter instead of each building their own.
-    internal static LocalizationContext For(string? sourceCulture, MissingArgumentPolicy missingArguments)
+    internal static RenderingContext For(string? sourceCulture, MissingArgumentPolicy missingArguments)
     {
         var name = sourceCulture ?? "en";
         return name == "en" && missingArguments == MissingArgumentPolicy.PassThrough
             ? Default
-            : new LocalizationContext(name, missingArguments);
+            : new RenderingContext(name, missingArguments);
     }
 
     private static CultureInfo CreateCulture(string name)

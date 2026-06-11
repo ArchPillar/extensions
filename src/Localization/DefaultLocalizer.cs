@@ -13,7 +13,7 @@ namespace ArchPillar.Extensions.Localization;
 public sealed class DefaultLocalizer : ILocalizer
 {
     private readonly CatalogStore? _store;
-    private readonly LocalizationContext? _context;
+    private readonly RenderingContext? _context;
     private readonly TranslationSnapshot _fixedSnapshot;
     private readonly IReadOnlyList<ITranslationSource> _fixedLayers;
 
@@ -51,7 +51,7 @@ public sealed class DefaultLocalizer : ILocalizer
 
         LocalizerOptions resolved = options ?? new LocalizerOptions();
         _store = null;
-        _context = LocalizationContext.For(resolved.SourceCulture, resolved.MissingArguments);
+        _context = RenderingContext.For(resolved.SourceCulture, resolved.MissingArguments);
         _fixedSnapshot = CatalogLoader.BuildSnapshot([.. catalogs], resolved);
         _fixedLayers = BuildLayers(resolved.Sources, _fixedSnapshot);
     }
@@ -169,7 +169,7 @@ public sealed class DefaultLocalizer : ILocalizer
         // An override was authored for the requested culture, so render it with that culture's rules.
         // The in-code default is source-language text, so render it with the source culture's rules —
         // otherwise an English default shown under, say, Japanese rules would pluralize incorrectly.
-        LocalizationContext rendering = CurrentContext();
+        RenderingContext rendering = CurrentContext();
         return message is not null
             ? rendering.Formatter.Format(message, culture, arguments)
             : rendering.Formatter.Format(defaultMessage, rendering.SourceCulture, arguments);
@@ -202,7 +202,7 @@ public sealed class DefaultLocalizer : ILocalizer
         var composite = TranslationKey.Compose(key, context);
         var message = ResolveOverride(culture, category, composite, defaultMessage);
         overrideFound = message is not null;
-        LocalizationContext rendering = CurrentContext();
+        RenderingContext rendering = CurrentContext();
         return message is not null
             ? rendering.Formatter.Format(message, culture, arguments)
             : rendering.Formatter.Format(defaultMessage, rendering.SourceCulture, arguments);
@@ -302,5 +302,5 @@ public sealed class DefaultLocalizer : ILocalizer
 
     // The rendering context: a store-backed localizer reads the store's live context (so a configuration
     // change is observed immediately and the formatter instance is shared); an isolated one uses its own.
-    private LocalizationContext CurrentContext() => _store is not null ? _store.Context : _context!;
+    private RenderingContext CurrentContext() => _store is not null ? _store.Context : _context!;
 }

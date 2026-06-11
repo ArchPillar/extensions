@@ -40,7 +40,7 @@ public sealed class CatalogStore : IDisposable
     private readonly IReadOnlyList<string> _formatPrecedence;
     private readonly IReadOnlyList<string>? _cultures;
     private HashSet<string> _loadedCultures = new(StringComparer.OrdinalIgnoreCase);
-    private LocalizationContext _context;
+    private RenderingContext _context;
     private string _directory;
     private bool _subscribed;
     private bool _scannedLoaded;
@@ -72,7 +72,7 @@ public sealed class CatalogStore : IDisposable
     private CatalogStore(LocalizerOptions options, bool discover)
     {
         _discover = discover;
-        _context = LocalizationContext.For(options.SourceCulture, options.MissingArguments);
+        _context = RenderingContext.For(options.SourceCulture, options.MissingArguments);
         _formatPrecedence = options.FormatPrecedence;
         _cultures = options.Cultures;
         _directory = options.TranslationsDirectory;
@@ -87,7 +87,7 @@ public sealed class CatalogStore : IDisposable
 
     /// <summary>The shared rendering context (source culture, missing-argument policy, formatter) — read live
     /// by a localizer over this store, so a configuration change is observed without rebuilding it.</summary>
-    internal LocalizationContext Context => Volatile.Read(ref _context);
+    internal RenderingContext Context => Volatile.Read(ref _context);
 
     /// <summary>The configuration this store currently reflects, used when merging the catalog layers.</summary>
     internal LocalizerOptions Options => new()
@@ -139,7 +139,7 @@ public sealed class CatalogStore : IDisposable
         {
             lock (_gate)
             {
-                Volatile.Write(ref _context, LocalizationContext.For(value, _context.MissingArguments));
+                Volatile.Write(ref _context, RenderingContext.For(value, _context.MissingArguments));
                 Rebuild();
             }
         }
@@ -152,7 +152,7 @@ public sealed class CatalogStore : IDisposable
         {
             lock (_gate)
             {
-                Volatile.Write(ref _context, LocalizationContext.For(_context.SourceCultureName, value));
+                Volatile.Write(ref _context, RenderingContext.For(_context.SourceCultureName, value));
                 Rebuild();
             }
         }
@@ -162,7 +162,7 @@ public sealed class CatalogStore : IDisposable
     // the single-shot configuration the ambient store is set up with (e.g. by AddArchPillarLocalization).
     internal void Configure(LocalizerOptions options)
     {
-        var context = LocalizationContext.For(options.SourceCulture, options.MissingArguments);
+        var context = RenderingContext.For(options.SourceCulture, options.MissingArguments);
         var directory = string.IsNullOrEmpty(options.TranslationsDirectory) ? null : options.TranslationsDirectory;
 
         lock (_startupGate)
@@ -292,7 +292,7 @@ public sealed class CatalogStore : IDisposable
             _seen.Clear();
             _satellitePairs.Clear();
             _loadedCultures = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            Volatile.Write(ref _context, LocalizationContext.Default);
+            Volatile.Write(ref _context, RenderingContext.Default);
             _directory = DefaultDirectory();
             _scannedLoaded = false;
             _hasSatellites = false;
