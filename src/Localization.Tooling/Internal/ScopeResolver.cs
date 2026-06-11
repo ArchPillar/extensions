@@ -47,16 +47,42 @@ internal static class ScopeResolver
         IEnumerable<string> roots = scope switch
         {
             { Input: { Length: > 0 } input } => [input],
-            { Project: { Length: > 0 } project } => ProjectBinDirectories(Path.GetFullPath(project), scope.Recurse),
-            { Solution: { Length: > 0 } solution } => SolutionProjects(Path.GetFullPath(solution))
+            { Project: { } project } => ProjectBinDirectories(ResolveSingleFile(project, "project", "*.csproj"), scope.Recurse),
+            { Solution: { } solution } => SolutionProjects(ResolveSingleFile(solution, "solution", "*.sln", "*.slnx"))
                 .SelectMany(p => ProjectBinDirectories(p, recurse: false)),
-            _ => throw new ArgumentException("Specify a scope: --assembly, --input <dir>, --project <csproj> [--recurse], or --solution <sln>.")
+            _ => throw new ArgumentException("Specify a scope: --assembly <dll>, --input <dir>, --project [<csproj>|<dir>] [--recurse], or --solution [<sln>|<dir>].")
         };
 
         return roots
             .Where(Directory.Exists)
             .SelectMany(dir => Directory.EnumerateFiles(dir, "*.dll", SearchOption.AllDirectories))
             .Distinct(StringComparer.OrdinalIgnoreCase);
+    }
+
+    // Resolves a --project / --solution value to a single file. A file path is used as-is; an empty value
+    // means the current directory, a directory value means that directory — in which case the lone matching
+    // file is taken (matching how `dotnet build` finds the project/solution when run in a folder), and an
+    // ambiguous or empty directory is an error rather than a silent guess.
+    private static string ResolveSingleFile(string value, string kind, params string[] patterns)
+    {
+        if (value.Length > 0 && File.Exists(value))
+        {
+            return Path.GetFullPath(value);
+        }
+
+        var directory = value.Length == 0 ? Directory.GetCurrentDirectory() : Path.GetFullPath(value);
+        if (!Directory.Exists(directory))
+        {
+            throw new ArgumentException($"'{value}' is not a {kind} file or a directory.");
+        }
+
+        List<string> matches = [.. patterns.SelectMany(pattern => Directory.EnumerateFiles(directory, pattern)).Distinct(StringComparer.OrdinalIgnoreCase)];
+        return matches.Count switch
+        {
+            1 => matches[0],
+            0 => throw new ArgumentException($"No {kind} file found in '{directory}'."),
+            _ => throw new ArgumentException($"Multiple {kind} files in '{directory}'; pass one explicitly with --{kind} <path>.")
+        };
     }
 
     // The project's own bin tree, plus — when recursing — the bin trees of every project it references

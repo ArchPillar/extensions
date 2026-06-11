@@ -92,6 +92,27 @@ public sealed class ScopeToolingTests : IDisposable
         Assert.Equal("Speichern", Assert.Single(after.Entries).TranslatedMessage);
     }
 
+    [Fact]
+    public async Task ProjectScope_DiscoversTheSingleProjectFileInADirectoryAsync()
+    {
+        File.WriteAllText(Path.Combine(_root, "App.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
+
+        // Passing the directory (not the .csproj) finds the single project and scans its bin — like running
+        // `dotnet build` in a folder.
+        Assert.Equal(0, await ToolApplication.RunAsync(["extract", "--project", _root, "--output", _catalogs]));
+        Assert.True(File.Exists(Path.Combine(_catalogs, "LibA.en.arb")));
+        Assert.True(File.Exists(Path.Combine(_catalogs, "LibB.en.arb")));
+    }
+
+    [Fact]
+    public async Task ProjectScope_AmbiguousDirectory_IsRejectedRatherThanGuessedAsync()
+    {
+        File.WriteAllText(Path.Combine(_root, "One.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
+        File.WriteAllText(Path.Combine(_root, "Two.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
+
+        Assert.Equal(2, await ToolApplication.RunAsync(["extract", "--project", _root, "--output", _catalogs]));
+    }
+
     public void Dispose() => Directory.Delete(_root, recursive: true);
 
     private static async Task<Catalog> ReadAsync(string path)

@@ -43,6 +43,11 @@ assembly, and fans out over every in-scope assembly that actually has strings:
 | `--input <dir>` | scan a build-output folder (e.g. `bin/Debug/net10.0` or a publish dir) for assemblies |
 | `--assembly <dll>` | a single assembly (the low-level form) |
 
+`--project` and `--solution` also accept a **folder**, or no value at all — in which case the tool finds the
+single project/solution file in that folder (or the current directory), exactly like `dotnet build`. So from
+your app's folder, `dotnet apl add de --solution --output Translations` just works; an ambiguous folder (more
+than one project/solution) is an error rather than a guess.
+
 The tool reads the template the generator **bakes into each built assembly**, so the assemblies must be
 built first. It reads them from metadata without loading code, so pointing `--input` at a large output tree
 is safe.
