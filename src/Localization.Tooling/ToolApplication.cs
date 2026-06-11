@@ -1,5 +1,4 @@
 using System.IO.Compression;
-using System.Text;
 using ArchPillar.Extensions.Localization.Formats;
 using ArchPillar.Extensions.Localization.Internal;
 using ArchPillar.Extensions.Localization.Tooling.Internal;
@@ -24,10 +23,10 @@ internal static class ToolApplication
     private static readonly IReadOnlyDictionary<string, IReadOnlyCollection<string>> _knownOptions =
         new Dictionary<string, IReadOnlyCollection<string>>(StringComparer.Ordinal)
         {
-            ["status"] = Scope("--output"),
-            ["extract"] = Scope("--output"),
-            ["add"] = Scope("--template", "--output", "--force"),
-            ["sync"] = Scope("--template", "--target", "--output", "--check"),
+            ["status"] = Scope("--source", "--output"),
+            ["extract"] = Scope("--source", "--format", "--output"),
+            ["add"] = Scope("--source", "--format", "--template", "--output", "--force"),
+            ["sync"] = Scope("--source", "--template", "--target", "--output", "--check"),
             ["convert"] = new HashSet<string>(StringComparer.Ordinal) { "--from", "--to", "--output" },
             ["export"] = new HashSet<string>(StringComparer.Ordinal) { "--input", "--lang", "--output", "--format" },
             ["import"] = new HashSet<string>(StringComparer.Ordinal) { "--input", "--output" },
@@ -77,34 +76,42 @@ internal static class ToolApplication
 
     private static async Task<int> StatusAsync(IReadOnlyDictionary<string, string> options)
     {
-        IReadOnlyList<BakedTemplate> templates = ScopeResolver.Resolve(ParseScope(options));
-        if (templates.Count == 0)
+        var sourceLanguage = SourceLanguage(options);
+        TranslationFormatRegistry registry = BuildRegistry();
+        var catalogDirectory = options.TryGetValue("--output", out var dir) ? dir : null;
+        var totalKeys = 0;
+        var found = 0;
+        foreach (var path in ScopeResolver.Resolve(ParseScope(options)))
+        {
+            Catalog? template = TemplateBuilder.Build(path, sourceLanguage);
+            if (template is null)
+            {
+                continue;
+            }
+
+            found++;
+            var name = Path.GetFileNameWithoutExtension(path);
+            totalKeys += template.Entries.Count;
+            Console.Out.WriteLine($"{name}  (source {sourceLanguage})  {template.Entries.Count} string(s)");
+            if (catalogDirectory is not null)
+            {
+                await ReportLanguageStateAsync(registry, catalogDirectory, name, sourceLanguage, template.Entries.Count).ConfigureAwait(false);
+            }
+        }
+
+        if (found == 0)
         {
             Console.Out.WriteLine("No assemblies with localizable strings found in the given scope. Build first, then point --input/--project/--solution at the output.");
             return 0;
         }
 
-        TranslationFormatRegistry registry = BuildRegistry();
-        var catalogDirectory = options.TryGetValue("--output", out var dir) ? dir : null;
-        var totalKeys = 0;
-        foreach (BakedTemplate baked in templates)
-        {
-            Catalog template = await TemplateCatalogAsync(registry, baked).ConfigureAwait(false);
-            totalKeys += template.Entries.Count;
-            Console.Out.WriteLine($"{baked.AssemblyName}  (source {baked.SourceLanguage})  {template.Entries.Count} string(s)");
-            if (catalogDirectory is not null)
-            {
-                await ReportLanguageStateAsync(registry, catalogDirectory, baked, template.Entries.Count).ConfigureAwait(false);
-            }
-        }
-
-        Console.Out.WriteLine($"{templates.Count} assembly(ies), {totalKeys} string(s) total.");
+        Console.Out.WriteLine($"{found} assembly(ies), {totalKeys} string(s) total.");
         return 0;
     }
 
-    private static async Task ReportLanguageStateAsync(TranslationFormatRegistry registry, string catalogDirectory, BakedTemplate baked, int keyCount)
+    private static async Task ReportLanguageStateAsync(TranslationFormatRegistry registry, string catalogDirectory, string assemblyName, string sourceLanguage, int keyCount)
     {
-        foreach (var path in TargetCatalogsFor(catalogDirectory, baked.AssemblyName, baked.SourceLanguage, registry))
+        foreach (var path in TargetCatalogsFor(catalogDirectory, assemblyName, sourceLanguage, registry))
         {
             (_, var culture) = SplitCatalogName(Path.GetFileNameWithoutExtension(path));
             Catalog catalog = await ReadFileAsync(ProviderFor(registry, path), path).ConfigureAwait(false);
@@ -116,9 +123,24 @@ internal static class ToolApplication
     private static async Task<int> ExtractAsync(IReadOnlyDictionary<string, string> options)
     {
         var output = Require(options, "--output");
+        var sourceLanguage = SourceLanguage(options);
         TranslationFormatRegistry registry = BuildRegistry();
-        IReadOnlyList<BakedTemplate> templates = ScopeResolver.Resolve(ParseScope(options));
-        if (templates.Count == 0)
+        ITranslationFormat provider = FormatOf(options, registry);
+        var count = 0;
+        foreach (var path in ScopeResolver.Resolve(ParseScope(options)))
+        {
+            Catalog? template = TemplateBuilder.Build(path, sourceLanguage);
+            if (template is null)
+            {
+                continue;
+            }
+
+            var name = Path.GetFileNameWithoutExtension(path);
+            await WriteFileAsync(provider, Path.Combine(output, CatalogFileName(name, sourceLanguage, provider)), template).ConfigureAwait(false);
+            count++;
+        }
+
+        if (count == 0)
         {
             // No strings is a valid state (a project may simply have none), not an error — the per-build
             // extract runs on every project, so this must be a clean no-op rather than a failure.
@@ -126,14 +148,7 @@ internal static class ToolApplication
             return 0;
         }
 
-        foreach (BakedTemplate baked in templates)
-        {
-            ITranslationFormat provider = registry.ResolveById(baked.Format) ?? registry.ResolveById("arb")!;
-            Catalog catalog = await TemplateCatalogAsync(registry, baked).ConfigureAwait(false);
-            await WriteFileAsync(provider, Path.Combine(output, CatalogFileName(baked.AssemblyName, baked.SourceLanguage, provider)), catalog).ConfigureAwait(false);
-        }
-
-        Success($"Extracted {templates.Count} template(s) to {output}");
+        Success($"Extracted {count} template(s) to {output}");
         return 0;
     }
 
@@ -169,19 +184,20 @@ internal static class ToolApplication
         }
 
         var outputDir = Require(options, "--output");
-        IReadOnlyList<BakedTemplate> templates = ScopeResolver.Resolve(ParseScope(options));
-        if (templates.Count == 0)
-        {
-            Console.Out.WriteLine("No translatable strings found in scope; nothing to add.");
-            return 0;
-        }
-
+        var sourceLanguage = SourceLanguage(options);
+        ITranslationFormat scopeProvider = FormatOf(options, registry);
         var created = 0;
         var skipped = 0;
-        foreach (BakedTemplate baked in templates)
+        foreach (var path in ScopeResolver.Resolve(ParseScope(options)))
         {
-            ITranslationFormat provider = registry.ResolveById(baked.Format) ?? registry.ResolveById("arb")!;
-            var target = Path.Combine(outputDir, CatalogFileName(baked.AssemblyName, language, provider));
+            Catalog? template = TemplateBuilder.Build(path, sourceLanguage);
+            if (template is null)
+            {
+                continue;
+            }
+
+            var name = Path.GetFileNameWithoutExtension(path);
+            var target = Path.Combine(outputDir, CatalogFileName(name, language, scopeProvider));
             // Skip an existing language file rather than overwrite it — re-creating would reset every
             // translation to NeedsTranslation. Updating an existing language is `sync`'s job.
             if (File.Exists(target) && !force)
@@ -190,9 +206,14 @@ internal static class ToolApplication
                 continue;
             }
 
-            Catalog template = await TemplateCatalogAsync(registry, baked).ConfigureAwait(false);
-            await WriteFileAsync(provider, target, Reconciler.CreateLanguage(template, language)).ConfigureAwait(false);
+            await WriteFileAsync(scopeProvider, target, Reconciler.CreateLanguage(template, language)).ConfigureAwait(false);
             created++;
+        }
+
+        if (created == 0 && skipped == 0)
+        {
+            Console.Out.WriteLine("No translatable strings found in scope; nothing to add.");
+            return 0;
         }
 
         Success($"Added {language} for {created} assembly catalog(s){(skipped > 0 ? $"; skipped {skipped} existing (use --force to overwrite)" : string.Empty)}");
@@ -224,19 +245,21 @@ internal static class ToolApplication
         }
 
         var outputDir = Require(options, "--output");
-        IReadOnlyList<BakedTemplate> templates = ScopeResolver.Resolve(ParseScope(options));
-        if (templates.Count == 0)
-        {
-            Console.Out.WriteLine("No translatable strings found in scope; nothing to sync.");
-            return 0;
-        }
-
+        var sourceLanguage = SourceLanguage(options);
         var drifted = new List<string>();
         var synced = 0;
-        foreach (BakedTemplate baked in templates)
+        var any = false;
+        foreach (var path in ScopeResolver.Resolve(ParseScope(options)))
         {
-            Catalog template = await TemplateCatalogAsync(registry, baked).ConfigureAwait(false);
-            foreach (var targetPath in TargetCatalogsFor(outputDir, baked.AssemblyName, baked.SourceLanguage, registry))
+            Catalog? template = TemplateBuilder.Build(path, sourceLanguage);
+            if (template is null)
+            {
+                continue;
+            }
+
+            any = true;
+            var name = Path.GetFileNameWithoutExtension(path);
+            foreach (var targetPath in TargetCatalogsFor(outputDir, name, sourceLanguage, registry))
             {
                 ITranslationFormat targetProvider = ProviderFor(registry, targetPath);
                 Catalog reconciled = Reconciler.Reconcile(template, await ReadFileAsync(targetProvider, targetPath).ConfigureAwait(false));
@@ -254,6 +277,12 @@ internal static class ToolApplication
                     synced++;
                 }
             }
+        }
+
+        if (!any)
+        {
+            Console.Out.WriteLine("No translatable strings found in scope; nothing to sync.");
+            return 0;
         }
 
         if (check)
@@ -508,11 +537,12 @@ internal static class ToolApplication
         }
     }
 
-    private static async Task<Catalog> TemplateCatalogAsync(TranslationFormatRegistry registry, BakedTemplate baked)
-    {
-        Catalog catalog = await ReadAsync(registry.ResolveById("arb")!, new MemoryStream(Encoding.UTF8.GetBytes(baked.Arb))).ConfigureAwait(false);
-        return catalog with { Culture = baked.SourceLanguage };
-    }
+    private static string SourceLanguage(IReadOnlyDictionary<string, string> options) =>
+        options.TryGetValue("--source", out var source) && source.Length > 0 ? source : "en";
+
+    private static ITranslationFormat FormatOf(IReadOnlyDictionary<string, string> options, TranslationFormatRegistry registry) =>
+        (options.TryGetValue("--format", out var format) && format.Length > 0 ? registry.ResolveById(format) : null)
+        ?? registry.ResolveById("arb")!;
 
     private static ScopeOptions ParseScope(IReadOnlyDictionary<string, string> options) => new(
         options.TryGetValue("--assembly", out var assembly) ? assembly : null,
@@ -556,14 +586,6 @@ internal static class ToolApplication
         {
             // A parse failure from the provider names no file; prepend the path so the error is actionable.
             throw new InvalidOperationException($"Failed to read '{path}': {exception.Message}", exception);
-        }
-    }
-
-    private static async Task<Catalog> ReadAsync(ITranslationFormat provider, Stream stream)
-    {
-        using (stream)
-        {
-            return await provider.ReadAsync(stream, CancellationToken.None).ConfigureAwait(false);
         }
     }
 

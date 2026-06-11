@@ -13,28 +13,24 @@ internal sealed record ScopeOptions(string? Assembly, string? Input, string? Pro
 /// </summary>
 internal static class ScopeResolver
 {
-    /// <summary>Returns the in-scope templates, deduplicated by assembly name (newest build wins).</summary>
-    public static IReadOnlyList<BakedTemplate> Resolve(ScopeOptions scope)
+    /// <summary>Returns the in-scope assembly paths, deduplicated by file name (newest build wins). Whether an
+    /// assembly actually has translatable strings is decided later, when its IL is read.</summary>
+    public static IReadOnlyList<string> Resolve(ScopeOptions scope)
     {
-        var byName = new Dictionary<string, (BakedTemplate Template, DateTime Written)>(StringComparer.OrdinalIgnoreCase);
+        var byName = new Dictionary<string, (string Path, DateTime Written)>(StringComparer.OrdinalIgnoreCase);
         foreach (var path in CandidateAssemblies(scope))
         {
-            BakedTemplate? template = BakedTemplateReader.TryRead(path);
-            if (template is null)
-            {
-                continue;
-            }
-
+            var name = Path.GetFileNameWithoutExtension(path);
             DateTime written = File.GetLastWriteTimeUtc(path);
             // Multi-targeting puts the same assembly under several TFM folders; keep one, preferring the most
             // recently built so a fresh extract never reads a stale duplicate.
-            if (!byName.TryGetValue(template.AssemblyName, out (BakedTemplate Template, DateTime Written) existing) || written > existing.Written)
+            if (!byName.TryGetValue(name, out (string Path, DateTime Written) existing) || written > existing.Written)
             {
-                byName[template.AssemblyName] = (template, written);
+                byName[name] = (path, written);
             }
         }
 
-        return [.. byName.Values.Select(entry => entry.Template).OrderBy(t => t.AssemblyName, StringComparer.Ordinal)];
+        return [.. byName.Values.Select(entry => entry.Path).OrderBy(Path.GetFileNameWithoutExtension, StringComparer.Ordinal)];
     }
 
     private static IEnumerable<string> CandidateAssemblies(ScopeOptions scope)

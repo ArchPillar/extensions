@@ -28,6 +28,16 @@ internal static class AssemblyStringExtractor
     public static IReadOnlyList<RawCallSite> Extract(string assemblyPath)
     {
         using var module = ModuleDefinition.ReadModule(assemblyPath);
+
+        // Early-out: an assembly that references neither localizer cannot contain a translatable call, so skip
+        // reading its method bodies entirely — keeping a solution-wide scan cheap over unrelated assemblies.
+        if (!module.AssemblyReferences.Any(reference =>
+                reference.Name is "ArchPillar.Extensions.Localization" or "ArchPillar.Extensions.Localization.Abstractions"
+                or "Microsoft.Extensions.Localization.Abstractions"))
+        {
+            return [];
+        }
+
         var sites = new List<RawCallSite>();
         foreach (TypeDefinition type in AllTypes(module.Types))
         {

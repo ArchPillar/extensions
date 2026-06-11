@@ -9,7 +9,7 @@
   <Target Name="ArchPillarLocalizationExtractTemplate"
           AfterTargets="Build"
           Condition="'$(ArchPillarLocalizationEmit)' == 'true' and '$(DesignTimeBuild)' != 'true' and '$(BuildingProject)' == 'true'">
-    <Exec Command="$(ArchPillarLocalizationToolCommand) extract --assembly &quot;$(TargetPath)&quot; --output &quot;$([MSBuild]::NormalizePath('$(ArchPillarLocalizationOutputPath)'))&quot;"
+    <Exec Command="$(ArchPillarLocalizationToolCommand) extract --assembly &quot;$(TargetPath)&quot; --output &quot;$([MSBuild]::NormalizePath('$(ArchPillarLocalizationOutputPath)'))&quot; --source $(ArchPillarLocalizationSourceLanguage) --format $(ArchPillarLocalizationFormat)"
           ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)"
           StandardOutputImportance="low" />
   </Target>

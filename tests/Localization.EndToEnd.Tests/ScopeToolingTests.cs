@@ -13,20 +13,14 @@ public sealed class ScopeToolingTests : IDisposable
 {
     private const string LibAStrings = """
         using ArchPillar.Extensions.Localization;
-        public static class T
-        {
-            public static string Translate([Translatable] string key, [TranslationDefault] string message) => message;
-        }
-        public sealed class Save { public string Label() => T.Translate("save", "Save"); }
+        public sealed class Save;
+        public sealed class Consumer { public string Label(ILocalizer<Save> loc) => loc.Translate("save", "Save"); }
         """;
 
     private const string LibBStrings = """
         using ArchPillar.Extensions.Localization;
-        public static class T
-        {
-            public static string Translate([Translatable] string key, [TranslationDefault] string message) => message;
-        }
-        public sealed class Cancel { public string Label() => T.Translate("cancel", "Cancel"); }
+        public sealed class Cancel;
+        public sealed class Consumer { public string Label(ILocalizer<Cancel> loc) => loc.Translate("cancel", "Cancel"); }
         """;
 
     private readonly string _root;
