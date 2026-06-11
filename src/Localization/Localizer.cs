@@ -6,11 +6,12 @@ namespace ArchPillar.Extensions.Localization;
 
 /// <summary>
 /// Renders translatable call sites at runtime: looks up the loaded override for the requested culture
-/// and key, falls back through parent cultures to the in-code default, and formats with the ICU engine.
-/// Lookups are lock-free; loading is pluggable and optionally hot-reloadable. Designed to be a singleton
-/// and safe for concurrent use.
+/// and key, falls back through parent cultures to the in-code default, and formats with the ICU engine. A
+/// pure resolution engine — it resolves against a snapshot it is given (a live <see cref="CatalogStore"/> or
+/// a fixed set of catalogs) and owns no I/O. Lookups are lock-free; designed to be a singleton and safe for
+/// concurrent use.
 /// </summary>
-public sealed class Localizer : IDisposable, ILocalizer
+public sealed class Localizer : ILocalizer
 {
     private readonly IReadOnlyList<ITranslationSource> _sources;
     private readonly MessageFormatter _formatter;
@@ -19,23 +20,25 @@ public sealed class Localizer : IDisposable, ILocalizer
     private readonly TranslationSnapshot _fixedSnapshot;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="Localizer"/> class over a directory-backed
-    /// <see cref="CatalogStore"/>, loading catalogs from the configured directory immediately and resolving
-    /// against the store's current snapshot (so a reload is observed on the next lookup).
+    /// Initializes a new instance of the <see cref="Localizer"/> class over a <see cref="CatalogStore"/>,
+    /// resolving against the store's current snapshot so a reload (or hot-reload) of the store is observed on
+    /// the next lookup. The store is owned by the caller; the localizer only reads it.
     /// </summary>
-    /// <param name="options">The localizer configuration.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
-    public Localizer(LocalizerOptions options)
+    /// <param name="store">The catalogue store to resolve against.</param>
+    /// <param name="options">The localizer configuration, or <see langword="null"/> to use the store's.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="store"/> is <see langword="null"/>.</exception>
+    public Localizer(CatalogStore store, LocalizerOptions? options = null)
     {
-        if (options is null)
+        if (store is null)
         {
-            throw new ArgumentNullException(nameof(options));
+            throw new ArgumentNullException(nameof(store));
         }
 
-        _sources = options.Sources ?? [];
-        _formatter = new MessageFormatter(options.MissingArguments);
-        _sourceCulture = CreateCulture(options.SourceCulture);
-        _store = new CatalogStore(options);
+        LocalizerOptions resolved = options ?? store.Options;
+        _sources = resolved.Sources ?? [];
+        _formatter = new MessageFormatter(resolved.MissingArguments);
+        _sourceCulture = CreateCulture(resolved.SourceCulture);
+        _store = store;
         _fixedSnapshot = TranslationSnapshot.Empty;
     }
 
@@ -288,15 +291,6 @@ public sealed class Localizer : IDisposable, ILocalizer
         string? context,
         (string Name, object? Value)[] arguments) =>
         Translate(culture, key, defaultMessage, context, out _, arguments);
-
-    /// <summary>
-    /// Reloads the catalogs from the translations directory and swaps them in atomically. A no-op for an
-    /// in-memory localizer, whose snapshot is fixed.
-    /// </summary>
-    public void Reload() => _store?.Reload();
-
-    /// <inheritdoc />
-    public void Dispose() => _store?.Dispose();
 
     private string? Resolve(CultureInfo culture, string category, string compositeKey)
     {

@@ -10,7 +10,6 @@ namespace ArchPillar.Extensions.Localization;
 /// </summary>
 public sealed class CatalogStore : IDisposable
 {
-    private readonly LocalizerOptions _options;
     private readonly object _reloadGate = new();
     private TranslationSnapshot _snapshot;
     private FileSystemWatcher? _watcher;
@@ -25,13 +24,17 @@ public sealed class CatalogStore : IDisposable
     /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
     public CatalogStore(LocalizerOptions options)
     {
-        _options = options ?? throw new ArgumentNullException(nameof(options));
-        _snapshot = CatalogLoader.Load(_options);
-        if (_options.EnableHotReload)
+        Options = options ?? throw new ArgumentNullException(nameof(options));
+        _snapshot = CatalogLoader.Load(Options);
+        if (Options.EnableHotReload)
         {
             StartWatching();
         }
     }
+
+    /// <summary>The configuration this store was built with, so a localizer over it shares the same source
+    /// culture, missing-argument policy, and dynamic sources.</summary>
+    internal LocalizerOptions Options { get; }
 
     /// <summary>The current merged snapshot; replaced atomically on reload, so a reader always sees a
     /// consistent view and a resolving localizer observes a reload on its next lookup.</summary>
@@ -42,7 +45,7 @@ public sealed class CatalogStore : IDisposable
     {
         lock (_reloadGate)
         {
-            TranslationSnapshot snapshot = CatalogLoader.Load(_options);
+            TranslationSnapshot snapshot = CatalogLoader.Load(Options);
             Volatile.Write(ref _snapshot, snapshot);
         }
     }
@@ -66,18 +69,18 @@ public sealed class CatalogStore : IDisposable
 
     private void StartWatching()
     {
-        if (!Directory.Exists(_options.TranslationsDirectory))
+        if (!Directory.Exists(Options.TranslationsDirectory))
         {
             return;
         }
 
         _debounce = new Timer(_ => Reload(), state: null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
-        _watcher = new FileSystemWatcher(_options.TranslationsDirectory) { EnableRaisingEvents = true };
+        _watcher = new FileSystemWatcher(Options.TranslationsDirectory) { EnableRaisingEvents = true };
         _watcher.Changed += OnChanged;
         _watcher.Created += OnChanged;
         _watcher.Deleted += OnChanged;
     }
 
     private void OnChanged(object sender, FileSystemEventArgs e) =>
-        _debounce?.Change(_options.HotReloadDebounce, Timeout.InfiniteTimeSpan);
+        _debounce?.Change(Options.HotReloadDebounce, Timeout.InfiniteTimeSpan);
 }

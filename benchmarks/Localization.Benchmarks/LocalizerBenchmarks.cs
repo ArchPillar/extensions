@@ -13,6 +13,7 @@ public class LocalizerBenchmarks
     private const string PluralDefault = "{count, plural, one {# file} other {# files}}";
     private static readonly CultureInfo _german = CultureInfo.GetCultureInfo("de");
 
+    private CatalogStore _store = null!;
     private Localizer _localizer = null!;
     private string _directory = null!;
 
@@ -30,17 +31,18 @@ public class LocalizerBenchmarks
               "@inbox.count": { "x-state": "Translated", "x-source-fingerprint": "b" }
             }
             """);
-        _localizer = new Localizer(new LocalizerOptions
+        _store = new CatalogStore(new LocalizerOptions
         {
             TranslationsDirectory = _directory,
             SourceCulture = "en"
         });
+        _localizer = new Localizer(_store);
     }
 
     [GlobalCleanup]
     public void Cleanup()
     {
-        _localizer.Dispose();
+        _store.Dispose();
         Directory.Delete(_directory, recursive: true);
     }
 

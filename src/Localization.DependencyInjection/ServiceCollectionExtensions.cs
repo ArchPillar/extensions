@@ -56,8 +56,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(Ambient.Default);
         services.AddSingleton(typeof(ILocalizer<>), typeof(AmbientLocalizer<>));
 
-        // A concrete Localizer over the same options remains available for direct injection.
-        services.AddSingleton(_ => new Localizer(resolved));
+        // A directory-backed CatalogStore (disposed by the container) and a concrete Localizer over it remain
+        // available for direct injection.
+        services.AddSingleton(_ => new CatalogStore(resolved));
+        services.AddSingleton(provider => new Localizer(provider.GetRequiredService<CatalogStore>(), resolved));
         return services;
     }
 }

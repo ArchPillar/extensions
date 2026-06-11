@@ -10,7 +10,7 @@ public sealed class TranslationSourceTests
     [Fact]
     public void Pseudo_ReplacesLettersOfTheDefault_ForItsCulture()
     {
-        using var localizer = new Localizer(new LocalizerOptions
+        var localizer = new Localizer([], new LocalizerOptions
         {
             SourceCulture = "en",
             Sources = [new PseudoLocalizationSource("qps-ploc")]
@@ -22,7 +22,7 @@ public sealed class TranslationSourceTests
     [Fact]
     public void Pseudo_PreservesPlaceholders()
     {
-        using var localizer = new Localizer(new LocalizerOptions
+        var localizer = new Localizer([], new LocalizerOptions
         {
             SourceCulture = "en",
             Sources = [new PseudoLocalizationSource("qps-ploc")]
@@ -35,7 +35,7 @@ public sealed class TranslationSourceTests
     [Fact]
     public void Pseudo_XsBranchTextButKeepsPluralSyntax()
     {
-        using var localizer = new Localizer(new LocalizerOptions
+        var localizer = new Localizer([], new LocalizerOptions
         {
             SourceCulture = "en",
             Sources = [new PseudoLocalizationSource("qps-ploc")]
@@ -50,7 +50,7 @@ public sealed class TranslationSourceTests
     [Fact]
     public void Pseudo_DoesNotAffectOtherCultures()
     {
-        using var localizer = new Localizer(new LocalizerOptions
+        var localizer = new Localizer([], new LocalizerOptions
         {
             SourceCulture = "en",
             Sources = [new PseudoLocalizationSource("qps-ploc")]
@@ -77,7 +77,7 @@ public sealed class TranslationSourceTests
                 }
             ]
         };
-        using var localizer = new Localizer(catalog, new LocalizerOptions
+        var localizer = new Localizer(catalog, new LocalizerOptions
         {
             SourceCulture = "en",
             Sources = [new StubSource("de", "from source")]

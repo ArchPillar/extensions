@@ -224,8 +224,7 @@ public static class Localization
             _directory = DefaultDirectory();
             _scannedLoaded = false;
             _hasSatellites = false;
-            var empty = new Localizer([], new LocalizerOptions());
-            Interlocked.Exchange(ref _current, empty).Dispose();
+            Volatile.Write(ref _current, new Localizer([], new LocalizerOptions()));
         }
     }
 
@@ -559,15 +558,14 @@ public static class Localization
     }
 
     // Rebuilds the merged snapshot from the current lists and swaps it in atomically. Callers hold _gate so
-    // the lists are consistent; the swap itself is a single Interlocked.Exchange, so lookups never tear.
+    // the lists are consistent; the swap itself is a single volatile write, so lookups never tear.
     private static void Rebuild()
     {
         // Layered low-to-high precedence: embedded and satellite (library-shipped) < directory (app-local
         // files) < host (explicit AddCatalog). A later catalog wins on overlap inside the merge.
         List<Catalog> all = [.. _embeddedCatalogs, .. _satelliteCatalogs, .. _directoryCatalogs, .. _hostCatalogs];
         var options = new LocalizerOptions { SourceCulture = _sourceCulture, Sources = [.. _sources], MissingArguments = _missingArguments };
-        var next = new Localizer(all, options);
-        Interlocked.Exchange(ref _current, next).Dispose();
+        Volatile.Write(ref _current, new Localizer(all, options));
     }
 
     // Reads every catalog file in a directory. Pure: file I/O only, no shared state, no lock.

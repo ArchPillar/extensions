@@ -8,6 +8,7 @@ public sealed class LocalizerAllocationTests : IDisposable
     private static readonly CultureInfo _german = CultureInfo.GetCultureInfo("de");
 
     private readonly string _directory;
+    private readonly CatalogStore _store;
     private readonly Localizer _localizer;
     private readonly ILocalizer<LocalizerAllocationTests> _typed;
 
@@ -22,11 +23,12 @@ public sealed class LocalizerAllocationTests : IDisposable
               "@app.title": { "x-state": "Translated", "x-source-fingerprint": "b" }
             }
             """);
-        _localizer = new Localizer(new LocalizerOptions
+        _store = new CatalogStore(new LocalizerOptions
         {
             TranslationsDirectory = _directory,
             SourceCulture = "en"
         });
+        _localizer = new Localizer(_store);
         _typed = new LocalizerFactory(_localizer).Create<LocalizerAllocationTests>();
     }
 
@@ -77,7 +79,7 @@ public sealed class LocalizerAllocationTests : IDisposable
 
     public void Dispose()
     {
-        _localizer.Dispose();
+        _store.Dispose();
         Directory.Delete(_directory, recursive: true);
     }
 

@@ -11,11 +11,12 @@ public sealed class LocalizerTests : IDisposable
     private static readonly CultureInfo _fr = CultureInfo.GetCultureInfo("fr");
 
     private readonly List<string> _directories = [];
+    private readonly List<CatalogStore> _stores = [];
 
     [Fact]
     public void Translate_NoFiles_RendersInCodeDefault()
     {
-        using Localizer localizer = Make(NewDirectory());
+        Localizer localizer = Make(NewDirectory());
 
         Assert.Equal("Hello Ada", localizer.Translate(_de, "greeting", "Hello {name}", null, ("name", "Ada")));
     }
@@ -25,7 +26,7 @@ public sealed class LocalizerTests : IDisposable
     {
         var directory = NewDirectory();
         WriteArb(directory, "de", Entry("greeting", "Hallo {name}"));
-        using Localizer localizer = Make(directory);
+        Localizer localizer = Make(directory);
 
         Assert.Equal("Hallo Ada", localizer.Translate(_de, "greeting", "Hello {name}", null, ("name", "Ada")));
     }
@@ -35,7 +36,7 @@ public sealed class LocalizerTests : IDisposable
     {
         var directory = NewDirectory();
         WriteArb(directory, "de", Entry("greeting", "Hallo"));
-        using Localizer localizer = Make(directory);
+        Localizer localizer = Make(directory);
 
         Assert.Equal("Hallo", localizer.Translate(_deAt, "greeting", "Hello", null));
     }
@@ -46,7 +47,7 @@ public sealed class LocalizerTests : IDisposable
         var directory = NewDirectory();
         WriteArb(directory, "de", Entry("greeting", "Hallo"));
         WriteArb(directory, "de-AT", Entry("greeting", "Servus"));
-        using Localizer localizer = Make(directory);
+        Localizer localizer = Make(directory);
 
         Assert.Equal("Servus", localizer.Translate(_deAt, "greeting", "Hello", null));
         Assert.Equal("Hallo", localizer.Translate(_de, "greeting", "Hello", null));
@@ -57,7 +58,7 @@ public sealed class LocalizerTests : IDisposable
     {
         var directory = NewDirectory();
         WriteArb(directory, "de", Entry("greeting", "Hallo"));
-        using Localizer localizer = Make(directory);
+        Localizer localizer = Make(directory);
 
         Assert.Equal("Hallo", localizer.Translate(_de, "greeting", "Hello", null));
         Assert.Equal("Hello", localizer.Translate(_fr, "greeting", "Hello", null));
@@ -68,7 +69,7 @@ public sealed class LocalizerTests : IDisposable
     {
         var directory = NewDirectory();
         WriteArb(directory, "de", Entry("greeting", string.Empty, "NeedsTranslation"));
-        using Localizer localizer = Make(directory);
+        Localizer localizer = Make(directory);
 
         Assert.Equal("Hello", localizer.Translate(_de, "greeting", "Hello", null));
     }
@@ -78,7 +79,7 @@ public sealed class LocalizerTests : IDisposable
     {
         var directory = NewDirectory();
         WriteArb(directory, "en", Entry("greeting", "FROM FILE"));
-        using Localizer localizer = Make(directory);
+        Localizer localizer = Make(directory);
 
         Assert.Equal("Hello", localizer.Translate(_en, "greeting", "Hello", null));
     }
@@ -88,7 +89,7 @@ public sealed class LocalizerTests : IDisposable
     {
         var directory = NewDirectory();
         WriteArb(directory, "de", Entry("items", "{count, plural, one {# Datei} other {# Dateien}}"));
-        using Localizer localizer = Make(directory);
+        Localizer localizer = Make(directory);
 
         const string Default = "{count, plural, one {# file} other {# files}}";
         Assert.Equal("1 Datei", localizer.Translate(_de, "items", Default, null, ("count", 1)));
@@ -100,7 +101,7 @@ public sealed class LocalizerTests : IDisposable
     {
         // No Japanese override: the English default must render with English (source) plural rules,
         // not Japanese rules (which have only "other"), so "1 file" stays grammatical — not "1 files".
-        using Localizer localizer = Make(NewDirectory());
+        Localizer localizer = Make(NewDirectory());
         var japanese = CultureInfo.GetCultureInfo("ja");
 
         const string Default = "{count, plural, one {# file} other {# files}}";
@@ -115,7 +116,7 @@ public sealed class LocalizerTests : IDisposable
         // when a de.arb exists, while still rendering correctly with German rules.
         var directory = NewDirectory();
         WriteArb(directory, "de", Entry("greeting", "FROM FILE"));
-        using Localizer localizer = new(new LocalizerOptions
+        Localizer localizer = Over(new LocalizerOptions
         {
             TranslationsDirectory = directory,
             SourceCulture = "de"
@@ -130,7 +131,7 @@ public sealed class LocalizerTests : IDisposable
     {
         var directory = NewDirectory();
         WriteArb(directory, "de", ContextEntry("post", "Posten", "menu"));
-        using Localizer localizer = Make(directory);
+        Localizer localizer = Make(directory);
 
         // Same key, different context: only the "menu" context is overridden.
         Assert.Equal("Posten", localizer.Translate(_de, "post", "Post", "menu"));
@@ -140,7 +141,7 @@ public sealed class LocalizerTests : IDisposable
     [Fact]
     public void Translate_MissingArgument_PassesThroughByDefault()
     {
-        using Localizer localizer = Make(NewDirectory());
+        Localizer localizer = Make(NewDirectory());
 
         Assert.Equal("Hi {name}", localizer.Translate(_de, "greeting", "Hi {name}", null));
     }
@@ -149,11 +150,13 @@ public sealed class LocalizerTests : IDisposable
     public void Reload_PicksUpNewlyAddedFile()
     {
         var directory = NewDirectory();
-        using Localizer localizer = Make(directory);
+        var store = new CatalogStore(new LocalizerOptions { TranslationsDirectory = directory, SourceCulture = "en" });
+        _stores.Add(store);
+        var localizer = new Localizer(store);
         Assert.Equal("Hello", localizer.Translate(_de, "greeting", "Hello", null));
 
         WriteArb(directory, "de", Entry("greeting", "Hallo"));
-        localizer.Reload();
+        store.Reload();
 
         Assert.Equal("Hallo", localizer.Translate(_de, "greeting", "Hello", null));
     }
@@ -164,7 +167,7 @@ public sealed class LocalizerTests : IDisposable
         var directory = NewDirectory();
         WriteArb(directory, "de", Entry("greeting", "from arb"));
         WriteCatalog(new XliffTranslationFormat(), directory, "de.xliff", DeCatalog("greeting", "from xliff"));
-        using Localizer localizer = Make(directory);
+        Localizer localizer = Make(directory);
 
         Assert.Equal("from xliff", localizer.Translate(_de, "greeting", "Hello", null));
     }
@@ -175,7 +178,7 @@ public sealed class LocalizerTests : IDisposable
         var directory = NewDirectory();
         WriteArb(directory, "de", Entry("greeting", "from arb"));
         WriteCatalog(new XliffTranslationFormat(), directory, "de.xliff", DeCatalog("greeting", "from xliff"));
-        using Localizer localizer = new(new LocalizerOptions
+        Localizer localizer = Over(new LocalizerOptions
         {
             TranslationsDirectory = directory,
             SourceCulture = "en",
@@ -188,7 +191,7 @@ public sealed class LocalizerTests : IDisposable
     [Fact]
     public void FromCatalogs_UsesSuppliedOverride_WithoutTouchingDisk()
     {
-        using var localizer = Localizer.FromCatalogs(
+        var localizer = Localizer.FromCatalogs(
             [DeCatalog("greeting", "Hallo")],
             new LocalizerOptions { SourceCulture = "en" });
 
@@ -215,7 +218,7 @@ public sealed class LocalizerTests : IDisposable
             ]
         };
 
-        using var localizer = Localizer.FromCatalogs([enCatalog], new LocalizerOptions { SourceCulture = "en" });
+        var localizer = Localizer.FromCatalogs([enCatalog], new LocalizerOptions { SourceCulture = "en" });
 
         Assert.Equal("Hello", localizer.Translate(_en, "greeting", "Hello", null));
     }
@@ -226,6 +229,11 @@ public sealed class LocalizerTests : IDisposable
 
     public void Dispose()
     {
+        foreach (CatalogStore store in _stores)
+        {
+            store.Dispose();
+        }
+
         foreach (var directory in _directories)
         {
             Directory.Delete(directory, recursive: true);
@@ -255,8 +263,16 @@ public sealed class LocalizerTests : IDisposable
         format.WriteAsync(stream, catalog, CancellationToken.None).GetAwaiter().GetResult();
     }
 
-    private static Localizer Make(string directory) =>
-        new(new LocalizerOptions { TranslationsDirectory = directory, SourceCulture = "en" });
+    private Localizer Make(string directory) =>
+        Over(new LocalizerOptions { TranslationsDirectory = directory, SourceCulture = "en" });
+
+    // Builds a directory-backed localizer over a tracked CatalogStore (disposed with the fixture).
+    private Localizer Over(LocalizerOptions options)
+    {
+        var store = new CatalogStore(options);
+        _stores.Add(store);
+        return new Localizer(store);
+    }
 
     private string NewDirectory()
     {
@@ -273,7 +289,7 @@ public sealed class LocalizerTests : IDisposable
         WriteArbFile(directory, "a.arb", "de", Entry("k", "fromA"));
         WriteArbFile(directory, "b.arb", "de", Entry("k", "fromB"));
 
-        using Localizer localizer = Make(directory);
+        Localizer localizer = Make(directory);
 
         // Equal-rank files (same format, same culture) are ordered by ordinal path, so the later file wins
         // deterministically rather than depending on the file system's enumeration order.

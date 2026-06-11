@@ -13,12 +13,13 @@ using Localization.TodoSample;
 //
 // The string bundle lives in TodoStrings.cs; the catalogs are Translations/de.arb and fr.arb.
 // ---------------------------------------------------------------------------
-using var localizer = new Localizer(new LocalizerOptions
+using var store = new CatalogStore(new LocalizerOptions
 {
     TranslationsDirectory = Path.Combine(AppContext.BaseDirectory, "Translations"),
     SourceCulture = "en",
     Sources = [new PseudoLocalizationSource("qps-ploc")]
 });
+var localizer = new Localizer(store);
 
 var strings = new TodoStrings(new LocalizerFactory(localizer).Create<TodoStrings>());
 
