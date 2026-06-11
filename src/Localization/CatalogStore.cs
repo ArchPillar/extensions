@@ -251,6 +251,16 @@ public sealed class CatalogStore : IDisposable
         }
     }
 
+    /// <summary>Eagerly loads the catalogs now — for the ambient store, runs its lazy startup (directory read
+    /// + assembly discovery) up front instead of on first lookup. A no-op for an already-loaded store.</summary>
+    internal void EnsureLoaded()
+    {
+        if (_discover)
+        {
+            EnsureStarted();
+        }
+    }
+
     /// <summary>Layers a catalog into the store as a host source (a later source wins).</summary>
     internal void AddCatalog(Catalog catalog)
     {
