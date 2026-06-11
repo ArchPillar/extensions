@@ -21,6 +21,16 @@ Install the tool once (it is a .NET global tool; the command is `dotnet apl`):
 dotnet tool install --global ArchPillar.Extensions.Localization.Tooling
 ```
 
+> **Try it against a sample.** The localization samples that import `Localization.Authoring.props` run the
+> generator on build, so you can exercise the whole flow against a real assembly from this repo:
+> ```bash
+> dotnet build samples/Localization/Localization.ConsoleSample
+> dotnet apl extract --project samples/Localization/Localization.ConsoleSample/Localization.ConsoleSample.csproj --output /tmp/x
+> dotnet apl add de --project samples/Localization/Localization.ConsoleSample/Localization.ConsoleSample.csproj --output /tmp/x
+> ```
+> (The samples don't *ship* generated catalogs — they demonstrate the runtime — but they let you test
+> extraction end to end. A consuming app gets the generator from the NuGet package automatically.)
+
 ## Scope: a whole app at once
 
 Every authoring command (`status`, `extract`, `add`, `sync`) takes a **scope** instead of a single
