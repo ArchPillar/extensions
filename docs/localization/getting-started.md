@@ -90,8 +90,9 @@ Build, then create a language file for the translator:
 
 ```bash
 dotnet build
-# Add German across everything in the solution that has strings:
-dotnet apl add de --solution YourApp.sln --output Translations
+# Run from your app folder. Like `dotnet build`, the tool finds the solution (or lone project)
+# in the current directory — add German across everything in it that has strings:
+dotnet apl add de --output Translations
 #   -> Translations/YourApp.de.arb  (every entry x-state: NeedsTranslation)
 ```
 
@@ -99,13 +100,14 @@ dotnet apl add de --solution YourApp.sln --output Translations
 `Translated`; you commit the file. The catalogs are named `{AssemblyName}.{culture}.arb` so libraries
 never collide, and the build copies them beside the binary automatically.
 
-> **Smaller scopes:** `--project YourApp.csproj` (add `--recurse` to include its project dependencies) or
-> `--input bin/Debug/net10.0` instead of `--solution`. Run `dotnet apl status --solution YourApp.sln` to
-> see which assemblies have strings and how many.
+> **Pointing it elsewhere:** the cwd default covers the common case; pass a scope only to override it —
+> `--solution YourApp.sln` (when the folder has more than one), `--project YourApp.csproj` (add `--recurse`
+> to include its project dependencies), or `--input bin/Debug/net10.0`. Run `dotnet apl status` to see which
+> assemblies have strings and how many.
 
 > When you reference the package, the build also runs `extract` for you after each real build, so the
 > source-language template (`{AssemblyName}.en.arb`) appears in `Translations/` without you asking. As code
-> changes, `dotnet apl sync --solution YourApp.sln --output Translations` reconciles every language file
+> changes, `dotnet apl sync --output Translations` reconciles every language file
 > (and `--check` is your CI gate). The full lifecycle — including handing files to translators as a zip and
 > shipping for production — is in [translation-workflow.md](translation-workflow.md).
 
