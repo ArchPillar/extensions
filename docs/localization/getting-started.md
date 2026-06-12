@@ -22,10 +22,13 @@ keys are not being extracted, check `dotnet --version` first.
 
 ## 2. Translate a string
 
-Add one `using static` and call `Translate(...)` directly — the way `using static System.Console;` gives
-you `WriteLine(...)`. No setup, no DI, no class to wire up. The first argument is a stable **key**; the
-second is the **in-code default** (the source-language text, and the terminal fallback); the trailing
-`(name, value)` pairs fill the ICU placeholders:
+In every form the first argument is a stable **key**; the second is the **in-code default** (the
+source-language text, and the terminal fallback); the trailing `(name, value)` pairs fill the ICU
+placeholders. There are two call **styles** — a `Translate(...)` method and a `loc["key", "default"]`
+indexer — and they compile to the exact same lookup. Pick one and make it your codebase's convention.
+
+**Method style.** Add one `using static` and call `Translate(...)` directly — the way
+`using static System.Console;` gives you `WriteLine(...)`. No setup, no DI, no class to wire up:
 
 ```csharp
 using static ArchPillar.Extensions.Localization.Localizer;
@@ -37,10 +40,28 @@ string Inbox(int count) =>
     Translate("inbox", "You have {count, plural, one {# message} other {# messages}}", ("count", count));
 ```
 
-`Translate` goes through the process-wide ambient store (the `IConfiguration` model): reachable from
-anywhere — a service, a static helper, even an exception thrown before any container exists. There is
-nothing to register and no constructor to thread. Prefer an explicit receiver? `Localizer.Default`
-is the same store: `Localizer.Default.Translate(...)` is the identical call without the `using static`.
+**Indexer style.** The same lookup as `loc["key", "default"]` on any `ILocalizer` receiver (such as
+`Localizer.Default`, or an injected `ILocalizer<T>`) — closer to the `IStringLocalizer` indexer that
+teams coming from `.resx` already know:
+
+```csharp
+using ArchPillar.Extensions.Localization;
+
+string Title => Localizer.Default["home.title", "Home"];
+
+string Greet(string name) =>
+    Localizer.Default["greeting", "Hello {name}!", [("name", name)]];   // arguments as a (name, value) array
+```
+
+> **Pick one convention.** The analyzer and the extractor recognise both styles equally and there is no
+> functional difference, so it is entirely up to your team which to adopt — but settle on one. Mixing
+> `Translate(...)` and `["…"]` across a codebase only makes call sites harder to scan. The method form is
+> the one that also works as a receiver-less free function; the indexer always needs a receiver.
+
+Either way the call goes through the process-wide ambient store (the `IConfiguration` model): reachable
+from anywhere — a service, a static helper, even an exception thrown before any container exists. There
+is nothing to register and no constructor to thread. `Localizer.Default` is that same store, so
+`Localizer.Default.Translate(...)` and the receiver-less `Translate(...)` are the identical call.
 
 > **As your app grows**, scope keys by *category* so two components can both use `"title"` without
 > colliding — call `Localizer.For<T>()`, or inject `ILocalizer<T>` (the `ILogger<T>` model). A set of
@@ -118,8 +139,14 @@ ASP.NET Core:
 builder.Services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" });
 ```
 
-DI feeds the same ambient store, so injected and ambient lookups share one source. Migrating existing
-`IStringLocalizer` code? Add the `…Localization.StringLocalizer` package and call
+By default DI feeds the **same** ambient store, so injected and receiver-less lookups share one source —
+inject `ILocalizer<T>` in a service and call the static `Translate(...)` in an exception path, and both
+resolve from the catalogs you registered once. If you would rather have no static state at all (for test
+isolation, or to host more than one localization scope in a process), pass `UseAmbient = false`: DI then
+owns a private `LocalizationContext` and any use of the static `Localizer` throws. See
+[the localization context](features.md#the-localization-context) for the full model.
+
+Migrating existing `IStringLocalizer` code? Add the `…Localization.StringLocalizer` package and call
 `AddArchPillarStringLocalizer` instead — see the migration on-ramp in [features.md](features.md).
 
 ## 7. Ship it

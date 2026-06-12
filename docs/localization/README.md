@@ -53,10 +53,11 @@ Console.WriteLine(Greet("Ada"));                       // "Hallo Ada!" once a de
 | Compile-time extraction | A Roslyn generator extracts attributed call sites into a source template; an analyzer surfaces `APL` diagnostics in the editor. |
 | Categories (the `ILogger<T>` model) | `ILocalizer<T>` scopes keys by `typeof(T)`'s full name; no user-managed namespaces. |
 | The ambient store | One process-wide, layered, DI-free store (`IConfiguration` model) reachable from anywhere, including exception text. |
+| Instantiable context | `LocalizationContext` is the same environment as an object — construct, configure, dispose; `Localizer.Disable()` / `UseAmbient = false` for a fully static-free setup. |
 | Files / embedded / satellites | Loose files by default (trim/AOT-safe); opt-in embedding routes catalogs into culture satellite assemblies. |
 | ICU MessageFormat | Arguments, `plural` / `selectordinal` / `select`, embedded CLDR plural data. |
 | Standard formats | ARB (default), XLIFF 2.1, and Portable Object — round-tripped by the bundled providers. |
-| Dependency injection | `AddArchPillarLocalization` feeds the ambient store and registers injectable native localizers. |
+| Dependency injection | `AddArchPillarLocalization` feeds one context (the ambient by default, or a private one with `UseAmbient = false`) and registers injectable native localizers. |
 | `IStringLocalizer` interop + migration | A separate `…StringLocalizer` package (`AddArchPillarStringLocalizer`): a composing adapter, on-by-default extraction of indexer literals, and a no-op `L(...)` marker — droppable once migration is done. |
 | Publishing | A publish-time merge to one bundle per culture; a documented trim / single-file / AOT matrix. |
 | Zero external dependencies | The runtime, formats, and ICU parser use only the BCL — no third-party packages. |
