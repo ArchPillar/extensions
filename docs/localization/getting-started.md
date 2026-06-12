@@ -24,11 +24,10 @@ keys are not being extracted, check `dotnet --version` first.
 
 In every form the first argument is a stable **key**; the second is the **in-code default** (the
 source-language text, and the terminal fallback); the trailing `(name, value)` pairs fill the ICU
-placeholders. There are two call **styles** — a `Translate(...)` method and a `loc["key", "default"]`
-indexer — and they compile to the exact same lookup. Pick one and make it your codebase's convention.
+placeholders.
 
-**Method style.** Add one `using static` and call `Translate(...)` directly — the way
-`using static System.Console;` gives you `WriteLine(...)`. No setup, no DI, no class to wire up:
+The quickest start needs no receiver at all. Add one `using static` and call `Translate(...)` directly —
+the way `using static System.Console;` gives you `WriteLine(...)`. No setup, no DI, no class to wire up:
 
 ```csharp
 using static ArchPillar.Extensions.Localization.Localizer;
@@ -40,28 +39,26 @@ string Inbox(int count) =>
     Translate("inbox", "You have {count, plural, one {# message} other {# messages}}", ("count", count));
 ```
 
-**Indexer style.** The same lookup as `loc["key", "default"]` on any `ILocalizer` receiver (such as
-`Localizer.Default`, or an injected `ILocalizer<T>`) — closer to the `IStringLocalizer` indexer that
-teams coming from `.resx` already know:
+This goes through the process-wide ambient store (the `IConfiguration` model): reachable from anywhere —
+a service, a static helper, even an exception thrown before any container exists. There is nothing to
+register and no constructor to thread.
+
+**Calling on a localizer instance.** Once you have an `ILocalizer` receiver — `Localizer.Default`, or
+(as the app grows) an injected `ILocalizer<T>` — there are two interchangeable styles: the
+`.Translate(...)` method, and a `loc["key", "default"]` indexer that teams coming from `IStringLocalizer`
+already know.
 
 ```csharp
-using ArchPillar.Extensions.Localization;
-
-string Title => Localizer.Default["home.title", "Home"];
-
-string Greet(string name) =>
-    Localizer.Default["greeting", "Hello {name}!", [("name", name)]];   // arguments as a (name, value) array
+string a = Localizer.Default.Translate("home.title", "Home");
+string b = Localizer.Default["home.title", "Home"];                 // identical lookup, indexer style
+string c = Localizer.Default["greeting", "Hello {name}!", [("name", "Ada")]]; // arguments as a (name, value) array
 ```
 
-> **Pick one convention.** The analyzer and the extractor recognise both styles equally and there is no
-> functional difference, so it is entirely up to your team which to adopt — but settle on one. Mixing
-> `Translate(...)` and `["…"]` across a codebase only makes call sites harder to scan. The method form is
-> the one that also works as a receiver-less free function; the indexer always needs a receiver.
-
-Either way the call goes through the process-wide ambient store (the `IConfiguration` model): reachable
-from anywhere — a service, a static helper, even an exception thrown before any container exists. There
-is nothing to register and no constructor to thread. `Localizer.Default` is that same store, so
-`Localizer.Default.Translate(...)` and the receiver-less `Translate(...)` are the identical call.
+> **Pick one convention.** The two are the same call — the analyzer and the extractor recognise both — so
+> it is purely your team's taste, but settle on one; mixing `Translate(...)` and `["…"]` only makes call
+> sites harder to scan. Note the indexer is an *instance* feature (C# has no static indexers), so the
+> receiver-less free-function form above is always the `Translate` method — `Localizer["…"]` does not
+> exist, only `Localizer.Default["…"]` on the instance.
 
 > **As your app grows**, scope keys by *category* so two components can both use `"title"` without
 > colliding — call `Localizer.For<T>()`, or inject `ILocalizer<T>` (the `ILogger<T>` model). A set of
