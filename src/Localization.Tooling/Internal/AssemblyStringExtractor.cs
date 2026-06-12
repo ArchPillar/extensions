@@ -27,6 +27,7 @@ internal sealed class AssemblyStringExtractor : IDisposable
     private const string TranslatableAttribute = "ArchPillar.Extensions.Localization.TranslatableAttribute";
     private const string TranslationDefaultAttribute = "ArchPillar.Extensions.Localization.TranslationDefaultAttribute";
     private const string TranslationContextAttribute = "ArchPillar.Extensions.Localization.TranslationContextAttribute";
+    private const string TranslationScopeAttribute = "ArchPillar.Extensions.Localization.TranslationScopeAttribute";
 
     // One resolver and one method-binding cache for the whole batch: scanning a solution, the shared dependency
     // assemblies (ArchPillar.*, the framework) are loaded once rather than once per assembly, and a method called
@@ -296,13 +297,112 @@ internal sealed class AssemblyStringExtractor : IDisposable
         }
     }
 
-    // The category is the receiver's generic type argument: ILocalizer<T> / IStringLocalizer<T> -> T's full
-    // name (Translate/the indexer are declared on the non-generic base, so it comes from the receiver, not the
-    // method). A non-generic receiver (the concrete DefaultLocalizer, or an unknown type) is the global category.
-    private static string CategoryOf(IReadOnlyList<Slot> args, int receiver) =>
-        receiver > 0 && args[0].Type is GenericInstanceType { GenericArguments.Count: > 0 } generic
+    // The category is the full name of the type argument bound to a [TranslationScope] type parameter on the
+    // receiver's type, any of its base types, or its interfaces — so ILocalizer<T> (scope on the receiver) and
+    // Localized<TSelf> (scope on a base) resolve identically to the runtime and the Roslyn detector, rather than
+    // only the direct-receiver case. IStringLocalizer<T> is a framework type and carries no [TranslationScope],
+    // so a generic receiver with no marker anywhere falls back to its own first type argument (its long-standing
+    // behaviour). A non-generic receiver with no marked base (the concrete DefaultLocalizer, or an unknown type)
+    // is the global category.
+    private static string CategoryOf(IReadOnlyList<Slot> args, int receiver)
+    {
+        if (receiver <= 0 || args[0].Type is not { } receiverType)
+        {
+            return string.Empty;
+        }
+
+        foreach (GenericInstanceType candidate in SelfBasesAndInterfaces(receiverType))
+        {
+            var scoped = ScopedArgument(candidate);
+            if (scoped is not null)
+            {
+                return scoped;
+            }
+        }
+
+        return receiverType is GenericInstanceType { GenericArguments.Count: > 0 } generic
             ? generic.GenericArguments[0].FullName
             : string.Empty;
+    }
+
+    // The full name of the argument bound to a [TranslationScope] generic parameter of this constructed type, or
+    // null when the definition cannot be resolved, has no such parameter, or the argument is itself an unresolved
+    // type parameter (a scope flowing through an open generic — left to the Roslyn detector, which substitutes).
+    private static string? ScopedArgument(GenericInstanceType constructed)
+    {
+        TypeDefinition? definition = TryResolveType(constructed);
+        if (definition is null)
+        {
+            return null;
+        }
+
+        for (var index = 0; index < definition.GenericParameters.Count && index < constructed.GenericArguments.Count; index++)
+        {
+            TypeReference argument = constructed.GenericArguments[index];
+            if (HasScopeAttribute(definition.GenericParameters[index]) && argument is not GenericParameter)
+            {
+                return argument.FullName;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool HasScopeAttribute(GenericParameter parameter)
+    {
+        foreach (CustomAttribute attribute in parameter.CustomAttributes)
+        {
+            if (attribute.AttributeType.FullName == TranslationScopeAttribute)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // The receiver type, then each base type up the chain, then the interfaces seen along the way — each yielded
+    // where it is a constructed generic type, so a [TranslationScope] argument can be read off it. Mirrors the
+    // Roslyn detector's self-bases-and-interfaces walk; resolution failure simply ends the walk.
+    private static IEnumerable<GenericInstanceType> SelfBasesAndInterfaces(TypeReference type)
+    {
+        TypeReference? current = type;
+        while (current is not null)
+        {
+            if (current is GenericInstanceType generic)
+            {
+                yield return generic;
+            }
+
+            TypeDefinition? definition = TryResolveType(current);
+            if (definition is null)
+            {
+                yield break;
+            }
+
+            foreach (InterfaceImplementation implementation in definition.Interfaces)
+            {
+                if (implementation.InterfaceType is GenericInstanceType genericInterface)
+                {
+                    yield return genericInterface;
+                }
+            }
+
+            current = definition.BaseType;
+        }
+    }
+
+    private static TypeDefinition? TryResolveType(TypeReference reference)
+    {
+        try
+        {
+            return reference.Resolve();
+        }
+        catch (AssemblyResolutionException)
+        {
+            return null;
+        }
+    }
 
     // Pops the top <paramref name="count"/> slots and returns them in argument order (deepest = arg 0).
     private static IReadOnlyList<Slot> Pop(List<Slot> stack, int count)

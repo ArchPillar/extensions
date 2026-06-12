@@ -2,19 +2,23 @@ namespace ArchPillar.Extensions.Localization;
 
 /// <summary>
 /// The single convention for the on-disk identity of a catalog entry: the translation category qualifies
-/// the key so an entry is unique across categories (and contexts) in one file. Shared by every format
-/// provider and the tooling so what is written can be read back exactly. The category is always present —
-/// it is a first-class part of the identity, never dropped — so a global (uncategorized) entry is written
-/// with an empty category, i.e. a leading <c>::</c>.
+/// the key so an entry is unique across categories (and contexts) in one file. This is an ARB concern — its
+/// flat JSON object holds one member per entry, so the category has to live in the member name; the
+/// structured formats (XLIFF, PO) keep the bare key and carry the category in a separate note. A global
+/// (uncategorized) entry is therefore written as its <em>bare</em> key — matching standard ARB and what
+/// translation tools expect — with the sole exception of a key that begins with <c>@</c>, which is escaped
+/// with a leading <c>::</c> so it is never confused with ARB's <c>@</c>-metadata members.
 /// </summary>
 public static class QualifiedKey
 {
     private const string CategorySeparator = "::";
+    private const string MetadataPrefix = "@";
 
     /// <summary>
     /// Qualifies <paramref name="key"/> with its <paramref name="category"/> (and <paramref name="context"/>
-    /// when present) into the on-disk identity — for example <c>Acme.Labels::save</c>, <c>::greeting</c>
-    /// (global), or <c>Acme.Menu::post (#verb)</c>.
+    /// when present) into the on-disk identity — for example <c>Acme.Labels::save</c>, <c>greeting</c>
+    /// (global), or <c>Acme.Menu::post (#verb)</c>. A global key that begins with <c>@</c> is escaped as
+    /// <c>::@key</c>.
     /// </summary>
     /// <param name="category">The translation category (empty for the global namespace).</param>
     /// <param name="key">The stable symbolic key.</param>
@@ -28,8 +32,19 @@ public static class QualifiedKey
             throw new ArgumentNullException(nameof(key));
         }
 
-        var qualified = (category ?? string.Empty) + CategorySeparator + key;
-        return string.IsNullOrEmpty(context) ? qualified : qualified + " (#" + context + ")";
+        string member;
+        if (string.IsNullOrEmpty(category))
+        {
+            // Global namespace: the bare key is the member, except a key beginning with "@" is escaped with
+            // the separator so it is never read back as an ARB "@"-metadata member.
+            member = key.StartsWith(MetadataPrefix, StringComparison.Ordinal) ? CategorySeparator + key : key;
+        }
+        else
+        {
+            member = category + CategorySeparator + key;
+        }
+
+        return string.IsNullOrEmpty(context) ? member : member + " (#" + context + ")";
     }
 
     /// <summary>

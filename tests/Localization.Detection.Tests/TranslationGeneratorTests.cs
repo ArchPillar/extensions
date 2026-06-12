@@ -36,8 +36,8 @@ public sealed class TranslationGeneratorTests
         Assert.Contains("GeneratedLocalizationTemplate(", template);
         var arb = DecodeTemplate(template);
         Assert.Contains("\"@@locale\": \"en\"", arb);
-        // A global (uncategorized) key is qualified with a leading "::" (the empty namespace).
-        Assert.Contains("\"::home.title\": \"Home\"", arb);
+        // A global (uncategorized) key is written as its bare key, matching standard ARB.
+        Assert.Contains("\"home.title\": \"Home\"", arb);
         Assert.Contains("x-source-fingerprint", arb);
     }
 

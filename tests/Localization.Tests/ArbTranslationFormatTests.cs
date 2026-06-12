@@ -189,9 +189,20 @@ public sealed class ArbTranslationFormatTests
     }
 
     [Fact]
+    public async Task Write_GlobalKey_EmitsBareMemberAsync()
+    {
+        // A global (uncategorized) key is its own member — no "::" prefix — matching standard ARB so a
+        // translation tool pairs it with the source template by id.
+        var text = Encoding.UTF8.GetString(await WriteAsync(SingleEntry("home.greeting", "Hallo")));
+
+        Assert.Contains("\"home.greeting\": \"Hallo\"", text);
+        Assert.DoesNotContain("::home.greeting", text);
+    }
+
+    [Fact]
     public async Task RoundTrip_KeyBeginningWithAt_IsPreservedAsync()
     {
-        // A key starting with '@' is now safe: the qualified member is "::@weird", never mistaken for metadata.
+        // A key starting with '@' is escaped to the qualified member "::@weird", never mistaken for metadata.
         Catalog roundTripped = await RoundTripAsync(SingleEntry("@weird", "value"));
 
         Assert.Equal("@weird", Assert.Single(roundTripped.Entries).Key);
