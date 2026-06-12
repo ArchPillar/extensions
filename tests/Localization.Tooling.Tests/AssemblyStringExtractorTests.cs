@@ -93,6 +93,26 @@ public sealed class AssemblyStringExtractorTests : IDisposable
         Assert.Equal("Demo.Legacy", site.Category);
     }
 
+    [Fact]
+    public void Build_AssemblyWithNoTranslatableCalls_ProducesNoTemplate()
+    {
+        // A project that references the localizer but has no translatable call site yields no template, so the
+        // build writes no empty {Assembly}.{source}.arb — an empty translation file is pure noise.
+        var path = Compile("""
+            using ArchPillar.Extensions.Localization;
+
+            namespace Demo;
+
+            public sealed class Service(ILocalizer localizer)
+            {
+                public ILocalizer Localizer => localizer; // referenced, but never used to translate
+            }
+            """);
+
+        using var extractor = new AssemblyStringExtractor();
+        Assert.Null(TemplateBuilder.Build(extractor, path, "en"));
+    }
+
     private IReadOnlyList<RawCallSite> Extract(string source)
     {
         var path = Compile(source);
