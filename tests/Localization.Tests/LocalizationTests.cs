@@ -75,7 +75,7 @@ public sealed class LocalizationTests
                 """);
 
             Localizer.Reset();
-            Localizer.TranslationsDirectory = directory;
+            Localizer.Configure(new LocalizerOptions { TranslationsDirectory = directory });
 
             WithCulture(_german, () => Assert.Equal("Hallo", Localizer.For<Greeting>().Translate("hello", "Hello")));
         }

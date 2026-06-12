@@ -73,8 +73,7 @@ public sealed class GoldenPathTests : IDisposable
 
         // 5. The app loads translations from that directory and renders per request culture — with zero
         //    call-site changes from step 1.
-        Ambient.SourceCulture = "en";
-        Ambient.TranslationsDirectory = _translationsDirectory;
+        Ambient.Configure(new LocalizerOptions { SourceCulture = "en", TranslationsDirectory = _translationsDirectory });
         ILocalizer localizer = Ambient.Default;
 
         Assert.Equal("Startseite", WithCulture(_german, () => localizer.Translate("home.title", "Home")));
@@ -120,8 +119,7 @@ public sealed class GoldenPathTests : IDisposable
         };
         await WriteArbAsync(Path.Combine(_translationsDirectory, "de.arb"), handedBack);
 
-        Ambient.SourceCulture = "en";
-        Ambient.TranslationsDirectory = _translationsDirectory;
+        Ambient.Configure(new LocalizerOptions { SourceCulture = "en", TranslationsDirectory = _translationsDirectory });
         ILocalizer localizer = Ambient.Default;
 
         const string Default = "{count, plural, one {# message} other {# messages}}";

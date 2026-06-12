@@ -2,7 +2,6 @@ using System.Globalization;
 using System.Reflection;
 using ArchPillar.Extensions.Localization.Formats;
 using ArchPillar.Extensions.Localization.Internal;
-using ArchPillar.Extensions.Localization.MessageFormat;
 
 namespace ArchPillar.Extensions.Localization;
 
@@ -132,32 +131,6 @@ public sealed class CatalogStore : IDisposable
         }
     }
 
-    internal string SourceCulture
-    {
-        get => Context.SourceCultureName;
-        set
-        {
-            lock (_gate)
-            {
-                Volatile.Write(ref _context, RenderingContext.For(value, _context.MissingArguments));
-                Rebuild();
-            }
-        }
-    }
-
-    internal MissingArgumentPolicy MissingArguments
-    {
-        get => Context.MissingArguments;
-        set
-        {
-            lock (_gate)
-            {
-                Volatile.Write(ref _context, RenderingContext.For(_context.SourceCultureName, value));
-                Rebuild();
-            }
-        }
-    }
-
     // Applies source culture, missing-argument policy, the directory, and additional sources in one rebuild —
     // the single-shot configuration the ambient store is set up with (e.g. by AddArchPillarLocalization).
     internal void Configure(LocalizerOptions options)
@@ -200,39 +173,6 @@ public sealed class CatalogStore : IDisposable
             {
                 lock (_gate)
                 {
-                    Rebuild();
-                }
-            }
-        }
-    }
-
-    internal string TranslationsDirectory
-    {
-        get => _directory;
-        set
-        {
-            var directory = value ?? string.Empty;
-
-            // Hold _startupGate so this cannot interleave with the one-time EnsureStarted: either startup
-            // runs first (then this reloads), or this runs first (then startup reads the new directory).
-            // That closes the race where a new directory is recorded but never read. I/O stays off _gate.
-            lock (_startupGate)
-            {
-                lock (_gate)
-                {
-                    _directory = directory;
-                }
-
-                if (!Volatile.Read(ref _scannedLoaded))
-                {
-                    return;
-                }
-
-                List<Catalog> catalogs = CatalogLoader.LoadDirectory(Options);
-                lock (_gate)
-                {
-                    _directoryCatalogs.Clear();
-                    _directoryCatalogs.AddRange(catalogs);
                     Rebuild();
                 }
             }

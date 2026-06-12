@@ -1,4 +1,3 @@
-using ArchPillar.Extensions.Localization.MessageFormat;
 
 namespace ArchPillar.Extensions.Localization;
 
@@ -17,27 +16,6 @@ public static class Localizer
 
     /// <summary>The global-namespace ambient localizer (the uncategorized bucket).</summary>
     public static ILocalizer Default => Ambient.Default;
-
-    /// <summary>The source culture used to render in-code defaults; defaults to <c>en</c>.</summary>
-    public static string SourceCulture
-    {
-        get => Ambient.SourceCulture;
-        set => Ambient.SourceCulture = value;
-    }
-
-    /// <summary>How the formatter handles a message that references an argument with no supplied value.</summary>
-    public static MissingArgumentPolicy MissingArguments
-    {
-        get => Ambient.MissingArguments;
-        set => Ambient.MissingArguments = value;
-    }
-
-    /// <summary>The directory the ambient store loads its loose files from.</summary>
-    public static string TranslationsDirectory
-    {
-        get => Ambient.TranslationsDirectory;
-        set => Ambient.TranslationsDirectory = value;
-    }
 
     /// <summary>
     /// The single process-wide ambient <see cref="LocalizationContext"/>, created on first use. Throws if the

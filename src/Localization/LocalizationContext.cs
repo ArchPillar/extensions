@@ -1,5 +1,4 @@
 using System.Globalization;
-using ArchPillar.Extensions.Localization.MessageFormat;
 
 namespace ArchPillar.Extensions.Localization;
 
@@ -37,27 +36,6 @@ public sealed class LocalizationContext : IDisposable
 
     /// <summary>The global-namespace localizer (the uncategorized bucket) over this context.</summary>
     public ILocalizer Default { get; }
-
-    /// <summary>The source culture the in-code defaults are written in; defaults to <c>en</c>.</summary>
-    public string SourceCulture
-    {
-        get => _store.SourceCulture;
-        set => _store.SourceCulture = value;
-    }
-
-    /// <summary>How a referenced argument with no supplied value renders.</summary>
-    public MissingArgumentPolicy MissingArguments
-    {
-        get => _store.MissingArguments;
-        set => _store.MissingArguments = value;
-    }
-
-    /// <summary>The translations directory this context loads its loose files from.</summary>
-    public string TranslationsDirectory
-    {
-        get => _store.TranslationsDirectory;
-        set => _store.TranslationsDirectory = value;
-    }
 
     /// <summary>Returns the localizer scoped to <typeparamref name="T"/>'s full name, over this context.</summary>
     /// <typeparam name="T">The type whose full name is the translation category.</typeparam>
