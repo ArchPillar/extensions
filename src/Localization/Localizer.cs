@@ -148,6 +148,18 @@ public static class Localizer
     internal static IReadOnlyList<KeyValuePair<string, string>> EnumerateOverrides(string category, bool includeParentCultures) =>
         Ambient.EnumerateOverrides(category, includeParentCultures);
 
+    // Test-only: returns the static facade to a pristine state — disposes and clears the ambient context and
+    // clears the disabled flag — so a lifecycle test (Disable/Initialize) does not leak into the next test.
+    internal static void ResetAmbientForTests()
+    {
+        lock (_gate)
+        {
+            _ambient?.Dispose();
+            _ambient = null;
+            _disabled = false;
+        }
+    }
+
     private static LocalizationContext EnsureAmbient()
     {
         lock (_gate)

@@ -14,6 +14,7 @@ internal sealed class SatelliteStrings;
 /// <summary>A top-level marker type used as a category in the ambient-store tests.</summary>
 internal sealed class Greeting;
 
+[Collection("Ambient")]
 public sealed class LocalizationTests
 {
     private static readonly CultureInfo _german = CultureInfo.GetCultureInfo("de");

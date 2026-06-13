@@ -84,7 +84,28 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
         Assert.NotNull(provider.GetRequiredService<ILocalizer>());
     }
 
-    public void Dispose() => Ambient.Reset();
+    [Fact]
+    public void AddArchPillarLocalization_UseAmbientFalse_IsolatesFromTheStaticAndDisablesIt()
+    {
+        Ambient.ResetAmbientForTests();
+        try
+        {
+            var services = new ServiceCollection();
+            services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en", UseAmbient = false });
+            using ServiceProvider provider = services.BuildServiceProvider();
+
+            // DI resolves a private, container-owned context — so injection still works...
+            Assert.NotNull(provider.GetRequiredService<ILocalizer>());
+            // ...while the process-wide static ambient is disabled: any static use now throws.
+            Assert.Throws<InvalidOperationException>(() => Ambient.Default);
+        }
+        finally
+        {
+            Ambient.ResetAmbientForTests();
+        }
+    }
+
+    public void Dispose() => Ambient.ResetAmbientForTests();
 
     private static void WithCulture(CultureInfo culture, Action action)
     {
