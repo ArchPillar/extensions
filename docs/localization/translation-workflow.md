@@ -21,8 +21,9 @@ Install the tool once (it is a .NET global tool; the command is `dotnet apl`):
 dotnet tool install --global ArchPillar.Extensions.Localization.Tooling
 ```
 
-> **Try it against a sample.** The localization samples that import `Localization.Authoring.props` run the
-> generator on build, so you can exercise the whole flow against a real assembly from this repo:
+> **Try it against a sample.** The localization samples are wired (via the repo's `Directory.Build` files)
+> to run the generator and the build-time extract, so you can exercise the whole flow against a real
+> assembly from this repo:
 > ```bash
 > dotnet build samples/Localization/Localization.ConsoleSample
 > dotnet apl extract --project samples/Localization/Localization.ConsoleSample/Localization.ConsoleSample.csproj --output /tmp/x
@@ -49,9 +50,10 @@ Translations`. `--project` and `--solution` also accept a **folder** or no value
 that folder (or the current directory). An ambiguous folder (more than one project/solution) is an error
 rather than a guess.
 
-The tool reads the template the generator **bakes into each built assembly**, so the assemblies must be
-built first. It reads them from metadata without loading code, so pointing `--input` at a large output tree
-is safe.
+The tool **extracts the strings from each built assembly's IL** (Decision D-K — reading compiled metadata,
+never source, so it also catches strings in Razor/Blazor/MVC generated code), so the assemblies must be
+built first. It reads them without loading code, so pointing `--input` at a large output tree is safe. An
+assembly with no translatable strings produces no file — empty templates are never written.
 
 ## 1. Discover — which assemblies have strings?
 

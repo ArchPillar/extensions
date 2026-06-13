@@ -2,15 +2,21 @@
 
 From the four-area review (2026-06). Scope: all REDs, all ORANGEs, key YELLOWs, each with a
 regression test. Ordering is by blast radius. Decision: **the category (namespace) is a first-class
-part of an entry's on-disk identity and is never dropped** — the serialized key is always category-qualified.
+part of an entry's on-disk identity and is never dropped** — but it is serialized where each format
+needs it, not as a universal key prefix.
 
-## Proposed wire format (category-qualified identity, used by ARB member / XLIFF unit id / PO msgctxt)
-- `Qualify(category, key)` = `category + "::" + key`; global (empty category) = `"::" + key` (the empty
-  namespace, shown explicitly). Reverse: split on the FIRST `::` → category (never contains `::`), key =
-  remainder (may contain anything). Fully reversible for (category, key) from the string alone.
-- Context stays an annotation (ARB `context` / XLIFF note / PO is part of msgctxt already); where it is part
-  of identity, it is folded into the qualified key so (category, key, context) is unique on disk.
-- Tool reconciler identity becomes `(category, composite(key, context))`.
+## Wire format (category as on-disk identity)
+- The category qualifies the identity only where a format requires it. The structured formats keep the
+  **bare key** and carry the category in a separate field — XLIFF in a `<note category="x-category">`, PO
+  in an `#. x-category=` comment. Only **ARB** must fold it into the JSON member name, because its flat
+  object holds one member per entry.
+- ARB `Qualify(category, key)` (see `QualifiedKey`): a global (empty-category) entry is its **bare key**
+  (`home.greeting`), matching standard ARB and what translation tools expect; a categorized entry is
+  `category + "::" + key` (`Acme.Greeter::greeting`); a global key beginning with `@` is escaped as
+  `"::" + key` so it is never read as ARB `@`-metadata. `Unqualify` is given the entry's category (from
+  `x-category`/`@@x-category`) and strips the prefix, so it is fully reversible.
+- Context stays an annotation (ARB `context` / XLIFF note / PO msgctxt); the reconciler identity is
+  `(category, composite(key, context))`.
 
 ## RED
 - [x] P-R1  Generator never extracts IStringLocalizer indexer sites (predicate lacks ElementAccessExpression; whole-compilation Detect() unused). + relax DetectAt guard. — FIXED.
