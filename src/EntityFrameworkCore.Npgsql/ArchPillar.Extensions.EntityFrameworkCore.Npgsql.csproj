@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework />
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <RootNamespace>ArchPillar.Extensions.EntityFrameworkCore.Npgsql</RootNamespace>
+    <!-- EF1001: we are an EF Core provider extension; using internal Npgsql/EF Core APIs
+         (PgNewArrayExpression, PgBufferedConverter, …) is the whole purpose of this
+         library, and the spec records this fragility explicitly. -->
+    <NoWarn>$(NoWarn);EF1001</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>ArchPillar.Extensions.EntityFrameworkCore.Npgsql</PackageId>
+    <Description>Provider-level fixes and extensions for Npgsql and Npgsql.EntityFrameworkCore.PostgreSQL: deterministic UTC date/time storage, CLR enum &lt;-&gt; int4 binding, `'…'::uuid` literal casts that fix Guid projection, and an `EF.Functions.JsonbBuildObject(...)` translator.</Description>
+    <PackageTags>archpillar;ef-core;efcore;npgsql;postgres;postgresql;uuid;jsonb;datetime;timestamptz</PackageTags>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageReadmeFile>PACKAGE.md</PackageReadmeFile>
+    <IsAotCompatible>false</IsAotCompatible>
+    <PackageProjectUrl>https://github.com/ArchPillar/extensions</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/ArchPillar/extensions</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ArchPillar.Extensions.EntityFrameworkCore.Npgsql.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="" />
+    <None Include="PACKAGE.md" Pack="true" PackagePath="" Condition="Exists('PACKAGE.md')" />
+  </ItemGroup>
+
+</Project>

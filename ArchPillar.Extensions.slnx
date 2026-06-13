@@ -50,6 +50,13 @@
   <Folder Name="/src/Primitives.EntityFrameworkCore/">
     <Project Path="src/Primitives.EntityFrameworkCore/ArchPillar.Extensions.Primitives.EntityFrameworkCore.csproj" />
   </Folder>
+  <Folder Name="/src/EntityFrameworkCore.Npgsql/">
+    <Project Path="src/EntityFrameworkCore.Npgsql/ArchPillar.Extensions.EntityFrameworkCore.Npgsql.csproj" />
+  </Folder>
+  <Folder Name="/samples/EntityFrameworkCore.Npgsql/" />
+  <Folder Name="/samples/EntityFrameworkCore.Npgsql/Npgsql.Sample/">
+    <Project Path="samples/EntityFrameworkCore.Npgsql/Npgsql.Sample/Npgsql.Sample.csproj" />
+  </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/Mapper.Tests/">
     <Project Path="tests/Mapper.Tests/ArchPillar.Extensions.Mapper.Tests.csproj" />
@@ -68,5 +75,8 @@
   </Folder>
   <Folder Name="/tests/Primitives.EntityFrameworkCore.Tests/">
     <Project Path="tests/Primitives.EntityFrameworkCore.Tests/ArchPillar.Extensions.Primitives.EntityFrameworkCore.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/EntityFrameworkCore.Npgsql.Tests/">
+    <Project Path="tests/EntityFrameworkCore.Npgsql.Tests/ArchPillar.Extensions.EntityFrameworkCore.Npgsql.Tests.csproj" />
   </Folder>
 </Solution>
