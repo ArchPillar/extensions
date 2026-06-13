@@ -4,7 +4,7 @@ Patterns and guidance for using ArchPillar.Extensions.Commands in production
 applications, with a focus on ASP.NET Core Minimal APIs.
 
 A complete, runnable companion to this document lives in
-[`samples/Commands/Command.WebApiSample/`](../../samples/Commands/Command.WebApiSample/) —
+[`samples/Commands/Commands.WebApiSample/`](../../samples/Commands/Commands.WebApiSample/) —
 a small Notes service with EF Core (SQLite in-memory), a `TransactionMiddleware`,
 batching, and telemetry wired up. The patterns below are the same patterns that
 sample uses.

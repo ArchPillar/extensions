@@ -1,9 +1,9 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using WebShop.OData.Projections;
+using Mapper.WebShopODataSample.Projections;
 
-namespace WebShop.OData;
+namespace Mapper.WebShopODataSample;
 
 /// <summary>
 /// Integration tests verifying that mapper projections work correctly

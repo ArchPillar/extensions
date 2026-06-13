@@ -118,7 +118,7 @@ public sealed class OrderEndpoint(Pipeline<OrderContext> pipeline)
 }
 ```
 
-The middlewares are registered in the DI container as `IPipelineMiddleware<OrderContext>` via `TryAddEnumerable`, and the handler as `IPipelineHandler<OrderContext>` via `Replace`. `Pipeline<OrderContext>` is then composed from whichever implementations are registered — see the [SPEC](SPEC.md#composition-via-di) for details.
+The middlewares are registered in the DI container as `IPipelineMiddleware<OrderContext>` via `TryAddEnumerable`, and the handler as `IPipelineHandler<OrderContext>` via `Replace`. `Pipeline<OrderContext>` is then composed from whichever implementations are registered — see the [SPEC](internals/SPEC.md#composition-via-di) for details.
 
 ### Handler as an instance
 
@@ -233,4 +233,4 @@ var context = new OrderContext { OrderId = 42, UserId = 7 };
 await pipeline.ExecuteAsync(context);
 ```
 
-That's the whole API surface. For the full design rationale, behaviour contract, and the zero-allocation guarantees, see the [specification](SPEC.md).
+That's the whole API surface. For the full design rationale, behaviour contract, and the zero-allocation guarantees, see the [specification](internals/SPEC.md).

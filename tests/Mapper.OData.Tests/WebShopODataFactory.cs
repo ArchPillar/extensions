@@ -2,10 +2,10 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using WebShop.OData.Data;
-using WebShop.OData.Models;
+using Mapper.WebShopODataSample.Data;
+using Mapper.WebShopODataSample.Models;
 
-namespace WebShop.OData;
+namespace Mapper.WebShopODataSample;
 
 /// <summary>
 /// Custom <see cref="WebApplicationFactory{TEntryPoint}"/> that replaces SQLite with
