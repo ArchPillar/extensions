@@ -18,6 +18,8 @@
         <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.10" />
         <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
         <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
+        <PackageVersion Include="Microsoft.Extensions.Localization" Version="8.0.0" />
+        <PackageVersion Include="Microsoft.Extensions.Localization.Abstractions" Version="8.0.0" />
         <PackageVersion Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
         <PackageVersion Include="Microsoft.Extensions.Logging" Version="8.0.1" />
         <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="8.0.1" />
@@ -36,6 +38,8 @@
         <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
         <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.14" />
         <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.14" />
+        <PackageVersion Include="Microsoft.Extensions.Localization" Version="9.0.0" />
+        <PackageVersion Include="Microsoft.Extensions.Localization.Abstractions" Version="9.0.0" />
         <PackageVersion Include="Microsoft.Extensions.Hosting" Version="9.0.14" />
         <PackageVersion Include="Microsoft.Extensions.Logging" Version="9.0.14" />
         <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="9.0.14" />
@@ -51,9 +55,13 @@
         <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.5" />
         <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.5" />
         <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
+        <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.5" />
+        <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.5" />
         <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
         <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.5" />
         <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.5" />
+        <PackageVersion Include="Microsoft.Extensions.Localization" Version="10.0.0" />
+        <PackageVersion Include="Microsoft.Extensions.Localization.Abstractions" Version="10.0.0" />
         <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.5" />
         <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.5" />
         <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="10.0.5" />
@@ -76,6 +84,17 @@
     <ItemGroup>
         <!-- Source Link -->
         <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.102" />
+    </ItemGroup>
+    <ItemGroup>
+        <!-- Roslyn (analyzers + source generator); host-provided, referenced PrivateAssets=all.
+             Pinned to 4.14.0 so it does not downgrade BenchmarkDotNet's transitive requirement. -->
+        <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
+        <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="4.14.0" />
+        <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="3.11.0" />
+        <!-- IL reading for the dotnet tool's assembly-based extraction (D-K). A tool-only dependency: the
+             tool is a separate global tool, never shipped in a consumer's product, so the runtime stays
+             dependency-free. -->
+        <PackageVersion Include="Mono.Cecil" Version="0.11.5" />
     </ItemGroup>
     <ItemGroup>
         <!-- Analyzers -->

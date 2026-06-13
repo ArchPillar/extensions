@@ -1,0 +1,306 @@
+using System.Globalization;
+using ArchPillar.Extensions.Localization.Internal;
+
+namespace ArchPillar.Extensions.Localization;
+
+/// <summary>
+/// Renders translatable call sites at runtime: looks up the loaded override for the requested culture
+/// and key, falls back through parent cultures to the in-code default, and formats with the ICU engine. A
+/// pure resolution engine — it resolves against a snapshot it is given (a live <see cref="CatalogStore"/> or
+/// a fixed set of catalogs) and owns no I/O. Lookups are lock-free; designed to be a singleton and safe for
+/// concurrent use.
+/// </summary>
+public sealed class DefaultLocalizer : ILocalizer
+{
+    private readonly CatalogStore? _store;
+    private readonly RenderingContext? _context;
+    private readonly TranslationSnapshot _fixedSnapshot;
+    private readonly IReadOnlyList<ITranslationSource> _fixedLayers;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="DefaultLocalizer"/> class over a <see cref="CatalogStore"/>,
+    /// resolving against the store's current layers and rendering through its <see cref="CatalogStore.Context"/>,
+    /// both read live so a reload or configuration change is observed on the next lookup. The store is owned by
+    /// the caller; the localizer only reads it.
+    /// </summary>
+    /// <param name="store">The catalogue store to resolve against.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="store"/> is <see langword="null"/>.</exception>
+    public DefaultLocalizer(CatalogStore store)
+    {
+        _store = store ?? throw new ArgumentNullException(nameof(store));
+        _context = null;
+        _fixedSnapshot = TranslationSnapshot.Empty;
+        _fixedLayers = [];
+    }
+
+    /// <summary>
+    /// Initializes an isolated localizer over the given <paramref name="catalogs"/>, bypassing the
+    /// translations directory and the ambient store. Intended for tests and self-contained or multi-tenant
+    /// scenarios. The source-language catalog and untranslated entries are skipped exactly as the directory
+    /// loader does; on per-culture overlap, later catalogs win. Hot reload does not apply.
+    /// </summary>
+    /// <param name="catalogs">The parsed catalogs to load as overrides.</param>
+    /// <param name="options">The localizer configuration, or <see langword="null"/> for the defaults.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="catalogs"/> is <see langword="null"/>.</exception>
+    public DefaultLocalizer(IEnumerable<Catalog> catalogs, LocalizerOptions? options = null)
+    {
+        if (catalogs is null)
+        {
+            throw new ArgumentNullException(nameof(catalogs));
+        }
+
+        LocalizerOptions resolved = options ?? new LocalizerOptions();
+        _store = null;
+        _context = RenderingContext.For(resolved.SourceCulture, resolved.MissingArguments);
+        _fixedSnapshot = CatalogLoader.BuildSnapshot([.. catalogs], resolved);
+        _fixedLayers = BuildLayers(resolved.Sources, _fixedSnapshot);
+    }
+
+    /// <summary>
+    /// Initializes an isolated localizer over a single <paramref name="catalog"/>, bypassing the
+    /// translations directory and the ambient store.
+    /// </summary>
+    /// <param name="catalog">The parsed catalog to load as overrides.</param>
+    /// <param name="options">The localizer configuration, or <see langword="null"/> for the defaults.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="catalog"/> is <see langword="null"/>.</exception>
+    public DefaultLocalizer(Catalog catalog, LocalizerOptions? options = null)
+        : this(Single(catalog), options)
+    {
+    }
+
+    /// <summary>
+    /// Creates a <see cref="DefaultLocalizer"/> from catalogs the caller has already loaded — for hosts without a
+    /// readable file system (such as Blazor WebAssembly), where the catalogs are fetched over HTTP and
+    /// parsed with an <see cref="ITranslationFormat"/> before being handed in here. Equivalent to the
+    /// <see cref="DefaultLocalizer(IEnumerable{Catalog}, LocalizerOptions?)"/> constructor.
+    /// </summary>
+    /// <param name="catalogs">The parsed catalogs to load as overrides.</param>
+    /// <param name="options">The localizer configuration, or <see langword="null"/> for the defaults.</param>
+    /// <returns>A localizer backed by the supplied catalogs.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="catalogs"/> is <see langword="null"/>.</exception>
+    public static DefaultLocalizer FromCatalogs(IEnumerable<Catalog> catalogs, LocalizerOptions? options = null) =>
+        new(catalogs ?? throw new ArgumentNullException(nameof(catalogs)), options);
+
+    private static IEnumerable<Catalog> Single(Catalog catalog) =>
+        catalog is null ? throw new ArgumentNullException(nameof(catalog)) : [catalog];
+
+    // The snapshot to resolve against: a directory-backed localizer reads the store's current snapshot (so a
+    // reload is observed immediately); an in-memory one resolves against its fixed snapshot.
+    private TranslationSnapshot CurrentSnapshot() => _store is not null ? _store.Snapshot : _fixedSnapshot;
+
+    /// <summary>
+    /// Translates <paramref name="key"/> for the current UI culture, falling back to
+    /// <paramref name="defaultMessage"/>.
+    /// </summary>
+    /// <param name="key">The stable symbolic key.</param>
+    /// <param name="defaultMessage">The in-code source default (ICU MessageFormat).</param>
+    /// <param name="arguments">The message arguments as <c>(name, value)</c> tuples.</param>
+    /// <returns>The rendered string.</returns>
+    public string Translate(
+        [Translatable] string key,
+        [TranslationDefault] string defaultMessage,
+        params (string Name, object? Value)[] arguments) =>
+        TranslateCore(CultureInfo.CurrentUICulture, key, defaultMessage, context: null, arguments);
+
+    /// <summary>
+    /// Translates <paramref name="key"/> with a disambiguation <paramref name="context"/> for the current
+    /// UI culture, falling back to <paramref name="defaultMessage"/>.
+    /// </summary>
+    /// <param name="key">The stable symbolic key.</param>
+    /// <param name="defaultMessage">The in-code source default (ICU MessageFormat).</param>
+    /// <param name="context">The disambiguation context.</param>
+    /// <param name="arguments">The message arguments as <c>(name, value)</c> tuples.</param>
+    /// <returns>The rendered string.</returns>
+    public string Translate(
+        [Translatable] string key,
+        [TranslationDefault] string defaultMessage,
+        [TranslationContext] string context,
+        params (string Name, object? Value)[] arguments) =>
+        TranslateCore(CultureInfo.CurrentUICulture, key, defaultMessage, context, arguments);
+
+    /// <summary>
+    /// Translates <paramref name="key"/> for an explicit <paramref name="culture"/>, falling back through
+    /// parent cultures to <paramref name="defaultMessage"/>.
+    /// </summary>
+    /// <param name="culture">The culture to translate for.</param>
+    /// <param name="key">The stable symbolic key.</param>
+    /// <param name="defaultMessage">The in-code source default (ICU MessageFormat).</param>
+    /// <param name="context">The optional disambiguation context.</param>
+    /// <param name="arguments">The message arguments as <c>(name, value)</c> tuples.</param>
+    /// <returns>The rendered string.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="culture"/> is <see langword="null"/>.</exception>
+    public string Translate(
+        CultureInfo culture,
+        [Translatable] string key,
+        [TranslationDefault] string defaultMessage,
+        [TranslationContext] string? context,
+        params (string Name, object? Value)[] arguments) =>
+        TranslateCore(culture, key, defaultMessage, context, arguments);
+
+    /// <summary>
+    /// Translates for an explicit culture and additionally reports whether a loaded override was used
+    /// (rather than the in-code default). Intended for integration adapters such as <c>IStringLocalizer</c>.
+    /// </summary>
+    /// <param name="culture">The culture to translate for.</param>
+    /// <param name="key">The stable symbolic key.</param>
+    /// <param name="defaultMessage">The fallback rendered when no override exists.</param>
+    /// <param name="context">The optional disambiguation context.</param>
+    /// <param name="overrideFound">Set to <see langword="true"/> when a loaded override was used.</param>
+    /// <param name="arguments">The message arguments as <c>(name, value)</c> tuples.</param>
+    /// <returns>The rendered string.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="culture"/> is <see langword="null"/>.</exception>
+    public string Translate(
+        CultureInfo culture,
+        string key,
+        string defaultMessage,
+        string? context,
+        out bool overrideFound,
+        params (string Name, object? Value)[] arguments)
+    {
+        if (culture is null)
+        {
+            throw new ArgumentNullException(nameof(culture));
+        }
+
+        var composite = TranslationKey.Compose(key, context);
+        var message = ResolveOverride(culture, category: string.Empty, composite, defaultMessage);
+        overrideFound = message is not null;
+
+        // An override was authored for the requested culture, so render it with that culture's rules.
+        // The in-code default is source-language text, so render it with the source culture's rules —
+        // otherwise an English default shown under, say, Japanese rules would pluralize incorrectly.
+        RenderingContext rendering = CurrentContext();
+        return message is not null
+            ? rendering.Formatter.Format(message, culture, arguments)
+            : rendering.Formatter.Format(defaultMessage, rendering.SourceCulture, arguments);
+    }
+
+    // The category-scoped core used by ILocalizer<T> (via the factory). It looks the key up within the
+    // localizer's category for the current UI culture, falling back to the in-code default. A literal
+    // lookup with no context allocates nothing: the composite key is the key itself and the tiered
+    // dictionary reads do not allocate.
+    internal string TranslateInCategory(
+        string category,
+        string key,
+        string defaultMessage,
+        string? context,
+        (string Name, object? Value)[] arguments) =>
+        TranslateInCategory(category, key, defaultMessage, context, out _, arguments);
+
+    // The found-aware, category-scoped core used by the IStringLocalizer adapter so it can compose: a hit
+    // resolves from the store, a miss is reported so the adapter can fall through to a previously-registered
+    // factory (the .resx-backed one) before settling on the in-code default.
+    internal string TranslateInCategory(
+        string category,
+        string key,
+        string defaultMessage,
+        string? context,
+        out bool overrideFound,
+        (string Name, object? Value)[] arguments)
+    {
+        CultureInfo culture = CultureInfo.CurrentUICulture;
+        var composite = TranslationKey.Compose(key, context);
+        var message = ResolveOverride(culture, category, composite, defaultMessage);
+        overrideFound = message is not null;
+        RenderingContext rendering = CurrentContext();
+        return message is not null
+            ? rendering.Formatter.Format(message, culture, arguments)
+            : rendering.Formatter.Format(defaultMessage, rendering.SourceCulture, arguments);
+    }
+
+    // Resolves and formats a loaded override (or a source result) within a category for the current UI
+    // culture, or returns null when there is none. Unlike TranslateInCategory it never renders a default —
+    // the IStringLocalizer adapter uses this so a miss does not push the name (which may be ResourceManager
+    // composite-format text like "{0:C}", not ICU) through the ICU formatter before the inner factory is tried.
+    internal string? TranslateOverride(
+        string category,
+        string key,
+        string? context,
+        (string Name, object? Value)[] arguments)
+    {
+        CultureInfo culture = CultureInfo.CurrentUICulture;
+        var composite = TranslationKey.Compose(key, context);
+        var message = ResolveOverride(culture, category, composite, defaultMessage: key);
+        return message is null ? null : CurrentContext().Formatter.Format(message, culture, arguments);
+    }
+
+    // Enumerates the loaded overrides for a category in the given culture as (compositeKey, message) pairs —
+    // the IStringLocalizer adapter's GetAllStrings reads this so ambient entries are listed, not just the
+    // inner factory's. Dynamic sources are not enumerable, so only the catalog snapshot is included. When
+    // parents are included, a more specific culture's entry wins on overlap.
+    internal IReadOnlyList<KeyValuePair<string, string>> EnumerateCategory(CultureInfo culture, string category, bool includeParentCultures)
+    {
+        TranslationSnapshot snapshot = CurrentSnapshot();
+        var chain = new List<string>();
+        for (CultureInfo? current = culture; current is not null && !string.IsNullOrEmpty(current.Name); current = current.Parent)
+        {
+            chain.Add(current.Name);
+            if (!includeParentCultures)
+            {
+                break;
+            }
+        }
+
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        for (var index = chain.Count - 1; index >= 0; index--)
+        {
+            if (snapshot.ByCulture.TryGetValue(chain[index], out IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>? byCategory)
+                && byCategory.TryGetValue(category, out IReadOnlyDictionary<string, string>? map))
+            {
+                foreach (KeyValuePair<string, string> pair in map)
+                {
+                    result[pair.Key] = pair.Value;
+                }
+            }
+        }
+
+        return [.. result];
+    }
+
+    // Walks the ordered resolution layers — custom sources and the catalog snapshot alike, no special path —
+    // and returns the first override, or null for none. Reading the layers by index and the snapshot layer's
+    // own lookup keep the literal path allocation-free.
+    private string? ResolveOverride(CultureInfo culture, string category, string compositeKey, string defaultMessage)
+    {
+        IReadOnlyList<ITranslationSource> layers = _store is not null ? _store.Layers : _fixedLayers;
+        for (var index = 0; index < layers.Count; index++)
+        {
+            var fromLayer = layers[index].Resolve(culture, category, compositeKey, defaultMessage);
+            if (fromLayer is not null)
+            {
+                return fromLayer;
+            }
+        }
+
+        return null;
+    }
+
+    // The non-attributed core. The public overloads carry the attributes so the extractor finds every
+    // call site; they delegate here so the library's own forwarding never looks like a translation site.
+    private string TranslateCore(
+        CultureInfo culture,
+        string key,
+        string defaultMessage,
+        string? context,
+        (string Name, object? Value)[] arguments) =>
+        Translate(culture, key, defaultMessage, context, out _, arguments);
+
+    // The resolution layers for an isolated localizer: custom sources first (a later-added source wins), then
+    // the snapshot as the lowest layer — the same shape the store builds, so resolution treats them alike.
+    private static IReadOnlyList<ITranslationSource> BuildLayers(IReadOnlyList<ITranslationSource>? sources, TranslationSnapshot snapshot)
+    {
+        IReadOnlyList<ITranslationSource> custom = sources ?? [];
+        var layers = new List<ITranslationSource>(custom.Count + 1);
+        for (var index = custom.Count - 1; index >= 0; index--)
+        {
+            layers.Add(custom[index]);
+        }
+
+        layers.Add(new SnapshotTranslationSource(snapshot));
+        return layers;
+    }
+
+    // The rendering context: a store-backed localizer reads the store's live context (so a configuration
+    // change is observed immediately and the formatter instance is shared); an isolated one uses its own.
+    private RenderingContext CurrentContext() => _store is not null ? _store.Context : _context!;
+}

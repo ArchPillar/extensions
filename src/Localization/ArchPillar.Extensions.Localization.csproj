@@ -1,0 +1,81 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework />
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <RootNamespace>ArchPillar.Extensions.Localization</RootNamespace>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>ArchPillar.Extensions.Localization</PackageId>
+    <Description>A user-interface translation library for .NET: extract translatable strings from call sites, hand them to translators in standard formats (ARB, XLIFF, Portable Object), and load translations at runtime as pluggable overrides. The in-code default is always the source of truth and terminal fallback. Bundles the container-format providers; no dependencies beyond the BCL.</Description>
+    <PackageTags>archpillar;localization;i18n;l10n;icu;translation;arb</PackageTags>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageProjectUrl>https://github.com/ArchPillar/extensions</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/ArchPillar/extensions</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>PACKAGE.md</PackageReadmeFile>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Localization.Abstractions\ArchPillar.Extensions.Localization.Abstractions.csproj" />
+    <ProjectReference Include="..\Localization.MessageFormat\ArchPillar.Extensions.Localization.MessageFormat.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.Tests" />
+    <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.Tooling" />
+    <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.Tooling.Tests" />
+    <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.DependencyInjection" />
+    <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.DependencyInjection.Tests" />
+    <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.StringLocalizer" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="" />
+    <None Include="PACKAGE.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <!--
+    Ship the analyzer, the generator, and the MSBuild surface in this one package so referencing it
+    activates diagnostics and template emission with zero setup. The compile-time components are
+    netstandard2.0; they are built (build order only, never referenced or run on this project) and
+    packed under analyzers/dotnet/cs together with their dependencies, which the analyzer load context
+    requires alongside them.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\Localization.Analyzers\ArchPillar.Extensions.Localization.Analyzers.csproj"
+                      PrivateAssets="all" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\Localization.CodeFixes\ArchPillar.Extensions.Localization.CodeFixes.csproj"
+                      PrivateAssets="all" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\Localization.Analyzers\build\ArchPillar.Extensions.Localization.props"
+          Pack="true" PackagePath="buildTransitive" Visible="false" />
+    <None Include="..\Localization.Analyzers\build\ArchPillar.Extensions.Localization.targets"
+          Pack="true" PackagePath="buildTransitive" Visible="false" />
+  </ItemGroup>
+
+  <Target Name="IncludeLocalizationCompileTimeAssets" BeforeTargets="_GetPackageFiles">
+    <ItemGroup>
+      <None Include="..\Localization.Analyzers\bin\$(Configuration)\netstandard2.0\ArchPillar.Extensions.Localization.Analyzers.dll"
+            Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+      <None Include="..\Localization.CodeFixes\bin\$(Configuration)\netstandard2.0\ArchPillar.Extensions.Localization.CodeFixes.dll"
+            Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+      <None Include="..\Localization.MessageFormat\bin\$(Configuration)\netstandard2.0\ArchPillar.Extensions.Localization.MessageFormat.dll"
+            Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+      <None Include="..\Localization.Abstractions\bin\$(Configuration)\netstandard2.0\ArchPillar.Extensions.Localization.Abstractions.dll"
+            Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    </ItemGroup>
+  </Target>
+
+</Project>

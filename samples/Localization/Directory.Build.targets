@@ -1,0 +1,50 @@
+<Project>
+
+  <!-- Chain the parent (the empty samples shield that keeps the root analyzer injection off the samples). -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.targets', '$(MSBuildThisFileDirectory)../'))" />
+
+  <PropertyGroup>
+    <!-- The package targets call `dotnet apl`; this repo runs the tool from its own build output. We invoke the
+         already-built tool DLL directly instead of running it through the project. Running it through the project
+         rebuilds the tool, and under a parallel solution build that races the graph's own build of it over
+         runtimeconfig.json (the build fails with "file in use"). The build-order ProjectReference below
+         guarantees the net8.0 DLL is built first. Set here, NOT in Directory.Build.props, because
+         $(Configuration) is not yet defined that early; there it would expand to empty and the path be wrong. -->
+    <_ArchPillarToolDll>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)..\..\src\Localization.Tooling\bin\$(Configuration)\net8.0\ArchPillar.Extensions.Localization.Tooling.dll'))</_ArchPillarToolDll>
+    <ArchPillarLocalizationToolCommand>dotnet "$(_ArchPillarToolDll)"</ArchPillarLocalizationToolCommand>
+    <!-- The tool is always available here (from source), so a real failure should fail the build, not warn. -->
+    <ArchPillarLocalizationToolContinueOnError>false</ArchPillarLocalizationToolContinueOnError>
+  </PropertyGroup>
+
+  <!--
+    Wire the generator (as analyzers, the set the package ships) and the package's extract/copy/merge targets,
+    EXCEPT for samples that manage their own catalogs (embedded satellites, a fetched-asset model, …) which set
+    ArchPillarLocalizationSampleAuthoring=false, and the trimmed / AOT samples, whose netstandard2.0 analyzer
+    references must not be pulled in. Decided here, in .targets, so PublishTrimmed/PublishAot set in the project
+    body are visible.
+  -->
+  <PropertyGroup>
+    <_ArchPillarSampleAuthoring Condition="'$(ArchPillarLocalizationSampleAuthoring)' != 'false' and '$(PublishTrimmed)' != 'true' and '$(PublishAot)' != 'true'">true</_ArchPillarSampleAuthoring>
+    <!-- The samples wire these build assets in by hand (no PackageReference), so they take the escape hatch to
+         run extraction just as a direct package consumer would. -->
+    <ArchPillarLocalizationExtractTransitively Condition="'$(_ArchPillarSampleAuthoring)' == 'true'">true</ArchPillarLocalizationExtractTransitively>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(_ArchPillarSampleAuthoring)' == 'true'">
+    <!-- Build-order only: guarantees the tool DLL exists before the extract target runs, and replaces the
+         `dotnet run` rebuild that raced the graph's own build of the tool. net8.0 is pinned to match the DLL
+         path above (the tool's only framework); no output is referenced or copied. -->
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\src\Localization.Tooling\ArchPillar.Extensions.Localization.Tooling.csproj"
+                      ReferenceOutputAssembly="false" SetTargetFramework="TargetFramework=net8.0" Private="false" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\src\Localization.Analyzers\ArchPillar.Extensions.Localization.Analyzers.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\src\Localization.Abstractions\ArchPillar.Extensions.Localization.Abstractions.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\src\Localization.MessageFormat\ArchPillar.Extensions.Localization.MessageFormat.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <Import Project="$(MSBuildThisFileDirectory)..\..\src\Localization.Analyzers\build\ArchPillar.Extensions.Localization.targets"
+          Condition="'$(_ArchPillarSampleAuthoring)' == 'true'" />
+
+</Project>

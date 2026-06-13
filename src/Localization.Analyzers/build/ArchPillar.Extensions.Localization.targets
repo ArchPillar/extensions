@@ -1,0 +1,86 @@
+<Project>
+
+  <!--
+    After a real build, extract the source-language template from the built assembly's IL (Decision D-K) by
+    invoking the tool. Gated to build-only (never design-time), so editing in the IDE does not write files
+    (Decision D-B). Extraction is per-authoring-assembly, so it runs only where the package is DIRECTLY
+    referenced — the project that owns the strings; a project that gets the package transitively has no strings
+    of its own and is skipped (it still gets the publish-time merge below). Set
+    ArchPillarLocalizationExtractTransitively=true to run it anyway in a project that references the package
+    indirectly or wires these targets in by hand (e.g. via Directory.Build) — the escape hatch. Best-effort: a
+    missing tool warns rather than failing the build.
+  -->
+  <Target Name="ArchPillarLocalizationExtractTemplate"
+          AfterTargets="Build"
+          Condition="'$(ArchPillarLocalizationEmit)' == 'true' and '$(DesignTimeBuild)' != 'true' and '$(BuildingProject)' == 'true'
+                     and ('$(ArchPillarLocalizationExtractTransitively)' == 'true' or '@(PackageReference->WithMetadataValue('Identity', 'ArchPillar.Extensions.Localization'))' != '')">
+    <Exec Command="$(ArchPillarLocalizationToolCommand) extract --assembly &quot;$(TargetPath)&quot; --output &quot;$([MSBuild]::NormalizePath('$(ArchPillarLocalizationOutputPath)'))&quot; --source $(ArchPillarLocalizationSourceLanguage) --format $(ArchPillarLocalizationFormat)"
+          ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)"
+          StandardOutputImportance="low" />
+  </Target>
+
+  <!--
+    Copies the target catalogs (everything except the source-language template) beside the application
+    binary, into a Translations folder, so the runtime's ambient directory source loads them. The catalogs are
+    already named {AssemblyName}.{culture}.{ext} (the tool writes them that way), so two referenced libraries
+    shipping (say) de never collide on one output path; they are copied as-is and the source-language template
+    ({AssemblyName}.{SourceLanguage}.*) is excluded. Set ArchPillarLocalizationCopyTargetsToOutput=false to opt
+    out (e.g. when embedding or merging at publish).
+  -->
+  <ItemGroup Condition="'$(ArchPillarLocalizationCopyTargetsToOutput)' == 'true' and '$(ArchPillarLocalizationEmbedTargets)' != 'true' and Exists('$(ArchPillarLocalizationOutputPath)')">
+    <Content Include="$(ArchPillarLocalizationOutputPath)\**\*.arb;$(ArchPillarLocalizationOutputPath)\**\*.xliff;$(ArchPillarLocalizationOutputPath)\**\*.xlf;$(ArchPillarLocalizationOutputPath)\**\*.po"
+             Exclude="$(ArchPillarLocalizationOutputPath)\$(AssemblyName).$(ArchPillarLocalizationSourceLanguage).arb;$(ArchPillarLocalizationOutputPath)\$(AssemblyName).$(ArchPillarLocalizationSourceLanguage).xliff;$(ArchPillarLocalizationOutputPath)\$(AssemblyName).$(ArchPillarLocalizationSourceLanguage).xlf;$(ArchPillarLocalizationOutputPath)\messages.pot"
+             CopyToOutputDirectory="PreserveNewest"
+             Link="Translations\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <!--
+    Opt-in (ArchPillarLocalizationEmbedTargets=true): embed the target catalogs as standard per-culture
+    SATELLITE assemblies instead of copying them as files — for single-file / self-contained publish. Catalogs
+    are named {AssemblyName}.{culture}.{ext}, so the culture is the trailing dot-segment of the file name
+    (App.de -> de); each lands in <culture>/<AssemblyName>.resources.dll, and the assembly is marked with
+    [LocalizationSatelliteCatalogs] so the runtime probes it lazily per culture. For trimmed/AOT apps prefer
+    the file (copy) path; embedded resources and satellites must be rooted against the trimmer.
+  -->
+  <ItemGroup Condition="'$(ArchPillarLocalizationEmbedTargets)' == 'true' and Exists('$(ArchPillarLocalizationOutputPath)')">
+    <EmbeddedResource Include="$(ArchPillarLocalizationOutputPath)\*.arb;$(ArchPillarLocalizationOutputPath)\*.xliff;$(ArchPillarLocalizationOutputPath)\*.xlf"
+                      Exclude="$(ArchPillarLocalizationOutputPath)\$(AssemblyName).$(ArchPillarLocalizationSourceLanguage).arb;$(ArchPillarLocalizationOutputPath)\$(AssemblyName).$(ArchPillarLocalizationSourceLanguage).xliff;$(ArchPillarLocalizationOutputPath)\$(AssemblyName).$(ArchPillarLocalizationSourceLanguage).xlf"
+                      Culture="$([System.Text.RegularExpressions.Regex]::Replace('%(Filename)', '^.*\.', ''))"
+                      Link="%(Filename)%(Extension)" />
+    <AssemblyAttribute Include="ArchPillar.Extensions.Localization.LocalizationSatelliteCatalogsAttribute" />
+  </ItemGroup>
+
+  <!--
+    On publish, flatten the per-library catalogs in the published Translations folder into one bundle per
+    culture (the dev many-files layout becomes a production single-bundle-per-culture layout). Best-effort:
+    if the 'dotnet apl' tool is not installed the merge is skipped (ContinueOnError) and the per-library
+    files are kept, so the app still works — just with more files. Set ArchPillarLocalizationMergeOnPublish=
+    false to keep the many files. The merge reuses the runtime's load, so the bundle resolves identically.
+  -->
+  <Target Name="ArchPillarLocalizationMergeOnPublish"
+          AfterTargets="Publish"
+          Condition="'$(ArchPillarLocalizationMergeOnPublish)' == 'true' and Exists('$(PublishDir)Translations')">
+    <!--
+      Start from a clean intermediate folder. Otherwise a merge that fails this run (ContinueOnError) would
+      leave the previous run's bundles in place, and the swap below would publish those stale catalogs.
+    -->
+    <RemoveDir Directories="$(IntermediateOutputPath)apl-merged" />
+    <Exec Command="$(ArchPillarLocalizationToolCommand) merge --input &quot;$([MSBuild]::NormalizePath('$(PublishDir)Translations'))&quot; --output &quot;$([MSBuild]::NormalizePath('$(IntermediateOutputPath)apl-merged'))&quot; --source $(ArchPillarLocalizationSourceLanguage)"
+          ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)"
+          StandardOutputImportance="low">
+      <Output TaskParameter="ExitCode" PropertyName="_ArchPillarMergeExitCode" />
+    </Exec>
+    <!-- Only consider the merged bundles when the tool actually succeeded (exit 0); a missing tool or a
+         failed merge returns nonzero, leaving the item groups empty so the swap below is a no-op. -->
+    <ItemGroup Condition="'$(_ArchPillarMergeExitCode)' == '0'">
+      <_ArchPillarMergedCatalogs Include="$(IntermediateOutputPath)apl-merged\*" />
+      <_ArchPillarPublishedCatalogs Include="$(PublishDir)Translations\*.arb;$(PublishDir)Translations\*.xliff;$(PublishDir)Translations\*.xlf;$(PublishDir)Translations\*.po" />
+    </ItemGroup>
+    <!-- Only swap when the merge succeeded and produced bundles; otherwise leave the per-library files in place. -->
+    <Delete Files="@(_ArchPillarPublishedCatalogs)" Condition="'@(_ArchPillarMergedCatalogs)' != ''" />
+    <Copy SourceFiles="@(_ArchPillarMergedCatalogs)"
+          DestinationFiles="@(_ArchPillarMergedCatalogs->'$(PublishDir)Translations\%(Filename)%(Extension)')"
+          Condition="'@(_ArchPillarMergedCatalogs)' != ''" />
+  </Target>
+
+</Project>

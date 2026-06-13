@@ -7,6 +7,7 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v5
@@ -26,12 +27,31 @@ jobs:
         run: dotnet build -c Release --no-restore
 
       - name: Test
-        run: dotnet test -c Release --no-build --verbosity normal
+        run: dotnet test -c Release --no-build --verbosity normal --blame-hang-timeout 5m
 
       - name: Pack
         run: |
-          dotnet pack src/Mapper/ArchPillar.Extensions.Mapper.csproj -c Release --no-build -o ./nupkgs -p:PackageVersion=${GITHUB_TAG#v}
-          dotnet pack src/Mapper.EntityFrameworkCore/ArchPillar.Extensions.Mapper.EntityFrameworkCore.csproj -c Release --no-build -o ./nupkgs -p:PackageVersion=${GITHUB_TAG#v}
+          VERSION=${GITHUB_TAG#v}
+          # The whole monorepo ships on one version (the release tag). Localization is still maturing, so it
+          # goes out as a prerelease: the "-preview" suffix is forced here so a stable localization build can
+          # never be published by accident. Drop the suffix to promote it onto the same stable train.
+          PREVIEW="$VERSION-preview"
+
+          # Mapper — stable
+          dotnet pack src/Mapper/ArchPillar.Extensions.Mapper.csproj -c Release --no-build -o ./nupkgs -p:PackageVersion=$VERSION
+          dotnet pack src/Mapper.EntityFrameworkCore/ArchPillar.Extensions.Mapper.EntityFrameworkCore.csproj -c Release --no-build -o ./nupkgs -p:PackageVersion=$VERSION
+
+          # Localization — preview. The analyzer and code-fixes are bundled into the main package, not published.
+          for project in \
+            Localization/ArchPillar.Extensions.Localization \
+            Localization.Abstractions/ArchPillar.Extensions.Localization.Abstractions \
+            Localization.MessageFormat/ArchPillar.Extensions.Localization.MessageFormat \
+            Localization.DependencyInjection/ArchPillar.Extensions.Localization.DependencyInjection \
+            Localization.StringLocalizer/ArchPillar.Extensions.Localization.StringLocalizer \
+            Localization.Tooling/ArchPillar.Extensions.Localization.Tooling
+          do
+            dotnet pack "src/$project.csproj" -c Release --no-build -o ./nupkgs -p:PackageVersion=$PREVIEW
+          done
         env:
           GITHUB_TAG: ${{ github.event.release.tag_name }}
 

@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>ArchPillar.Extensions.Localization.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Localization\ArchPillar.Extensions.Localization.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Embedded/embedded.de.arb" />
+    <EmbeddedResource Include="Embedded/embedded.de.arb" LogicalName="embedded.de.arb" WithCulture="false" />
+    <!-- Culture-inferred name (no WithCulture override) so MSBuild routes it to the 'de' satellite assembly. -->
+    <None Remove="Embedded/satellite.de.arb" />
+    <EmbeddedResource Include="Embedded/satellite.de.arb" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,29 @@
+@page "/"
+@inject DefaultLocalizer Localizer
+@inject IStringLocalizer<Home> Strings
+
+<h1>@Localizer.Translate("home.title", "Inbox")</h1>
+
+<ul>
+    @for (var count = 0; count <= 2; count++)
+    {
+        <li>
+            @Localizer.Translate(
+                "inbox.count",
+                "{count, plural, =0 {No messages} one {# message} other {# messages}}",
+                ("count", count))
+        </li>
+    }
+</ul>
+
+@{
+    // The IStringLocalizer<T> adapter, idiomatic for Razor components: the name is the key, positional
+    // arguments map to {0}, and a missing entry returns the name (here English has no override).
+    LocalizedString summary = Strings["inbox.summary", 3];
+}
+<p>@summary.Value @(summary.ResourceNotFound ? "(no override — showing the key)" : string.Empty)</p>
+
+<nav>
+    <a href="?culture=en">English</a> | <a href="?culture=de">Deutsch</a>
+    <span> — current: @CultureInfo.CurrentUICulture.Name</span>
+</nav>

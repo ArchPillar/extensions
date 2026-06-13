@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework />
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <RootNamespace>ArchPillar.Extensions.Localization.DependencyInjection</RootNamespace>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>ArchPillar.Extensions.Localization.DependencyInjection</PackageId>
+    <Description>Dependency-injection registration for ArchPillar.Extensions.Localization. Configures the ambient store from LocalizerOptions and registers the native localization views — ILocalizer, ILocalizer&lt;T&gt;, and a concrete Localizer — for injection. The core runtime stays dependency-free; this adapter is optional. For IStringLocalizer interop while migrating, add ArchPillar.Extensions.Localization.StringLocalizer.</Description>
+    <PackageTags>archpillar;localization;i18n;dependency-injection;aspnetcore</PackageTags>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageProjectUrl>https://github.com/ArchPillar/extensions</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/ArchPillar/extensions</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>PACKAGE.md</PackageReadmeFile>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Localization\ArchPillar.Extensions.Localization.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.DependencyInjection.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="" />
+    <None Include="PACKAGE.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+</Project>

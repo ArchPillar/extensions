@@ -1,0 +1,15 @@
+{
+  "@@locale": "de",
+  "Acme.Greeting.Greeter::greeting": "Hallo {name}!",
+  "@Acme.Greeting.Greeter::greeting": {
+    "x-category": "Acme.Greeting.Greeter",
+    "x-state": "Translated",
+    "x-source-fingerprint": "4c9787b878b45a0e7eb7c348d460d7a5"
+  },
+  "Acme.Greeting.Validator::required": "{field} ist erforderlich.",
+  "@Acme.Greeting.Validator::required": {
+    "x-category": "Acme.Greeting.Validator",
+    "x-state": "Translated",
+    "x-source-fingerprint": "312a2871414bab2f5b47c671aef80b35"
+  }
+}

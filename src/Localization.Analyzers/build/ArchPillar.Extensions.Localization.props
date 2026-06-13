@@ -1,0 +1,38 @@
+<Project>
+
+  <!--
+    The configuration surface for the build's localization extraction (spec 06). These defaults are set so a
+    consuming project can override any of them. There is deliberately no target-language property: adding a
+    language is an on-demand tool/Poedit operation, never a build input.
+
+    The analyzer reads ArchPillarLocalizationKeyPattern (the one CompilerVisibleProperty). The on-disk
+    source-language template is produced by the tool's `extract` from the built assembly's IL (Decision D-K),
+    invoked from the package .targets and written to ArchPillarLocalizationOutputPath.
+  -->
+  <PropertyGroup>
+    <ArchPillarLocalizationFormat Condition="'$(ArchPillarLocalizationFormat)' == ''">arb</ArchPillarLocalizationFormat>
+    <ArchPillarLocalizationSourceLanguage Condition="'$(ArchPillarLocalizationSourceLanguage)' == ''">en</ArchPillarLocalizationSourceLanguage>
+    <ArchPillarLocalizationOutputPath Condition="'$(ArchPillarLocalizationOutputPath)' == ''">$(MSBuildProjectDirectory)/Translations</ArchPillarLocalizationOutputPath>
+    <ArchPillarLocalizationEmit Condition="'$(ArchPillarLocalizationEmit)' == ''">true</ArchPillarLocalizationEmit>
+    <!-- Template extraction runs only where the package is referenced directly (the project that authors the
+         strings). Set true to also extract in a project that references the package transitively, or that wires
+         these build assets in by hand (e.g. via Directory.Build) — the escape hatch. The publish-time merge
+         always runs regardless. Off by default. -->
+    <ArchPillarLocalizationExtractTransitively Condition="'$(ArchPillarLocalizationExtractTransitively)' == ''">false</ArchPillarLocalizationExtractTransitively>
+    <ArchPillarLocalizationCopyTargetsToOutput Condition="'$(ArchPillarLocalizationCopyTargetsToOutput)' == ''">true</ArchPillarLocalizationCopyTargetsToOutput>
+    <ArchPillarLocalizationEmbedTargets Condition="'$(ArchPillarLocalizationEmbedTargets)' == ''">false</ArchPillarLocalizationEmbedTargets>
+    <ArchPillarLocalizationMergeOnPublish Condition="'$(ArchPillarLocalizationMergeOnPublish)' == ''">true</ArchPillarLocalizationMergeOnPublish>
+    <!-- How the build invokes the dotnet tool. Defaults to the installed global tool; a consumer with a
+         local-tool manifest or a custom path (or this repo's samples, which run it from source) overrides it. -->
+    <ArchPillarLocalizationToolCommand Condition="'$(ArchPillarLocalizationToolCommand)' == ''">dotnet apl</ArchPillarLocalizationToolCommand>
+    <!-- The tool is optional for a consumer (a missing `dotnet apl` should warn, not fail the build), so the
+         extract/merge invocations continue on error by default. A context where the tool is guaranteed (this
+         repo's samples) sets this to false so a real failure surfaces instead of hiding behind a warning. -->
+    <ArchPillarLocalizationToolContinueOnError Condition="'$(ArchPillarLocalizationToolContinueOnError)' == ''">true</ArchPillarLocalizationToolContinueOnError>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <CompilerVisibleProperty Include="ArchPillarLocalizationKeyPattern" />
+  </ItemGroup>
+
+</Project>

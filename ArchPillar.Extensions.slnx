@@ -34,6 +34,37 @@
   <Folder Name="/samples/Primitives/Primitives.BlazorSample/">
     <Project Path="samples/Primitives/Primitives.BlazorSample/Primitives.BlazorSample.csproj" />
   </Folder>
+  <Folder Name="/samples/Localization/" />
+  <Folder Name="/samples/Localization/Localization.ConsoleSample/">
+    <Project Path="samples/Localization/Localization.ConsoleSample/Localization.ConsoleSample.csproj" />
+  </Folder>
+  <Folder Name="/samples/Localization/Localization.AspNetSample/">
+    <Project Path="samples/Localization/Localization.AspNetSample/Localization.AspNetSample.csproj" />
+  </Folder>
+  <Folder Name="/samples/Localization/Localization.BlazorSample/">
+    <Project Path="samples/Localization/Localization.BlazorSample/Localization.BlazorSample.csproj" />
+  </Folder>
+  <Folder Name="/samples/Localization/Localization.WasmSample/">
+    <Project Path="samples/Localization/Localization.WasmSample/Localization.WasmSample.csproj" />
+  </Folder>
+  <Folder Name="/samples/Localization/Localization.TodoSample/">
+    <Project Path="samples/Localization/Localization.TodoSample/Localization.TodoSample.csproj" />
+  </Folder>
+  <Folder Name="/samples/Localization/Localization.GreetingLibrary/">
+    <Project Path="samples/Localization/Localization.GreetingLibrary/Localization.GreetingLibrary.csproj" />
+  </Folder>
+  <Folder Name="/samples/Localization/Localization.LibraryConsumer/">
+    <Project Path="samples/Localization/Localization.LibraryConsumer/Localization.LibraryConsumer.csproj" />
+  </Folder>
+  <Folder Name="/samples/Localization/Localization.MigrationSample/">
+    <Project Path="samples/Localization/Localization.MigrationSample/Localization.MigrationSample.csproj" />
+  </Folder>
+  <Folder Name="/samples/Localization/Localization.TrimSample/">
+    <Project Path="samples/Localization/Localization.TrimSample/Localization.TrimSample.csproj" />
+  </Folder>
+  <Folder Name="/samples/Localization/Localization.AotSample/">
+    <Project Path="samples/Localization/Localization.AotSample/Localization.AotSample.csproj" />
+  </Folder>
   <Folder Name="/benchmarks/" />
   <Folder Name="/benchmarks/Mapper.Benchmarks/">
     <Project Path="benchmarks/Mapper.Benchmarks/ArchPillar.Extensions.Mapper.Benchmarks.csproj" />
@@ -43,6 +74,9 @@
   </Folder>
   <Folder Name="/benchmarks/Commands.Benchmarks/">
     <Project Path="benchmarks/Commands.Benchmarks/ArchPillar.Extensions.Commands.Benchmarks.csproj" />
+  </Folder>
+  <Folder Name="/benchmarks/Localization.Benchmarks/">
+    <Project Path="benchmarks/Localization.Benchmarks/ArchPillar.Extensions.Localization.Benchmarks.csproj" />
   </Folder>
   <Folder Name="/src/" />
   <Folder Name="/src/Mapper/">
@@ -63,6 +97,30 @@
   <Folder Name="/src/Primitives.EntityFrameworkCore/">
     <Project Path="src/Primitives.EntityFrameworkCore/ArchPillar.Extensions.Primitives.EntityFrameworkCore.csproj" />
   </Folder>
+  <Folder Name="/src/Localization.MessageFormat/">
+    <Project Path="src/Localization.MessageFormat/ArchPillar.Extensions.Localization.MessageFormat.csproj" />
+  </Folder>
+  <Folder Name="/src/Localization.Abstractions/">
+    <Project Path="src/Localization.Abstractions/ArchPillar.Extensions.Localization.Abstractions.csproj" />
+  </Folder>
+  <Folder Name="/src/Localization/">
+    <Project Path="src/Localization/ArchPillar.Extensions.Localization.csproj" />
+  </Folder>
+  <Folder Name="/src/Localization.Analyzers/">
+    <Project Path="src/Localization.Analyzers/ArchPillar.Extensions.Localization.Analyzers.csproj" />
+  </Folder>
+  <Folder Name="/src/Localization.CodeFixes/">
+    <Project Path="src/Localization.CodeFixes/ArchPillar.Extensions.Localization.CodeFixes.csproj" />
+  </Folder>
+  <Folder Name="/src/Localization.Tooling/">
+    <Project Path="src/Localization.Tooling/ArchPillar.Extensions.Localization.Tooling.csproj" />
+  </Folder>
+  <Folder Name="/src/Localization.DependencyInjection/">
+    <Project Path="src/Localization.DependencyInjection/ArchPillar.Extensions.Localization.DependencyInjection.csproj" />
+  </Folder>
+  <Folder Name="/src/Localization.StringLocalizer/">
+    <Project Path="src/Localization.StringLocalizer/ArchPillar.Extensions.Localization.StringLocalizer.csproj" />
+  </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/Mapper.Tests/">
     <Project Path="tests/Mapper.Tests/ArchPillar.Extensions.Mapper.Tests.csproj" />
@@ -81,5 +139,32 @@
   </Folder>
   <Folder Name="/tests/Primitives.EntityFrameworkCore.Tests/">
     <Project Path="tests/Primitives.EntityFrameworkCore.Tests/ArchPillar.Extensions.Primitives.EntityFrameworkCore.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Localization.MessageFormat.Tests/">
+    <Project Path="tests/Localization.MessageFormat.Tests/ArchPillar.Extensions.Localization.MessageFormat.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Localization.Abstractions.Tests/">
+    <Project Path="tests/Localization.Abstractions.Tests/ArchPillar.Extensions.Localization.Abstractions.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Localization.Tests/">
+    <Project Path="tests/Localization.Tests/ArchPillar.Extensions.Localization.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Localization.Detection.Tests/">
+    <Project Path="tests/Localization.Detection.Tests/ArchPillar.Extensions.Localization.Detection.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Localization.CodeFixes.Tests/">
+    <Project Path="tests/Localization.CodeFixes.Tests/ArchPillar.Extensions.Localization.CodeFixes.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Localization.Tooling.Tests/">
+    <Project Path="tests/Localization.Tooling.Tests/ArchPillar.Extensions.Localization.Tooling.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Localization.DependencyInjection.Tests/">
+    <Project Path="tests/Localization.DependencyInjection.Tests/ArchPillar.Extensions.Localization.DependencyInjection.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Localization.StringLocalizer.Tests/">
+    <Project Path="tests/Localization.StringLocalizer.Tests/ArchPillar.Extensions.Localization.StringLocalizer.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Localization.EndToEnd.Tests/">
+    <Project Path="tests/Localization.EndToEnd.Tests/ArchPillar.Extensions.Localization.EndToEnd.Tests.csproj" />
   </Folder>
 </Solution>

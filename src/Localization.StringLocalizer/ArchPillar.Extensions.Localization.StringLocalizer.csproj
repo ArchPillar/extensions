@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework />
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <RootNamespace>ArchPillar.Extensions.Localization.StringLocalizer</RootNamespace>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>ArchPillar.Extensions.Localization.StringLocalizer</PackageId>
+    <Description>IStringLocalizer interop for ArchPillar.Extensions.Localization: a migration on-ramp that adapts the localizer to IStringLocalizer/IStringLocalizer&lt;T&gt; and composes over an existing ResourceManager/.resx factory, so an app adopting the library from an IStringLocalizer codebase keeps its existing translations resolving. Reference it during migration; drop it once your code no longer depends on IStringLocalizer.</Description>
+    <PackageTags>archpillar;localization;i18n;istringlocalizer;aspnetcore;migration;resx</PackageTags>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageProjectUrl>https://github.com/ArchPillar/extensions</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/ArchPillar/extensions</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>PACKAGE.md</PackageReadmeFile>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="All" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Localization" />
+    <PackageReference Include="Microsoft.Extensions.Localization.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Localization\ArchPillar.Extensions.Localization.csproj" />
+    <ProjectReference Include="..\Localization.DependencyInjection\ArchPillar.Extensions.Localization.DependencyInjection.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.StringLocalizer.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="" />
+    <None Include="PACKAGE.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+</Project>

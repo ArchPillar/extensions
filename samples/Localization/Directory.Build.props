@@ -1,0 +1,16 @@
+<Project>
+
+  <!-- A nested Directory.Build.props shadows the repo-root one; chain it so root settings are preserved. -->
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <!--
+    Give the localization samples the SAME build integration a real consumer gets from the NuGet package,
+    transparently: building a sample bakes the template and the targets extract/copy it (the wiring lives here,
+    not in each .csproj). Samples reference the runtime by project, so the package's buildTransitive assets do
+    not flow; this supplies them. The package props (config + CompilerVisibleProperty) are harmless to import
+    everywhere; the generator and the extract/copy targets are gated in Directory.Build.targets so a sample
+    with its own catalog model can opt out with <ArchPillarLocalizationSampleAuthoring>false</…>.
+  -->
+  <Import Project="$(MSBuildThisFileDirectory)..\..\src\Localization.Analyzers\build\ArchPillar.Extensions.Localization.props" />
+
+</Project>

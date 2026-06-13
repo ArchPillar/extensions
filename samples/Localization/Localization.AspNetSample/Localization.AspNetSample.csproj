@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <NoWarn>$(NoWarn);IDE0005</NoWarn>
+    <RootNamespace>Localization.AspNetSample</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Localization\ArchPillar.Extensions.Localization.csproj" />
+    <ProjectReference Include="..\..\..\src\Localization.StringLocalizer\ArchPillar.Extensions.Localization.StringLocalizer.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Translations\**\*.arb" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

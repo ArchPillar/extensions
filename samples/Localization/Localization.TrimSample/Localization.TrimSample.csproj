@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <RootNamespace>TrimSample</RootNamespace>
+    <AssemblyName>TrimSample</AssemblyName>
+    <!-- This sample exists to validate the opt-in EMBED path (main-assembly catalog + culture satellite)
+         under trimming / single-file / AOT. The default files-on-disk path needs no such validation.
+         PublishTrimmed lives here (not on the command line) so it does not propagate as a global property to
+         the netstandard2.0 analyzer/generator project references, which cannot be trimmed (NETSDK1124).
+         Trimming only runs on `dotnet publish -r <rid>`; a plain build is unaffected. -->
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>full</TrimMode>
+    <PublishSingleFile>true</PublishSingleFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Localization\ArchPillar.Extensions.Localization.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Main-assembly embedded catalog: WithCulture=false keeps the .de. resource in the main assembly. -->
+    <None Remove="Embedded/main.de.arb" />
+    <EmbeddedResource Include="Embedded/main.de.arb" LogicalName="trimmain.de.arb" WithCulture="false" />
+    <!-- Culture-inferred name routes this one to the 'de' satellite assembly. -->
+    <None Remove="Embedded/sat.de.arb" />
+    <EmbeddedResource Include="Embedded/sat.de.arb" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,26 @@
+{
+  "@@locale": "de",
+  "MigrationSample.Greeting::Goodbye": "Goodbye",
+  "@MigrationSample.Greeting::Goodbye": {
+    "x-category": "MigrationSample.Greeting",
+    "x-state": "NeedsTranslation",
+    "x-source-fingerprint": "41b75c4e66f5e627eb441ba9b32b445e"
+  },
+  "MigrationSample.Greeting::Help": "Help",
+  "@MigrationSample.Greeting::Help": {
+    "x-category": "MigrationSample.Greeting",
+    "x-state": "NeedsTranslation",
+    "x-source-fingerprint": "1279c64fa245d75c6a9faf945e0c933b"
+  },
+  "Migration complete.": "Migration complete.",
+  "@Migration complete.": {
+    "x-state": "NeedsTranslation",
+    "x-source-fingerprint": "dab0f20fcae3d79ca1025afc6d62cbc2"
+  },
+  "MigrationSample.Greeting::Welcome": "Willkommen (neu, aus ArchPillar)",
+  "@MigrationSample.Greeting::Welcome": {
+    "x-category": "MigrationSample.Greeting",
+    "x-state": "Translated",
+    "x-source-fingerprint": "2cb04305df4250d5b243dff9d605954b"
+  }
+}

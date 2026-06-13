@@ -1,0 +1,46 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- A global tool targets one framework. net8.0 is the floor (the runtime package's build targets invoke
+         `dotnet apl` on a machine that may only have .NET 8); RollForward=Major lets that single build run on a
+         host that has only a newer major (.NET 9 or 10), so one framework covers every consumer without the
+         multi-target pack overhead. -->
+    <TargetFramework>net8.0</TargetFramework>
+    <RollForward>Major</RollForward>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>dotnet-apl</ToolCommandName>
+    <RootNamespace>ArchPillar.Extensions.Localization.Tooling</RootNamespace>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>ArchPillar.Extensions.Localization.Tooling</PackageId>
+    <Description>The dotnet tool for the ArchPillar.Extensions.Localization family: extract the source template from a built assembly and add, sync, or convert translation catalogs on demand.</Description>
+    <PackageTags>archpillar;localization;i18n;tool;gettext;xliff;arb</PackageTags>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageProjectUrl>https://github.com/ArchPillar/extensions</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/ArchPillar/extensions</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>PACKAGE.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Localization\ArchPillar.Extensions.Localization.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- IL reading for assembly-based extraction (Decision D-K). Tool-only; the runtime stays dependency-free. -->
+    <PackageReference Include="Mono.Cecil" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.Tooling.Tests" />
+    <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.EndToEnd.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="" />
+    <None Include="PACKAGE.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+</Project>

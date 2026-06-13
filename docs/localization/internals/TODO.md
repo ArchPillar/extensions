@@ -1,0 +1,106 @@
+# Localization — Working TODO
+
+Small, verifiable steps toward finishing **Phase 10** (D-H namespacing + D-I ambient store).
+Rules: **one item at a time**, keep the build and **all tests green at every step**, commit the
+relevant TODO update alongside the code. Refine/add items as we learn — this file is iterated just
+like the code.
+
+## Done
+- [x] 10.1 Contracts: `ILocalizer` / `ILocalizer<T>` / `ILocalizerFactory`, `[TranslationScope]`, `Localized<TSelf>`
+- [x] 10.2 Category tier in snapshot/loader; `Localizer<T>`; `LocalizerFactory`; zero-alloc preserved
+- [x] 10.3 Ambient store core: `Localizer` static, lazy `AssemblyLoad` embedded discovery, `Reset()`
+- [x] `ITranslationSource` extension point + built-in `PseudoLocalizationSource`
+- [x] ARB / PO / XLIFF persist `Category`; emitted template carries it (dedup by `(category,key)`)
+- [x] Detection derives category from the `[TranslationScope]` receiver; `Localized<TSelf>` marked
+- [x] Catalog-accepting `DefaultLocalizer` constructors (test isolation)
+- [x] CLI renamed to `dotnet apl`
+- [x] TODO app sample (en + de/fr + pseudo smoke test)
+
+## Next (in order)
+
+### A. Correctness cleanups (small, low risk)
+- [x] A1. Analyzer: scope `APL0006`/`APL0007` duplicate detection by category
+- [x] A2. Typed key registry: namespace constants by category (avoid cross-category key collisions)
+
+### B. ~~ns2.0 multi-target~~ — DROPPED
+Maintainer supports nothing before .NET 8 (no .NET Framework, no `netstandard` for consumers). The runtime
+stays `net8.0;net9.0;net10.0`; a localizing library is itself net8+. `System.Text.Json`/`System.Xml` are
+in-box, so no package deps and no `#if`/polyfill work. (B1's package-version prep was reverted.)
+
+### C. Files-by-default + satellites
+- [x] C1. MSBuild: copy catalogs to output **by default** (per-library naming — `Translations/<AssemblyName>.<culture>.<ext>`, collision-free; verified end-to-end)
+- [x] C2. Ambient store: default beside-binary **directory source** (layered embedded < directory < host; configurable `TranslationsDirectory`)
+- [x] C3. Test: dev-mode files loading through the ambient store (`TranslationsDirectory_LoadsCatalogsFromFilesBesideTheBinary`)
+- [x] C4. Opt-in embed (`ArchPillarLocalizationEmbedTargets=true`) → **satellite** assemblies via `Culture="%(Filename)"` + emits `[LocalizationSatelliteCatalogs]`; copy path is skipped when embedding (verified end-to-end). *(ARB/XLIFF `<culture>.<ext>`; PO `messages.<culture>.po` naming not yet supported for embed.)*
+- [x] C5. Ambient store: lazy per-culture satellite loading via `Assembly.GetSatelliteAssembly` (walk parents); `[LocalizationSatelliteCatalogs]` marker; zero-cost fast path for files-only apps
+- [x] C6. Test: satellite-embedded catalog discovered & loaded (`SatelliteCatalog_IsLoadedLazilyForTheRequestedCulture`)
+
+### D. Publish merge
+- [x] D1. `dotnet apl merge` — gather → reuse the runtime load (`CatalogLoader.Flatten` = `BuildSnapshot` + dump) → one bundle per culture; tool test + `Flatten` unit test
+- [x] D2. Publish target (`AfterTargets=Publish`, default on, override `ArchPillarLocalizationMergeOnPublish=false`): runs `dotnet apl merge` to swap the per-library files for one bundle per culture; best-effort (degrades to many-files if the tool isn't installed). *(XML validated; not end-to-end publish-verified in this environment — the merge logic itself is tested in D1.)*
+- [x] D3. Merged bundle resolves identically to the many-files path — guaranteed by construction (it *is* the runtime's loaded data; covered by the `Flatten` test)
+
+### E. DI integration (10.5) feeds the ambient
+- [x] E1. `AddArchPillarLocalization` populates the ambient store + registers `ILocalizer`/`ILocalizer<T>` over it (kept `DefaultLocalizer` for direct injection; dropped the `DefaultLocalizer`-instance overload)
+- [x] E2. `IStringLocalizer`/`<T>`/factory adapters read the ambient (no found-awareness — just value-or-name)
+- [x] E3. Tests restructured: functionality uses explicit catalogs via `Localizer.AddCatalog` + `Reset()`; WASM sample fed via the ambient
+
+### F. Samples (after the milestones)
+- [x] F1. No-DI batteries-included library sample (`Localization.GreetingLibrary` ships German embedded as a satellite; `Localization.LibraryConsumer` uses it with **zero** config) — verified running
+- [x] F2. Localized exception text (the consumer sample's `Validator` throws a German `ArgumentException` under `de`, no services)
+- [x] F3. Existing samples verified working with the ambient wiring (console renders en/de + plurals; ASP.NET's `IStringLocalizer` now reads the ambient — `/strings?culture=de` → German). No rewrite needed; the new library sample is the canonical ambient demo.
+
+### G. Docs
+- [x] G1. Rewrote `runtime.md` (ambient store + `ILocalizer`/`ILocalizer<T>` + categories + `Localized<TSelf>`;
+  isolated `DefaultLocalizer`; loading via files vs. embed/satellites; publish-merge) and `integration.md` (ambient-
+  feeding DI; the **composing** `IStringLocalizer` adapter — found-aware, `typeof(T)` category; the **migration
+  on-ramp** — `L(...)` marker, on-by-default indexer extraction, what is *not* extracted; updated sample
+  index). Added a "practical guides" pointer to `README.md`.
+- [x] G2. Publishing guidance in `runtime.md`: files are the one universal path (trim/single-file/AOT-safe);
+  the embed matrix from H1 (main-assembly embed works everywhere; satellite works under trim/single-file but
+  degrades to the default under AOT); merge-per-culture on publish; the `InvariantGlobalization` caveat.
+
+### H. Validation
+- [x] H1. **Embed path under trimming / single-file / AOT** — validated end-to-end with a real
+  published-and-run spike (`Localization.TrimSample`: a main-assembly `[LocalizationCatalog]` embed **and** a
+  `de` culture satellite, both resolved via the ambient store). Findings (linux-x64, .NET 10):
+  - **Full trim (`PublishTrimmed`, `TrimMode=full`)**: both the main-assembly catalog and the satellite
+    resolve. The `de/TrimSample.resources.dll` satellite is preserved; **no trimmer roots needed**, and the
+    publish is **IL-warning-clean** (our `GetManifestResourceStream` / `GetSatelliteAssembly` /
+    `GetCustomAttributes` / `AppDomain` reflection isn't flagged).
+  - **Single-file + full trim**: both resolve; the satellite is bundled into the single exe (no loose `de/`).
+  - **NativeAOT (`PublishAot`)**: the **main-assembly embed works**, but the **satellite does not load** —
+    NativeAOT can't load a separate managed satellite, so `GetSatelliteAssembly` throws, our loader swallows
+    it, and the lookup **degrades gracefully to the in-code default** (no crash). ⇒ for AOT, prefer files
+    (merged bundle per culture) or a main-assembly embedded catalog; avoid satellite embedding.
+  - The **files-on-disk path** needs no spike (loose files + `JsonDocument`/`XDocument`, no satellite
+    reflection) and is the one universal path across plain / trim / single-file / AOT.
+  - *Follow-up candidate (not done):* mark the runtime `IsTrimmable` and/or guard the satellite path with an
+    AOT feature attribute so consumers get analysis up front. Deferred — the publish is already warning-clean.
+
+### I. Migration on-ramp (D-J)
+Make adoption from an existing `IStringLocalizer` / `.resx` codebase cheap, or the migration cost sinks us.
+- [x] I1. **`L(...)` no-op marker.** `TranslationMarkers.L` in Abstractions — static passthrough whose
+  parameter carries `[Translatable]` + `[TranslationDefault]`; returns the text unchanged at runtime. Reuses
+  the existing detector (key = default = literal; null receiver → global category). Usable via `using static`.
+  Detector test proves the real symbol is harvested; abstractions test pins the passthrough + the attributes.
+- [x] I2. **`IStringLocalizer` call-site extraction (on by default).** Detector recognizes the indexer by
+  symbol (`IStringLocalizer` / `IStringLocalizer<T>`, resolved by metadata name — no dependency on the
+  package); indexed literal = key = default; category = `typeof(T)` (global for the non-generic); positional
+  `{0}` kept verbatim. **Constant + valid-ICU only**; dynamic keys and `string.Format`-style literals
+  (`{0:C}`) are skipped silently (never APL0001/Error, never a warning). Only the whole-compilation `Detect`
+  walk reaches it, so the generator/tool extract these sites while existing `IStringLocalizer` code stays
+  free of editor diagnostics. Five detector tests cover both indexers, the dynamic-skip, and the non-ICU
+  skip. Typed-key registry already sanitizes sentence keys (`"Email is required"` → `EmailIsRequired`).
+- [x] I4. **Migration sample** (`Localization.MigrationSample`): a console app with an existing
+  `AddLocalization()` + real `Resources/Greeting[.de].resx` that then adopts `AddArchPillarLocalization()`.
+  Verified running — under `de`, "Welcome" resolves from ArchPillar's `de.arb` (ambient wins), "Goodbye"
+  falls through to the legacy `.resx` (kept), "Help" returns the name; an `L("…")` marker rides along. Shows
+  I1+I3 end-to-end with no call-site changes (`AssemblyName == RootNamespace` to satisfy ResourceManager).
+- [x] I3. **Composing adapter.** The DI factory captures any previously-registered `IStringLocalizerFactory`
+  and wraps it: the adapter tries the ambient store (found-aware via a new category-scoped
+  `TranslateInCategory(..., out overrideFound, ...)`), and on a miss **falls through to the inner factory's
+  localizer** (checking `ResourceNotFound`) before settling on the name. `IStringLocalizer<T>` now flows
+  through the BCL `StringLocalizer<T>` → `factory.Create(typeof(T))`, so it resolves under `typeof(T)` —
+  matching I2 extraction (and DataAnnotations' `Create(modelType)` composes the same way). Test proves all
+  three paths: ambient hit wins, miss falls through to inner, total miss → name + `ResourceNotFound`.

@@ -1,0 +1,6 @@
+{
+  "@@locale": "de",
+  "@@x-category": "ArchPillar.Extensions.Localization.Tests.EmbeddedStrings",
+  "embedded.key": "Eingebettet",
+  "@embedded.key": { "x-state": "Translated", "x-source-fingerprint": "fp" }
+}

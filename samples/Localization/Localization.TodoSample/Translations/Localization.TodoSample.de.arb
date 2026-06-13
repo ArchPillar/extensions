@@ -1,0 +1,27 @@
+{
+  "@@locale": "de",
+  "Localization.TodoSample.TodoStrings::AddHint": "Gib eine Aufgabe ein und drücke die Eingabetaste, um sie hinzuzufügen.",
+  "@Localization.TodoSample.TodoStrings::AddHint": {
+    "x-category": "Localization.TodoSample.TodoStrings",
+    "x-state": "Translated",
+    "x-source-fingerprint": "42710574d6fc99bc54fb4e4c033acaa3"
+  },
+  "Localization.TodoSample.TodoStrings::Empty": "Nichts zu tun — füge deine erste Aufgabe hinzu!",
+  "@Localization.TodoSample.TodoStrings::Empty": {
+    "x-category": "Localization.TodoSample.TodoStrings",
+    "x-state": "Translated",
+    "x-source-fingerprint": "8fc32e9842c5ee17c1391b57d9974fcc"
+  },
+  "Localization.TodoSample.TodoStrings::Remaining": "{count, plural, =0 {Alles erledigt!} one {# Aufgabe übrig} other {# Aufgaben übrig}}",
+  "@Localization.TodoSample.TodoStrings::Remaining": {
+    "x-category": "Localization.TodoSample.TodoStrings",
+    "x-state": "Translated",
+    "x-source-fingerprint": "c9917598b0dbfac613823a7b5bba7f6e"
+  },
+  "Localization.TodoSample.TodoStrings::Title": "Meine Aufgaben",
+  "@Localization.TodoSample.TodoStrings::Title": {
+    "x-category": "Localization.TodoSample.TodoStrings",
+    "x-state": "Translated",
+    "x-source-fingerprint": "fe27a669408bc08e5c67808ba1d85dbe"
+  }
+}

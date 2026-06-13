@@ -1,0 +1,6 @@
+{
+  "@@locale": "de",
+  "@@x-category": "ArchPillar.Extensions.Localization.Tests.SatelliteStrings",
+  "sat.key": "Aus dem Satelliten",
+  "@sat.key": { "x-state": "Translated", "x-source-fingerprint": "fp" }
+}
