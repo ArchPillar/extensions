@@ -34,7 +34,7 @@ public static class TranslationSiteDetector
             SemanticModel model = compilation.GetSemanticModel(tree);
             foreach (SyntaxNode node in tree.GetRoot(cancellationToken).DescendantNodes())
             {
-                if (node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax or ElementAccessExpressionSyntax)
+                if (node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax or ElementAccessExpressionSyntax or ElementBindingExpressionSyntax)
                 {
                     TranslationSiteResult? result = DetectCore(model, node, symbols, includeStringLocalizer: true, cancellationToken);
                     if (result is not null)

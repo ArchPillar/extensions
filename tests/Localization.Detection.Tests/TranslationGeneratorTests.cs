@@ -86,6 +86,27 @@ public sealed class TranslationGeneratorTests
     }
 
     [Fact]
+    public void Generator_ExtractsNullConditionalIndexerSites()
+    {
+        // A defensive loc?["key"] is a null-conditional indexer (an element binding, not a plain element
+        // access); it must still be detected so the key reaches the registry and the analyzer.
+        const string NullConditional = """
+            using Microsoft.Extensions.Localization;
+
+            public sealed class Home;
+
+            public sealed class Consumer(IStringLocalizer<Home>? loc)
+            {
+                public string? Title() => loc?["Email is required"];
+            }
+            """;
+
+        var registry = GeneratedFrom(NullConditional, "TranslationKeys.g.cs");
+
+        Assert.Contains("Email is required", registry);
+    }
+
+    [Fact]
     public void Generator_KeyWithControlCharacters_EmitsCompilableRegistry()
     {
         // A key carrying a newline and tab (realistic for an IStringLocalizer indexer literal) must be

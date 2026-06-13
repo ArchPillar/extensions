@@ -75,6 +75,27 @@ public sealed class AssemblyStringExtractorTests : IDisposable
     }
 
     [Fact]
+    public void Extract_NullConditionalIndexer_IsStillExtracted()
+    {
+        // loc?["key", "default"] is a defensive null-conditional indexer; its key must still be extracted so
+        // the string is translatable, not silently dropped.
+        IReadOnlyList<RawCallSite> sites = Extract("""
+            using ArchPillar.Extensions.Localization;
+
+            namespace Demo;
+
+            public sealed class Banner(ILocalizer? localizer)
+            {
+                public string? Title => localizer?["title", "Home"];
+            }
+            """);
+
+        RawCallSite site = Assert.Single(sites);
+        Assert.Equal("title", site.Key);
+        Assert.Equal("Home", site.Default);
+    }
+
+    [Fact]
     public void Extract_StringLocalizerIndexer_FallsBackToTheTypeArgument()
     {
         IReadOnlyList<RawCallSite> sites = Extract("""
