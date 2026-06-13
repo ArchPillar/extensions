@@ -1,25 +1,25 @@
 # 02 — Extraction, Template Emission & Reconciliation
 
-> Assemblies: the compile-time `IIncrementalGenerator` that emits the **template** ships inside `ArchPillar.Extensions.Localization.Analyzers` (consolidated with detection and the analyzer — see spec 01), and `ArchPillar.Extensions.Localization.Tooling` is the `dotnet` tool that adds/syncs/converts **target** files on demand (it carries the shared extract/merge core). References the detection core (spec 01), the `Catalog` model and provider interface (spec 03), and `MessageFormat` (spec 04).
+> Assemblies: the compile-time `IIncrementalGenerator` that emits the **typed key registry** ships inside `ArchPillar.Extensions.Localization.Analyzers` (consolidated with detection and the analyzer — see spec 01), and `ArchPillar.Extensions.Localization.Tooling` is the `dotnet` tool that extracts the **template** (from IL) and adds/syncs/converts **target** files on demand (it carries the extract/merge core). References the detection core (spec 01), the `Catalog` model and provider interface (spec 03), and `MessageFormat` (spec 04).
 
 ## Purpose
 
 Two separable jobs, deliberately assigned to different hosts so that **target languages are never a build or developer decision** (Decision D-12):
 
-1. **Template emission (generator, compile-time).** Turn the call sites the detector finds into the language-neutral **template**: a `Catalog` with the source language, every key, source text, and metadata, no target translations. This is the only filesystem artifact tied to code.
+1. **Template extraction (tool, build-time or on demand).** Recover the call sites from a **built assembly's IL** (Decision D-K) into the language-neutral **template**: a `Catalog` with the source language, every key, source text, and metadata, no target translations. The build runs this for you (spec 06). The generator's only compile-time output is the typed key registry (in-assembly source) — not a file.
 2. **Target operations (tool, on demand).** From the template, create a new target-language file (`add`), reconcile existing target files against the current template (`sync`), or re-serialize into another format (`convert`). None of this is a build input; it happens when localization is wanted, run by whoever owns it.
 
-Reconciliation — adding new keys, **deleting** keys that no longer exist in code (Decision D-11), and flagging keys whose source default changed while keeping the translation — is the gettext `xgettext` (extract → template) + `msgmerge` (sync) pair, rebuilt to our model. Extraction lives in the generator; merge lives in the tool. Both share the `Reconcile` core.
+Reconciliation — adding new keys, **deleting** keys that no longer exist in code (Decision D-11), and flagging keys whose source default changed while keeping the translation — is the gettext `xgettext` (extract → template) + `msgmerge` (sync) pair, rebuilt to our model. Both extraction (from IL) and merge live in the tool; the generator only emits the key registry.
 
 The merge is the hardest engineering in the library. The parser and the runtime are bounded; reconciliation is where the real design lives. Budget accordingly.
 
 ## In scope
 
-- Building the template from detection output (generator).
+- Building the template from a built assembly's IL (tool); the typed key registry from detection (generator).
 - Fingerprinting for staleness detection.
 - The reconcile/merge algorithm and its state transitions, including delete-on-removal (tool `sync`).
 - New target-file creation (tool `add`) and format conversion (tool `convert`).
-- The generator's template-write gating; the tool's command-line surface.
+- The tool's IL extraction and its command-line surface.
 
 ## Out of scope
 
@@ -27,17 +27,15 @@ The merge is the hardest engineering in the library. The parser and the runtime 
 - Message rendering (runtime, spec 05).
 - Any notion of a declared target-language set — there is none.
 
-## Generator: template emission (compile-time)
+## Template extraction (from compiled IL)
 
-An `IIncrementalGenerator` runs inside the compiler and already holds the `Compilation`; it calls `TranslationSiteDetector.Detect` directly, builds the template `Catalog`, and writes **only the template** to `OutputPath` (spec 06) in the configured format. It does not read, create, or touch any target-language file. Its incremental pipeline keys on code only. The write lives in the terminal output step, governed by:
+The source-language template is produced by the **tool**, not the generator — a generator cannot do file I/O, and reading the built assembly's **IL** (Decision D-K) lets extraction also cover strings the syntax-level detector never sees (Razor/Blazor/MVC generated code). `TemplateBuilder` runs the IL extractor (`AssemblyStringExtractor`, Mono.Cecil) over each in-scope assembly and recognises a translatable call by the **same `[Translatable]`/`[TranslationDefault]` parameter attributes** the source-level detector reads — so the native `Translate`, the `loc["key", "default"]` indexer, the `L(...)` marker, and user wrappers are all found from metadata alone, without loading code. The category is taken from a `[TranslationScope]`-marked argument found by walking the receiver's own type and its base types/interfaces (so `ILocalizer<T>` and `Localized<TSelf>` resolve identically to the runtime). An assembly with no translatable call sites yields **no template** — empty files are never written.
 
-1. **Write-if-changed.** Serialize the template in memory, hash it, compare against the on-disk template; write only on difference. A no-op build is a true no-op (no timestamps touched, no version-control noise). Primary churn control.
-2. **Atomic write.** Temp file then move (spec 03).
-3. **Live-extraction opt-in (default off).** By default the generator rewrites the template only on a real build, suppressing design-time/IDE writes — it reads `DesignTimeBuild` (via `CompilerVisibleProperty`) to tell them apart. `ArchPillarLocalizationLiveExtraction=true` (spec 06) lets it also write during design-time builds, tracking the code live as the developer edits. `ArchPillarLocalizationEmit=false` disables emission. Write-if-changed makes either mode safe.
+On a real build the package's MSBuild target runs the tool's `extract` for the project automatically (spec 06); the tool also runs over a `--solution`/`--project`/`--input` scope (defaulting to the current directory) on demand, for CI or a manual pass. The write is atomic — temp file then move (spec 03) — and skips an unchanged file, so a no-op build touches nothing.
 
-Cache behaviour: because the output step is cached on the template's equality, the generator rewrites the template when the *code* changes, not when the *file* changes — a hand-deleted template is regenerated only after a code change (or by the tool). The generator may emit a freshness summary as diagnostics for continuous integration.
+## Generator: the typed key registry (compile-time)
 
-The tool can also produce the template out of process (`MSBuildWorkspace` → `Compilation` → `Detect`) for continuous integration or non-build environments; it is not required day to day.
+The `IIncrementalGenerator` runs inside the compiler and emits exactly one thing: the strongly-typed **key registry** (`TranslationKeys.g.cs`), grouped by category, so call sites and the analyzer share rename-safe keys. It writes no file and produces no template; its incremental pipeline keys on code only.
 
 ## Tool: target operations (on demand)
 
@@ -113,7 +111,7 @@ For each target catalog:
 
 ## Source-language template handling
 
-The generator writes the source-language template (the `.pot`-equivalent / source `.arb` / source `.xliff`) as the artifact the tool and translators work from and as the fingerprint reference. The runtime does not load it (the in-code default is the source-language truth, Decision D-1), and it is not copied to the application output (spec 06).
+The tool writes the source-language template (the `.pot`-equivalent / source `.arb` / source `.xliff`) as the artifact the tool and translators work from and as the fingerprint reference. The runtime does not load it (the in-code default is the source-language truth, Decision D-1), and it is not copied to the application output (spec 06).
 
 ## Conversion
 
@@ -125,9 +123,9 @@ The generator writes the source-language template (the `.pot`-equivalent / sourc
 ## Command-line surface (`dotnet` tool)
 
 ```
-dotnet apl template  --project <path> [--solution <path>]   # emit template out of process (CI / non-build)
-                         --format <arb|xliff|po, default arb> --source-locale <bcp47, default en>
-                         --output <dir, default ./Translations> [--key-pattern <regex>] [--check]
+dotnet apl extract   [scope: --solution|--project|--input|--assembly, default cwd]   # template from IL
+                         --format <arb|xliff|po, default arb> --source <bcp47, default en>
+                         --output <dir, default ./Translations>
 
 dotnet apl add       <lang>                                  # create a target file from the template
                          --output <dir> [--force]
@@ -139,14 +137,14 @@ dotnet apl convert   (--template | --lang <lang>) --to <po|xliff|arb>
                          --output <dir>
 ```
 
-- `--check` (on `template` and `sync`) is the continuous-integration gate: run in memory, write nothing, and use diff-style exit codes — `0` up to date, `1` drift detected (re-run `sync` to fix), `2` an error (bad invocation, missing or malformed file). A gate that only needs pass/fail still treats any nonzero as failure; one that wants to retry on drift but stop on error can tell them apart. Diagnostics (drift and errors alike) go to stderr.
+- `--check` (on `sync`) is the continuous-integration gate: run in memory, write nothing, and use diff-style exit codes — `0` up to date, `1` drift detected (re-run `sync` to fix), `2` an error (bad invocation, missing or malformed file). A gate that only needs pass/fail still treats any nonzero as failure; one that wants to retry on drift but stop on error can tell them apart. Diagnostics (drift and errors alike) go to stderr.
 - `add` refuses to overwrite an existing target file unless `--force`; this is the only way a *new* language enters, and it is explicit and human-driven.
 - `--report` drives dashboards (per-language counts of new, stale, removed, untranslated).
-- The tool's `template` and the generator produce byte-identical templates for the same inputs (shared core); this is a test gate.
+- `extract` produces the same template (byte-identical) for the same built assembly across runs and platforms; this is a test gate.
 
 ## Acceptance criteria
 
-- [ ] The generator emits only the template; it never creates, reads, or modifies a target file, and the project declares no languages.
+- [ ] The generator emits only the typed key registry; the build's `extract` writes only the template (never a target file), and the project declares no languages.
 - [ ] `add de` creates `de` with every entry `NeedsTranslation`, an empty target, and a correct per-language header (Portable Object `Plural-Forms` matches the CLDR-derived order); it does not require a build or a project edit.
 - [ ] Running `sync` twice with no template change is a no-op: byte-identical files, `--check` passes.
 - [ ] Editing a default message, then `sync`, marks only the affected entry `NeedsReview` in every existing target file, preserves the translation, updates the displayed source and fingerprint, records the previous source, and perturbs no other entry's bytes.
@@ -154,7 +152,7 @@ dotnet apl convert   (--template | --lang <lang>) --to <po|xliff|arb>
 - [ ] A key rename, then `sync`, is a delete plus an add (documented behaviour).
 - [ ] Changing only a placeholder name forces `NeedsReview` and a warning on `sync`.
 - [ ] `convert --template --to xliff` on a `.pot` template yields an equivalent XLIFF template; converting a plural message to Portable Object and back round-trips equivalently; capability losses are reported.
-- [ ] The tool's `template` and the generator produce byte-identical templates for the same inputs.
+- [ ] `extract` produces a byte-identical template for the same built assembly across runs and platforms.
 - [ ] `--check` exits nonzero when and only when a write would change a file.
 - [ ] Fingerprints are identical across operating systems and .NET versions (cross-platform determinism test).
 - [ ] A `(Key, Context)` used at five call sites produces one entry with five ordered references.

@@ -1,4 +1,6 @@
 using System.Text;
+using ArchPillar.Extensions.Localization.Formats;
+using ArchPillar.Extensions.Localization.Tooling.Internal;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Emit;
@@ -6,39 +8,36 @@ using Microsoft.CodeAnalysis.Emit;
 namespace ArchPillar.Extensions.Localization.EndToEnd.Tests;
 
 /// <summary>
-/// Shared harness for the end-to-end tests: compile a snippet of "developer code" and run the real source
-/// generator over it, returning the ARB template the build would bake. This is the entry point of the
-/// pipeline every golden-path test starts from.
+/// Shared harness for the end-to-end tests: compile a snippet of "developer code", run the real generator,
+/// emit a genuine assembly, and recover the source-language template the way the build does — the tool's IL
+/// extraction (Decision D-K). This is the entry point of the pipeline every golden-path test starts from.
 /// </summary>
 internal static class GeneratorPipeline
 {
-    // Runs the real source generator over the developer's code and returns the ARB the build extracts. The
-    // generator bakes it as base64 into a [GeneratedLocalizationTemplate] assembly attribute; decoding it here
-    // is the faithful equivalent of what the dotnet tool reads from the compiled assembly at sync time.
+    // The ARB template the build produces for the developer's code: emit a real assembly and run the tool's
+    // IL extractor over it — exactly what `dotnet apl extract` does, not a proxy.
     public static string ExtractTemplateArb(string developerCode)
     {
-        GeneratorDriver driver = CSharpGeneratorDriver.Create(new Generator.TranslationGenerator());
-        GeneratorDriverRunResult result = driver.RunGenerators(Compile(developerCode)).GetRunResult();
-        var template = result.Results
-            .SelectMany(r => r.GeneratedSources)
-            .Single(s => s.HintName == "LocalizationTemplate.g.cs")
-            .SourceText
-            .ToString();
-
-        const string Marker = "GeneratedLocalizationTemplate(";
-        var open = template.IndexOf(Marker, StringComparison.Ordinal) + Marker.Length;
-        var close = template.IndexOf(")]", open, StringComparison.Ordinal);
-        var parts = template[open..close].Split([", "], StringSplitOptions.None);
-        var base64 = parts[2].Trim().Trim('"');
-        return Encoding.UTF8.GetString(Convert.FromBase64String(base64));
+        var directory = Directory.CreateTempSubdirectory("apl-e2e-").FullName;
+        try
+        {
+            var assembly = EmitAssembly(developerCode, "GoldenPath", directory);
+            using var extractor = new AssemblyStringExtractor();
+            Catalog template = TemplateBuilder.Build(extractor, assembly, "en")
+                ?? new Catalog { Culture = "en", Entries = [] };
+            return ToArb(template);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
     }
 
     /// <summary>
-    /// Compiles the developer's code, runs the real generator over it, and emits a genuine assembly carrying
-    /// the baked <c>[GeneratedLocalizationTemplate]</c> attribute — the input the scope-aware tool scans for.
-    /// Returns the assembly path.
+    /// Compiles the developer's code, runs the real generator over it, and emits a genuine assembly whose IL
+    /// carries the translatable call sites — the input the scope-aware tool extracts from. Returns the path.
     /// </summary>
-    public static string EmitAssemblyWithTemplate(string developerCode, string assemblyName, string outputDirectory)
+    public static string EmitAssembly(string developerCode, string assemblyName, string outputDirectory)
     {
         Compilation compilation = Compile(developerCode, assemblyName);
         GeneratorDriver driver = CSharpGeneratorDriver.Create(new Generator.TranslationGenerator());
@@ -56,7 +55,12 @@ internal static class GeneratorPipeline
         return path;
     }
 
-    private static Compilation Compile(string source) => Compile(source, "GoldenPath");
+    private static string ToArb(Catalog catalog)
+    {
+        using var stream = new MemoryStream();
+        new ArbTranslationFormat().WriteAsync(stream, catalog, CancellationToken.None).GetAwaiter().GetResult();
+        return Encoding.UTF8.GetString(stream.ToArray());
+    }
 
     private static Compilation Compile(string source, string assemblyName)
     {

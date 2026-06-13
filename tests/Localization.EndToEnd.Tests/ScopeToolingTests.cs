@@ -32,8 +32,8 @@ public sealed class ScopeToolingTests : IDisposable
         _root = Path.Combine(Path.GetTempPath(), "apl-scope-" + Guid.NewGuid().ToString("N"));
         _binDirectory = Path.Combine(_root, "bin");
         _catalogs = Path.Combine(_root, "Translations");
-        GeneratorPipeline.EmitAssemblyWithTemplate(LibAStrings, "LibA", _binDirectory);
-        GeneratorPipeline.EmitAssemblyWithTemplate(LibBStrings, "LibB", _binDirectory);
+        GeneratorPipeline.EmitAssembly(LibAStrings, "LibA", _binDirectory);
+        GeneratorPipeline.EmitAssembly(LibBStrings, "LibB", _binDirectory);
     }
 
     [Fact]

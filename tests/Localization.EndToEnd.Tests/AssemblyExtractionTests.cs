@@ -45,7 +45,7 @@ public sealed class AssemblyExtractionTests : IDisposable
     [Fact]
     public void Extract_RecoversCallSitesFromIl_IncludingTheShapesRazorProduces()
     {
-        var assembly = GeneratorPipeline.EmitAssemblyWithTemplate(ConsumerCode, "ExtractTarget", _directory);
+        var assembly = GeneratorPipeline.EmitAssembly(ConsumerCode, "ExtractTarget", _directory);
 
         using var extractor = new AssemblyStringExtractor();
         IReadOnlyList<RawCallSite> sites = extractor.Extract(assembly);

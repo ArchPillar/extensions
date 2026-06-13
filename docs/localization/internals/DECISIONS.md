@@ -41,13 +41,13 @@ happens out of band. **The `dotnet` tool's `template` command (which re-extracte
 `MSBuildWorkspace`) is removed.** Spec 02's "tool can also produce the template out of
 process" path does not ship.
 
-### D-B — The generator writes only on a real build.
+### D-B — The template is written only on a real build.
 Design-time / IDE builds never write to disk. The generator still *computes* in the IDE
-(for live diagnostics and the typed key registry), but the template is written only on an
-actual build, exactly like the C# documentation XML file. It reads `DesignTimeBuild` (via
-`CompilerVisibleProperty`) to suppress the design-time write. `LiveExtraction` is retained
-as an opt-in property but defaults to **off**. Writes are governed by write-if-changed and
-are atomic (temp-file-then-move).
+(for live diagnostics and the typed key registry), but the template is produced by the
+build's `extract` target (D-K) only on an actual build — gated on `BuildingProject` and
+`DesignTimeBuild`, exactly like the C# documentation XML file. Writes are atomic
+(temp-file-then-move) and skip an unchanged file. There is no live/design-time extraction
+option: the tool reads the built assembly, which exists only after a build.
 
 ### D-C — Reconciliation is the tool's job (spec as written).
 The generator emits **only the source-language template**. It never creates, reads, or
@@ -64,7 +64,7 @@ discover nothing implicitly:
 
 - The tool takes **explicit paths** (template location, target directory). It never assumes
   targets sit in any particular place, and there is no discovery magic.
-- `OutputPath` in the source tree is where the generator writes **the template** (a build
+- `OutputPath` in the source tree is where the build's `extract` writes **the template** (a build
   output, git-ignorable like the doc XML). Target files may or may not share that directory —
   that is the team's choice, not the library's.
 - The package `.targets` copy-to-output / embed step (spec 06) applies to whatever target
@@ -80,11 +80,13 @@ They therefore ship **inside the core runtime assembly** (`ArchPillar.Extensions
 not as separate `Formats.*` packages — the family does not split dependency-free code into tiny
 DLLs. The runtime registers all bundled providers by default.
 
-`MessageFormat` and `Abstractions` remain separate assemblies only because the analyzer and the
-generator load them inside the compiler (`netstandard2.0`); the providers are runtime-only and so
-have no such constraint. The compile-time generator emits the source template with a small internal
-writer (spec 02 / Phase 7), so it needs no provider assembly and adds no `System.Text.Json`
-dependency to the Roslyn host.
+`MessageFormat` and `Abstractions` remain separate assemblies because the analyzer and the
+generator load them inside the compiler (`netstandard2.0`) — the analyzer validates ICU defaults with
+`MessageFormat`, and both share the `Catalog`/attribute types in `Abstractions` — while the runtime
+(net8+) depends on the same two; a shared `netstandard2.0` library is the only way both hosts can use
+them. The providers are runtime-only and so have no such constraint. The generator emits only source
+(the key registry) and the tool, a normal app, owns serialization, so the Roslyn host needs no provider
+assembly and carries no `System.Text.Json` dependency.
 
 ### D-G — APL0009 (live stale-source diagnostic) is not implemented; staleness is the tool's job.
 The analyzer ships APL0001–APL0008. APL0009 (flagging, live in the editor, entries whose stored
@@ -238,7 +240,7 @@ Dead ends, ruled out:
   behind, and a non-goal.
 
 **Decision:** extraction is done by the `dotnet apl` **tool**, reading the **built assembly's IL** (method
-bodies, via `System.Reflection.Metadata`). The assembly is the one artifact that contains *everything* —
+bodies, via Mono.Cecil — a tool-only dependency; the runtime stays BCL-only). The assembly is the one artifact that contains *everything* —
 every generator's output compiled in — so this is complete by construction, with no blind spot downstream.
 The tool is a normal console app, so the I/O the analyzer is forbidden is exactly what the tool may do. Proven
 by a probe against the Blazor sample: the IL scan recovered the Razor call sites, defaults (a full ICU plural

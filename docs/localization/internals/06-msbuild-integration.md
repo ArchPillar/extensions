@@ -14,9 +14,8 @@ All properties use the `ArchPillarLocalization` prefix and are surfaced to the g
 |---|---|---|
 | `ArchPillarLocalizationFormat` | `arb` | template/catalog format: `arb` \| `xliff` \| `po` |
 | `ArchPillarLocalizationSourceLanguage` | `en` | the language the in-code defaults are written in (BCP-47) |
-| `ArchPillarLocalizationOutputPath` | `$(MSBuildProjectDirectory)\Translations` | directory where the **template** is authored and where target files live once added (source tree, version-controlled) |
-| `ArchPillarLocalizationLiveExtraction` | `false` | when `true`, the generator also rewrites the template during design-time/IDE builds (live extraction while editing); when `false`, only on a real build |
-| `ArchPillarLocalizationEmit` | `true` | master switch for template emission; `false` disables it (the analyzer and runtime still work) |
+| `ArchPillarLocalizationOutputPath` | `$(MSBuildProjectDirectory)\Translations` | directory where the **template** is written and where target files live once added (source tree, version-controlled) |
+| `ArchPillarLocalizationEmit` | `true` | master switch for the build-time template extraction (the tool's `extract`); `false` disables it (the generated key registry, the analyzer, and the runtime still work) |
 | `ArchPillarLocalizationKeyPattern` | *(none)* | optional regular expression enforced by diagnostic `APL0008` (spec 01) |
 | `ArchPillarLocalizationCopyTargetsToOutput` | `true` | copy **target** catalogs (not the template) to the application output directory so the runtime can load them |
 | `ArchPillarLocalizationEmbedTargets` | `false` | instead of copying, embed target catalogs as assembly resources (single-file deployment); mutually exclusive with copy |
@@ -37,7 +36,7 @@ The format is a convenience/authoring choice, not a lock-in — the tool's `conv
 
 ## What the build emits
 
-On build, the generator (spec 02) emits exactly one artifact tied to code: the **source-language template** in `OutputPath`, in the configured format — the source `.arb` for ARB (default), a source `.xliff` for XLIFF, or a `.pot` for Portable Object. The template carries every extracted key, its source text, and metadata (context, comments, references, fingerprint), with no target translations. That is the generator's whole filesystem responsibility. It creates no target-language files, requires none to exist, and never edits one.
+On build, two things happen, neither needing a language list. The **generator** (spec 02) emits the strongly-typed key registry as in-assembly source so call sites and the analyzer share rename-safe keys — it writes no files (a generator cannot). The **build's extract target** then runs the tool over the freshly built assembly, reading its **IL** (Decision D-K) and writing the **source-language template** to `OutputPath` in the configured format — the source `.arb` for ARB (default), a source `.xliff` for XLIFF, or a `.pot` for Portable Object — every extracted key, its source text, and metadata (context, comments, references, fingerprint), with no target translations. The build creates no target-language files, requires none to exist, and never edits one. An assembly with no translatable strings yields no template file.
 
 ## Languages are added on demand, not at build
 
@@ -48,11 +47,9 @@ Adding a target language is an operation on the **template**, performed when loc
 
 The build is never involved in this. Target files appear in `OutputPath` when someone adds them and are kept current by deliberate `sync` (or a translator's Poedit merge), not by recompiling. A team that wants automation may run `dotnet apl sync` in continuous integration — that is an explicit ops choice, not a compile-time coupling.
 
-## Live extraction (the opt-in)
+## Build-time only — no design-time writes
 
-Default (`LiveExtraction=false`): the generator computes in the IDE (for diagnostics and code generation) but rewrites the template only on a real build — matching the C# documentation XML file. The `DesignTimeBuild` MSBuild property, surfaced via `CompilerVisibleProperty`, is what the generator reads to suppress the design-time write.
-
-Opt-in (`LiveExtraction=true`): the generator also rewrites the template during design-time/IDE builds, so it tracks the code live as the developer edits translatable strings. Write-if-changed (spec 02) keeps it from thrashing. Useful when a developer is iterating on source strings; unnecessary otherwise.
+The template is written only on a **real build**, never during a design-time/IDE build. Extraction is the package's `extract` target — an MSBuild `Exec` over the just-built assembly, gated on `'$(DesignTimeBuild)' != 'true' and '$(BuildingProject)' == 'true'` — not a generator output, so editing translatable code in the IDE updates diagnostics and the generated key registry but touches no file on disk until you build. There is no live-extraction option: the tool reads the built assembly, which exists only after a build.
 
 ## Authored / template location vs runtime location
 
@@ -73,9 +70,8 @@ The package `.targets` bridges 2→3. When `ArchPillarLocalizationCopyTargetsToO
 
 ## Acceptance criteria
 
-- [ ] A build emits only the source-language template; no target-language file is created or required, and the project file contains no language declaration.
-- [ ] With `LiveExtraction=false`, editing translatable code in the IDE does not modify the template until a build; with `LiveExtraction=true`, it updates live (bounded only by write-if-changed).
-- [ ] `ArchPillarLocalizationEmit=false` stops template emission while leaving analyzer diagnostics and runtime lookup functional.
+- [ ] A build emits the key registry (in-assembly) and the source-language template (to `OutputPath`, via the extract target); no target-language file is created or required, and the project file contains no language declaration.
+- [ ] `ArchPillarLocalizationEmit=false` stops the build-time template extraction while leaving the generated key registry, analyzer diagnostics, and runtime lookup functional.
 - [ ] Adding a language with the tool (or Poedit, for Portable Object) creates a target file in `OutputPath` with no build or project edit; a subsequent build does not remove or rewrite it.
 - [ ] The template is not copied to the application output; target catalogs are (or are embedded), and the runtime finds them.
 - [ ] Changing `ArchPillarLocalizationOutputPath` relocates the template and target files together, and the runtime still finds the targets.

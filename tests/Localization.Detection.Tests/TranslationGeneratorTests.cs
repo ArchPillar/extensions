@@ -1,4 +1,3 @@
-using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
@@ -26,19 +25,6 @@ public sealed class TranslationGeneratorTests
         var registry = Generated("TranslationKeys.g.cs");
 
         Assert.Contains("public const string HomeTitle = \"home.title\";", registry);
-    }
-
-    [Fact]
-    public void Generator_BakesTemplateAttributeWithArbContent()
-    {
-        var template = Generated("LocalizationTemplate.g.cs");
-
-        Assert.Contains("GeneratedLocalizationTemplate(", template);
-        var arb = DecodeTemplate(template);
-        Assert.Contains("\"@@locale\": \"en\"", arb);
-        // A global (uncategorized) key is written as its bare key, matching standard ARB.
-        Assert.Contains("\"home.title\": \"Home\"", arb);
-        Assert.Contains("x-source-fingerprint", arb);
     }
 
     [Fact]
@@ -77,15 +63,6 @@ public sealed class TranslationGeneratorTests
         Assert.Contains("public static class Cancel", registry);
         // The same key "label" lives once per category, with no top-level collision.
         Assert.Equal(2, CountOccurrences(registry, "public const string Label = \"label\";"));
-
-        // The baked ARB qualifies each member by category, so the same key is two distinct members.
-        var arb = DecodeTemplate(result.Results
-            .SelectMany(r => r.GeneratedSources)
-            .Single(s => s.HintName == "LocalizationTemplate.g.cs")
-            .SourceText
-            .ToString());
-        Assert.Contains("\"Save::label\":", arb);
-        Assert.Contains("\"Cancel::label\":", arb);
     }
 
     [Fact]
@@ -103,15 +80,9 @@ public sealed class TranslationGeneratorTests
             }
             """;
 
-        GeneratorDriver driver = CSharpGeneratorDriver.Create(new Generator.TranslationGenerator());
-        GeneratorDriverRunResult result = driver.RunGenerators(RoslynTestHost.CreateCompilation(Indexer)).GetRunResult();
-        var template = result.Results
-            .SelectMany(r => r.GeneratedSources)
-            .Single(s => s.HintName == "LocalizationTemplate.g.cs")
-            .SourceText
-            .ToString();
+        var registry = GeneratedFrom(Indexer, "TranslationKeys.g.cs");
 
-        Assert.Contains("Email is required", DecodeTemplate(template));
+        Assert.Contains("Email is required", registry);
     }
 
     [Fact]
@@ -223,13 +194,4 @@ public sealed class TranslationGeneratorTests
             .ToString();
     }
 
-    private static string DecodeTemplate(string template)
-    {
-        const string Marker = "GeneratedLocalizationTemplate(";
-        var open = template.IndexOf(Marker, StringComparison.Ordinal) + Marker.Length;
-        var close = template.IndexOf(")]", open, StringComparison.Ordinal);
-        var parts = template[open..close].Split([", "], StringSplitOptions.None);
-        var base64 = parts[2].Trim().Trim('"');
-        return Encoding.UTF8.GetString(Convert.FromBase64String(base64));
-    }
 }

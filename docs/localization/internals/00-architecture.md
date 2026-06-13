@@ -73,24 +73,13 @@ The analyzer and the compile-time engine must agree, byte-for-byte, on what coun
 
 ### Why the compile-time engine is a source generator
 
-The translation catalog is a deterministic build output of the source — exactly like the C# documentation XML file. The Roslyn component that runs *inside the compiler during a normal build* and holds the `Compilation` (and therefore the semantic model needed for attribute-driven detection) is a source generator. An `MSBuild` task does not receive the `Compilation`; it would have to re-run compilation via `MSBuildWorkspace`, which is slow and duplicative. So the generator is the correct tool for "semantic extraction plus compile-time file emission with no separate step," not a workaround.
+The strongly-typed **key registry** is a deterministic build output of the source — exactly like the C# documentation XML file. The Roslyn component that runs *inside the compiler during a normal build* and holds the `Compilation` (and therefore the semantic model needed for attribute-driven detection) is a source generator, so that is where the registry is produced. It emits the registry through the terminal output step (`RegisterSourceOutput`) as **in-assembly source** — the output a generator is built for — and does no file I/O.
 
-The catalog write lives in the generator's terminal output step (`RegisterSourceOutput`), which is where a generator is expected to produce output. The incremental-purity rule applies to the *pipeline transform steps* — so Roslyn can cache them — not to the output step; writing a file there is the generator doing its job, not a violation. Two behaviours follow from how the output cache works, and these are what to design around (not a "purity" rule):
-
-- **The output step also runs in the editor.** The IDE runs generators continuously for IntelliSense, so the write fires whenever the *extracted set of strings* changes — while the developer edits translatable calls, not only on a real build. This is more eager than the doc XML (which `csc` writes only on build). Either keep it (live extraction while editing is arguably a feature) and let write-if-changed prevent thrashing, or gate it to build-only (below). Both are correct.
-- **The write fires on input change, not file change.** Because Roslyn caches the output step on the extracted model's equality, the generator rewrites a catalog only when the *code* changes — not when the *file* changes. Deleting a `.po` by hand will not regenerate it unless the code also changed. The doc XML has no such gap (csc rewrites unconditionally each build); the explicit `dotnet` tool closes it when needed.
-
-Churn control is **write-if-changed**: serialize in memory, hash, compare to the on-disk file, write only on difference. That plus the incremental cache keeps the editor cheap — no side-effect ban required.
-
-The generator reads no target files at all — it emits the template from the `Compilation` and stops. (`AdditionalFiles` would only be relevant if the generator later emitted *code* that must reflect translation contents, e.g. a baked list of available locales; that is out of scope.)
-
-**Build-only by default, live extraction opt-in.** By default the generator writes the template only on a real build, never while typing — it reads the `DesignTimeBuild` MSBuild property (via `CompilerVisibleProperty`) to suppress design-time writes, matching the doc XML exactly. Setting `ArchPillarLocalizationLiveExtraction=true` (spec 06) lets it also write during design-time builds, so the template tracks the code live as the developer edits — useful when the developer does the translations themselves, unnecessary otherwise. Format, source language, output location, and these toggles are MSBuild properties; there is deliberately no target-language property. Spec 06 is the full surface.
-
-The one genuinely speculative risk (Decision D-10) is host sandboxing: a future Roslyn or a restricted build host could deny generators file-system access. The `dotnet` tool can produce the template out of band, insuring against that.
+The **source-language template, by contrast, is not the generator's job** — it is the tool's (Decision **D-K**). A source generator only ever sees the original user source, never another generator's output, so strings that exist only in Razor/Blazor/MVC generated code are invisible to it. Reading the **built assembly's IL** instead is complete by construction — every generator's output is compiled in — which is why extraction lives in the `dotnet` tool. The build runs that extraction for you after a real build (spec 06); the tool's write is atomic (temp-then-move) and skips an unchanged file, so a no-op build touches nothing, and an assembly with no strings yields no file. Moving extraction out of the generator also sidesteps the speculative host-sandboxing risk (Decision D-10): the tool is a normal console app, free to do the I/O a generator cannot.
 
 ### The `dotnet` tool
 
-`ArchPillar.Localization.Tooling` owns everything downstream of the template, all on demand and none of it a build decision: `add <lang>` creates a new target file from the template, `sync` reconciles existing target files against it, `convert` re-serializes into another format, and `--check`/`template` cover continuous integration and out-of-build template generation (via `MSBuildWorkspace`). This is the only mechanism by which a target language enters — explicit, human-driven, never at build time. For Portable Object, Poedit's native "create from POT" / "update from POT" are equivalent to `add`/`sync`, so a translator can self-serve; XLIFF and ARB cannot self-bootstrap, which is why the tool provides it for them. (See spec 02.)
+`ArchPillar.Localization.Tooling` owns the template and everything downstream of it, all on demand and none of it a build decision: `extract` builds the template from a built assembly's IL, `add <lang>` creates a new target file from the template, `sync` reconciles existing target files against it, `convert` re-serializes into another format, and `sync --check` is the continuous-integration gate. Adding a language is the only place a target language enters — explicit, human-driven, never at build time. For Portable Object, Poedit's native "create from POT" / "update from POT" are equivalent to `add`/`sync`, so a translator can self-serve; XLIFF and ARB cannot self-bootstrap, which is why the tool provides it for them. (See spec 02.)
 
 ### What the generator emits
 
@@ -188,6 +177,6 @@ Each decision uses: **Context → Decision → Consequence**.
 2. `Abstractions` (attributes + Catalog model + provider interface; specs 01 & 03 headers).
 3. `Detection` + `Analyzers` (spec 01).
 4. `Formats.Po`, then `Formats.Xliff`, then `Formats.Arb` (spec 03).
-5. The extract + reconcile core (spec 02), shared by the generator and the tool.
-6. `Generator` (the `IIncrementalGenerator`: template emission + key registry); `Tooling` (the `dotnet` tool: `add` / `sync` / `convert` / `template` / `--check`).
+5. The extract + reconcile core (spec 02), in the tool.
+6. `Generator` (the `IIncrementalGenerator`: the typed key registry); `Tooling` (the `dotnet` tool: `extract` / `add` / `sync` / `convert` / `merge`).
 7. `ArchPillar.Localization` runtime (spec 05).
