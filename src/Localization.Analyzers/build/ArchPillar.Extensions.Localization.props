@@ -14,6 +14,11 @@
     <ArchPillarLocalizationSourceLanguage Condition="'$(ArchPillarLocalizationSourceLanguage)' == ''">en</ArchPillarLocalizationSourceLanguage>
     <ArchPillarLocalizationOutputPath Condition="'$(ArchPillarLocalizationOutputPath)' == ''">$(MSBuildProjectDirectory)/Translations</ArchPillarLocalizationOutputPath>
     <ArchPillarLocalizationEmit Condition="'$(ArchPillarLocalizationEmit)' == ''">true</ArchPillarLocalizationEmit>
+    <!-- Template extraction runs only where the package is referenced directly (the project that authors the
+         strings). Set true to also extract in a project that references the package transitively, or that wires
+         these build assets in by hand (e.g. via Directory.Build) — the escape hatch. The publish-time merge
+         always runs regardless. Off by default. -->
+    <ArchPillarLocalizationExtractTransitively Condition="'$(ArchPillarLocalizationExtractTransitively)' == ''">false</ArchPillarLocalizationExtractTransitively>
     <ArchPillarLocalizationCopyTargetsToOutput Condition="'$(ArchPillarLocalizationCopyTargetsToOutput)' == ''">true</ArchPillarLocalizationCopyTargetsToOutput>
     <ArchPillarLocalizationEmbedTargets Condition="'$(ArchPillarLocalizationEmbedTargets)' == ''">false</ArchPillarLocalizationEmbedTargets>
     <ArchPillarLocalizationMergeOnPublish Condition="'$(ArchPillarLocalizationMergeOnPublish)' == ''">true</ArchPillarLocalizationMergeOnPublish>

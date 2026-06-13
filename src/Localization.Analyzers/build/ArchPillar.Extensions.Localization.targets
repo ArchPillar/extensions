@@ -1,14 +1,19 @@
 <Project>
 
   <!--
-    Materializes the source-language template after a real build by invoking the tool to extract the
-    template the generator baked into the output assembly. Gated to build-only (never design-time), so
-    editing in the IDE does not write files (Decision D-B). Best-effort: a missing tool warns rather
-    than failing the build.
+    After a real build, extract the source-language template from the built assembly's IL (Decision D-K) by
+    invoking the tool. Gated to build-only (never design-time), so editing in the IDE does not write files
+    (Decision D-B). Extraction is per-authoring-assembly, so it runs only where the package is DIRECTLY
+    referenced — the project that owns the strings; a project that gets the package transitively has no strings
+    of its own and is skipped (it still gets the publish-time merge below). Set
+    ArchPillarLocalizationExtractTransitively=true to run it anyway in a project that references the package
+    indirectly or wires these targets in by hand (e.g. via Directory.Build) — the escape hatch. Best-effort: a
+    missing tool warns rather than failing the build.
   -->
   <Target Name="ArchPillarLocalizationExtractTemplate"
           AfterTargets="Build"
-          Condition="'$(ArchPillarLocalizationEmit)' == 'true' and '$(DesignTimeBuild)' != 'true' and '$(BuildingProject)' == 'true'">
+          Condition="'$(ArchPillarLocalizationEmit)' == 'true' and '$(DesignTimeBuild)' != 'true' and '$(BuildingProject)' == 'true'
+                     and ('$(ArchPillarLocalizationExtractTransitively)' == 'true' or '@(PackageReference->WithMetadataValue('Identity', 'ArchPillar.Extensions.Localization'))' != '')">
     <Exec Command="$(ArchPillarLocalizationToolCommand) extract --assembly &quot;$(TargetPath)&quot; --output &quot;$([MSBuild]::NormalizePath('$(ArchPillarLocalizationOutputPath)'))&quot; --source $(ArchPillarLocalizationSourceLanguage) --format $(ArchPillarLocalizationFormat)"
           ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)"
           StandardOutputImportance="low" />

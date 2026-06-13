@@ -16,6 +16,7 @@ All properties use the `ArchPillarLocalization` prefix and are surfaced to the g
 | `ArchPillarLocalizationSourceLanguage` | `en` | the language the in-code defaults are written in (BCP-47) |
 | `ArchPillarLocalizationOutputPath` | `$(MSBuildProjectDirectory)\Translations` | directory where the **template** is written and where target files live once added (source tree, version-controlled) |
 | `ArchPillarLocalizationEmit` | `true` | master switch for the build-time template extraction (the tool's `extract`); `false` disables it (the generated key registry, the analyzer, and the runtime still work) |
+| `ArchPillarLocalizationExtractTransitively` | `false` | extraction runs only where the package is referenced **directly** (the project that authors the strings); set `true` to also extract in a project that references the package transitively or wires the build assets in by hand — see [Reference scope](#reference-scope-direct-vs-transitive) |
 | `ArchPillarLocalizationKeyPattern` | *(none)* | optional regular expression enforced by diagnostic `APL0008` (spec 01) |
 | `ArchPillarLocalizationCopyTargetsToOutput` | `true` | copy **target** catalogs (not the template) to the application output directory so the runtime can load them |
 | `ArchPillarLocalizationEmbedTargets` | `false` | instead of copying, embed target catalogs as assembly resources (single-file deployment); mutually exclusive with copy |
@@ -50,6 +51,25 @@ The build is never involved in this. Target files appear in `OutputPath` when so
 ## Build-time only — no design-time writes
 
 The template is written only on a **real build**, never during a design-time/IDE build. Extraction is the package's `extract` target — an MSBuild `Exec` over the just-built assembly, gated on `'$(DesignTimeBuild)' != 'true' and '$(BuildingProject)' == 'true'` — not a generator output, so editing translatable code in the IDE updates diagnostics and the generated key registry but touches no file on disk until you build. There is no live-extraction option: the tool reads the built assembly, which exists only after a build.
+
+## Reference scope: direct vs transitive
+
+Two of the build assets are packed under `buildTransitive`, so they reach **every** consumer in a dependency graph — a direct reference *and* a project that picks the package up indirectly through another library. That is correct for the **publish-time merge** (`AfterTargets="Publish"`): an app that depends on a localized library three levels down still wants that library's catalogs flattened into the per-culture bundles. But it is *wrong* for **build-time extraction**, which is per-authoring-assembly: a transitive consumer has no strings of its own, so running the tool over its assembly is pure cost (the analyzer, which is `analyzers/`-scoped and therefore direct-only by NuGet default, doesn't even run there).
+
+So the `extract` target self-gates on **whether the package is referenced directly**, using `@(PackageReference->WithMetadataValue('Identity', 'ArchPillar.Extensions.Localization'))` — populated for a direct reference, empty for a transitive one. The merge stays ungated (it self-limits on `Exists($(PublishDir)Translations)`). Net effect:
+
+| | extract (build) | merge (publish) |
+|---|---|---|
+| **Direct** reference | runs | runs |
+| **Transitive** reference | skipped | runs |
+
+**Escape hatch.** A project that authors localized strings but only sees the package transitively — or consumes the build assets by hand (e.g. importing them from `Directory.Build.props`/`.targets`, as this repo's own samples do) — opts back in with:
+
+```xml
+<PropertyGroup>
+  <ArchPillarLocalizationExtractTransitively>true</ArchPillarLocalizationExtractTransitively>
+</PropertyGroup>
+```
 
 ## Authored / template location vs runtime location
 

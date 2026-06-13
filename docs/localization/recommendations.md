@@ -107,3 +107,20 @@ extracted indexer literal, or an `L(...)` marker. Migrate hot paths to the nativ
 The `DefaultLocalizer` and the ambient store are built for concurrent use and cache their snapshot;
 the DI registration is a singleton for this reason. Do not construct a `CatalogStore` per request —
 that re-parses catalogs and discards the cached snapshot on every call.
+
+## Reference the package directly in any project that authors localized strings
+
+Build-time extraction is per-authoring-assembly, so it runs only where `ArchPillar.Extensions.Localization`
+is referenced **directly** — the project that actually writes the strings. A project that picks the
+package up only *transitively* (through a library that uses it) has no strings of its own, so it is
+skipped, and its build doesn't pay the extraction cost. Publish-time merging still runs everywhere, so a
+deployed app always bundles the catalogs of every localized library in its graph.
+
+If a project authors strings but sees the package only transitively — or wires the build assets in by
+hand (e.g. from `Directory.Build.props`) — add a direct `<PackageReference>`, or opt in explicitly:
+
+```xml
+<PropertyGroup>
+  <ArchPillarLocalizationExtractTransitively>true</ArchPillarLocalizationExtractTransitively>
+</PropertyGroup>
+```

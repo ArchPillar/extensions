@@ -25,6 +25,9 @@
   -->
   <PropertyGroup>
     <_ArchPillarSampleAuthoring Condition="'$(ArchPillarLocalizationSampleAuthoring)' != 'false' and '$(PublishTrimmed)' != 'true' and '$(PublishAot)' != 'true'">true</_ArchPillarSampleAuthoring>
+    <!-- The samples wire these build assets in by hand (no PackageReference), so they take the escape hatch to
+         run extraction just as a direct package consumer would. -->
+    <ArchPillarLocalizationExtractTransitively Condition="'$(_ArchPillarSampleAuthoring)' == 'true'">true</ArchPillarLocalizationExtractTransitively>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(_ArchPillarSampleAuthoring)' == 'true'">
