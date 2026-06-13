@@ -62,7 +62,7 @@ public sealed class WebShopMappers : MapperContext
             LineCount        = src.Lines.Count(),
             CustomerFullName = src.Customer.FirstName + " " + src.Customer.LastName,
         })
-        .Optional(p => p.Lines, src => src.Lines.Project(OrderLine))
+        .Optional(p => p.Lines, src => src.Lines.Project(OrderLine).ToList())
         .Build();
 
         // Customer computes aggregate spend.
