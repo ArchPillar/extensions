@@ -1,0 +1,22 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "ArchPillar.Extensions",
+  "description": "Small, low-dependency .NET building blocks that compose into a platform for business logic. Early-stage: Mapper (explicit object mapping + LINQ/EF Core projection) is published; translation is next.",
+  "url": "https://context7.com/archpillar/extensions",
+  "public_key": "pk_dZjCSqSWz3ivflfdOP9JW",
+  "folders": [
+    "docs/mapper",
+    "docs/localization",
+    "samples/Mapper",
+    "samples/Localization"
+  ],
+  "excludeFolders": [
+    "docs/*/internals"
+  ],
+  "rules": [
+    "Mapper: every destination property must be explicitly mapped, optional, or ignored; unmapped properties fail at build time. No convention or name-based auto-mapping and no attributes. Define mappings in a MapperContext, modeled on EF Core's DbContext.",
+    "Mapper: mapping expressions must be EF Core-translatable (no throw, no delegate invocation), so one definition drives both in-memory mapping and IQueryable/EF Core projection.",
+    "Localization: strings are authored once at the call site as an ICU MessageFormat default (source of truth and fallback) and extracted at compile time. Keys are scoped by category, following the ILogger<T> model.",
+    "Libraries depend only on the BCL, with opt-in DI and EF Core integration packages. No runtime reflection on the hot path; AOT/trim-safe where documented."
+  ]
+}

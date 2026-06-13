@@ -4,6 +4,10 @@ Foundational types for the `ArchPillar.Extensions.*` family. Lightweight, alloca
 
 The package's assembly base namespace is `ArchPillar.Extensions`. Types live under topic sub-namespaces; the operation-result family ships under `ArchPillar.Extensions.Operations`. Future primitive areas (typed identifiers, JSON converters, …) will get their own sub-namespaces under the same package.
 
+## Why?
+
+Most layers end up inventing their own "result" type and then a translation layer to turn it into an HTTP response. Primitives collapses that: an `int`-aligned `OperationStatus` carries the HTTP code verbatim, and the failure body is RFC 7807 `application/problem+json`-shaped, so a result returned from a handler becomes a response without a lookup table — and a result coming *back* from an HTTP boundary round-trips through the enum without loss. The enum gives compile-time discoverability for the common cases while leaving the door open for custom domain codes: when you really need 418, cast `(OperationStatus)418`. The types stay BCL-only, allocation-conscious (no `Problem` body on success), and AOT/trim-safe; EF Core persistence for the typed-id primitives is an opt-in companion package, [`ArchPillar.Extensions.Primitives.EntityFrameworkCore`](../../src/Primitives.EntityFrameworkCore/).
+
 ## Public surface
 
 | Type | Purpose |
@@ -156,6 +160,16 @@ Every failure factory takes a required `detail` (the per-occurrence "what's what
 | `extensions` | `Problem.Extensions` |
 | `instance` | `Problem.Instance` |
 
-## Why an `int`-aligned enum?
+## Documentation
 
-The enum gives you compile-time discoverability for the common cases while leaving the door open for custom domain codes — when you really need 418, cast `(OperationStatus)418`. The numeric values match HTTP one-to-one so a status maps to an HTTP response without translation, and a result coming back from an HTTP boundary can round-trip through the enum without loss.
+- [Getting started](getting-started.md) — install to first result, numbered.
+- [Features](features.md) — every factory, the wire shape, implicit conversions, `Unwrap`/`UnwrapAsync`, `ThrowIfFailed`, and the EF Core typed-id integration.
+- [Recommendations](recommendations.md) — production patterns and the implicit-conversion gotchas.
+- [Specification](internals/SPEC.md) — the design contract: goals, concepts, and full API surface.
+
+## Samples
+
+- [Primitives.CatalogSample](../../samples/Primitives/Primitives.CatalogSample/) — Console: the core `OperationResult` story in memory — success/failure factories, `Unwrap`/`ThrowIfFailed`, and the `OperationProblem`/`OperationError` shape.
+- [Primitives.WebApiSample](../../samples/Primitives/Primitives.WebApiSample/) — ASP.NET Core Minimal API: returning `OperationResult` across the HTTP boundary as `application/problem+json` with HTTP-aligned status codes (400 field errors, 404, 201/200).
+- [Primitives.TypedIdsSample](../../samples/Primitives/Primitives.TypedIdsSample/) — Console + EF Core SQLite: the opt-in `Primitives.EntityFrameworkCore` add-on — `Id<T>` persisted via `UseArchPillarTypedIds()` plus a per-property `HasIdConversion()`, with operations returning `OperationResult`.
+- [Primitives.BlazorSample](../../samples/Primitives/Primitives.BlazorSample/) — Blazor WebAssembly: consuming `OperationResult`/`problem+json` client-side with no backend — client-side validation producing a result, and deserializing a canned `problem+json` into `OperationProblem`.

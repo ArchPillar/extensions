@@ -1,25 +1,38 @@
 <Solution>
   <Folder Name="/samples/" />
   <Folder Name="/samples/Mapper/" />
-  <Folder Name="/samples/Mapper/WebShop/">
-    <Project Path="samples/Mapper/WebShop/WebShop.csproj" />
+  <Folder Name="/samples/Mapper/Mapper.WebShopSample/">
+    <Project Path="samples/Mapper/Mapper.WebShopSample/Mapper.WebShopSample.csproj" />
   </Folder>
-  <Folder Name="/samples/Mapper/WebShop.OData/">
-    <Project Path="samples/Mapper/WebShop.OData/WebShop.OData.csproj" />
+  <Folder Name="/samples/Mapper/Mapper.WebShopODataSample/">
+    <Project Path="samples/Mapper/Mapper.WebShopODataSample/Mapper.WebShopODataSample.csproj" />
   </Folder>
   <Folder Name="/samples/Pipelines/" />
-  <Folder Name="/samples/Pipelines/Pipeline.BuilderSample/">
-    <Project Path="samples/Pipelines/Pipeline.BuilderSample/Pipeline.BuilderSample.csproj" />
+  <Folder Name="/samples/Pipelines/Pipelines.BuilderSample/">
+    <Project Path="samples/Pipelines/Pipelines.BuilderSample/Pipelines.BuilderSample.csproj" />
   </Folder>
-  <Folder Name="/samples/Pipelines/Pipeline.HostSample/">
-    <Project Path="samples/Pipelines/Pipeline.HostSample/Pipeline.HostSample.csproj" />
+  <Folder Name="/samples/Pipelines/Pipelines.HostSample/">
+    <Project Path="samples/Pipelines/Pipelines.HostSample/Pipelines.HostSample.csproj" />
   </Folder>
   <Folder Name="/samples/Commands/" />
-  <Folder Name="/samples/Commands/Command.HostSample/">
-    <Project Path="samples/Commands/Command.HostSample/Command.HostSample.csproj" />
+  <Folder Name="/samples/Commands/Commands.HostSample/">
+    <Project Path="samples/Commands/Commands.HostSample/Commands.HostSample.csproj" />
   </Folder>
-  <Folder Name="/samples/Commands/Command.WebApiSample/">
-    <Project Path="samples/Commands/Command.WebApiSample/Command.WebApiSample.csproj" />
+  <Folder Name="/samples/Commands/Commands.WebApiSample/">
+    <Project Path="samples/Commands/Commands.WebApiSample/Commands.WebApiSample.csproj" />
+  </Folder>
+  <Folder Name="/samples/Primitives/" />
+  <Folder Name="/samples/Primitives/Primitives.CatalogSample/">
+    <Project Path="samples/Primitives/Primitives.CatalogSample/Primitives.CatalogSample.csproj" />
+  </Folder>
+  <Folder Name="/samples/Primitives/Primitives.WebApiSample/">
+    <Project Path="samples/Primitives/Primitives.WebApiSample/Primitives.WebApiSample.csproj" />
+  </Folder>
+  <Folder Name="/samples/Primitives/Primitives.TypedIdsSample/">
+    <Project Path="samples/Primitives/Primitives.TypedIdsSample/Primitives.TypedIdsSample.csproj" />
+  </Folder>
+  <Folder Name="/samples/Primitives/Primitives.BlazorSample/">
+    <Project Path="samples/Primitives/Primitives.BlazorSample/Primitives.BlazorSample.csproj" />
   </Folder>
   <Folder Name="/samples/Localization/" />
   <Folder Name="/samples/Localization/Localization.ConsoleSample/">

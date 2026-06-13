@@ -144,9 +144,9 @@ public sealed class Mapper<TSource, TDest> : IMapper, IInvokeExpressionBuilder
             catch (ArgumentException ex)
             {
                 throw new InvalidOperationException(
-                    $"Mapper '{DescribeType(typeof(TSource))}' -> '{DescribeType(typeof(TDest))}': the mapping for " +
-                    $"destination property '{mapping.Destination.Name}' (of type '{DescribeType(GetMemberType(mapping.Destination))}') " +
-                    $"produced a value of type '{DescribeType(body.Type)}', which cannot be assigned to it. " +
+                    $"Mapper '{TypeDisplay.Describe(typeof(TSource))}' -> '{TypeDisplay.Describe(typeof(TDest))}': the mapping for " +
+                    $"destination property '{mapping.Destination.Name}' (of type '{TypeDisplay.Describe(TypeDisplay.MemberType(mapping.Destination))}') " +
+                    $"produced a value of type '{TypeDisplay.Describe(body.Type)}', which cannot be assigned to it. " +
                     "Check this property's mapping — the mapped source value's type does not match the destination " +
                     "property's type (this commonly happens when a nested mapper returns a different type than the " +
                     "property expects).",
@@ -186,35 +186,6 @@ public sealed class Mapper<TSource, TDest> : IMapper, IInvokeExpressionBuilder
         }
 
         return expression;
-    }
-
-    private static Type GetMemberType(MemberInfo member)
-        => member switch
-        {
-            PropertyInfo property => property.PropertyType,
-            FieldInfo field       => field.FieldType,
-            _                     => typeof(object),
-        };
-
-    /// <summary>
-    /// Produces a readable type name for diagnostics — e.g. <c>List&lt;OrderDto&gt;</c>
-    /// or <c>OrderStatus?</c> — instead of the raw CLR name (<c>List`1</c>).
-    /// </summary>
-    private static string DescribeType(Type type)
-    {
-        if (Nullable.GetUnderlyingType(type) is { } underlying)
-        {
-            return DescribeType(underlying) + "?";
-        }
-
-        if (!type.IsGenericType)
-        {
-            return type.Name;
-        }
-
-        var name = type.Name[..type.Name.IndexOf('`')];
-        var args = string.Join(", ", type.GetGenericArguments().Select(DescribeType));
-        return $"{name}<{args}>";
     }
 
     // -------------------------------------------------------------------------

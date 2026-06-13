@@ -105,3 +105,7 @@ Activities flow through `PipelineActivitySource.Name` (`"ArchPillar.Extensions.P
 ## Documentation
 
 Full documentation and examples are available at the [GitHub repository](https://github.com/ArchPillar/extensions).
+
+## License
+
+MIT — see the bundled `LICENSE` file.

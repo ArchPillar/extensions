@@ -1,0 +1,51 @@
+@page "/problem"
+@namespace Primitives.BlazorSample.Pages
+@using System.Text.Json
+
+<h1>Problem from the wire</h1>
+
+<p>
+    A canned <code>application/problem+json</code> payload, deserialized into an
+    <code>OperationProblem</code> with <code>System.Text.Json</code> and rendered
+    through the same <code>ProblemDisplay</code> the form uses — the result
+    round-tripping from the wire.
+</p>
+
+@if (_problem is { } problem)
+{
+    <ProblemDisplay Problem="problem" />
+}
+
+<details>
+    <summary>Raw payload</summary>
+    <pre>@ProblemJson</pre>
+</details>
+
+@code {
+    // A canned RFC 7807 problem+json body — the shape an HTTP boundary would
+    // emit for a failed OperationResult. Only OperationProblem / OperationError
+    // are on the wire, so default reflection-based STJ deserializes it cleanly.
+    private const string ProblemJson =
+        """
+        {
+          "type": "bad_request",
+          "title": "Bad Request",
+          "detail": "The product draft failed validation.",
+          "errors": {
+            "Name": [
+              { "type": "required", "detail": "Name is required.", "status": 400 }
+            ],
+            "Price": [
+              { "type": "out_of_range", "detail": "Price must be greater than zero.", "status": 400 }
+            ]
+          }
+        }
+        """;
+
+    private OperationProblem? _problem;
+
+    protected override void OnInitialized()
+    {
+        _problem = JsonSerializer.Deserialize<OperationProblem>(ProblemJson);
+    }
+}

@@ -2,75 +2,37 @@
 
 A lightweight, DI-friendly, **allocation-free** async middleware pipeline for .NET. Built on pre-composed nested lambdas: each middleware wraps the rest of the chain, the delegate chain is built once, and the synchronous hot path allocates zero bytes per invocation.
 
-## Package
-
-**`ArchPillar.Extensions.Pipelines`** — single package containing everything:
-
-- The contracts (`IPipelineHandler<T>`, `IPipelineMiddleware<T>`, `PipelineDelegate<T>`).
-- The `Pipeline<T>` class, the static `Pipeline.For<T>()` entry point, the `PipelineBuilder<T>`, and delegate-based helpers.
-- `IServiceCollection` extensions — `AddPipeline<T, THandler>()`, `AddPipeline<T>(IPipelineHandler<T>)`, `AddPipelineMiddleware<T, TMiddleware>()`, `ReplacePipelineHandler<T, THandler>()`.
-- Distributed-tracing built in — `IPipelineContext` (optional contract on your context type) + `ActivityMiddleware<T>` (plug-in middleware) + `PipelineActivitySource.Name` (the source subscribers reference).
-
-Depends on `Microsoft.Extensions.DependencyInjection.Abstractions` and nothing else.
-
 ## Why?
 
-Middleware pipelines are everywhere — ASP.NET Core middleware, MassTransit filters, and similar — but they are usually tied to a specific framework. `Pipeline<T>` lifts the pattern out into a small, framework-independent class you can use for anything: request handlers, background jobs, domain workflows, data import steps, retry/logging wrappers.
+Middleware pipelines are everywhere — ASP.NET Core middleware, MediatR behaviours, MassTransit filters — but they are usually tied to a specific framework. `Pipeline<T>` lifts the pattern out into a small, framework-independent class you can use for anything: request handlers, background jobs, domain workflows, data import steps, retry/logging wrappers.
 
-## Design highlights
+The design choice that distinguishes it is composition happening **once**, in the `Pipeline<T>` constructor: the middleware-to-handler chain is pre-built into a single delegate, so every `ExecuteAsync` is one delegate invocation with no per-call closure allocation. The opposing approach — rebuilding the chain per call, or discovering middlewares by reflection — trades that predictability away. Here nothing scans assemblies, nothing inspects attributes, and the set of middlewares in a pipeline is exactly the set you registered. The only runtime dependency is `Microsoft.Extensions.DependencyInjection.Abstractions`, referenced privately, so consumers who use `Pipeline<T>` directly never see it.
 
-- **Nested-lambda model.** Each middleware wraps the rest of the pipeline. Short-circuit by not calling `next(...)`. Add error boundaries with `try/catch await next(...)`.
-- **Pre-built delegate chain.** The middleware → handler composition is built **once** in the `Pipeline<T>` constructor. Every subsequent `ExecuteAsync` is a single delegate invocation.
-- **Allocation-free hot path.** Synchronous pipelines (handler returns a completed task, middlewares tail-call `next`) allocate **zero bytes per invocation**. Locked in by unit tests using `GC.GetAllocatedBytesForCurrentThread()`.
-- **DI-native.** Middlewares and handlers are classes with constructor-injected dependencies. `services.AddPipeline<T>()` composes a `Pipeline<T>` from the `IPipelineMiddleware<T>` and `IPipelineHandler<T>` services registered in the container, so multiple modules can contribute to the same pipeline without coordination.
-- **Async-first.** `Task`-returning throughout, with `CancellationToken` flowing through every step.
-- **Reusable.** A single `Pipeline<T>` instance is safe to invoke many times, concurrently, as long as the underlying handler and middlewares themselves are thread-safe.
-- **Distributed-tracing ready.** Opt into `IPipelineContext` on your context type and drop `ActivityMiddleware<T>` into the pipeline — the activities flow to any OpenTelemetry or `ActivityListener` subscriber with zero framework lock-in.
+## Quick Start
 
-## Quick start (direct, no DI)
-
-```csharp
-using ArchPillar.Extensions.Pipelines;
-
-var pipeline = Pipeline
-    .For<OrderContext>()
-    .Use(async (context, next, cancellationToken) =>
-    {
-        Console.WriteLine($"start {context.OrderId}");
-        await next(context, cancellationToken);
-        Console.WriteLine($"done  {context.OrderId}");
-    })
-    .Use(async (context, next, cancellationToken) =>
-    {
-        if (context.OrderId <= 0) return;   // short-circuit
-        await next(context, cancellationToken);
-    })
-    .Handle(context => Console.WriteLine($"handler: {context.OrderId}"))
-    .Build();
-
-await pipeline.ExecuteAsync(new OrderContext { OrderId = 42 });
-```
-
-## Quick start (with DI)
+**With DI** — the primary consumption path:
 
 ```csharp
 using ArchPillar.Extensions.Pipelines;
 using Microsoft.Extensions.DependencyInjection;
 
+// A pipeline always has a terminal handler — register it upfront.
 services.AddPipeline<OrderContext, PlaceOrderHandler>();
+
+// Middlewares are registered independently. Library modules can contribute
+// middlewares to a pipeline owned by the application.
 services.AddPipelineMiddleware<OrderContext, LoggingMiddleware>();
 services.AddPipelineMiddleware<OrderContext, ValidationMiddleware>();
-services.AddPipelineMiddleware<OrderContext, TransactionMiddleware>();
 
-// Inject Pipeline<OrderContext> anywhere:
+// Resolve Pipeline<OrderContext> anywhere via constructor injection.
 public sealed class OrderEndpoint(Pipeline<OrderContext> pipeline)
 {
-    public Task Handle(OrderContext context, CancellationToken cancellationToken)
+    public Task HandleAsync(OrderContext context, CancellationToken cancellationToken)
         => pipeline.ExecuteAsync(context, cancellationToken);
 }
 ```
 
-A class-based middleware looks exactly like the ASP.NET Core middleware you are used to, with one difference: `next` takes the context and cancellation token explicitly (so the chain is pre-built and zero-allocation at runtime):
+A class-based middleware looks like ASP.NET Core middleware, with one difference: `next` takes the context and cancellation token explicitly, so the chain is pre-built and zero-allocation at runtime:
 
 ```csharp
 public sealed class LoggingMiddleware(ILogger<LoggingMiddleware> logger) : IPipelineMiddleware<OrderContext>
@@ -84,12 +46,73 @@ public sealed class LoggingMiddleware(ILogger<LoggingMiddleware> logger) : IPipe
 }
 ```
 
+**Direct (no DI)** — useful in tests and small programs:
+
+```csharp
+var pipeline = Pipeline
+    .For<OrderContext>()
+    .Use(new LoggingMiddleware(logger))
+    .Use(async (context, next, cancellationToken) =>
+    {
+        if (context.OrderId <= 0)
+        {
+            return; // short-circuit
+        }
+
+        await next(context, cancellationToken);
+    })
+    .Handle(new PlaceOrderHandler())
+    .Build();
+
+await pipeline.ExecuteAsync(new OrderContext { OrderId = 42 });
+```
+
+## Features
+
+| Feature | Description |
+| --- | --- |
+| [Pipeline composition](features.md#pipeline-composition-middleware-and-a-terminal-handler) | Middlewares wrap a single terminal handler over a shared context `T`. |
+| [Short-circuiting](features.md#short-circuiting) | A middleware that does not call `next(...)` skips every downstream step. |
+| [Error boundaries and cancellation](features.md#error-boundaries-and-cancellation) | Exceptions propagate outward; `CancellationToken` flows through every step. |
+| [`PipelineBuilder<T>`](features.md#the-pipelinebuildert-and-the-pipelinefort-entry-point) | Fluent `Pipeline.For<T>()...Build()` for wiring pipelines without DI. |
+| [Delegate middleware and handlers](features.md#delegate-based-middleware-and-handlers) | Use lambdas via `Use(...)` / `Handle(...)` and the `FromDelegate` factories. |
+| [DI integration](features.md#dependency-injection-integration) | Five `IServiceCollection` extensions register and compose the pipeline. |
+| [Middleware ordering](features.md#middleware-ordering) | Middlewares run in registration order, outermost-first. |
+| [Distributed tracing](features.md#distributed-tracing) | `IPipelineContext` + `ActivityMiddleware<T>` emit `System.Diagnostics.Activity` traces. |
+| [Zero-allocation hot path](features.md#the-zero-allocation-synchronous-hot-path) | Synchronous pipelines allocate zero bytes per invocation. |
+| [Snapshot semantics](features.md#snapshot-semantics-and-reuse) | The middleware list is frozen at construction; instances are reusable. |
+| [Fail-fast construction](features.md#fail-fast-construction) | Null steps and missing handlers throw at build time, not query time. |
+
+## Performance
+
+`Pipeline<T>` is benchmarked with BenchmarkDotNet under
+[`benchmarks/Pipelines.Benchmarks`](../../benchmarks/Pipelines.Benchmarks/). The
+benchmark measures the engine's own overhead on the synchronous hot path — trivial
+pass-through middlewares that tail-call `next`, and a handler that returns a cached
+`Task.CompletedTask` — across 0, 1, 3, and 10 middleware layers, against a direct
+handler call as the baseline.
+
+The two properties the benchmark exists to lock in:
+
+- **Every scenario allocates zero bytes** (the `Allocated` column is `0 B`), the same
+  guarantee `PipelineAllocationTests` enforces in the test suite.
+- **Per-layer overhead is single-digit nanoseconds** — a pre-built delegate chain
+  invoked once per execution.
+
+Run it locally:
+
+```bash
+dotnet run -c Release --project benchmarks/Pipelines.Benchmarks
+```
+
 ## Documentation
 
-- **[Getting Started](getting-started.md)** — installation, first pipeline (direct and DI), writing class-based and lambda-based middleware.
-- **[Specification](SPEC.md)** — design philosophy, contracts, behaviour guarantees, allocation model.
+- **[Getting Started](getting-started.md)** — installation, your first pipeline (direct and DI), writing class-based and lambda-based middleware, telemetry.
+- **[Features](features.md)** — every feature, with a compilable example each.
+- **[Recommendations](recommendations.md)** — production patterns: middleware ordering, lifetimes, the allocation model, error boundaries.
+- **[Specification](internals/SPEC.md)** — the design contract: goals, contracts, behaviour guarantees, allocation model.
 
 ## Samples
 
-- **[samples/Pipelines/Pipeline.BuilderSample](../../samples/Pipelines/Pipeline.BuilderSample/)** — a standalone console program that builds a pipeline directly with `Pipeline.For<T>()...Build()`. No DI container.
-- **[samples/Pipelines/Pipeline.HostSample](../../samples/Pipelines/Pipeline.HostSample/)** — a `Microsoft.Extensions.Hosting` console app that wires the same pipeline through `services.AddPipeline<T>()` with `ILogger<T>` constructor injection into middlewares and handler.
+- **[Pipelines.BuilderSample](../../samples/Pipelines/Pipelines.BuilderSample/)** — a standalone console program that builds a pipeline directly with `Pipeline.For<T>()...Build()`. No DI container; combines lambda and class-based middleware with a class-based handler, and shows the short-circuit path.
+- **[Pipelines.HostSample](../../samples/Pipelines/Pipelines.HostSample/)** — a `Microsoft.Extensions.Hosting` console app that wires the same pipeline through `services.AddPipeline<T>()` with `ILogger<T>` injected into every middleware and the handler, plus `AddPipelineTelemetry<T>()` and an `ActivityListener` printing each activity.

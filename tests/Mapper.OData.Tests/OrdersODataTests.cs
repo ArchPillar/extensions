@@ -1,8 +1,8 @@
 using System.Net;
 using System.Text.Json;
-using WebShop.OData.Projections;
+using Mapper.WebShopODataSample.Projections;
 
-namespace WebShop.OData;
+namespace Mapper.WebShopODataSample;
 
 /// <summary>
 /// Integration tests for the Orders OData endpoint — verifies that computed

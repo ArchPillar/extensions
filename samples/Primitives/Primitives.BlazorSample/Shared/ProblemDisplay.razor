@@ -1,0 +1,37 @@
+@namespace Primitives.BlazorSample.Shared
+
+<div class="problem">
+    <h3>@Problem.Title</h3>
+    @if (!string.IsNullOrWhiteSpace(Problem.Type))
+    {
+        <p><strong>Type:</strong> <code>@Problem.Type</code></p>
+    }
+    @if (!string.IsNullOrWhiteSpace(Problem.Detail))
+    {
+        <p>@Problem.Detail</p>
+    }
+    @if (Problem.Errors is { Count: > 0 })
+    {
+        <ul>
+            @foreach (var field in Problem.Errors)
+            {
+                <li>
+                    <strong>@field.Key:</strong>
+                    <ul>
+                        @foreach (var error in field.Value)
+                        {
+                            <li><code>@error.Type</code> — @error.Detail</li>
+                        }
+                    </ul>
+                </li>
+            }
+        </ul>
+    }
+</div>
+
+@code {
+    /// <summary>The problem body to render. Required.</summary>
+    [Parameter]
+    [EditorRequired]
+    public required OperationProblem Problem { get; set; }
+}

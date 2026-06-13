@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <!-- Must match WebShop.OData target framework (OData 9.x requires net8.0) -->
+    <!-- Must match Mapper.WebShopODataSample target framework (OData 9.x requires net8.0) -->
     <TargetFramework>net8.0</TargetFramework>
-    <RootNamespace>WebShop.OData</RootNamespace>
+    <RootNamespace>Mapper.WebShopODataSample</RootNamespace>
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);IDE0005</NoWarn>
@@ -23,7 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\samples\Mapper\WebShop.OData\WebShop.OData.csproj" />
+    <ProjectReference Include="..\..\samples\Mapper\Mapper.WebShopODataSample\Mapper.WebShopODataSample.csproj" />
   </ItemGroup>
 
 </Project>

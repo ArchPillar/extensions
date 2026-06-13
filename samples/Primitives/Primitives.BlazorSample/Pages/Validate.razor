@@ -1,0 +1,50 @@
+@page "/"
+@namespace Primitives.BlazorSample.Pages
+
+<h1>Validate a product draft</h1>
+
+<p>
+    Fill the form and submit. The validator returns an
+    <code>OperationResult&lt;ProductDraft&gt;</code> — a success card on
+    <code>Ok</code>, or the problem display on <code>BadRequest</code>.
+</p>
+
+<EditForm Model="this" OnValidSubmit="Submit">
+    <div>
+        <label>
+            Name
+            <InputText @bind-Value="_name" />
+        </label>
+    </div>
+    <div>
+        <label>
+            Price
+            <InputNumber @bind-Value="_price" />
+        </label>
+    </div>
+    <button type="submit">Validate</button>
+</EditForm>
+
+@if (_result is { IsSuccess: true } success)
+{
+    <div class="success">
+        <h3>Ok — draft accepted</h3>
+        <p><strong>Name:</strong> @success.Value!.Name</p>
+        <p><strong>Price:</strong> @success.Value!.Price</p>
+    </div>
+}
+else if (_result?.Problem is { } problem)
+{
+    <ProblemDisplay Problem="problem" />
+}
+
+@code {
+    private string? _name;
+    private decimal _price;
+    private OperationResult<ProductDraft>? _result;
+
+    private void Submit()
+    {
+        _result = ProductDraftValidator.Validate(_name, _price);
+    }
+}

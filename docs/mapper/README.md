@@ -136,4 +136,9 @@ WarmupCount=3
 - [Getting Started](getting-started.md) — installation, first mapper, DI registration
 - [Features Guide](features.md) — nested mappers, optionals, variables, enums, MapTo, inheritance, expression transformers
 - [Recommendations](recommendations.md) — patterns, pitfalls, and production guidance
-- [Specification](SPEC.md) — full design philosophy, API surface, and architectural decisions
+- [Specification](internals/SPEC.md) — full design philosophy, API surface, and architectural decisions
+
+## Samples
+
+- [Mapper.WebShopSample](../../samples/Mapper/Mapper.WebShopSample/) — ASP.NET Core Minimal API projection sample; shows whole-row `Project(mapper)`, optional `Include()`, and the EF Core integration (`UseArchPillarMapper`) end to end.
+- [Mapper.WebShopODataSample](../../samples/Mapper/Mapper.WebShopODataSample/) — OData endpoint sample using controllers; exposes mapper projections through `$select` / `$expand`-driven OData queries.

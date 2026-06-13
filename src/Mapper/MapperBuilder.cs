@@ -218,19 +218,54 @@ public sealed class MapperBuilder<TSource, TDest>
             rawMappings[mapping.Destination.Name] = mapping;
         }
 
-        // Validate that every mapped destination member can actually be assigned.
-        // A read-only property (getter only, no set accessor) cannot be bound, so
-        // mapping it would fail when the projection expression is built. Catch it
-        // here so the failure surfaces at build time with a clear message.
+        // Validate each mapped destination member in a single pass:
+        //   1. A read-only property (getter only, no set accessor) cannot be bound,
+        //      so mapping it would fail when the projection expression is built.
+        //   2. The mapped source value must be assignable to the destination member.
+        //      Type inference on Map / Optional unifies the value type to the most
+        //      general common type, so a source that produces a *base* type of the
+        //      destination property (e.g. a nested mapper targeting a base DTO)
+        //      compiles but cannot bind to the more-derived destination.
+        // Catch both here at build time with a clear message rather than deferring
+        // to the first compile / projection.
         foreach (PropertyMapping mapping in rawMappings.Values)
         {
-            if (mapping.Kind != MappingKind.Ignored
-                && mapping.Destination is PropertyInfo { CanWrite: false } readOnlyProperty)
+            if (mapping.Kind == MappingKind.Ignored)
+            {
+                continue;
+            }
+
+            if (mapping.Destination is PropertyInfo { CanWrite: false } readOnlyProperty)
             {
                 throw new InvalidOperationException(
                     $"Property '{readOnlyProperty.Name}' of {typeof(TDest).Name} is read-only " +
                     "(it has no set accessor) and cannot be mapped. " +
                     "Remove the mapping or add a setter.");
+            }
+
+            // Invariant: only Ignored mappings carry a null source, and those were
+            // skipped above. A null source on a Required/Optional mapping means the
+            // builder constructed a PropertyMapping incorrectly — fail loudly rather
+            // than silently dropping the binding. (This also narrows Source to
+            // non-null for the dereference below, satisfying the nullable checker.)
+            if (mapping.Source is null)
+            {
+                throw new InvalidOperationException(
+                    $"Internal error: mapping for destination property '{mapping.Destination.Name}' " +
+                    $"of {typeof(TDest).Name} has kind '{mapping.Kind}' but no source expression.");
+            }
+
+            Type destinationType = TypeDisplay.MemberType(mapping.Destination);
+            Type sourceType      = mapping.Source.Body.Type;
+
+            if (!destinationType.IsAssignableFrom(sourceType))
+            {
+                throw new InvalidOperationException(
+                    $"Mapper '{TypeDisplay.Describe(typeof(TSource))}' -> '{TypeDisplay.Describe(typeof(TDest))}': the mapping for " +
+                    $"destination property '{mapping.Destination.Name}' (of type '{TypeDisplay.Describe(destinationType)}') " +
+                    $"has a source of type '{TypeDisplay.Describe(sourceType)}', which cannot be assigned to it. " +
+                    "This usually means type inference widened the mapped value to a base type — for example a nested " +
+                    "mapper that targets a base type of the destination property. Map to the destination's exact type.");
             }
         }
 

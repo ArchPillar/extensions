@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <GenerateDocumentationFile>false</GenerateDocumentationFile>
+        <Nullable>enable</Nullable>
+        <NoWarn>$(NoWarn);IDE0005</NoWarn>
+        <RootNamespace>Primitives.TypedIdsSample</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../../../src/Primitives/ArchPillar.Extensions.Primitives.csproj" />
+        <ProjectReference Include="../../../src/Primitives.EntityFrameworkCore/ArchPillar.Extensions.Primitives.EntityFrameworkCore.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    </ItemGroup>
+
+</Project>
