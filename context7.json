@@ -1,0 +1,27 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "ArchPillar.Extensions",
+  "description": "Small, pluggable .NET building blocks with minimal-to-no dependencies, meant to compose into a platform on top of which application business logic is built. The family is early-stage: the Mapper library (explicit object-to-object and LINQ/EF Core projection mapping) is the first published block, with a translation/localization library (compile-time-extracted UI strings via ICU MessageFormat) publishing next. Further building blocks are in development in this repository.",
+  "url": "https://context7.com/archpillar/extensions",
+  "public_key": "pk_dZjCSqSWz3ivflfdOP9JW",
+  "folders": [],
+  "excludeFolders": [
+    "src",
+    "tests",
+    "benchmarks",
+    "eng",
+    "docs/authoring",
+    "docs/superpowers",
+    "docs/*/internals"
+  ],
+  "excludeFiles": [
+    "CLAUDE.md"
+  ],
+  "rules": [
+    "Mapper requires every destination property to be explicitly mapped, marked optional, or ignored; unmapped properties throw at configuration/build time. There is no convention-based or name-based auto-mapping and no mapping attributes. Define mappings in a MapperContext subclass, modeled on EF Core's DbContext.",
+    "Mapper mapping expressions must be EF Core-translatable (no throw expressions, no delegate invocation) so a single definition drives both in-memory mapping and IQueryable/EF Core projection.",
+    "Commands: every command type requires an ICommandHandler<TCommand>; IBatchCommandHandler is additive and never replaces the per-command handler. Validation lives on the handler and runs inside the shared pipeline.",
+    "Localization strings are authored once at the call site as an ICU MessageFormat default (the source of truth and final fallback); a Roslyn generator extracts them at compile time. Keys are scoped by category following the ILogger<T> model.",
+    "These libraries depend only on the BCL plus opt-in Microsoft.Extensions.DependencyInjection / EF Core integration packages. They avoid runtime reflection on the hot path and are AOT/trim-safe where documented."
+  ]
+}
