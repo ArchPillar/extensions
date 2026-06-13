@@ -2,9 +2,12 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <!-- Multi-target so the tool runs on every supported runtime: the runtime package's build targets invoke
-         `dotnet apl` on the consumer's machine, which may only have .NET 8. -->
-    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <!-- A global tool targets one framework. net8.0 is the floor (the runtime package's build targets invoke
+         `dotnet apl` on a machine that may only have .NET 8); RollForward=Major lets that single build run on a
+         host that has only a newer major (.NET 9 or 10), so one framework covers every consumer without the
+         multi-target pack overhead. -->
+    <TargetFramework>net8.0</TargetFramework>
+    <RollForward>Major</RollForward>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>dotnet-apl</ToolCommandName>
     <RootNamespace>ArchPillar.Extensions.Localization.Tooling</RootNamespace>

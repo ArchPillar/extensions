@@ -8,9 +8,9 @@
          already-built tool DLL directly instead of running it through the project. Running it through the project
          rebuilds the tool, and under a parallel solution build that races the graph's own build of it over
          runtimeconfig.json (the build fails with "file in use"). The build-order ProjectReference below
-         guarantees the net10.0 DLL is built first. Set here, NOT in Directory.Build.props, because
+         guarantees the net8.0 DLL is built first. Set here, NOT in Directory.Build.props, because
          $(Configuration) is not yet defined that early; there it would expand to empty and the path be wrong. -->
-    <_ArchPillarToolDll>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)..\..\src\Localization.Tooling\bin\$(Configuration)\net10.0\ArchPillar.Extensions.Localization.Tooling.dll'))</_ArchPillarToolDll>
+    <_ArchPillarToolDll>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)..\..\src\Localization.Tooling\bin\$(Configuration)\net8.0\ArchPillar.Extensions.Localization.Tooling.dll'))</_ArchPillarToolDll>
     <ArchPillarLocalizationToolCommand>dotnet "$(_ArchPillarToolDll)"</ArchPillarLocalizationToolCommand>
     <!-- The tool is always available here (from source), so a real failure should fail the build, not warn. -->
     <ArchPillarLocalizationToolContinueOnError>false</ArchPillarLocalizationToolContinueOnError>
@@ -29,10 +29,10 @@
 
   <ItemGroup Condition="'$(_ArchPillarSampleAuthoring)' == 'true'">
     <!-- Build-order only: guarantees the tool DLL exists before the extract target runs, and replaces the
-         `dotnet run` rebuild that raced the graph's own build of the tool. net10.0 is pinned to match the DLL
-         path above; no output is referenced or copied. -->
+         `dotnet run` rebuild that raced the graph's own build of the tool. net8.0 is pinned to match the DLL
+         path above (the tool's only framework); no output is referenced or copied. -->
     <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\src\Localization.Tooling\ArchPillar.Extensions.Localization.Tooling.csproj"
-                      ReferenceOutputAssembly="false" SetTargetFramework="TargetFramework=net10.0" Private="false" />
+                      ReferenceOutputAssembly="false" SetTargetFramework="TargetFramework=net8.0" Private="false" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\src\Localization.Analyzers\ArchPillar.Extensions.Localization.Analyzers.csproj"
                       OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\src\Localization.Abstractions\ArchPillar.Extensions.Localization.Abstractions.csproj"
