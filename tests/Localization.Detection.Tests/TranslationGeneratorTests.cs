@@ -193,5 +193,4 @@ public sealed class TranslationGeneratorTests
             .SourceText
             .ToString();
     }
-
 }
