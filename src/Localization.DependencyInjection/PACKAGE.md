@@ -16,6 +16,14 @@ public sealed class Home(ILocalizer<Home> localizer)
 `ILocalizer`, `ILocalizer<T>`, and a concrete `Localizer` over it, so an injected localizer, a non-DI caller,
 and an exception text all read the same store.
 
+Using `Localized<T>` string bundles? Chain `AddArchPillarLocalizedBundles()` after it — the generator emits
+that extension to register every bundle in your assembly, so you inject them instead of constructing them:
+
+```csharp
+services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" })
+        .AddArchPillarLocalizedBundles();
+```
+
 Migrating from `IStringLocalizer`/`.resx`? Add the
 [`ArchPillar.Extensions.Localization.StringLocalizer`](https://www.nuget.org/packages/ArchPillar.Extensions.Localization.StringLocalizer)
 package and call `AddArchPillarStringLocalizer` instead — it performs this registration and additionally adapts
