@@ -52,10 +52,13 @@
 
   <!--
     On publish, flatten the per-library catalogs in the published Translations folder into one bundle per
-    culture (the dev many-files layout becomes a production single-bundle-per-culture layout). Best-effort:
-    if the 'dotnet apl' tool is not installed the merge is skipped (ContinueOnError) and the per-library
-    files are kept, so the app still works — just with more files. Set ArchPillarLocalizationMergeOnPublish=
-    false to keep the many files. The merge reuses the runtime's load, so the bundle resolves identically.
+    culture (the dev many-files layout becomes a production single-bundle-per-culture layout). This is the
+    file-system layout used by a server/console app; a Blazor WebAssembly app serves catalogs as static web
+    assets and merges them through the static web asset pipeline below instead, so this target is skipped there
+    (its $(PublishDir)Translations path does not exist for a WebAssembly publish). Best-effort: if the 'dotnet
+    apl' tool is not installed the merge is skipped (ContinueOnError) and the per-library files are kept, so the
+    app still works — just with more files. Set ArchPillarLocalizationMergeOnPublish=false to keep the many
+    files. The merge reuses the runtime's load, so the bundle resolves identically.
   -->
   <Target Name="ArchPillarLocalizationMergeOnPublish"
           AfterTargets="Publish"
@@ -84,64 +87,146 @@
   </Target>
 
   <!--
-    Register the catalog manifest (apl-catalogs.json) as a Razor/Blazor static web asset, so a WebAssembly
-    client can fetch it over HTTP to discover which catalogs to load (there is no file system to enumerate in
-    the browser). The static web asset pipeline resolves and fingerprints assets during the build, before the
-    post-build extract target runs, so the manifest cannot be produced by a post-build step and served in the
-    same build. Instead this hooks the pipeline's own input resolution (ResolveStaticWebAssetsInputs, reached
-    via PrepareForRun — late enough that project references, hence the tool, are built), generates the manifest
-    into the intermediate output, and registers it as a Computed asset (the same mechanism the SDK uses for the
-    JS-initializer module manifest). An 'All' asset registered on the build path also flows into the publish
-    manifest. ResolveStaticWebAssetsInputsDependsOn is defined only by the static web assets SDK, so this is
-    inert in a project without it (a console or server app, which loads catalogs from the file system instead).
+    Serve the catalogs and their manifest (apl-catalogs.json) to a Blazor WebAssembly client as static web
+    assets, so the client can fetch them over HTTP and discover what to load — a browser has no file system to
+    enumerate. Catalogs are authored under OutputPath (not wwwroot), so they are not auto-discovered; they are
+    registered explicitly through the static web asset pipeline, the way the SDK contributes its own computed
+    assets (e.g. the JS-initializer module manifest), split by phase so AssetKind alone separates the two
+    layouts (no asset removal):
+      * Build   (ResolveStaticWebAssetsInputs): the per-library catalogs + a manifest listing them.
+      * Publish (ResolvePublishStaticWebAssets): the catalogs merged into one bundle per culture + a manifest
+                listing the bundles, so the published app ships the compact layout.
+    Both hooks run late enough (PrepareForRun / the publish equivalent) that the tool is built and the
+    source-language template has been extracted. These DependsOn properties exist only in Razor/Blazor
+    projects, so this is inert elsewhere (a console/server app loads catalogs from the file system; see the
+    publish-merge target above). AssetMode is CurrentProject — merging catalogs contributed by referenced
+    localized libraries into a WebAssembly client is not yet covered here (the file-system merge above does it
+    for a server app).
   -->
   <PropertyGroup Condition="'$(ArchPillarLocalizationEmitManifest)' == 'true'">
     <ResolveStaticWebAssetsInputsDependsOn>
       $(ResolveStaticWebAssetsInputsDependsOn);
-      _ArchPillarLocalizationDefineManifestStaticWebAsset
+      _ArchPillarLocalizationDefineBuildCatalogAssets
     </ResolveStaticWebAssetsInputsDependsOn>
+    <ResolvePublishStaticWebAssetsDependsOn>
+      $(ResolvePublishStaticWebAssetsDependsOn);
+      _ArchPillarLocalizationDefinePublishCatalogAssets
+    </ResolvePublishStaticWebAssetsDependsOn>
   </PropertyGroup>
 
-  <Target Name="_ArchPillarLocalizationDefineManifestStaticWebAsset"
+  <!-- Build layout: each target catalog, plus a manifest listing them, registered as Build static web assets. -->
+  <Target Name="_ArchPillarLocalizationDefineBuildCatalogAssets"
           Condition="'$(ArchPillarLocalizationEmitManifest)' == 'true' and Exists('$(ArchPillarLocalizationOutputPath)')">
 
     <PropertyGroup>
-      <_ArchPillarManifestDir>$([MSBuild]::NormalizePath('$(IntermediateOutputPath)apl'))\</_ArchPillarManifestDir>
-      <_ArchPillarManifestPath>$(_ArchPillarManifestDir)apl-catalogs.json</_ArchPillarManifestPath>
+      <_ArchPillarCatalogRoot>$([MSBuild]::NormalizeDirectory('$(ArchPillarLocalizationOutputPath)'))</_ArchPillarCatalogRoot>
+      <_ArchPillarBuildManifestDir>$([MSBuild]::NormalizeDirectory('$(IntermediateOutputPath)apl'))</_ArchPillarBuildManifestDir>
     </PropertyGroup>
 
-    <MakeDir Directories="$(_ArchPillarManifestDir)" />
-
-    <!-- Generate the manifest from the authored catalogs (the source-language template is excluded). -->
-    <Exec Command="$(ArchPillarLocalizationToolCommand) manifest --input &quot;$([MSBuild]::NormalizePath('$(ArchPillarLocalizationOutputPath)'))&quot; --output &quot;$(_ArchPillarManifestPath)&quot; --source $(ArchPillarLocalizationSourceLanguage)"
-          ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)"
-          StandardOutputImportance="low" />
-
     <ItemGroup>
-      <_ArchPillarManifestCandidate Include="$(_ArchPillarManifestPath)" Condition="Exists('$(_ArchPillarManifestPath)')">
-        <RelativePath>Translations/apl-catalogs.json</RelativePath>
-      </_ArchPillarManifestCandidate>
+      <_ArchPillarCatalogRaw Include="$(_ArchPillarCatalogRoot)*.arb;$(_ArchPillarCatalogRoot)*.xliff;$(_ArchPillarCatalogRoot)*.xlf;$(_ArchPillarCatalogRoot)*.po"
+                             Exclude="$(_ArchPillarCatalogRoot)$(AssemblyName).$(ArchPillarLocalizationSourceLanguage).arb;$(_ArchPillarCatalogRoot)$(AssemblyName).$(ArchPillarLocalizationSourceLanguage).xliff;$(_ArchPillarCatalogRoot)$(AssemblyName).$(ArchPillarLocalizationSourceLanguage).xlf;$(_ArchPillarCatalogRoot)messages.pot" />
+      <_ArchPillarCatalogFile Include="@(_ArchPillarCatalogRaw)">
+        <RelativePath>Translations/%(Filename)%(Extension)</RelativePath>
+      </_ArchPillarCatalogFile>
     </ItemGroup>
 
-    <DefineStaticWebAssets Condition="'@(_ArchPillarManifestCandidate)' != ''"
-      CandidateAssets="@(_ArchPillarManifestCandidate)"
-      SourceId="$(PackageId)"
-      SourceType="Computed"
-      BasePath="$(StaticWebAssetBasePath)"
-      ContentRoot="$(_ArchPillarManifestDir)"
-      AssetKind="All"
-      AssetMode="CurrentProject"
-      AssetRole="Primary"
-      FingerprintCandidates="$(StaticWebAssetsFingerprintContent)"
-      FingerprintPatterns="@(StaticWebAssetFingerprintPattern)">
+    <DefineStaticWebAssets Condition="'@(_ArchPillarCatalogFile)' != ''"
+      CandidateAssets="@(_ArchPillarCatalogFile)"
+      SourceId="$(PackageId)" SourceType="Computed"
+      BasePath="$(StaticWebAssetBasePath)" ContentRoot="$(_ArchPillarCatalogRoot)"
+      AssetKind="Build" AssetMode="CurrentProject" AssetRole="Primary"
+      FingerprintCandidates="$(StaticWebAssetsFingerprintContent)" FingerprintPatterns="@(StaticWebAssetFingerprintPattern)">
       <Output TaskParameter="Assets" ItemName="StaticWebAsset" />
-      <Output TaskParameter="Assets" ItemName="_ArchPillarManifestStaticWebAsset" />
+      <Output TaskParameter="Assets" ItemName="_ArchPillarBuildCatalogAsset" />
     </DefineStaticWebAssets>
 
-    <DefineStaticWebAssetEndpoints Condition="'@(_ArchPillarManifestStaticWebAsset)' != ''"
-      CandidateAssets="@(_ArchPillarManifestStaticWebAsset)"
-      ExistingEndpoints="@(StaticWebAssetEndpoint)"
-      ContentTypeMappings="@(StaticWebAssetContentTypeMapping)">
+    <MakeDir Directories="$(_ArchPillarBuildManifestDir)" />
+    <Exec Command="$(ArchPillarLocalizationToolCommand) manifest --input &quot;$(_ArchPillarCatalogRoot)&quot; --output &quot;$(_ArchPillarBuildManifestDir)apl-catalogs.json&quot; --source $(ArchPillarLocalizationSourceLanguage)"
+          ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)" StandardOutputImportance="low" />
+
+    <ItemGroup>
+      <_ArchPillarBuildManifestFile Include="$(_ArchPillarBuildManifestDir)apl-catalogs.json" Condition="Exists('$(_ArchPillarBuildManifestDir)apl-catalogs.json')">
+        <RelativePath>Translations/apl-catalogs.json</RelativePath>
+      </_ArchPillarBuildManifestFile>
+    </ItemGroup>
+
+    <DefineStaticWebAssets Condition="'@(_ArchPillarBuildManifestFile)' != ''"
+      CandidateAssets="@(_ArchPillarBuildManifestFile)"
+      SourceId="$(PackageId)" SourceType="Computed"
+      BasePath="$(StaticWebAssetBasePath)" ContentRoot="$(_ArchPillarBuildManifestDir)"
+      AssetKind="Build" AssetMode="CurrentProject" AssetRole="Primary"
+      FingerprintCandidates="$(StaticWebAssetsFingerprintContent)" FingerprintPatterns="@(StaticWebAssetFingerprintPattern)">
+      <Output TaskParameter="Assets" ItemName="StaticWebAsset" />
+      <Output TaskParameter="Assets" ItemName="_ArchPillarBuildManifestAsset" />
+    </DefineStaticWebAssets>
+
+    <DefineStaticWebAssetEndpoints Condition="'@(_ArchPillarBuildCatalogAsset)@(_ArchPillarBuildManifestAsset)' != ''"
+      CandidateAssets="@(_ArchPillarBuildCatalogAsset);@(_ArchPillarBuildManifestAsset)"
+      ExistingEndpoints="@(StaticWebAssetEndpoint)" ContentTypeMappings="@(StaticWebAssetContentTypeMapping)">
+      <Output TaskParameter="Endpoints" ItemName="StaticWebAssetEndpoint" />
+    </DefineStaticWebAssetEndpoints>
+
+  </Target>
+
+  <!-- Publish layout: catalogs merged into one bundle per culture, plus a manifest listing the bundles,
+       registered as Publish static web assets. -->
+  <Target Name="_ArchPillarLocalizationDefinePublishCatalogAssets"
+          Condition="'$(ArchPillarLocalizationEmitManifest)' == 'true' and Exists('$(ArchPillarLocalizationOutputPath)')">
+
+    <PropertyGroup>
+      <_ArchPillarCatalogRoot>$([MSBuild]::NormalizeDirectory('$(ArchPillarLocalizationOutputPath)'))</_ArchPillarCatalogRoot>
+      <_ArchPillarBundleDir>$([MSBuild]::NormalizeDirectory('$(IntermediateOutputPath)apl-publish'))</_ArchPillarBundleDir>
+      <_ArchPillarPublishManifestDir>$([MSBuild]::NormalizeDirectory('$(IntermediateOutputPath)apl-publish-manifest'))</_ArchPillarPublishManifestDir>
+    </PropertyGroup>
+
+    <RemoveDir Directories="$(_ArchPillarBundleDir)" />
+    <MakeDir Directories="$(_ArchPillarBundleDir);$(_ArchPillarPublishManifestDir)" />
+
+    <!-- Flatten the per-library catalogs into one bundle per culture (source language excluded). -->
+    <Exec Command="$(ArchPillarLocalizationToolCommand) merge --input &quot;$(_ArchPillarCatalogRoot)&quot; --output &quot;$(_ArchPillarBundleDir)&quot; --source $(ArchPillarLocalizationSourceLanguage) --format $(ArchPillarLocalizationFormat)"
+          ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)" StandardOutputImportance="low" />
+
+    <ItemGroup>
+      <_ArchPillarBundleRaw Include="$(_ArchPillarBundleDir)*.arb;$(_ArchPillarBundleDir)*.xliff;$(_ArchPillarBundleDir)*.xlf;$(_ArchPillarBundleDir)*.po" />
+      <_ArchPillarBundleFile Include="@(_ArchPillarBundleRaw)">
+        <RelativePath>Translations/%(Filename)%(Extension)</RelativePath>
+      </_ArchPillarBundleFile>
+    </ItemGroup>
+
+    <DefineStaticWebAssets Condition="'@(_ArchPillarBundleFile)' != ''"
+      CandidateAssets="@(_ArchPillarBundleFile)"
+      SourceId="$(PackageId)" SourceType="Computed"
+      BasePath="$(StaticWebAssetBasePath)" ContentRoot="$(_ArchPillarBundleDir)"
+      AssetKind="Publish" AssetMode="CurrentProject" AssetRole="Primary"
+      FingerprintCandidates="$(StaticWebAssetsFingerprintContent)" FingerprintPatterns="@(StaticWebAssetFingerprintPattern)">
+      <Output TaskParameter="Assets" ItemName="StaticWebAsset" />
+      <Output TaskParameter="Assets" ItemName="_ArchPillarPublishBundleAsset" />
+    </DefineStaticWebAssets>
+
+    <!-- Manifest listing the merged bundles. -->
+    <Exec Command="$(ArchPillarLocalizationToolCommand) manifest --input &quot;$(_ArchPillarBundleDir)&quot; --output &quot;$(_ArchPillarPublishManifestDir)apl-catalogs.json&quot; --source $(ArchPillarLocalizationSourceLanguage)"
+          ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)" StandardOutputImportance="low" />
+
+    <ItemGroup>
+      <_ArchPillarPublishManifestFile Include="$(_ArchPillarPublishManifestDir)apl-catalogs.json" Condition="Exists('$(_ArchPillarPublishManifestDir)apl-catalogs.json')">
+        <RelativePath>Translations/apl-catalogs.json</RelativePath>
+      </_ArchPillarPublishManifestFile>
+    </ItemGroup>
+
+    <DefineStaticWebAssets Condition="'@(_ArchPillarPublishManifestFile)' != ''"
+      CandidateAssets="@(_ArchPillarPublishManifestFile)"
+      SourceId="$(PackageId)" SourceType="Computed"
+      BasePath="$(StaticWebAssetBasePath)" ContentRoot="$(_ArchPillarPublishManifestDir)"
+      AssetKind="Publish" AssetMode="CurrentProject" AssetRole="Primary"
+      FingerprintCandidates="$(StaticWebAssetsFingerprintContent)" FingerprintPatterns="@(StaticWebAssetFingerprintPattern)">
+      <Output TaskParameter="Assets" ItemName="StaticWebAsset" />
+      <Output TaskParameter="Assets" ItemName="_ArchPillarPublishManifestAsset" />
+    </DefineStaticWebAssets>
+
+    <DefineStaticWebAssetEndpoints Condition="'@(_ArchPillarPublishBundleAsset)@(_ArchPillarPublishManifestAsset)' != ''"
+      CandidateAssets="@(_ArchPillarPublishBundleAsset);@(_ArchPillarPublishManifestAsset)"
+      ExistingEndpoints="@(StaticWebAssetEndpoint)" ContentTypeMappings="@(StaticWebAssetContentTypeMapping)">
       <Output TaskParameter="Endpoints" ItemName="StaticWebAssetEndpoint" />
     </DefineStaticWebAssetEndpoints>
 
