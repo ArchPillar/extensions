@@ -38,6 +38,69 @@ public sealed class LocalizedBundleRegistrationGeneratorTests
         }
         """;
 
+    private const string PartialBundle = """
+        namespace Acme
+        {
+            public sealed partial class TodoStrings : ArchPillar.Extensions.Localization.Localized<TodoStrings> { }
+        }
+        """;
+
+    [Fact]
+    public void Generator_GeneratesConstructors_ForPartialBundleWithNoConstructor()
+    {
+        var constructors = Generated(Stubs + PartialBundle, "LocalizedBundleConstructors.g.cs");
+
+        Assert.Contains("partial class TodoStrings", constructors);
+        Assert.Contains("public TodoStrings()", constructors);
+        Assert.Contains("public TodoStrings(global::ArchPillar.Extensions.Localization.ILocalizer<global::Acme.TodoStrings> localizer)", constructors);
+        Assert.Contains(": base(localizer)", constructors);
+    }
+
+    [Fact]
+    public void Generator_GeneratesConstructors_EvenWithoutDependencyInjection()
+    {
+        // Constructor generation is not gated on DI — a partial bundle gets the ambient `new` form too.
+        Assert.True(Produced(Stubs + PartialBundle, "LocalizedBundleConstructors.g.cs"));
+        Assert.False(Produced(Stubs + PartialBundle, "LocalizedBundleRegistration.g.cs"));
+    }
+
+    [Fact]
+    public void Generator_RegistersPartialBundle_WhenDependencyInjectionReferenced()
+    {
+        var registration = Generated(Stubs + DependencyInjection + PartialBundle, "LocalizedBundleRegistration.g.cs");
+
+        Assert.Contains("new global::Acme.TodoStrings(", registration);
+    }
+
+    [Fact]
+    public void Generator_DoesNotGenerateConstructors_ForNonPartialBundle()
+    {
+        const string NonPartial = """
+            namespace Acme
+            {
+                public sealed class TodoStrings : ArchPillar.Extensions.Localization.Localized<TodoStrings> { }
+            }
+            """;
+
+        Assert.False(Produced(Stubs + DependencyInjection + NonPartial, "LocalizedBundleConstructors.g.cs"));
+    }
+
+    [Fact]
+    public void Generator_DoesNotGenerateConstructors_WhenBundleDeclaresOne()
+    {
+        const string PartialWithConstructor = """
+            namespace Acme
+            {
+                public sealed partial class TodoStrings : ArchPillar.Extensions.Localization.Localized<TodoStrings>
+                {
+                    public TodoStrings(ArchPillar.Extensions.Localization.ILocalizer<TodoStrings> localizer) : base(localizer) { }
+                }
+            }
+            """;
+
+        Assert.False(Produced(Stubs + PartialWithConstructor, "LocalizedBundleConstructors.g.cs"));
+    }
+
     [Fact]
     public void Generator_EmitsRegistration_ForInjectableBundle()
     {
@@ -113,7 +176,42 @@ public sealed class LocalizedBundleRegistrationGeneratorTests
             }
             """;
 
-        SyntaxTree tree = CSharpSyntaxTree.ParseText(Bundle);
+        GeneratorDriverRunResult result = RunWithRealReferences(Bundle, out Compilation updated);
+
+        Assert.Contains(
+            result.Results.SelectMany(generatorResult => generatorResult.GeneratedSources),
+            generated => generated.HintName == "LocalizedBundleRegistration.g.cs");
+        Assert.Empty(updated.GetDiagnostics().Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+    }
+
+    [Fact]
+    public void GeneratedPartialConstructors_CompileAgainstRealLocalized()
+    {
+        // A partial bundle with no constructor: the generator synthesises both the constructors and the
+        // registration, and all of it must compile together against the real Localized<T> and DI types.
+        const string Bundle = """
+            using ArchPillar.Extensions.Localization;
+
+            namespace Acme
+            {
+                public sealed partial class TodoStrings : Localized<TodoStrings>
+                {
+                    public string Title => Translate("My Tasks");
+                }
+            }
+            """;
+
+        GeneratorDriverRunResult result = RunWithRealReferences(Bundle, out Compilation updated);
+
+        string[] hints = [.. result.Results.SelectMany(generatorResult => generatorResult.GeneratedSources).Select(generated => generated.HintName)];
+        Assert.Contains("LocalizedBundleConstructors.g.cs", hints);
+        Assert.Contains("LocalizedBundleRegistration.g.cs", hints);
+        Assert.Empty(updated.GetDiagnostics().Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error));
+    }
+
+    private static GeneratorDriverRunResult RunWithRealReferences(string source, out Compilation updated)
+    {
+        SyntaxTree tree = CSharpSyntaxTree.ParseText(source);
         var trustedAssemblies = (string)AppContext.GetData("TRUSTED_PLATFORM_ASSEMBLIES")!;
         List<MetadataReference> references =
         [
@@ -133,15 +231,8 @@ public sealed class LocalizedBundleRegistrationGeneratorTests
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
         GeneratorDriver driver = CSharpGeneratorDriver.Create(new Generator.TranslationGenerator())
-            .RunGeneratorsAndUpdateCompilation(compilation, out Compilation updated, out _);
-
-        var produced = driver.GetRunResult().Results
-            .SelectMany(result => result.GeneratedSources)
-            .Any(generated => generated.HintName == "LocalizedBundleRegistration.g.cs");
-        Diagnostic[] errors = [.. updated.GetDiagnostics().Where(diagnostic => diagnostic.Severity == DiagnosticSeverity.Error)];
-
-        Assert.True(produced, "The bundle registration should be generated when DI is referenced.");
-        Assert.Empty(errors);
+            .RunGeneratorsAndUpdateCompilation(compilation, out updated, out _);
+        return driver.GetRunResult();
     }
 
     private static GeneratorDriverRunResult Run(string source)
