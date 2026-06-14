@@ -138,6 +138,14 @@ ASP.NET Core:
 builder.Services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" });
 ```
 
+Using [`Localized<T>`](features.md#localizedtself--a-bundle-of-strings) bundles? Chain the generated
+`AddArchPillarLocalizedBundles()` to register every bundle in the assembly, then inject them directly:
+
+```csharp
+builder.Services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" })
+                .AddArchPillarLocalizedBundles();
+```
+
 By default DI feeds the **same** ambient store, so injected and receiver-less lookups share one source —
 inject `ILocalizer<T>` in a service and call the static `Translate(...)` in an exception path, and both
 resolve from the catalogs you registered once. If you would rather have no static state at all (for test

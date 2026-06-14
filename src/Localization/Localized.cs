@@ -20,6 +20,19 @@ public abstract class Localized<[TranslationScope] TSelf>(ILocalizer<TSelf> loca
     where TSelf : Localized<TSelf>
 {
     /// <summary>
+    /// Constructs a bundle bound to the process-wide ambient context, resolving its localizer from
+    /// <see cref="Localizer.For{T}"/>. This is the ambient/no-DI path: a single <c>new TodoStrings()</c>
+    /// needs no services and no registration, which suits small console apps and scripts. Throws if the
+    /// ambient context has been disabled (<c>UseAmbient = false</c>); in that static-free configuration,
+    /// inject an <see cref="ILocalizer{TSelf}"/> through the other constructor instead.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The ambient localization context is disabled.</exception>
+    protected Localized()
+        : this(Localizer.For<TSelf>())
+    {
+    }
+
+    /// <summary>
     /// Translates the calling member's string, taking the member name as the key.
     /// </summary>
     /// <param name="defaultMessage">The in-code source default (ICU MessageFormat).</param>

@@ -64,13 +64,41 @@ labels into a small strongly-typed surface: callers get `labels.Save` instead of
 key. Reach for it when a component has a handful of fixed labels; stay with plain `Translate(...)` when
 keys are dynamic or there is only one.
 
+A bundle needs an `ILocalizer<TSelf>`, and how it gets one is the only difference between the two ways to
+use it — pick by how the rest of your app is wired.
+
+**Ambient (no DI).** Declare no constructor and the bundle resolves itself from the ambient store, so a
+bare `new` needs no services and no registration — the fit for a console app or a script:
+
 ```csharp
-public sealed class ButtonLabels(ILocalizer<ButtonLabels> loc) : Localized<ButtonLabels>(loc)
+public sealed class ButtonLabels : Localized<ButtonLabels>
 {
     public string Save   => Translate("Save");   // key "Save", category ...ButtonLabels
     public string Cancel => Translate("Cancel");
 }
+
+var labels = new ButtonLabels();                 // reads the ambient store
 ```
+
+**Dependency injection.** Add the `ILocalizer<TSelf>` constructor and inject the bundle as a dependency.
+You do not register each one by hand — the generator emits an `AddArchPillarLocalizedBundles()` extension
+covering every bundle in the assembly, so a single call wires them all:
+
+```csharp
+public sealed class ButtonLabels(ILocalizer<ButtonLabels> loc) : Localized<ButtonLabels>(loc)
+{
+    public string Save   => Translate("Save");
+    public string Cancel => Translate("Cancel");
+}
+
+builder.Services.AddArchPillarLocalization(options).AddArchPillarLocalizedBundles();
+// ButtonLabels is now injectable wherever you need it.
+```
+
+> The ambient constructor throws if the ambient context is disabled (`UseAmbient = false`); in that
+> static-free configuration use the injected form. `AddArchPillarLocalizedBundles()` registers every bundle
+> with an accessible `ILocalizer<TSelf>` constructor as a singleton; it is generated only when the project
+> references the DI package, and is `internal`, so a library that exposes bundles registers its own.
 
 ## The ambient store
 
@@ -234,6 +262,15 @@ configure once and both worlds agree. Set `UseAmbient = false` and DI instead ow
 `LocalizationContext` and disables the static `Localizer` (any static use then throws): the right choice
 for parallel test suites, multi-tenant hosting, or a strictly static-free architecture. See
 [the localization context](#the-localization-context) for the underlying model.
+
+For [`Localized<TSelf>`](#localizedtself--a-bundle-of-strings) bundles, chain the generated
+`AddArchPillarLocalizedBundles()` after it. The generator emits that extension covering every bundle in the
+assembly, registering each through its `ILocalizer<TSelf>` constructor as a singleton — so you inject bundles
+instead of constructing them, with nothing to register by hand:
+
+```csharp
+services.AddArchPillarLocalization(options).AddArchPillarLocalizedBundles();
+```
 
 No extra wiring is needed for request culture — the localizers read `CurrentUICulture`, which
 `app.UseRequestLocalization(...)` sets per request. This package depends only on the DI abstractions;
