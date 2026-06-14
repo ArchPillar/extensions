@@ -25,7 +25,8 @@ public sealed class TranslationAnalyzer : DiagnosticAnalyzer
         Diagnostics.MissingOther,
         Diagnostics.DuplicateKey,
         Diagnostics.IdenticalText,
-        Diagnostics.KeyPattern);
+        Diagnostics.KeyPattern,
+        Diagnostics.MarkPartialForDi);
 
     /// <inheritdoc />
     public override void Initialize(AnalysisContext context)
@@ -60,6 +61,36 @@ public sealed class TranslationAnalyzer : DiagnosticAnalyzer
         // per node made the result depend on analysis order and blind to cross-file pairs in the IDE. They
         // are computed once, deterministically, after every site has been collected.
         context.RegisterCompilationEndAction(endContext => ReportCrossSiteConflicts(endContext, sites));
+
+        // APL0010 — only meaningful when the consumer uses DI: a Localized<T> bundle that is not partial and
+        // declares no constructor can be made injectable by going partial (the generator then synthesises it).
+        INamedTypeSymbol? serviceCollection = context.Compilation.GetTypeByMetadataName("Microsoft.Extensions.DependencyInjection.IServiceCollection");
+        INamedTypeSymbol? localizedBase = context.Compilation.GetTypeByMetadataName("ArchPillar.Extensions.Localization.Localized`1");
+        INamedTypeSymbol? localizer = context.Compilation.GetTypeByMetadataName("ArchPillar.Extensions.Localization.ILocalizer`1");
+        if (serviceCollection is not null && localizedBase is not null && localizer is not null)
+        {
+            context.RegisterSymbolAction(symbolContext => AnalyzeBundle(symbolContext, localizedBase, localizer), SymbolKind.NamedType);
+        }
+    }
+
+    private static void AnalyzeBundle(SymbolAnalysisContext context, INamedTypeSymbol localizedBase, INamedTypeSymbol localizer)
+    {
+        if (context.Symbol is not INamedTypeSymbol type)
+        {
+            return;
+        }
+
+        LocalizedBundle classification = LocalizedBundleClassifier.Classify(type, localizedBase, localizer);
+        if (!classification.ShouldSuggestPartial)
+        {
+            return;
+        }
+
+        Location? location = type.Locations.FirstOrDefault(candidate => candidate.IsInSource);
+        if (location is not null)
+        {
+            context.ReportDiagnostic(Diagnostic.Create(Diagnostics.MarkPartialForDi, location, type.Name));
+        }
     }
 
     private static void Analyze(SyntaxNodeAnalysisContext context, Regex? keyPattern, ConcurrentBag<RecordedSite> sites)

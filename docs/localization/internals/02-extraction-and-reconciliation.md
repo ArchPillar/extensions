@@ -1,12 +1,12 @@
 # 02 — Extraction, Template Emission & Reconciliation
 
-> Assemblies: the compile-time `IIncrementalGenerator` that emits the **typed key registry** (and the DI bundle registration) ships inside `ArchPillar.Extensions.Localization.Analyzers` (consolidated with detection and the analyzer — see spec 01), and `ArchPillar.Extensions.Localization.Tooling` is the `dotnet` tool that extracts the **template** (from IL) and adds/syncs/converts **target** files on demand (it carries the extract/merge core). References the detection core (spec 01), the `Catalog` model and provider interface (spec 03), and `MessageFormat` (spec 04).
+> Assemblies: the compile-time `IIncrementalGenerator` that emits the **typed key registry** (and the `Localized<T>` constructor and DI-registration sources) ships inside `ArchPillar.Extensions.Localization.Analyzers` (consolidated with detection and the analyzer — see spec 01), and `ArchPillar.Extensions.Localization.Tooling` is the `dotnet` tool that extracts the **template** (from IL) and adds/syncs/converts **target** files on demand (it carries the extract/merge core). References the detection core (spec 01), the `Catalog` model and provider interface (spec 03), and `MessageFormat` (spec 04).
 
 ## Purpose
 
 Two separable jobs, deliberately assigned to different hosts so that **target languages are never a build or developer decision** (Decision D-12):
 
-1. **Template extraction (tool, build-time or on demand).** Recover the call sites from a **built assembly's IL** (Decision D-K) into the language-neutral **template**: a `Catalog` with the source language, every key, source text, and metadata, no target translations. The build runs this for you (spec 06). The generator's compile-time output is in-assembly source — the typed key registry and the DI bundle registration — never a file or template.
+1. **Template extraction (tool, build-time or on demand).** Recover the call sites from a **built assembly's IL** (Decision D-K) into the language-neutral **template**: a `Catalog` with the source language, every key, source text, and metadata, no target translations. The build runs this for you (spec 06). The generator's compile-time output is in-assembly source — the typed key registry and the `Localized<T>` constructor and DI-registration sources — never a file or template.
 2. **Target operations (tool, on demand).** From the template, create a new target-language file (`add`), reconcile existing target files against the current template (`sync`), or re-serialize into another format (`convert`). None of this is a build input; it happens when localization is wanted, run by whoever owns it.
 
 Reconciliation — adding new keys, **deleting** keys that no longer exist in code (Decision D-11), and flagging keys whose source default changed while keeping the translation — is the gettext `xgettext` (extract → template) + `msgmerge` (sync) pair, rebuilt to our model. Both extraction (from IL) and merge live in the tool; the generator emits no template — only in-assembly source.
@@ -35,7 +35,7 @@ On a real build the package's MSBuild target runs the tool's `extract` for the p
 
 ## Generator: the typed key registry (compile-time)
 
-The `IIncrementalGenerator` runs inside the compiler and emits in-assembly source — never a file or template; its pipelines key on code only. The primary output is the strongly-typed **key registry** (`TranslationKeys.g.cs`), grouped by category, so call sites and the analyzer share rename-safe keys. It also emits the **`Localized<T>` bundle registration** (`LocalizedBundleRegistration.g.cs`): an `internal` `AddArchPillarLocalizedBundles()` extension that registers each injectable bundle through its `ILocalizer<TSelf>` constructor, emitted only when the compilation references the DI abstractions.
+The `IIncrementalGenerator` runs inside the compiler and emits in-assembly source — never a file or template; its pipelines key on code only. The primary output is the strongly-typed **key registry** (`TranslationKeys.g.cs`), grouped by category, so call sites and the analyzer share rename-safe keys. It also emits two sources for `Localized<T>` bundles: the **bundle constructors** (`LocalizedBundleConstructors.g.cs`) — an ambient and an `ILocalizer<TSelf>` constructor for each `partial` bundle that declares none — and the **DI registration** (`LocalizedBundleRegistration.g.cs`), an `internal` `AddArchPillarLocalizedBundles()` extension registering each injectable bundle through that constructor, emitted only when the compilation references the DI abstractions.
 
 ## Tool: target operations (on demand)
 
@@ -144,7 +144,7 @@ dotnet apl convert   (--template | --lang <lang>) --to <po|xliff|arb>
 
 ## Acceptance criteria
 
-- [ ] The generator emits only in-assembly source (the typed key registry and the DI bundle registration); the build's `extract` writes only the template (never a target file), and the project declares no languages.
+- [ ] The generator emits only in-assembly source (the typed key registry and the `Localized<T>` constructor and registration sources); the build's `extract` writes only the template (never a target file), and the project declares no languages.
 - [ ] `add de` creates `de` with every entry `NeedsTranslation`, an empty target, and a correct per-language header (Portable Object `Plural-Forms` matches the CLDR-derived order); it does not require a build or a project edit.
 - [ ] Running `sync` twice with no template change is a no-op: byte-identical files, `--check` passes.
 - [ ] Editing a default message, then `sync`, marks only the affected entry `NeedsReview` in every existing target file, preserves the translation, updates the displayed source and fingerprint, records the previous source, and perturbs no other entry's bytes.

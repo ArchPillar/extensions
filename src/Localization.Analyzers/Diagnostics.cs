@@ -70,4 +70,12 @@ internal static class Diagnostics
         Category,
         DiagnosticSeverity.Warning,
         isEnabledByDefault: true);
+
+    public static DiagnosticDescriptor MarkPartialForDi { get; } = new(
+        "APL0010",
+        "Mark the localized bundle partial for dependency injection",
+        "Mark '{0}' partial so its localizer constructor and dependency-injection registration are generated",
+        Category,
+        DiagnosticSeverity.Warning,
+        isEnabledByDefault: true);
 }

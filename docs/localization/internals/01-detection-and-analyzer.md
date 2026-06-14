@@ -124,6 +124,7 @@ Identifier prefix `APL` (ArchPillar Localization). Default severities chosen so 
 | `APL0007` | Info | Two translation sites share the same `DefaultMessage` and `Context` but different `Key`. | Identical text under different keys; consider sharing a key. |
 | `APL0008` | Warning | `Key` does not match the configured key-naming pattern (only when a pattern is configured). | Key '{key}' does not match the required pattern '{pattern}'. |
 | `APL0009` | Hidden/Info | The configured "stale source" sidecar (if the analyzer is given catalog files as `AdditionalText`) shows the on-disk source fingerprint differs from the current default. | The default text has changed since translations were made; re-extract to mark them for review. |
+| `APL0010` | Warning | The compilation references `IServiceCollection` and a top-level, constructor-less `Localized<TSelf>` class is not `partial`, so the generator cannot synthesize its constructor or DI registration. | Mark '{type}' partial so its localizer constructor and dependency-injection registration are generated. |
 
 Notes:
 
@@ -131,6 +132,7 @@ Notes:
 - `APL0003`/`APL0004` only fire when argument names are statically recoverable. With the `params (string Name, object? Value)[]` form, the names are literals at the call site and recoverable; with a dictionary built elsewhere, they are not, and these diagnostics simply do not fire (no false positives).
 - `APL0006` is the high-value duplicate-key safety net that a stable-symbolic-key model needs. `APL0007` is advisory only.
 - `APL0009` requires the analyzer to be fed the catalog files via `AdditionalFiles` in the project. It is optional; the canonical staleness mechanism is the reconciler (spec 02). The analyzer version is a convenience that shows drift live.
+- `APL0010` fires only when the DI abstractions are referenced — a project that does not use DI is never nudged. It targets a top-level, non-`partial` `Localized<TSelf>` class that declares no constructor (one that already declares an `ILocalizer<TSelf>` constructor, or is already `partial`, is left alone), and the `…CodeFixes` package supplies the one-click "mark partial" fix.
 
 ## Analyzer registration
 

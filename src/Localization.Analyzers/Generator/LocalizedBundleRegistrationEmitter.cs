@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Text;
+using ArchPillar.Extensions.Localization.Generator.Internal;
 
 namespace ArchPillar.Extensions.Localization.Generator;
 
@@ -11,14 +12,14 @@ namespace ArchPillar.Extensions.Localization.Generator;
 /// </summary>
 internal static class LocalizedBundleRegistrationEmitter
 {
-    public static string? Emit(ImmutableArray<string?> bundles)
+    public static string? Emit(ImmutableArray<LocalizedBundleEmit?> bundles)
     {
         var names = new SortedSet<string>(StringComparer.Ordinal);
         foreach (var bundle in bundles)
         {
-            if (!string.IsNullOrEmpty(bundle))
+            if (bundle is { Register: true })
             {
-                names.Add(bundle!);
+                names.Add(bundle.FullyQualifiedName);
             }
         }
 

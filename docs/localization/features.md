@@ -80,12 +80,13 @@ public sealed class ButtonLabels : Localized<ButtonLabels>
 var labels = new ButtonLabels();                 // reads the ambient store
 ```
 
-**Dependency injection.** Add the `ILocalizer<TSelf>` constructor and inject the bundle as a dependency.
-You do not register each one by hand — the generator emits an `AddArchPillarLocalizedBundles()` extension
-covering every bundle in the assembly, so a single call wires them all:
+**Dependency injection.** Mark the bundle `partial` and the generator writes its constructors for you — an
+ambient one and an `ILocalizer<TSelf>` one for the container — so you inject the bundle with no hand-written
+plumbing. You do not register each one either: the generator also emits an `AddArchPillarLocalizedBundles()`
+extension covering every bundle in the assembly, so a single call wires them all:
 
 ```csharp
-public sealed class ButtonLabels(ILocalizer<ButtonLabels> loc) : Localized<ButtonLabels>(loc)
+public sealed partial class ButtonLabels : Localized<ButtonLabels>
 {
     public string Save   => Translate("Save");
     public string Cancel => Translate("Cancel");
@@ -95,10 +96,16 @@ builder.Services.AddArchPillarLocalization(options).AddArchPillarLocalizedBundle
 // ButtonLabels is now injectable wherever you need it.
 ```
 
+To write the constructor yourself — to take extra dependencies, say — declare the `ILocalizer<TSelf>` one
+and the generator leaves it alone: `public sealed class ButtonLabels(ILocalizer<ButtonLabels> loc) :
+Localized<ButtonLabels>(loc)`.
+
 > The ambient constructor throws if the ambient context is disabled (`UseAmbient = false`); in that
 > static-free configuration use the injected form. `AddArchPillarLocalizedBundles()` registers every bundle
-> with an accessible `ILocalizer<TSelf>` constructor as a singleton; it is generated only when the project
-> references the DI package, and is `internal`, so a library that exposes bundles registers its own.
+> with an accessible `ILocalizer<TSelf>` constructor — hand-written or generated — as a singleton; it is
+> generated only when the project references the DI package, and is `internal`, so a library that exposes
+> bundles registers its own. When DI is referenced, analyzer `APL0010` flags a non-`partial`, constructor-less
+> bundle and offers a one-click fix to mark it `partial`.
 
 ## The ambient store
 
@@ -241,6 +248,7 @@ otherwise be a silent runtime bug:
 | `APL0005` | A `plural`/`select` is missing its `other` branch. |
 | `APL0006` / `APL0007` | A duplicate key with conflicting text / identical text under different keys. |
 | `APL0008` | A key does not match the configured pattern. |
+| `APL0010` | A DI consumer's `Localized<>` bundle is not `partial`, so its constructor and registration cannot be generated (one-click fix marks it `partial`). |
 
 The `dotnet apl` tool turns the emitted template into per-language files (`add`, `sync`, `convert`,
 `sync --check` as a CI gate) and merges them at publish time. Nothing touches a translator's files as

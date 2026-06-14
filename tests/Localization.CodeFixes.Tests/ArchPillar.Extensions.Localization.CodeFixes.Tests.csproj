@@ -10,6 +10,7 @@
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
   </ItemGroup>
 
   <ItemGroup>
@@ -20,6 +21,7 @@
     <ProjectReference Include="..\..\src\Localization.CodeFixes\ArchPillar.Extensions.Localization.CodeFixes.csproj" />
     <ProjectReference Include="..\..\src\Localization.Analyzers\ArchPillar.Extensions.Localization.Analyzers.csproj" />
     <ProjectReference Include="..\..\src\Localization.Abstractions\ArchPillar.Extensions.Localization.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Localization\ArchPillar.Extensions.Localization.csproj" />
   </ItemGroup>
 
 </Project>
