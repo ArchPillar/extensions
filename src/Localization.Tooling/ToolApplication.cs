@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Text.Json;
 using ArchPillar.Extensions.Localization.Formats;
 using ArchPillar.Extensions.Localization.Internal;
 using ArchPillar.Extensions.Localization.Tooling.Internal;
@@ -9,10 +10,11 @@ namespace ArchPillar.Extensions.Localization.Tooling;
 /// The <c>dotnet apl</c> command-line surface. Authoring commands (<c>status</c>, <c>extract</c>, <c>add</c>,
 /// <c>sync</c>) work over a project / solution / directory scope so a whole app is handled at once; the
 /// translator handover commands (<c>export</c>, <c>import</c>) bundle per-assembly catalogs to and from a zip;
-/// <c>convert</c> changes a single file's format; and <c>merge</c> flattens a set of catalogs into one bundle
-/// per culture for deployment. Every command works on explicit paths and runs on demand, never as part of a
-/// build. Dev/source catalogs are named <c>{AssemblyName}.{culture}.{ext}</c> so catalogs from different
-/// assemblies never collide and a translation can always be routed back to its origin.
+/// <c>convert</c> changes a single file's format; <c>merge</c> flattens a set of catalogs into one bundle
+/// per culture for deployment; and <c>manifest</c> writes the catalog index the HTTP runtime loader reads when
+/// there is no readable file system (Blazor WebAssembly). Every command works on explicit paths and runs on
+/// demand, never as part of a build. Dev/source catalogs are named <c>{AssemblyName}.{culture}.{ext}</c> so
+/// catalogs from different assemblies never collide and a translation can always be routed back to its origin.
 /// </summary>
 internal static class ToolApplication
 {
@@ -30,7 +32,8 @@ internal static class ToolApplication
             ["convert"] = new HashSet<string>(StringComparer.Ordinal) { "--from", "--to", "--output" },
             ["export"] = new HashSet<string>(StringComparer.Ordinal) { "--input", "--lang", "--output", "--format" },
             ["import"] = new HashSet<string>(StringComparer.Ordinal) { "--input", "--output" },
-            ["merge"] = new HashSet<string>(StringComparer.Ordinal) { "--input", "--output", "--format", "--source" }
+            ["merge"] = new HashSet<string>(StringComparer.Ordinal) { "--input", "--output", "--format", "--source" },
+            ["manifest"] = new HashSet<string>(StringComparer.Ordinal) { "--input", "--output", "--source" }
         };
 
     public static async Task<int> RunAsync(string[] arguments)
@@ -65,6 +68,7 @@ internal static class ToolApplication
                 "export" => await ExportAsync(options).ConfigureAwait(false),
                 "import" => await ImportAsync(options).ConfigureAwait(false),
                 "merge" => await MergeAsync(options).ConfigureAwait(false),
+                "manifest" => await ManifestAsync(options).ConfigureAwait(false),
                 _ => Fail($"Unknown command '{command}'.")
             };
         }
@@ -477,6 +481,74 @@ internal static class ToolApplication
         return 0;
     }
 
+    // Writes the catalog index the HTTP runtime loader reads (apl-catalogs.json), listing every non-source
+    // catalog in the directory by culture and file name. Run after extract (dev layout, {AssemblyName}.{culture})
+    // and again after merge (published layout, {culture}), so the one manifest path resolves in both — over HTTP
+    // there is no directory to enumerate, so the index is how the client discovers what to fetch.
+    private static async Task<int> ManifestAsync(IReadOnlyDictionary<string, string> options)
+    {
+        var input = Require(options, "--input");
+        if (!Directory.Exists(input))
+        {
+            return Fail($"--input directory '{input}' does not exist.");
+        }
+
+        var sourceCulture = SourceLanguage(options);
+        var output = options.TryGetValue("--output", out var o) && o.Length > 0
+            ? o
+            : Path.Combine(input, HttpCatalogLoaderExtensions.DefaultManifestFileName);
+        TranslationFormatRegistry registry = BuildRegistry();
+
+        var entries = new List<(string Culture, string File)>();
+        foreach (var file in EnumerateCatalogFiles(input, registry))
+        {
+            var culture = CultureOf(file);
+
+            // The source-language catalog ships in code as the terminal fallback, so it is never an override to
+            // fetch; an unparseable name (no culture segment) is skipped rather than guessed at.
+            if (string.IsNullOrEmpty(culture) || string.Equals(culture, sourceCulture, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            entries.Add((culture, Path.GetFileName(file)));
+        }
+
+        entries.Sort((left, right) =>
+        {
+            var byCulture = string.CompareOrdinal(left.Culture, right.Culture);
+            return byCulture != 0 ? byCulture : string.CompareOrdinal(left.File, right.File);
+        });
+
+        await File.WriteAllBytesAsync(output, BuildManifest(entries)).ConfigureAwait(false);
+        Success($"Wrote manifest with {entries.Count} catalog(s) to {output}");
+        return 0;
+    }
+
+    private static byte[] BuildManifest(IReadOnlyList<(string Culture, string File)> entries)
+    {
+        using var buffer = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(buffer, new JsonWriterOptions { Indented = true }))
+        {
+            writer.WriteStartObject();
+            writer.WriteNumber("version", 1);
+            writer.WriteStartArray("catalogs");
+            foreach ((var culture, var file) in entries)
+            {
+                writer.WriteStartObject();
+                writer.WriteString("culture", culture);
+                writer.WriteString("file", file);
+                writer.WriteEndObject();
+            }
+
+            writer.WriteEndArray();
+            writer.WriteEndObject();
+        }
+
+        buffer.WriteByte((byte)'\n');
+        return buffer.ToArray();
+    }
+
     private static IEnumerable<string> EnumerateCatalogFiles(string input, TranslationFormatRegistry registry)
     {
         if (File.Exists(input))
@@ -653,7 +725,7 @@ internal static class ToolApplication
 
     private static int Usage()
     {
-        Console.Error.WriteLine("dotnet apl <status|extract|add|sync|export|import|convert|merge> [options]");
+        Console.Error.WriteLine("dotnet apl <status|extract|add|sync|export|import|convert|merge|manifest> [options]");
         Console.Error.WriteLine("  scope (status/extract/add/sync): defaults to the project/solution in the current directory;");
         Console.Error.WriteLine("    or --assembly <dll> | --input <dir> | --project [<csproj>|<dir>] [--recurse] | --solution [<sln>|<dir>]");
         return 2;

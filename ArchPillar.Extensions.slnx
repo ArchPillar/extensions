@@ -121,6 +121,9 @@
   <Folder Name="/src/Localization.StringLocalizer/">
     <Project Path="src/Localization.StringLocalizer/ArchPillar.Extensions.Localization.StringLocalizer.csproj" />
   </Folder>
+  <Folder Name="/src/Localization.AspNetCore/">
+    <Project Path="src/Localization.AspNetCore/ArchPillar.Extensions.Localization.AspNetCore.csproj" />
+  </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/Mapper.Tests/">
     <Project Path="tests/Mapper.Tests/ArchPillar.Extensions.Mapper.Tests.csproj" />
@@ -166,5 +169,8 @@
   </Folder>
   <Folder Name="/tests/Localization.EndToEnd.Tests/">
     <Project Path="tests/Localization.EndToEnd.Tests/ArchPillar.Extensions.Localization.EndToEnd.Tests.csproj" />
+  </Folder>
+  <Folder Name="/tests/Localization.AspNetCore.Tests/">
+    <Project Path="tests/Localization.AspNetCore.Tests/ArchPillar.Extensions.Localization.AspNetCore.Tests.csproj" />
   </Folder>
 </Solution>

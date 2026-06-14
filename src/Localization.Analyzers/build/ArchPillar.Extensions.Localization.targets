@@ -17,6 +17,17 @@
     <Exec Command="$(ArchPillarLocalizationToolCommand) extract --assembly &quot;$(TargetPath)&quot; --output &quot;$([MSBuild]::NormalizePath('$(ArchPillarLocalizationOutputPath)'))&quot; --source $(ArchPillarLocalizationSourceLanguage) --format $(ArchPillarLocalizationFormat)"
           ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)"
           StandardOutputImportance="low" />
+
+    <!--
+      Write the catalog manifest beside the just-extracted catalogs. Over HTTP (Blazor WebAssembly) there is no
+      directory to enumerate, so the runtime loader reads this index to discover which catalogs to fetch. The
+      manifest lists the non-source catalogs in the output folder; it is co-located with them (e.g. under
+      wwwroot/Translations), so it ships and is served as a static web asset alongside the catalogs.
+    -->
+    <Exec Condition="'$(ArchPillarLocalizationEmitManifest)' == 'true' and Exists('$(ArchPillarLocalizationOutputPath)')"
+          Command="$(ArchPillarLocalizationToolCommand) manifest --input &quot;$([MSBuild]::NormalizePath('$(ArchPillarLocalizationOutputPath)'))&quot; --source $(ArchPillarLocalizationSourceLanguage)"
+          ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)"
+          StandardOutputImportance="low" />
   </Target>
 
   <!--
@@ -81,6 +92,16 @@
     <Copy SourceFiles="@(_ArchPillarMergedCatalogs)"
           DestinationFiles="@(_ArchPillarMergedCatalogs->'$(PublishDir)Translations\%(Filename)%(Extension)')"
           Condition="'@(_ArchPillarMergedCatalogs)' != ''" />
+
+    <!--
+      Regenerate the manifest for the merged layout. The merge renames catalogs from {AssemblyName}.{culture}
+      to {culture}, so the manifest emitted at build time is now stale; rewrite it to match the published files.
+      Only when the merge actually ran (a skipped merge leaves the build-time files and manifest both valid).
+    -->
+    <Exec Condition="'$(ArchPillarLocalizationEmitManifest)' == 'true' and '@(_ArchPillarMergedCatalogs)' != ''"
+          Command="$(ArchPillarLocalizationToolCommand) manifest --input &quot;$([MSBuild]::NormalizePath('$(PublishDir)Translations'))&quot; --source $(ArchPillarLocalizationSourceLanguage)"
+          ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)"
+          StandardOutputImportance="low" />
   </Target>
 
 </Project>

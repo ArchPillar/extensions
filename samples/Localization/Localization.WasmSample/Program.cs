@@ -1,5 +1,4 @@
 using ArchPillar.Extensions.Localization;
-using ArchPillar.Extensions.Localization.Formats;
 using Localization.WasmSample;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
@@ -10,7 +9,7 @@ using Ambient = ArchPillar.Extensions.Localization.Localizer;
 // Localization.WasmSample
 //
 // Demonstrates ArchPillar.Extensions.Localization in a Blazor WebAssembly client:
-//   - Fetching an ARB catalog over HTTP from static web assets (no file system in the browser)
+//   - Discovering and fetching catalogs over HTTP from static web assets (no file system in the browser)
 //   - Injecting ILocalizer and IStringLocalizer<T> into components over the ambient store
 //   - Switching culture in code at runtime with a button — no reload, no request middleware
 //   - A missing override surfacing via IStringLocalizer's ResourceNotFound (the key shows through)
@@ -21,15 +20,13 @@ WebAssemblyHostBuilder builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-// Blazor WebAssembly has no readable file system, so the directory source finds nothing. Instead the
-// catalogs are fetched over HTTP from the app's static web assets, parsed with the ARB provider, and fed
-// into the ambient store; English ships in code, so only the German override is fetched. AddArchPillar-
-// StringLocalizer then registers the native views and the IStringLocalizer adapter over that same store.
+// Blazor WebAssembly has no readable file system, so the directory source finds nothing. Instead the catalogs
+// are fetched over HTTP from the app's static web assets and layered into the ambient store. The build emits a
+// manifest (wwwroot/Translations/apl-catalogs.json) listing the catalogs, so the loader discovers what to fetch
+// with no hand-kept list. English ships in code, so only the German override is fetched. AddArchPillarString-
+// Localizer then registers the native views and the IStringLocalizer adapter over that same store.
 using var http = new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) };
-await using (Stream de = await http.GetStreamAsync("Translations/Localization.WasmSample.de.arb"))
-{
-    Ambient.AddCatalog(await new ArbTranslationFormat().ReadAsync(de, CancellationToken.None));
-}
+await Ambient.AddCatalogsFromManifestAsync(http);
 
 builder.Services.AddArchPillarStringLocalizer(new LocalizerOptions { SourceCulture = "en" });
 

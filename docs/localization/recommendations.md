@@ -119,3 +119,44 @@ hand (e.g. from `Directory.Build.props`) — add a direct `<PackageReference>`, 
   <ArchPillarLocalizationExtractTransitively>true</ArchPillarLocalizationExtractTransitively>
 </PropertyGroup>
 ```
+
+## Load catalogs over HTTP in Blazor WebAssembly — there is no file system
+
+A browser has no readable file system, so the directory source finds nothing: a WebAssembly client must fetch
+its catalogs over HTTP from the app's static web assets. Use `AddCatalogsFromManifestAsync`. The build emits a
+manifest (`apl-catalogs.json`) beside the catalogs listing every non-source one, so the loader discovers what
+to fetch with no hand-kept file list — and it stays correct across the development layout
+(`{Assembly}.{culture}.arb`) and the merged published layout (`{culture}.arb`), which a hardcoded path would
+not. Call it before `RunAsync` so the first render is already localized.
+
+```csharp
+using var http = new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) };
+await Localizer.AddCatalogsFromManifestAsync(http);
+
+await builder.Build().RunAsync();
+```
+
+A missing manifest, a missing catalog, or a malformed one is skipped, so a partial deployment degrades to the
+in-code defaults rather than throwing. When you would rather name the catalogs than discover them, the
+primitive `AddCatalogsFromHttpAsync(http, ["Translations/App.de.arb"])` fetches exactly the URIs you pass.
+
+## Serve `.arb` catalogs from ASP.NET Core — register the content type
+
+The static file middleware returns 404 for an unknown file extension by default, so an ASP.NET Core host
+serving a WebAssembly client's catalogs 404s every `.arb` (and `.xliff` / `.po`) request — and the client
+silently falls back to its in-code defaults. Add the `ArchPillar.Extensions.Localization.AspNetCore` package
+and register the catalog content types:
+
+```csharp
+app.UseArchPillarTranslationFiles();          // serve the catalog formats from the web root
+app.UseArchPillarTranslationFiles("/party");  // ...or scoped under a request path
+```
+
+When the app already configures `UseStaticFiles`, register the types on its content-type provider instead —
+handy when several WebAssembly clients are hosted under different paths from one provider:
+
+```csharp
+var provider = new FileExtensionContentTypeProvider().AddArchPillarTranslationFormats();
+app.UseStaticFiles(new StaticFileOptions { ContentTypeProvider = provider });
+app.UseStaticFiles(new StaticFileOptions { RequestPath = "/party", ContentTypeProvider = provider });
+```

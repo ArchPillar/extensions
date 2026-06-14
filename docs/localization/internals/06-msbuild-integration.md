@@ -20,6 +20,7 @@ All properties use the `ArchPillarLocalization` prefix and are surfaced to the g
 | `ArchPillarLocalizationKeyPattern` | *(none)* | optional regular expression enforced by diagnostic `APL0008` (spec 01) |
 | `ArchPillarLocalizationCopyTargetsToOutput` | `true` | copy **target** catalogs (not the template) to the application output directory so the runtime can load them |
 | `ArchPillarLocalizationEmbedTargets` | `false` | instead of copying, embed target catalogs as assembly resources (single-file deployment); mutually exclusive with copy |
+| `ArchPillarLocalizationEmitManifest` | `true` | write the catalog manifest (`apl-catalogs.json`) beside the catalogs so a no-file-system host (Blazor WebAssembly) can discover what to fetch over HTTP; the file-system loader ignores it |
 
 Example consumer configuration — note there is no language list:
 
@@ -38,6 +39,8 @@ The format is a convenience/authoring choice, not a lock-in — the tool's `conv
 ## What the build emits
 
 On build, two things happen, neither needing a language list. The **generator** (spec 02) emits the strongly-typed key registry as in-assembly source so call sites and the analyzer share rename-safe keys — it writes no files (a generator cannot). The **build's extract target** then runs the tool over the freshly built assembly, reading its **IL** (Decision D-K) and writing the **source-language template** to `OutputPath` in the configured format — the source `.arb` for ARB (default), a source `.xliff` for XLIFF, or a `.pot` for Portable Object — every extracted key, its source text, and metadata (context, comments, references, fingerprint), with no target translations. The build creates no target-language files, requires none to exist, and never edits one. An assembly with no translatable strings yields no template file.
+
+For a host with no readable file system — a Blazor WebAssembly client, which fetches its catalogs over HTTP rather than reading them from disk (spec 05) — the build additionally writes a **catalog manifest** (`apl-catalogs.json`) into `OutputPath` via the tool's `manifest` command, listing every non-source catalog there by culture and file name. Over HTTP there is no directory to enumerate, so the runtime reads this index to discover what to fetch. It is regenerated after the publish-time merge (which renames the per-library catalogs to one bundle per culture), so the single manifest path resolves in both the development and the merged layout. Emission is on by default (`ArchPillarLocalizationEmitManifest`); the file-system directory source ignores the manifest, so it is harmless when unused.
 
 ## Languages are added on demand, not at build
 

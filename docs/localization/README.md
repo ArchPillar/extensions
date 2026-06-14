@@ -59,6 +59,7 @@ Console.WriteLine(Greet("Ada"));                       // "Hallo Ada!" once a de
 | Standard formats | ARB (default), XLIFF 2.1, and Portable Object — round-tripped by the bundled providers. |
 | Dependency injection | `AddArchPillarLocalization` feeds the process-wide ambient context and registers injectable native localizers; the generated `AddArchPillarLocalizedBundles()` registers the assembly's `Localized<T>` bundles. |
 | `IStringLocalizer` interop + migration | A separate `…StringLocalizer` package (`AddArchPillarStringLocalizer`): a composing adapter, on-by-default extraction of indexer literals, and a no-op `L(...)` marker — droppable once migration is done. |
+| Blazor WebAssembly / HTTP loading | Where there is no file system, `AddCatalogsFromManifestAsync` fetches catalogs over HTTP, discovering them via a build-emitted manifest; the separate `…AspNetCore` package serves the catalog formats as static files (`UseArchPillarTranslationFiles`). |
 | Publishing | A publish-time merge to one bundle per culture; a documented trim / single-file / AOT matrix. |
 | Zero external dependencies | The runtime, formats, and ICU parser use only the BCL — no third-party packages. |
 
@@ -93,7 +94,8 @@ Runnable examples under [`samples/Localization/`](../../samples/Localization/):
 - [Localization.BlazorSample](../../samples/Localization/Localization.BlazorSample/) — a server-rendered
   Razor component injecting both, with culture-switch links.
 - [Localization.WasmSample](../../samples/Localization/Localization.WasmSample/) — Blazor WebAssembly:
-  the German catalog is fetched over HTTP and layered into the ambient store; culture switches in-process.
+  the German catalog is discovered through a build-emitted manifest and fetched over HTTP
+  (`AddCatalogsFromManifestAsync`) into the ambient store; culture switches in-process.
 - [Localization.TodoSample](../../samples/Localization/Localization.TodoSample/) — a console to-do app
   with English + German/French and a pseudo-localization smoke test.
 - [Localization.GreetingLibrary](../../samples/Localization/Localization.GreetingLibrary/) +

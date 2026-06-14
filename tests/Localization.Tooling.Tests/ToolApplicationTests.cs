@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Text.Json;
 using ArchPillar.Extensions.Localization.Formats;
 
 namespace ArchPillar.Extensions.Localization.Tooling.Tests;
@@ -85,6 +86,28 @@ public sealed class ToolApplicationTests : IDisposable
 
         Catalog de = await ReadAsync(Path.Combine(output, "de.arb"));
         Assert.Equal(2, de.Entries.Count); // both libraries' de entries merged into one bundle
+    }
+
+    [Fact]
+    public async Task Manifest_ListsNonSourceCatalogsSortedByCulture_SkipsSourceAsync()
+    {
+        var input = Path.Combine(_directory, "manifest-input");
+        Directory.CreateDirectory(input);
+        await WriteCatalogAsync(Path.Combine(input, "App.fr.arb"), "fr", ("save", "Sauvegarder"));
+        await WriteCatalogAsync(Path.Combine(input, "App.de.arb"), "de", ("save", "Speichern"));
+        await WriteCatalogAsync(Path.Combine(input, "App.en.arb"), "en", ("save", "Save"));
+
+        var exit = await ToolApplication.RunAsync(["manifest", "--input", input, "--source", "en"]);
+
+        Assert.Equal(0, exit);
+        var manifestPath = Path.Combine(input, "apl-catalogs.json");
+        Assert.True(File.Exists(manifestPath));
+
+        using var document = JsonDocument.Parse(await File.ReadAllTextAsync(manifestPath));
+        List<string> files = [.. document.RootElement.GetProperty("catalogs").EnumerateArray()
+            .Select(entry => entry.GetProperty("file").GetString()!)];
+        string[] expected = ["App.de.arb", "App.fr.arb"]; // sorted by culture; source 'en' excluded
+        Assert.Equal(expected, files);
     }
 
     [Fact]

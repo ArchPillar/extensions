@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "catalogs": [
+    {
+      "culture": "de",
+      "file": "Localization.WasmSample.de.arb"
+    }
+  ]
+}
