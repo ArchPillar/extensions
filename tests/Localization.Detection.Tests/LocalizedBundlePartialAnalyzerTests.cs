@@ -7,7 +7,7 @@ namespace ArchPillar.Extensions.Localization.Detection.Tests;
 public sealed class LocalizedBundlePartialAnalyzerTests
 {
     [Fact]
-    public async Task NonPartialConstructorlessBundle_WithDependencyInjection_ReportsApl0010()
+    public async Task NonPartialConstructorlessBundle_WithDependencyInjection_ReportsApl0010Async()
     {
         const string Source = """
             using ArchPillar.Extensions.Localization;
@@ -28,7 +28,7 @@ public sealed class LocalizedBundlePartialAnalyzerTests
     }
 
     [Fact]
-    public async Task PartialBundle_WithDependencyInjection_DoesNotReport()
+    public async Task PartialBundle_WithDependencyInjection_DoesNotReportAsync()
     {
         const string Source = """
             using ArchPillar.Extensions.Localization;
@@ -48,7 +48,7 @@ public sealed class LocalizedBundlePartialAnalyzerTests
     }
 
     [Fact]
-    public async Task BundleWithInjectableConstructor_WithDependencyInjection_DoesNotReport()
+    public async Task BundleWithInjectableConstructor_WithDependencyInjection_DoesNotReportAsync()
     {
         const string Source = """
             using ArchPillar.Extensions.Localization;
@@ -68,7 +68,7 @@ public sealed class LocalizedBundlePartialAnalyzerTests
     }
 
     [Fact]
-    public async Task NonPartialConstructorlessBundle_WithoutDependencyInjection_DoesNotReport()
+    public async Task NonPartialConstructorlessBundle_WithoutDependencyInjection_DoesNotReportAsync()
     {
         const string Source = """
             using ArchPillar.Extensions.Localization;
