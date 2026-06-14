@@ -48,6 +48,7 @@ jobs:
             Localization.MessageFormat/ArchPillar.Extensions.Localization.MessageFormat \
             Localization.DependencyInjection/ArchPillar.Extensions.Localization.DependencyInjection \
             Localization.StringLocalizer/ArchPillar.Extensions.Localization.StringLocalizer \
+            Localization.AspNetCore/ArchPillar.Extensions.Localization.AspNetCore \
             Localization.Tooling/ArchPillar.Extensions.Localization.Tooling
           do
             dotnet pack "src/$project.csproj" -c Release --no-build -o ./nupkgs -p:PackageVersion=$PREVIEW
