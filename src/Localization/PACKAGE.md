@@ -56,7 +56,7 @@ services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" }
 
 - **Categories** — `ILocalizer<T>` scopes keys by `typeof(T)`, the `ILogger<T>` model; no namespaces to manage.
 - **The ambient store** — one process-wide, layered, DI-free store reachable from anywhere, or an
-  instantiable `LocalizationContext` (with `UseAmbient = false`) for a fully static-free setup.
+  instantiable `LocalizationContext` constructed directly for a fully static-free setup.
 - **ICU MessageFormat** — arguments, `plural`/`selectordinal`/`select`, embedded CLDR plural data.
 - **Standard formats** — ARB (default), XLIFF 2.1, Portable Object, bundled (no extra packages).
 - **Files / embedded / satellites** — loose files by default (trim/AOT-safe); opt-in satellite embedding.

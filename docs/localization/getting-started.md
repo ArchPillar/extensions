@@ -146,12 +146,11 @@ builder.Services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture 
                 .AddArchPillarLocalizedBundles();
 ```
 
-By default DI feeds the **same** ambient store, so injected and receiver-less lookups share one source —
-inject `ILocalizer<T>` in a service and call the static `Translate(...)` in an exception path, and both
-resolve from the catalogs you registered once. If you would rather have no static state at all (for test
-isolation, or to host more than one localization scope in a process), pass `UseAmbient = false`: DI then
-owns a private `LocalizationContext` and any use of the static `Localizer` throws. See
-[the localization context](features.md#the-localization-context) for the full model.
+DI feeds the **same** ambient store, so injected and receiver-less lookups share one source — inject
+`ILocalizer<T>` in a service and call the static `Translate(...)` in an exception path, and both resolve
+from the catalogs you registered once. For an isolated environment (test isolation, or hosting more than
+one localization scope in a process), construct a `LocalizationContext` directly and thread it through your
+own code. See [the localization context](features.md#the-localization-context) for the full model.
 
 Migrating existing `IStringLocalizer` code? Add the `…Localization.StringLocalizer` package and call
 `AddArchPillarStringLocalizer` instead — see the migration on-ramp in [features.md](features.md).

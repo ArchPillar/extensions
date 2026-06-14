@@ -36,23 +36,13 @@ public static class ServiceCollectionExtensions
 
         LocalizerOptions resolved = options ?? new LocalizerOptions();
 
-        if (resolved.UseAmbient)
-        {
-            // Feed and register the single process-wide ambient context, so DI, a non-DI caller, and an
-            // exception text all read one store. Registered as an instance, so the container does not dispose
-            // the process-global ambient.
-            Localizer.Configure(resolved);
-            services.AddSingleton(Localizer.Ambient);
-        }
-        else
-        {
-            // Pure DI: forbid the static ambient (any accidental use throws) and register a fresh,
-            // container-owned context. The container disposes it, since it created it via the factory.
-            Localizer.Disable();
-            services.AddSingleton(_ => new LocalizationContext(resolved));
-        }
+        // Feed and register the single process-wide ambient context, so DI, a non-DI caller, and an exception
+        // text all read one store. Registered as an instance, so the container does not dispose the
+        // process-global ambient.
+        Localizer.Configure(resolved);
+        services.AddSingleton(Localizer.Ambient);
 
-        // The native views over whichever context was registered.
+        // The native views over the ambient context.
         services.AddSingleton<ILocalizer>(provider => provider.GetRequiredService<LocalizationContext>().Default);
         services.AddSingleton(typeof(ILocalizer<>), typeof(AmbientLocalizer<>));
         services.AddSingleton(provider => provider.GetRequiredService<LocalizationContext>().Engine);

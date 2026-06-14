@@ -100,8 +100,7 @@ To write the constructor yourself — to take extra dependencies, say — declar
 and the generator leaves it alone: `public sealed class ButtonLabels(ILocalizer<ButtonLabels> loc) :
 Localized<ButtonLabels>(loc)`.
 
-> The ambient constructor throws if the ambient context is disabled (`UseAmbient = false`); in that
-> static-free configuration use the injected form. `AddArchPillarLocalizedBundles()` registers every bundle
+> `AddArchPillarLocalizedBundles()` registers every bundle
 > with an accessible `ILocalizer<TSelf>` constructor — hand-written or generated — as a singleton; it is
 > generated only when the project references the DI package, and is `internal`, so a library that exposes
 > bundles registers its own. When DI is referenced, analyzer `APL0010` flags a non-`partial`, constructor-less
@@ -161,14 +160,9 @@ string t = context.For<Checkout>().Translate("pay", "Pay now");
 A constructed context shares nothing with the ambient one or with any other context — two of them never
 see each other's catalogs — which is what makes them safe for test isolation and multi-scope hosting. It
 carries the full call and configuration surface (`Default`, `For<T>()`, `Translate`, `AddCatalog`,
-`AddSource`, `Configure`, `Load`, `Reset`), and disposing it tears down its directory watcher.
-
-To opt out of the static path entirely, call `Localizer.Disable()` **before first use**: any later touch
-of the static `Localizer` then throws, guaranteeing nothing in the process is leaning on global state.
-This composes with DI below — `UseAmbient = false` disables the ambient and hands DI a private context.
-
-> `Disable()` throws if the ambient context is already initialized, so call it at startup. A constructed
-> `LocalizationContext` is unaffected either way — it never touches the static field.
+`AddSource`, `Configure`, `Load`, `Reset`), and disposing it tears down its directory watcher. For an
+isolated environment, construct one directly and thread it through your own code rather than reaching for
+the static `Localizer`.
 
 ## Loading — files, embedded, and satellites
 
@@ -264,12 +258,10 @@ a build side effect.
 services.AddArchPillarLocalization(new LocalizerOptions { TranslationsDirectory = "Translations", SourceCulture = "en" });
 ```
 
-DI deliberately feeds **exactly one** context. By default that is the process-wide ambient one, so an
-injected `ILocalizer<T>` and a receiver-less static `Translate(...)` resolve from the same catalogs — you
-configure once and both worlds agree. Set `UseAmbient = false` and DI instead owns a private
-`LocalizationContext` and disables the static `Localizer` (any static use then throws): the right choice
-for parallel test suites, multi-tenant hosting, or a strictly static-free architecture. See
-[the localization context](#the-localization-context) for the underlying model.
+DI feeds the **process-wide ambient context**, so an injected `ILocalizer<T>` and a receiver-less static
+`Translate(...)` resolve from the same catalogs — you configure once and both worlds agree. For an isolated
+environment (parallel test suites, multi-tenant hosting), construct a `LocalizationContext` directly and
+thread it through your own code; see [the localization context](#the-localization-context) for the model.
 
 For [`Localized<TSelf>`](#localizedtself--a-bundle-of-strings) bundles, chain the generated
 `AddArchPillarLocalizedBundles()` after it. The generator emits that extension covering every bundle in the
