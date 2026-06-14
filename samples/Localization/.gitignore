@@ -1,10 +1,6 @@
 # The build's auto-extract writes the source-language template ({AssemblyName}.en.arb) into each sample's
 # Translations folder, exactly as it would for an installed package. It is a generated artifact regenerated
 # on every build, so it is not committed. The translated catalogs (de.arb, fr.arb, …) are committed source.
+# (The HTTP catalog manifest apl-catalogs.json is generated into the intermediate output and registered as a
+# static web asset by the build, so it never lands in the source tree.)
 **/Translations/*.en.arb
-
-# The build also emits the catalog manifest (apl-catalogs.json) beside the extracted templates; like them it is
-# regenerated on every build and not committed. The WebAssembly sample is the exception — it serves and commits
-# its manifest from wwwroot/Translations alongside its translated catalogs, so the sample runs self-contained.
-**/Translations/apl-catalogs.json
-!**/wwwroot/Translations/apl-catalogs.json

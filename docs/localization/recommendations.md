@@ -123,11 +123,11 @@ hand (e.g. from `Directory.Build.props`) — add a direct `<PackageReference>`, 
 ## Load catalogs over HTTP in Blazor WebAssembly — there is no file system
 
 A browser has no readable file system, so the directory source finds nothing: a WebAssembly client must fetch
-its catalogs over HTTP from the app's static web assets. Use `AddCatalogsFromManifestAsync`. The build emits a
-manifest (`apl-catalogs.json`) beside the catalogs listing every non-source one, so the loader discovers what
-to fetch with no hand-kept file list — and it stays correct across the development layout
-(`{Assembly}.{culture}.arb`) and the merged published layout (`{culture}.arb`), which a hardcoded path would
-not. Call it before `RunAsync` so the first render is already localized.
+its catalogs over HTTP from the app's static web assets. Use `AddCatalogsFromManifestAsync`. When the package
+is referenced in a Blazor WebAssembly app, the build generates `apl-catalogs.json` (listing every non-source
+catalog) and registers it as a static web asset through the Razor pipeline, so the loader discovers what to
+fetch with no hand-kept file list and nothing committed to the source tree. Call it before `RunAsync` so the
+first render is already localized.
 
 ```csharp
 using var http = new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) };

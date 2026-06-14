@@ -24,7 +24,12 @@
     body are visible.
   -->
   <PropertyGroup>
-    <_ArchPillarSampleAuthoring Condition="'$(ArchPillarLocalizationSampleAuthoring)' != 'false' and '$(PublishTrimmed)' != 'true' and '$(PublishAot)' != 'true'">true</_ArchPillarSampleAuthoring>
+    <!-- A sample may opt in explicitly (ArchPillarLocalizationSampleAuthoring=true) even when it is trimmed:
+         the Blazor WebAssembly sample is trimmed by default but must still author and serve its catalogs through
+         the build pipeline. The dedicated trim/AOT samples set PublishTrimmed/PublishAot and do NOT opt in, so
+         they stay excluded (their netstandard2.0 analyzer references must not be pulled in). -->
+    <_ArchPillarSampleAuthoring Condition="'$(ArchPillarLocalizationSampleAuthoring)' == 'true'">true</_ArchPillarSampleAuthoring>
+    <_ArchPillarSampleAuthoring Condition="'$(_ArchPillarSampleAuthoring)' != 'true' and '$(ArchPillarLocalizationSampleAuthoring)' != 'false' and '$(PublishTrimmed)' != 'true' and '$(PublishAot)' != 'true'">true</_ArchPillarSampleAuthoring>
     <!-- The samples wire these build assets in by hand (no PackageReference), so they take the escape hatch to
          run extraction just as a direct package consumer would. -->
     <ArchPillarLocalizationExtractTransitively Condition="'$(_ArchPillarSampleAuthoring)' == 'true'">true</ArchPillarLocalizationExtractTransitively>

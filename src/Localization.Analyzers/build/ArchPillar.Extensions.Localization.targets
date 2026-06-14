@@ -17,17 +17,6 @@
     <Exec Command="$(ArchPillarLocalizationToolCommand) extract --assembly &quot;$(TargetPath)&quot; --output &quot;$([MSBuild]::NormalizePath('$(ArchPillarLocalizationOutputPath)'))&quot; --source $(ArchPillarLocalizationSourceLanguage) --format $(ArchPillarLocalizationFormat)"
           ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)"
           StandardOutputImportance="low" />
-
-    <!--
-      Write the catalog manifest beside the just-extracted catalogs. Over HTTP (Blazor WebAssembly) there is no
-      directory to enumerate, so the runtime loader reads this index to discover which catalogs to fetch. The
-      manifest lists the non-source catalogs in the output folder; it is co-located with them (e.g. under
-      wwwroot/Translations), so it ships and is served as a static web asset alongside the catalogs.
-    -->
-    <Exec Condition="'$(ArchPillarLocalizationEmitManifest)' == 'true' and Exists('$(ArchPillarLocalizationOutputPath)')"
-          Command="$(ArchPillarLocalizationToolCommand) manifest --input &quot;$([MSBuild]::NormalizePath('$(ArchPillarLocalizationOutputPath)'))&quot; --source $(ArchPillarLocalizationSourceLanguage)"
-          ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)"
-          StandardOutputImportance="low" />
   </Target>
 
   <!--
@@ -92,16 +81,70 @@
     <Copy SourceFiles="@(_ArchPillarMergedCatalogs)"
           DestinationFiles="@(_ArchPillarMergedCatalogs->'$(PublishDir)Translations\%(Filename)%(Extension)')"
           Condition="'@(_ArchPillarMergedCatalogs)' != ''" />
+  </Target>
 
-    <!--
-      Regenerate the manifest for the merged layout. The merge renames catalogs from {AssemblyName}.{culture}
-      to {culture}, so the manifest emitted at build time is now stale; rewrite it to match the published files.
-      Only when the merge actually ran (a skipped merge leaves the build-time files and manifest both valid).
-    -->
-    <Exec Condition="'$(ArchPillarLocalizationEmitManifest)' == 'true' and '@(_ArchPillarMergedCatalogs)' != ''"
-          Command="$(ArchPillarLocalizationToolCommand) manifest --input &quot;$([MSBuild]::NormalizePath('$(PublishDir)Translations'))&quot; --source $(ArchPillarLocalizationSourceLanguage)"
+  <!--
+    Register the catalog manifest (apl-catalogs.json) as a Razor/Blazor static web asset, so a WebAssembly
+    client can fetch it over HTTP to discover which catalogs to load (there is no file system to enumerate in
+    the browser). The static web asset pipeline resolves and fingerprints assets during the build, before the
+    post-build extract target runs, so the manifest cannot be produced by a post-build step and served in the
+    same build. Instead this hooks the pipeline's own input resolution (ResolveStaticWebAssetsInputs, reached
+    via PrepareForRun — late enough that project references, hence the tool, are built), generates the manifest
+    into the intermediate output, and registers it as a Computed asset (the same mechanism the SDK uses for the
+    JS-initializer module manifest). An 'All' asset registered on the build path also flows into the publish
+    manifest. ResolveStaticWebAssetsInputsDependsOn is defined only by the static web assets SDK, so this is
+    inert in a project without it (a console or server app, which loads catalogs from the file system instead).
+  -->
+  <PropertyGroup Condition="'$(ArchPillarLocalizationEmitManifest)' == 'true'">
+    <ResolveStaticWebAssetsInputsDependsOn>
+      $(ResolveStaticWebAssetsInputsDependsOn);
+      _ArchPillarLocalizationDefineManifestStaticWebAsset
+    </ResolveStaticWebAssetsInputsDependsOn>
+  </PropertyGroup>
+
+  <Target Name="_ArchPillarLocalizationDefineManifestStaticWebAsset"
+          Condition="'$(ArchPillarLocalizationEmitManifest)' == 'true' and Exists('$(ArchPillarLocalizationOutputPath)')">
+
+    <PropertyGroup>
+      <_ArchPillarManifestDir>$([MSBuild]::NormalizePath('$(IntermediateOutputPath)apl'))\</_ArchPillarManifestDir>
+      <_ArchPillarManifestPath>$(_ArchPillarManifestDir)apl-catalogs.json</_ArchPillarManifestPath>
+    </PropertyGroup>
+
+    <MakeDir Directories="$(_ArchPillarManifestDir)" />
+
+    <!-- Generate the manifest from the authored catalogs (the source-language template is excluded). -->
+    <Exec Command="$(ArchPillarLocalizationToolCommand) manifest --input &quot;$([MSBuild]::NormalizePath('$(ArchPillarLocalizationOutputPath)'))&quot; --output &quot;$(_ArchPillarManifestPath)&quot; --source $(ArchPillarLocalizationSourceLanguage)"
           ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)"
           StandardOutputImportance="low" />
+
+    <ItemGroup>
+      <_ArchPillarManifestCandidate Include="$(_ArchPillarManifestPath)" Condition="Exists('$(_ArchPillarManifestPath)')">
+        <RelativePath>Translations/apl-catalogs.json</RelativePath>
+      </_ArchPillarManifestCandidate>
+    </ItemGroup>
+
+    <DefineStaticWebAssets Condition="'@(_ArchPillarManifestCandidate)' != ''"
+      CandidateAssets="@(_ArchPillarManifestCandidate)"
+      SourceId="$(PackageId)"
+      SourceType="Computed"
+      BasePath="$(StaticWebAssetBasePath)"
+      ContentRoot="$(_ArchPillarManifestDir)"
+      AssetKind="All"
+      AssetMode="CurrentProject"
+      AssetRole="Primary"
+      FingerprintCandidates="$(StaticWebAssetsFingerprintContent)"
+      FingerprintPatterns="@(StaticWebAssetFingerprintPattern)">
+      <Output TaskParameter="Assets" ItemName="StaticWebAsset" />
+      <Output TaskParameter="Assets" ItemName="_ArchPillarManifestStaticWebAsset" />
+    </DefineStaticWebAssets>
+
+    <DefineStaticWebAssetEndpoints Condition="'@(_ArchPillarManifestStaticWebAsset)' != ''"
+      CandidateAssets="@(_ArchPillarManifestStaticWebAsset)"
+      ExistingEndpoints="@(StaticWebAssetEndpoint)"
+      ContentTypeMappings="@(StaticWebAssetContentTypeMapping)">
+      <Output TaskParameter="Endpoints" ItemName="StaticWebAssetEndpoint" />
+    </DefineStaticWebAssetEndpoints>
+
   </Target>
 
 </Project>
