@@ -114,6 +114,21 @@
     </ResolvePublishStaticWebAssetsDependsOn>
   </PropertyGroup>
 
+  <!--
+    Teach the static web asset pipeline the catalog content types, so the endpoints serve a WebAssembly client's
+    catalogs with a correct Content-Type. The SDK's built-in map does not know these extensions, so without this
+    they are served as application/octet-stream (a runtime HttpClient fetch still reads them, but the type is
+    wrong). ARB is JSON; XLIFF is XML; Portable Object is plain text. Matches the content types the
+    ArchPillar.Extensions.Localization.AspNetCore package registers for the classic UseStaticFiles path.
+  -->
+  <ItemGroup Condition="'$(ArchPillarLocalizationEmitManifest)' == 'true'">
+    <StaticWebAssetContentTypeMapping Include="application/json" Pattern="*.arb" Priority="1" Cache="$(StaticWebAssetEndpointDefaultMediaCacheControlHeader)" />
+    <StaticWebAssetContentTypeMapping Include="application/xml" Pattern="*.xliff" Priority="1" Cache="$(StaticWebAssetEndpointDefaultMediaCacheControlHeader)" />
+    <StaticWebAssetContentTypeMapping Include="application/xml" Pattern="*.xlf" Priority="1" Cache="$(StaticWebAssetEndpointDefaultMediaCacheControlHeader)" />
+    <StaticWebAssetContentTypeMapping Include="text/plain" Pattern="*.po" Priority="1" Cache="$(StaticWebAssetEndpointDefaultMediaCacheControlHeader)" />
+    <StaticWebAssetContentTypeMapping Include="text/plain" Pattern="*.pot" Priority="1" Cache="$(StaticWebAssetEndpointDefaultMediaCacheControlHeader)" />
+  </ItemGroup>
+
   <!-- Build layout: each target catalog, plus a manifest listing them, registered as Build static web assets. -->
   <Target Name="_ArchPillarLocalizationDefineBuildCatalogAssets"
           Condition="'$(ArchPillarLocalizationEmitManifest)' == 'true' and Exists('$(ArchPillarLocalizationOutputPath)')">
