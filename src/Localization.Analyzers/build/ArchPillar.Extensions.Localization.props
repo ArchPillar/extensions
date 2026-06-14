@@ -22,6 +22,11 @@
     <ArchPillarLocalizationCopyTargetsToOutput Condition="'$(ArchPillarLocalizationCopyTargetsToOutput)' == ''">true</ArchPillarLocalizationCopyTargetsToOutput>
     <ArchPillarLocalizationEmbedTargets Condition="'$(ArchPillarLocalizationEmbedTargets)' == ''">false</ArchPillarLocalizationEmbedTargets>
     <ArchPillarLocalizationMergeOnPublish Condition="'$(ArchPillarLocalizationMergeOnPublish)' == ''">true</ArchPillarLocalizationMergeOnPublish>
+    <!-- Emit a catalog manifest (apl-catalogs.json) beside the catalogs so a host with no readable file system
+         (Blazor WebAssembly) can discover what to fetch over HTTP — there is no directory to enumerate there.
+         Written after extraction and regenerated after the publish-time merge so the one path resolves in both
+         layouts. Harmless when unused: the file-system directory source ignores it. Set false to opt out. -->
+    <ArchPillarLocalizationEmitManifest Condition="'$(ArchPillarLocalizationEmitManifest)' == ''">true</ArchPillarLocalizationEmitManifest>
     <!-- How the build invokes the dotnet tool. Defaults to the installed global tool; a consumer with a
          local-tool manifest or a custom path (or this repo's samples, which run it from source) overrides it. -->
     <ArchPillarLocalizationToolCommand Condition="'$(ArchPillarLocalizationToolCommand)' == ''">dotnet apl</ArchPillarLocalizationToolCommand>

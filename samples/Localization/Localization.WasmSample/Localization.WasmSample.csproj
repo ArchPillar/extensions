@@ -1,9 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
 
   <PropertyGroup>
-    <!-- Extract this app's template like any project, but it serves catalogs from wwwroot over HTTP rather
-         than the loose-file copy path, so disable only the copy step, not the whole authoring wiring. -->
+    <!-- Catalogs are authored under the default OutputPath (Translations/, not wwwroot). The build registers
+         them and the apl-catalogs.json manifest as static web assets through the Razor pipeline (per-library at
+         build, merged per-culture bundles at publish), so the client fetches them over HTTP. -->
     <ArchPillarLocalizationCopyTargetsToOutput>false</ArchPillarLocalizationCopyTargetsToOutput>
+    <!-- This sample is trimmed by default (Blazor WASM) but must still author + serve its catalogs through the
+         build pipeline, so it opts into the samples' authoring wiring explicitly. -->
+    <ArchPillarLocalizationSampleAuthoring>true</ArchPillarLocalizationSampleAuthoring>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

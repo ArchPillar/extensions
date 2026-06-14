@@ -97,6 +97,38 @@ public static class Localizer
     /// <exception cref="ArgumentNullException"><paramref name="source"/> is <see langword="null"/>.</exception>
     public static void AddSource(ITranslationSource source) => Ambient.AddSource(source);
 
+    /// <summary>
+    /// Fetches each catalog in <paramref name="requestUris"/> over <paramref name="httpClient"/> and layers it
+    /// into the ambient store, skipping any that is missing or malformed. The client-side counterpart to the
+    /// directory source, for a host with no readable file system such as Blazor WebAssembly.
+    /// </summary>
+    /// <param name="httpClient">The client used to fetch the catalogs; its base address resolves a relative URI.</param>
+    /// <param name="requestUris">The catalog URIs to fetch, each relative to the client's base address, or absolute.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The number of catalogs successfully loaded.</returns>
+    /// <exception cref="ArgumentNullException">A required argument is <see langword="null"/>.</exception>
+    public static Task<int> AddCatalogsFromHttpAsync(
+        HttpClient httpClient,
+        IEnumerable<string> requestUris,
+        CancellationToken cancellationToken = default) =>
+        Ambient.AddCatalogsFromHttpAsync(httpClient, requestUris, cancellationToken);
+
+    /// <summary>
+    /// Fetches the catalog manifest at <paramref name="manifestUri"/> over <paramref name="httpClient"/>, then
+    /// fetches and layers in every catalog it lists, into the ambient store. The discovery-based counterpart to
+    /// <see cref="AddCatalogsFromHttpAsync"/>: the build maintains the manifest, so no file list is hand-written.
+    /// </summary>
+    /// <param name="httpClient">The client used to fetch the manifest and catalogs; its base address resolves a relative URI.</param>
+    /// <param name="manifestUri">The manifest URI, relative to the client's base address, or absolute.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The number of catalogs successfully loaded.</returns>
+    /// <exception cref="ArgumentNullException">A required argument is <see langword="null"/>.</exception>
+    public static Task<int> AddCatalogsFromManifestAsync(
+        HttpClient httpClient,
+        string manifestUri = HttpCatalogLoaderExtensions.DefaultManifestPath,
+        CancellationToken cancellationToken = default) =>
+        Ambient.AddCatalogsFromManifestAsync(httpClient, manifestUri, cancellationToken);
+
     /// <summary>Applies the configuration to the ambient store in one rebuild.</summary>
     /// <param name="options">The configuration to apply.</param>
     /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>

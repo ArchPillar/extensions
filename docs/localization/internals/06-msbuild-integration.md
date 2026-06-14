@@ -20,6 +20,7 @@ All properties use the `ArchPillarLocalization` prefix and are surfaced to the g
 | `ArchPillarLocalizationKeyPattern` | *(none)* | optional regular expression enforced by diagnostic `APL0008` (spec 01) |
 | `ArchPillarLocalizationCopyTargetsToOutput` | `true` | copy **target** catalogs (not the template) to the application output directory so the runtime can load them |
 | `ArchPillarLocalizationEmbedTargets` | `false` | instead of copying, embed target catalogs as assembly resources (single-file deployment); mutually exclusive with copy |
+| `ArchPillarLocalizationEmitManifest` | `true` | for a Razor/Blazor project, generate the catalog manifest (`apl-catalogs.json`) and register it as a static web asset so a WebAssembly client can fetch it over HTTP to discover catalogs; inert in non-Razor projects (they load from the file system) |
 
 Example consumer configuration — note there is no language list:
 
@@ -38,6 +39,13 @@ The format is a convenience/authoring choice, not a lock-in — the tool's `conv
 ## What the build emits
 
 On build, two things happen, neither needing a language list. The **generator** (spec 02) emits the strongly-typed key registry as in-assembly source so call sites and the analyzer share rename-safe keys — it writes no files (a generator cannot). The **build's extract target** then runs the tool over the freshly built assembly, reading its **IL** (Decision D-K) and writing the **source-language template** to `OutputPath` in the configured format — the source `.arb` for ARB (default), a source `.xliff` for XLIFF, or a `.pot` for Portable Object — every extracted key, its source text, and metadata (context, comments, references, fingerprint), with no target translations. The build creates no target-language files, requires none to exist, and never edits one. An assembly with no translatable strings yields no template file.
+
+For a host with no readable file system — a Blazor WebAssembly client, which fetches its catalogs over HTTP rather than reading them from disk (spec 05) — the catalogs and a **catalog manifest** (`apl-catalogs.json`, listing every non-source catalog by culture and file name; over HTTP there is no directory to enumerate, so the runtime reads it to discover what to fetch) are served as **static web assets**. A post-build write would land after the pipeline has already resolved and fingerprinted the served assets, so instead this wires **into** the pipeline, the way the SDK contributes its own computed assets (e.g. the JS-initializer-module manifest), via the `DefineStaticWebAssets`/`DefineStaticWebAssetEndpoints` tasks. Catalogs are authored under `OutputPath` (not `wwwroot`), so they are not auto-discovered; they are registered explicitly and split by phase so `AssetKind` alone separates the two layouts (no asset removal):
+
+- **Build** — a target on `ResolveStaticWebAssetsInputsDependsOn` (reached via `PrepareForRun`, late enough that the tool is built and the source template extracted) registers each per-library catalog plus a manifest listing them, as `Build` assets, so `dotnet run` serves the unmerged dev layout.
+- **Publish** — a target on `ResolvePublishStaticWebAssetsDependsOn` flattens the catalogs into one bundle per culture (the tool's `merge`) plus a manifest listing the bundles, as `Publish` assets, so the published app ships the compact layout.
+
+Everything is fingerprinted, compressed, and served like any `wwwroot` asset, with nothing committed to the source tree. Emission is on by default (`ArchPillarLocalizationEmitManifest`); these `…DependsOn` properties exist only in Razor/Blazor projects, so this is inert elsewhere — a console or server app loads catalogs from the file system and uses the publish-merge target above instead. Merging catalogs contributed by *referenced* localized libraries into a WebAssembly client is not yet covered by this path (the file-system merge handles it for a server app); the WebAssembly path currently bundles the app's own catalogs.
 
 ## Languages are added on demand, not at build
 
