@@ -23,14 +23,6 @@ public sealed class LocalizedAmbientTests : IDisposable
         Assert.Equal("Save", buttons.Save);
     }
 
-    [Fact]
-    public void Parameterless_WhenAmbientDisabled_Throws()
-    {
-        Localizer.Disable();
-
-        Assert.Throws<InvalidOperationException>(() => new AmbientButtons());
-    }
-
     private sealed class AmbientButtons : Localized<AmbientButtons>
     {
         public string Save => Translate("Save");

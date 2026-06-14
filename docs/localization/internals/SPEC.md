@@ -79,8 +79,8 @@ with no translation files still runs correctly.
 | `ILocalizer` / `ILocalizer<[TranslationScope] T>` | The native lookup API; `<T>`'s full name is the category. |
 | `ILocalizerFactory` | Creates category-scoped localizers (the `ILoggerFactory` shape). |
 | `Localized<TSelf>` | Optional base class: member name → key via `[CallerMemberName]`. |
-| `Localizer` (static) | The process-wide ambient facade: `Default`, `Ambient`, `For<T>()`, `Translate(...)`, `AddCatalog`, `AddSource`, `Configure(options)`, `Initialize(options, eager)`, `Disable()`, `Reset()`. All config flows through `LocalizerOptions`. |
-| `LocalizationContext` | The instantiable environment behind the facade (catalogs + config + localizers); the ambient context is one of these. Construct or DI-register one (`UseAmbient = false`) for a static-free setup. |
+| `Localizer` (static) | The process-wide ambient facade: `Default`, `Ambient`, `For<T>()`, `Translate(...)`, `AddCatalog`, `AddSource`, `Configure(options)`, `Initialize(options, eager)`, `Reset()`. All config flows through `LocalizerOptions`. |
+| `LocalizationContext` | The instantiable environment behind the facade (catalogs + config + localizers); the ambient context is one of these. Construct one directly for an isolated, static-free setup. |
 | `DefaultLocalizer` | The pure resolution engine over a `CatalogStore` (or a fixed catalog set) for tests/multitenancy. |
 | `CatalogStore` | Owns the layered catalogs, the directory watcher, and assembly discovery; produces the snapshot the engine resolves against. |
 | `TranslatableAttribute` / `TranslationDefaultAttribute` / `TranslationContextAttribute` / `TranslationCommentAttribute` / `TranslationScopeAttribute` | Mark the parameters/type-parameters detection reads. |

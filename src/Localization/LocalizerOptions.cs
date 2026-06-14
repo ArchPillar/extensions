@@ -43,14 +43,5 @@ public sealed class LocalizerOptions
     /// </summary>
     public IReadOnlyList<ITranslationSource> Sources { get; init; } = [];
 
-    /// <summary>
-    /// Whether <c>AddArchPillarLocalization</c> registers the process-wide ambient context (the default, so
-    /// DI and a non-DI caller share one store) or, when <see langword="false"/>, a fresh container-owned
-    /// context — disabling the ambient so any static <see cref="Localizer"/> use throws. Set
-    /// <see langword="false"/> for test isolation or a fully static-free setup. Ignored when constructing a
-    /// <see cref="LocalizationContext"/> directly.
-    /// </summary>
-    public bool UseAmbient { get; init; } = true;
-
     private static string DefaultDirectory() => Path.Combine(AppContext.BaseDirectory, "Translations");
 }

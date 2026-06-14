@@ -22,11 +22,8 @@ public abstract class Localized<[TranslationScope] TSelf>(ILocalizer<TSelf> loca
     /// <summary>
     /// Constructs a bundle bound to the process-wide ambient context, resolving its localizer from
     /// <see cref="Localizer.For{T}"/>. This is the ambient/no-DI path: a single <c>new TodoStrings()</c>
-    /// needs no services and no registration, which suits small console apps and scripts. Throws if the
-    /// ambient context has been disabled (<c>UseAmbient = false</c>); in that static-free configuration,
-    /// inject an <see cref="ILocalizer{TSelf}"/> through the other constructor instead.
+    /// needs no services and no registration, which suits small console apps and scripts.
     /// </summary>
-    /// <exception cref="InvalidOperationException">The ambient localization context is disabled.</exception>
     protected Localized()
         : this(Localizer.For<TSelf>())
     {

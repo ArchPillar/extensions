@@ -5,23 +5,18 @@ namespace ArchPillar.Extensions.Localization;
 /// The process-wide ambient localization entry point — a thin static facade over a single
 /// <see cref="LocalizationContext"/> (the ambient one), so a string localizes from anywhere with no services,
 /// including an exception thrown before any container exists. The ambient context is created lazily on first
-/// use; call <see cref="Disable"/> to forbid it entirely (any later use throws), which gives test isolation
-/// and a fully static-free option — construct or DI-register a <see cref="LocalizationContext"/> instead.
+/// use. For an isolated environment (parallel tests, multi-tenant hosting), construct a
+/// <see cref="LocalizationContext"/> directly instead of using this facade.
 /// </summary>
 public static class Localizer
 {
     private static readonly object _gate = new();
     private static LocalizationContext? _ambient;
-    private static bool _disabled;
 
     /// <summary>The global-namespace ambient localizer (the uncategorized bucket).</summary>
     public static ILocalizer Default => Ambient.Default;
 
-    /// <summary>
-    /// The single process-wide ambient <see cref="LocalizationContext"/>, created on first use. Throws if the
-    /// ambient context has been disabled via <see cref="Disable"/>.
-    /// </summary>
-    /// <exception cref="InvalidOperationException">The ambient context is disabled.</exception>
+    /// <summary>The single process-wide ambient <see cref="LocalizationContext"/>, created on first use.</summary>
     public static LocalizationContext Ambient
     {
         get
@@ -38,7 +33,6 @@ public static class Localizer
     /// <param name="options">The configuration to apply.</param>
     /// <param name="eager">Whether to load the catalogs (directory + assembly discovery) up front.</param>
     /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
-    /// <exception cref="InvalidOperationException">The ambient context is disabled.</exception>
     public static void Initialize(LocalizerOptions options, bool eager = false)
     {
         if (options is null)
@@ -50,25 +44,6 @@ public static class Localizer
         if (eager)
         {
             Ambient.Load();
-        }
-    }
-
-    /// <summary>
-    /// Disables the process-wide ambient context: any subsequent attempt to use the static
-    /// <see cref="Localizer"/> throws. Call it before first use (it throws if the ambient context is already
-    /// initialized). Use a directly constructed or DI-registered <see cref="LocalizationContext"/> instead.
-    /// </summary>
-    /// <exception cref="InvalidOperationException">The ambient context is already initialized.</exception>
-    public static void Disable()
-    {
-        lock (_gate)
-        {
-            if (_ambient is not null)
-            {
-                throw new InvalidOperationException("The ambient localization context is already initialized; disable it before first use.");
-            }
-
-            _disabled = true;
         }
     }
 
@@ -148,15 +123,14 @@ public static class Localizer
     internal static IReadOnlyList<KeyValuePair<string, string>> EnumerateOverrides(string category, bool includeParentCultures) =>
         Ambient.EnumerateOverrides(category, includeParentCultures);
 
-    // Test-only: returns the static facade to a pristine state — disposes and clears the ambient context and
-    // clears the disabled flag — so a lifecycle test (Disable/Initialize) does not leak into the next test.
+    // Test-only: returns the static facade to a pristine state — disposes and clears the ambient context — so a
+    // test that configures the ambient does not leak into the next.
     internal static void ResetAmbientForTests()
     {
         lock (_gate)
         {
             _ambient?.Dispose();
             _ambient = null;
-            _disabled = false;
         }
     }
 
@@ -164,12 +138,6 @@ public static class Localizer
     {
         lock (_gate)
         {
-            if (_disabled)
-            {
-                throw new InvalidOperationException(
-                    "The ambient localization context is disabled. Construct a LocalizationContext, or inject one registered in DI, instead of using the static Localizer.");
-            }
-
             return _ambient ??= LocalizationContext.CreateAmbient();
         }
     }

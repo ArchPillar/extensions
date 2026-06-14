@@ -75,14 +75,9 @@ pin the two equal (or apply `[assembly: RootNamespace]`) so the legacy resources
 ## Prefer an isolated context (or localizer) in tests over the shared ambient store
 
 The ambient store is process-wide global state, so tests that touch it share it and cannot run in
-parallel safely. Two ways to avoid that, in order of preference:
-
-- **Construct a `LocalizationContext`** (or, for just the engine, a `DefaultLocalizer`) per test and read
-  through it — it shares nothing with the ambient store or with another context, so tests stay isolated
-  and parallelisable with no teardown.
-- **Disable the ambient entirely** for the suite — `Localizer.Disable()` at startup, or
-  `UseAmbient = false` on the DI options — so any accidental static use is a loud failure rather than
-  cross-test bleed.
+parallel safely. To avoid that, **construct a `LocalizationContext`** (or, for just the engine, a
+`DefaultLocalizer`) per test and read through it — it shares nothing with the ambient store or with another
+context, so tests stay isolated and parallelisable with no teardown.
 
 Reserve the shared ambient store (with `Localizer.Reset()` in setup/teardown) for the handful of tests
 that specifically cover ambient loading and discovery.
