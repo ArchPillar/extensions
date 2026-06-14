@@ -4,6 +4,11 @@
     <!-- Extract this app's template like any project, but it serves catalogs from wwwroot over HTTP rather
          than the loose-file copy path, so disable only the copy step, not the whole authoring wiring. -->
     <ArchPillarLocalizationCopyTargetsToOutput>false</ArchPillarLocalizationCopyTargetsToOutput>
+    <!-- Author catalogs straight into wwwroot, so they (and the build-emitted apl-catalogs.json manifest) are
+         served as static web assets and fetched over HTTP at runtime. The build refreshes the manifest here in
+         place; it is committed so it is a static web asset at evaluation time (Blazor resolves those before the
+         post-build hook runs). -->
+    <ArchPillarLocalizationOutputPath>$(MSBuildProjectDirectory)/wwwroot/Translations</ArchPillarLocalizationOutputPath>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
