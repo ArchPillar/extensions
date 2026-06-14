@@ -23,6 +23,10 @@
 }
 <p>@summary.Value @(summary.ResourceNotFound ? "(no override — showing the key)" : string.Empty)</p>
 
+@* A string from a referenced library (Localization.WasmLibrary). Its German comes from that library's own
+   catalog, which the build gathered into this app's manifest and (on publish) merged into one bundle. *@
+<p>@Acme.WasmGreeting.Greeter.Greeting</p>
+
 <nav>
     <button @onclick="@(() => SetCulture("en"))">English</button>
     <button @onclick="@(() => SetCulture("de"))">Deutsch</button>

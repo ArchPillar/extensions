@@ -124,10 +124,11 @@ hand (e.g. from `Directory.Build.props`) — add a direct `<PackageReference>`, 
 
 A browser has no readable file system, so the directory source finds nothing: a WebAssembly client must fetch
 its catalogs over HTTP from the app's static web assets. Use `AddCatalogsFromManifestAsync`. When the package
-is referenced in a Blazor WebAssembly app, the build generates `apl-catalogs.json` (listing every non-source
-catalog) and registers it as a static web asset through the Razor pipeline, so the loader discovers what to
-fetch with no hand-kept file list and nothing committed to the source tree. Call it before `RunAsync` so the
-first render is already localized.
+is referenced in a Blazor WebAssembly app, the build generates `apl-catalogs.json` and registers it as a static
+web asset through the Razor pipeline — gathering the app's own catalogs *and every referenced localized
+library's* (merged into one bundle per culture on publish) — so the loader discovers what to fetch with no
+hand-kept file list and nothing committed to the source tree. Call it before `RunAsync` so the first render is
+already localized.
 
 ```csharp
 using var http = new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) };
@@ -160,3 +161,15 @@ var provider = new FileExtensionContentTypeProvider().AddArchPillarTranslationFo
 app.UseStaticFiles(new StaticFileOptions { ContentTypeProvider = provider });
 app.UseStaticFiles(new StaticFileOptions { RequestPath = "/party", ContentTypeProvider = provider });
 ```
+
+## Ship a Razor library's catalogs as files, not satellites, for WebAssembly consumers
+
+A library can ship its catalogs two ways: as **loose files** (the default — copied to output / served as static
+web assets) or as **embedded culture satellites** (`ArchPillarLocalizationEmbedTargets=true`). For a library
+consumed by a **Blazor WebAssembly** app, prefer files. The WebAssembly build gathers every referenced library's
+*file* catalogs into the app's manifest and merges them into one bundle per culture, so the client fetches a
+single file per language. Satellite-embedded catalogs ride in per-culture assemblies instead — they still load
+if the runtime downloads the satellite, but they can't be gathered into the HTTP manifest or folded into the
+merged bundle, and AOT can't load a satellite at all (see the trimming/AOT note above). Use a **Razor class
+library** (`Microsoft.NET.Sdk.Razor`) so the library participates in the static web asset pipeline; a plain
+class library has no way to serve its catalogs over HTTP.

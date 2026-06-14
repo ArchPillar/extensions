@@ -23,6 +23,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\src\Localization\ArchPillar.Extensions.Localization.csproj" />
     <ProjectReference Include="..\..\..\src\Localization.StringLocalizer\ArchPillar.Extensions.Localization.StringLocalizer.csproj" />
+    <!-- A referenced localized library: the build must gather and merge its catalogs into this app's manifest. -->
+    <ProjectReference Include="..\Localization.WasmLibrary\Localization.WasmLibrary.csproj" />
   </ItemGroup>
 
 </Project>

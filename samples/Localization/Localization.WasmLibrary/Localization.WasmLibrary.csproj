@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <RootNamespace>Acme.WasmGreeting</RootNamespace>
+    <AssemblyName>Acme.WasmGreeting</AssemblyName>
+    <!-- Ship catalogs as loose files (served over HTTP as static web assets), the WebAssembly-friendly mode —
+         not embedded satellites. The build registers them as static web assets; a consuming WebAssembly app
+         gathers and merges them. CopyTargetsToOutput stays on so a server consumer still gets the file copy. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\Localization\ArchPillar.Extensions.Localization.csproj" />
+  </ItemGroup>
+
+</Project>
