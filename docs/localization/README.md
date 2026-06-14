@@ -93,9 +93,11 @@ Runnable examples under [`samples/Localization/`](../../samples/Localization/):
   with `UseRequestLocalization`; endpoints inject the native localizer and the `IStringLocalizer<T>` adapter.
 - [Localization.BlazorSample](../../samples/Localization/Localization.BlazorSample/) — a server-rendered
   Razor component injecting both, with culture-switch links.
-- [Localization.WasmSample](../../samples/Localization/Localization.WasmSample/) — Blazor WebAssembly:
-  the German catalog is discovered through a build-emitted manifest and fetched over HTTP
-  (`AddCatalogsFromManifestAsync`) into the ambient store; culture switches in-process.
+- [Localization.WasmSample](../../samples/Localization/Localization.WasmSample/) +
+  [Localization.WasmLibrary](../../samples/Localization/Localization.WasmLibrary/) — Blazor WebAssembly: catalogs
+  are discovered through a build-emitted manifest and fetched over HTTP (`AddCatalogsFromManifestAsync`); the
+  build gathers the app's own and the referenced library's catalogs (merged into one bundle per culture on
+  publish), and culture switches in-process.
 - [Localization.TodoSample](../../samples/Localization/Localization.TodoSample/) — a console to-do app
   with English + German/French and a pseudo-localization smoke test.
 - [Localization.GreetingLibrary](../../samples/Localization/Localization.GreetingLibrary/) +
