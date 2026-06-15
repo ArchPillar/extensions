@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xliff version="2.1" srcLang="en" trgLang="en" xmlns="urn:oasis:names:tc:xliff:document:2.1">
+  <file id="MigrationSample">
+    <unit id="Goodbye">
+      <notes>
+        <note category="x-category">MigrationSample.Greeting</note>
+        <note category="fingerprint">41b75c4e66f5e627eb441ba9b32b445e</note>
+      </notes>
+      <segment state="initial" subState="archpillar:NeedsTranslation">
+        <source xml:space="preserve">Goodbye</source>
+      </segment>
+    </unit>
+    <unit id="Help">
+      <notes>
+        <note category="x-category">MigrationSample.Greeting</note>
+        <note category="fingerprint">1279c64fa245d75c6a9faf945e0c933b</note>
+      </notes>
+      <segment state="initial" subState="archpillar:NeedsTranslation">
+        <source xml:space="preserve">Help</source>
+      </segment>
+    </unit>
+    <unit id="Migration complete.">
+      <notes>
+        <note category="fingerprint">dab0f20fcae3d79ca1025afc6d62cbc2</note>
+      </notes>
+      <segment state="initial" subState="archpillar:NeedsTranslation">
+        <source xml:space="preserve">Migration complete.</source>
+      </segment>
+    </unit>
+    <unit id="Welcome">
+      <notes>
+        <note category="x-category">MigrationSample.Greeting</note>
+        <note category="fingerprint">2cb04305df4250d5b243dff9d605954b</note>
+      </notes>
+      <segment state="initial" subState="archpillar:NeedsTranslation">
+        <source xml:space="preserve">Welcome</source>
+      </segment>
+    </unit>
+  </file>
+</xliff>

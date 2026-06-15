@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xliff version="2.1" srcLang="en" trgLang="en" xmlns="urn:oasis:names:tc:xliff:document:2.1">
+  <file id="Acme.WasmGreeting">
+    <unit id="greeting">
+      <notes>
+        <note category="x-category">!!0</note>
+        <note category="fingerprint">11334bc9b6431fdd09063735ad05af96</note>
+      </notes>
+      <segment state="initial" subState="archpillar:NeedsTranslation">
+        <source xml:space="preserve">Hello from the shared library</source>
+      </segment>
+    </unit>
+  </file>
+</xliff>
