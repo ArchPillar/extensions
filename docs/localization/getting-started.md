@@ -164,9 +164,12 @@ In development each library keeps its own `{AssemblyName}.{culture}.xliff` files
 beside the binary. On **publish**, the build flattens them into one compact bundle per culture (`de.arb`,
 `fr.arb`, …) so production ships a handful of files instead of one per library — automatically, no
 configuration. The bundle is ARB by default even when you author in XLIFF: a runtime bundle needs only the
-translation, so the most compressible container wins (override with `ArchPillarLocalizationBundleFormat`). For
-single-file or NativeAOT publish, opt into embedding instead (`ArchPillarLocalizationEmbedTargets=true`).
-See [translation-workflow.md](translation-workflow.md#deployment) for the details and the trim/AOT matrix.
+translation, so the most compressible container wins (override with `ArchPillarLocalizationBundleFormat`). The
+files bundle works under **every** publish mode, including trimming and NativeAOT, so it is the default
+everywhere. To embed catalogs in the assemblies instead — for a single-file or self-contained build — opt into
+`ArchPillarLocalizationEmbedTargets=true`; note NativeAOT cannot load culture satellites, so there it is files
+or a main-assembly embed. See [translation-workflow.md](translation-workflow.md#deployment) for the details and
+the trim/AOT matrix in [recommendations.md](recommendations.md).
 
 ## Next
 
