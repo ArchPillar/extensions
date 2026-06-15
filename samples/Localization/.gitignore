@@ -1,9 +1,0 @@
-# The build's auto-extract writes the source-language template ({AssemblyName}.en.xliff) into each sample's
-# Translations folder, exactly as it would for an installed package. It is a generated artifact regenerated
-# on every build, so it is not committed. The translated catalogs (de.xliff, fr.xliff, …) are committed source.
-# (The HTTP catalog manifest apl-catalogs.json is generated into the intermediate output and registered as a
-# static web asset by the build, so it never lands in the source tree.)
-# Both extensions are ignored so a project that overrides the authoring format to arb still ignores its template.
-**/Translations/*.en.arb
-**/Translations/*.en.xliff
-**/Translations/*.en.xlf
