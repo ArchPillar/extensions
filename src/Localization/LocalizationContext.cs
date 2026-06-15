@@ -42,6 +42,22 @@ public sealed class LocalizationContext : IDisposable
     /// <returns>The category-scoped localizer.</returns>
     public ILocalizer<T> For<T>() => new Internal.AmbientCategoryLocalizer<T>(this);
 
+    /// <summary>Returns the localizer scoped to <paramref name="category"/>, over this context — the
+    /// dynamic-category parallel of <see cref="For{T}"/>, for a category computed at runtime (a model type's name,
+    /// say) rather than a type argument.</summary>
+    /// <param name="category">The translation category.</param>
+    /// <returns>The category-scoped localizer.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="category"/> is <see langword="null"/>.</exception>
+    public ILocalizer ForCategory(string category)
+    {
+        if (category is null)
+        {
+            throw new ArgumentNullException(nameof(category));
+        }
+
+        return new Internal.AmbientCategoryLocalizer(this, category);
+    }
+
     /// <summary>Translates <paramref name="key"/> through this context's global bucket, falling back to
     /// <paramref name="defaultMessage"/> — the instance form of <see cref="Default"/>.</summary>
     /// <param name="key">The stable symbolic key.</param>

@@ -27,26 +27,34 @@ internal sealed class AmbientLocalizer(LocalizationContext environment) : ILocal
 }
 
 /// <summary>
-/// The category-scoped localizer behind <see cref="LocalizationContext.For{T}"/>: its category is the full
-/// name of <typeparamref name="T"/>, resolved once, against the same environment.
+/// The category-scoped localizer behind <see cref="LocalizationContext.ForCategory(string)"/>: its category is
+/// a string computed at runtime, resolved against the same environment. The base of the typed
+/// <see cref="AmbientCategoryLocalizer{T}"/>.
 /// </summary>
-/// <typeparam name="T">The type whose full name is the translation category.</typeparam>
 /// <param name="environment">The owning localization environment.</param>
-internal sealed class AmbientCategoryLocalizer<T>(LocalizationContext environment) : ILocalizer<T>
+/// <param name="category">The translation category to resolve under.</param>
+internal class AmbientCategoryLocalizer(LocalizationContext environment, string category) : ILocalizer
 {
-    private static readonly string _category = CategoryName.Of(typeof(T));
-
     /// <inheritdoc />
     public string Translate(string key, string defaultMessage, params (string Name, object? Value)[] arguments)
     {
         environment.EnsureCulture(CultureInfo.CurrentUICulture);
-        return environment.Engine.TranslateInCategory(_category, key, defaultMessage, context: null, arguments);
+        return environment.Engine.TranslateInCategory(category, key, defaultMessage, context: null, arguments);
     }
 
     /// <inheritdoc />
     public string Translate(string key, string defaultMessage, string context, params (string Name, object? Value)[] arguments)
     {
         environment.EnsureCulture(CultureInfo.CurrentUICulture);
-        return environment.Engine.TranslateInCategory(_category, key, defaultMessage, context, arguments);
+        return environment.Engine.TranslateInCategory(category, key, defaultMessage, context, arguments);
     }
 }
+
+/// <summary>
+/// The typed category localizer behind <see cref="LocalizationContext.For{T}"/>: its category is the full name
+/// of <typeparamref name="T"/>, against the same environment.
+/// </summary>
+/// <typeparam name="T">The type whose full name is the translation category.</typeparam>
+/// <param name="environment">The owning localization environment.</param>
+internal sealed class AmbientCategoryLocalizer<T>(LocalizationContext environment)
+    : AmbientCategoryLocalizer(environment, CategoryName.Of(typeof(T))), ILocalizer<T>;
