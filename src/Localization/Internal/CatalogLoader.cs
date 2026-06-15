@@ -4,8 +4,11 @@ namespace ArchPillar.Extensions.Localization.Internal;
 
 /// <summary>
 /// Builds a <see cref="TranslationSnapshot"/> by reading every translation file in the configured
-/// directory through the bundled format providers, grouping by culture, skipping the source language
-/// and untranslated entries, and resolving cross-format overlap by the configured precedence.
+/// directory through the bundled format providers, grouping by culture, skipping untranslated entries, and
+/// resolving cross-format overlap by the configured precedence. The source language is loaded as an override
+/// layer like any other culture; the in-code default remains the terminal fallback, and an un-customized
+/// source entry (an echo of that default) stays <see cref="TranslationState.NeedsTranslation"/> so the
+/// per-entry filter drops it and only a genuine source override is loaded.
 /// </summary>
 internal static class CatalogLoader
 {
@@ -60,11 +63,12 @@ internal static class CatalogLoader
     }
 
     /// <summary>
-    /// Loads <paramref name="catalogs"/> exactly as the runtime does — last source wins, source culture and
-    /// untranslated entries skipped — and dumps the merged result as one flattened <see cref="Catalog"/> per
-    /// culture (the publish bundle). Because it reuses <see cref="BuildSnapshot"/>, the bundle resolves
-    /// identically to loading the many files. Translator-only metadata is dropped; a runtime bundle needs only
-    /// the translations.
+    /// Loads <paramref name="catalogs"/> exactly as the runtime does — last source wins, untranslated entries
+    /// skipped, the source language included as an override layer (only its genuine overrides survive) — and
+    /// dumps the merged result as one flattened <see cref="Catalog"/> per culture (the publish bundle). A
+    /// culture with no surviving entries produces no bundle, so an un-customized source language ships nothing.
+    /// Because it reuses <see cref="BuildSnapshot"/>, the bundle resolves identically to loading the many files.
+    /// Translator-only metadata is dropped; a runtime bundle needs only the translations.
     /// </summary>
     public static IReadOnlyList<Catalog> Flatten(IEnumerable<Catalog> catalogs, LocalizerOptions options)
     {
@@ -89,6 +93,13 @@ internal static class CatalogLoader
                         State = TranslationState.Translated
                     });
                 }
+            }
+
+            // A culture that contributed no loadable entry (e.g. a source catalog of pure echoes) yields no
+            // bundle rather than an empty file.
+            if (entries.Count == 0)
+            {
+                continue;
             }
 
             IEnumerable<CatalogEntry> ordered = entries
@@ -167,9 +178,18 @@ internal static class CatalogLoader
 
     private static bool ShouldSkipCulture(string culture, LocalizerOptions options)
     {
-        if (string.IsNullOrEmpty(culture) || string.Equals(culture, options.SourceCulture, StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrEmpty(culture))
         {
             return true;
+        }
+
+        // The source language loads as an override layer above the in-code default (which stays the terminal
+        // fallback): only entries a human actually edited survive the per-entry filter, so an un-customized
+        // source catalog contributes nothing. The source culture bypasses the Cultures allow-list, which
+        // constrains which *target* languages load, not the base language.
+        if (string.Equals(culture, options.SourceCulture, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
         }
 
         return options.Cultures?.Contains(culture, StringComparer.OrdinalIgnoreCase) == false;

@@ -7,6 +7,7 @@ namespace ArchPillar.Extensions.Localization.Tooling.Tests;
 public sealed class ToolApplicationTests : IDisposable
 {
     private static readonly ArbTranslationFormat _arb = new();
+    private static readonly XliffTranslationFormat _xliff = new();
 
     private readonly string _directory;
     private readonly string _template;
@@ -67,7 +68,7 @@ public sealed class ToolApplicationTests : IDisposable
     }
 
     [Fact]
-    public async Task Merge_FlattensToOneBundlePerCulture_SkipsSourceAsync()
+    public async Task Merge_FlattensToOneBundlePerCulture_IncludesSourceOverridesAsync()
     {
         var input = Path.Combine(_directory, "input");
         var output = Path.Combine(_directory, "out");
@@ -75,27 +76,35 @@ public sealed class ToolApplicationTests : IDisposable
         await WriteCatalogAsync(Path.Combine(input, "LibA.de.arb"), "de", ("save", "Speichern"));
         await WriteCatalogAsync(Path.Combine(input, "LibB.de.arb"), "de", ("cancel", "Abbrechen"));
         await WriteCatalogAsync(Path.Combine(input, "LibA.fr.arb"), "fr", ("save", "Sauvegarder"));
-        await WriteCatalogAsync(Path.Combine(input, "LibA.en.arb"), "en", ("save", "Save"));
+        await WriteCatalogAsync(Path.Combine(input, "LibA.en.arb"), "en", ("save", "Save")); // a source override
 
         var exit = await ToolApplication.RunAsync(["merge", "--input", input, "--output", output, "--source", "en"]);
 
         Assert.Equal(0, exit);
         Assert.True(File.Exists(Path.Combine(output, "de.arb")));
         Assert.True(File.Exists(Path.Combine(output, "fr.arb")));
-        Assert.False(File.Exists(Path.Combine(output, "en.arb"))); // source culture skipped
+        Assert.True(File.Exists(Path.Combine(output, "en.arb"))); // source overrides are bundled too
 
         Catalog de = await ReadAsync(Path.Combine(output, "de.arb"));
         Assert.Equal(2, de.Entries.Count); // both libraries' de entries merged into one bundle
+        Catalog en = await ReadAsync(Path.Combine(output, "en.arb"));
+        Assert.Equal("Save", Assert.Single(en.Entries).TranslatedMessage);
+
+        // The published bundle is minified: one compact line, no translator/tooling annotations.
+        var deText = await File.ReadAllTextAsync(Path.Combine(output, "de.arb"));
+        Assert.DoesNotContain("\n", deText);
+        Assert.DoesNotContain("x-state", deText);
+        Assert.DoesNotContain("x-source-fingerprint", deText);
     }
 
     [Fact]
-    public async Task Manifest_ListsNonSourceCatalogsSortedByCulture_SkipsSourceAsync()
+    public async Task Manifest_ListsCatalogsSortedByCulture_IncludingSourceAsync()
     {
         var input = Path.Combine(_directory, "manifest-input");
         Directory.CreateDirectory(input);
         await WriteCatalogAsync(Path.Combine(input, "App.fr.arb"), "fr", ("save", "Sauvegarder"));
         await WriteCatalogAsync(Path.Combine(input, "App.de.arb"), "de", ("save", "Speichern"));
-        await WriteCatalogAsync(Path.Combine(input, "App.en.arb"), "en", ("save", "Save"));
+        await WriteCatalogAsync(Path.Combine(input, "App.en.arb"), "en", ("save", "Save")); // a source override bundle
 
         var exit = await ToolApplication.RunAsync(["manifest", "--input", input, "--source", "en"]);
 
@@ -106,7 +115,7 @@ public sealed class ToolApplicationTests : IDisposable
         using var document = JsonDocument.Parse(await File.ReadAllTextAsync(manifestPath));
         List<string> files = [.. document.RootElement.GetProperty("catalogs").EnumerateArray()
             .Select(entry => entry.GetProperty("file").GetString()!)];
-        string[] expected = ["App.de.arb", "App.fr.arb"]; // sorted by culture; source 'en' excluded
+        string[] expected = ["App.de.arb", "App.en.arb", "App.fr.arb"]; // sorted by culture; source listed too
         Assert.Equal(expected, files);
     }
 
@@ -241,14 +250,33 @@ public sealed class ToolApplicationTests : IDisposable
             Assert.Contains(archive.Entries, e => e.Name == "LibB.de.xliff");
         }
 
-        // Import routes each returned file back to its origin assembly's dev catalog, in ARB.
+        // Import routes each returned file back to its origin assembly's dev catalog. The target directory has
+        // no existing catalogs, so each lands in the authoring default (XLIFF).
         var imported = Path.Combine(_directory, "imported");
         Assert.Equal(0, await ToolApplication.RunAsync(["import", "--input", kit, "--output", imported]));
 
-        Catalog libA = await ReadAsync(Path.Combine(imported, "LibA.de.arb"));
+        Catalog libA = await ReadXliffAsync(Path.Combine(imported, "LibA.de.xliff"));
         Assert.Equal("de", libA.Culture);
         Assert.Equal("Speichern", Assert.Single(libA.Entries).TranslatedMessage);
-        Assert.True(File.Exists(Path.Combine(imported, "LibB.de.arb")));
+        Assert.True(File.Exists(Path.Combine(imported, "LibB.de.xliff")));
+    }
+
+    [Fact]
+    public async Task Import_MatchesEachCatalogsExistingOnDiskFormatAsync()
+    {
+        // A repo already authored in ARB: a returned XLIFF translation must land back as ARB, matching the
+        // catalog already on disk rather than forcing the XLIFF authoring default.
+        var catalogs = Path.Combine(_directory, "arb-repo");
+        Directory.CreateDirectory(catalogs);
+        await WriteCatalogAsync(Path.Combine(catalogs, "LibA.de.arb"), "de", ("save", "Speichern"));
+
+        var kit = Path.Combine(_directory, "kit2.zip");
+        Assert.Equal(0, await ToolApplication.RunAsync(["export", "--input", catalogs, "--lang", "de", "--output", kit]));
+
+        Assert.Equal(0, await ToolApplication.RunAsync(["import", "--input", kit, "--output", catalogs]));
+
+        Assert.True(File.Exists(Path.Combine(catalogs, "LibA.de.arb")));
+        Assert.False(File.Exists(Path.Combine(catalogs, "LibA.de.xliff")));
     }
 
     public void Dispose() => Directory.Delete(_directory, recursive: true);
@@ -302,5 +330,11 @@ public sealed class ToolApplicationTests : IDisposable
     {
         using FileStream stream = File.OpenRead(path);
         return await _arb.ReadAsync(stream, CancellationToken.None);
+    }
+
+    private static async Task<Catalog> ReadXliffAsync(string path)
+    {
+        using FileStream stream = File.OpenRead(path);
+        return await _xliff.ReadAsync(stream, CancellationToken.None);
     }
 }

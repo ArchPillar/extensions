@@ -4,7 +4,7 @@ A small Razor class library that ships its translation catalogs as **loose files
 
 ## What it shows
 
-- A referenced library authoring localized strings (`Greeter`) with an English in-code default and a German catalog (`Translations/Acme.WasmGreeting.de.arb`).
+- A referenced library authoring localized strings (`Greeter`) with an English in-code default and a German catalog (`Translations/Acme.WasmGreeting.de.xliff`).
 - Shipping catalogs as **files**, not embedded satellites — so the build registers them as static web assets that flow to the consuming app. (For why this is preferred over satellites in WebAssembly, see [recommendations.md](../../../docs/localization/recommendations.md).)
 
 ## How it's consumed

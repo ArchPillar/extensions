@@ -142,7 +142,17 @@ internal static class ToolApplication
             }
 
             var name = Path.GetFileNameWithoutExtension(path);
-            await WriteFileAsync(provider, Path.Combine(output, CatalogFileName(name, sourceLanguage, provider)), template).ConfigureAwait(false);
+            var sourcePath = Path.Combine(output, CatalogFileName(name, sourceLanguage, provider));
+
+            // Merge into the existing source catalog rather than overwrite it, so it is a stable, git-tracked
+            // artifact whose hand-edited source wording survives a re-extract (the default's echoes still track
+            // code). A first extract has no file yet, so it merges into an empty source catalog (a clean seed).
+            Catalog existing = File.Exists(sourcePath)
+                ? await ReadFileAsync(provider, sourcePath).ConfigureAwait(false)
+                : new Catalog { Culture = sourceLanguage, Entries = [] };
+            // The source catalog is self-describing: every entry carries source_text (the in-code default),
+            // even un-edited echoes, so a copywriter who edits the value in place still has the original.
+            await WriteFileAsync(provider, sourcePath, Reconciler.ReconcileSource(template, existing), new CatalogWriteOptions { AlwaysWriteSource = true }).ConfigureAwait(false);
             count++;
         }
 
@@ -239,7 +249,8 @@ internal static class ToolApplication
             Catalog template = await ReadFileAsync(ProviderFor(registry, templatePath), templatePath).ConfigureAwait(false);
             ITranslationFormat targetProvider = ProviderFor(registry, targetPath);
             Catalog reconciled = Reconciler.Reconcile(template, await ReadFileAsync(targetProvider, targetPath).ConfigureAwait(false));
-            var updated = await SerializeAsync(targetProvider, reconciled).ConfigureAwait(false);
+            var targetName = SplitCatalogName(Path.GetFileNameWithoutExtension(targetPath)).Name;
+            var updated = await SerializeAsync(targetProvider, reconciled, new CatalogWriteOptions { SourceName = targetName.Length == 0 ? null : targetName }).ConfigureAwait(false);
             if (check)
             {
                 var current = File.ReadAllBytes(targetPath);
@@ -271,7 +282,7 @@ internal static class ToolApplication
             {
                 ITranslationFormat targetProvider = ProviderFor(registry, targetPath);
                 Catalog reconciled = Reconciler.Reconcile(template, await ReadFileAsync(targetProvider, targetPath).ConfigureAwait(false));
-                var updated = await SerializeAsync(targetProvider, reconciled).ConfigureAwait(false);
+                var updated = await SerializeAsync(targetProvider, reconciled, new CatalogWriteOptions { SourceName = name }).ConfigureAwait(false);
                 if (check)
                 {
                     if (!File.ReadAllBytes(targetPath).AsSpan().SequenceEqual(updated))
@@ -359,7 +370,7 @@ internal static class ToolApplication
             {
                 Catalog catalog = await ReadFileAsync(ProviderFor(registry, file), file).ConfigureAwait(false);
                 (var name, _) = SplitCatalogName(Path.GetFileNameWithoutExtension(file));
-                var bytes = await SerializeAsync(target, catalog).ConfigureAwait(false);
+                var bytes = await SerializeAsync(target, catalog, new CatalogWriteOptions { SourceName = name }).ConfigureAwait(false);
                 ZipArchiveEntry entry = zip.CreateEntry(CatalogFileName(name, language, target), CompressionLevel.Optimal);
                 using Stream stream = entry.Open();
                 await stream.WriteAsync(bytes, 0, bytes.Length).ConfigureAwait(false);
@@ -375,7 +386,6 @@ internal static class ToolApplication
         var zipPath = Require(options, "--input");
         var outputDir = Require(options, "--output");
         TranslationFormatRegistry registry = BuildRegistry();
-        ITranslationFormat arb = registry.ResolveById("arb")!;
         Directory.CreateDirectory(outputDir);
 
         var imported = 0;
@@ -398,9 +408,12 @@ internal static class ToolApplication
             }
 
             // Route the returned translation back to its origin and the dev format: the entry name carries the
-            // assembly and culture (set by export), so {AssemblyName}.{culture}.arb lands beside the others.
+            // assembly and culture (set by export), so it lands beside the others. The on-disk format is matched
+            // per catalog so import round-trips into whatever the repo already uses (the XLIFF default for a
+            // catalog with no existing file).
             (var name, var culture) = SplitCatalogName(Path.GetFileNameWithoutExtension(entry.Name));
-            await WriteFileAsync(arb, Path.Combine(outputDir, CatalogFileName(name, culture, arb)), catalog).ConfigureAwait(false);
+            ITranslationFormat target = ImportTargetProvider(registry, outputDir, name, culture);
+            await WriteFileAsync(target, Path.Combine(outputDir, CatalogFileName(name, culture, target)), catalog).ConfigureAwait(false);
             imported++;
         }
 
@@ -470,21 +483,26 @@ internal static class ToolApplication
             catalogs.Add(await ReadFileAsync(ProviderFor(registry, file), file).ConfigureAwait(false));
         }
 
-        // Reuse the runtime's load (precedence + skip source/untranslated), then dump one bundle per culture.
+        // Reuse the runtime's load (precedence, skip untranslated, source loaded as overrides), then dump one
+        // bundle per culture. An un-customized source language contributes no entries, so it yields no bundle.
         IReadOnlyList<Catalog> merged = CatalogLoader.Flatten(catalogs, new LocalizerOptions { SourceCulture = sourceCulture });
         foreach (Catalog catalog in merged)
         {
-            await WriteFileAsync(outputProvider, Path.Combine(output, catalog.Culture + Extension(outputProvider)), catalog).ConfigureAwait(false);
+            // The published bundle is a runtime artifact, not a translator's working file: minify it (drop
+            // whitespace and every annotation the runtime does not read).
+            await WriteFileAsync(outputProvider, Path.Combine(output, catalog.Culture + Extension(outputProvider)), catalog, new CatalogWriteOptions { Minify = true }).ConfigureAwait(false);
         }
 
         Success($"Merged {catalogs.Count} catalog(s) into {merged.Count} bundle(s) in {output}");
         return 0;
     }
 
-    // Writes the catalog index the HTTP runtime loader reads (apl-catalogs.json), listing every non-source
-    // catalog in the directory by culture and file name. Run after extract (dev layout, {AssemblyName}.{culture})
-    // and again after merge (published layout, {culture}), so the one manifest path resolves in both — over HTTP
-    // there is no directory to enumerate, so the index is how the client discovers what to fetch.
+    // Writes the catalog index the HTTP runtime loader reads (apl-catalogs.json), listing every catalog in the
+    // directory by culture and file name. Run after extract (dev layout, {AssemblyName}.{culture}) and again
+    // after merge (published layout, {culture}), so the one manifest path resolves in both — over HTTP there is
+    // no directory to enumerate, so the index is how the client discovers what to fetch. The source language is
+    // listed like any other: a merged source bundle exists only when it carries genuine overrides (so an
+    // un-customized source language is absent and lists nothing), and those overrides are fetched the same way.
     private static async Task<int> ManifestAsync(IReadOnlyDictionary<string, string> options)
     {
         var input = Require(options, "--input");
@@ -493,7 +511,6 @@ internal static class ToolApplication
             return Fail($"--input directory '{input}' does not exist.");
         }
 
-        var sourceCulture = SourceLanguage(options);
         var output = options.TryGetValue("--output", out var o) && o.Length > 0
             ? o
             : Path.Combine(input, HttpCatalogLoaderExtensions.DefaultManifestFileName);
@@ -504,9 +521,8 @@ internal static class ToolApplication
         {
             var culture = CultureOf(file);
 
-            // The source-language catalog ships in code as the terminal fallback, so it is never an override to
-            // fetch; an unparseable name (no culture segment) is skipped rather than guessed at.
-            if (string.IsNullOrEmpty(culture) || string.Equals(culture, sourceCulture, StringComparison.OrdinalIgnoreCase))
+            // An unparseable name (no culture segment) is skipped rather than guessed at.
+            if (string.IsNullOrEmpty(culture))
             {
                 continue;
             }
@@ -618,7 +634,7 @@ internal static class ToolApplication
 
     private static ITranslationFormat FormatOf(IReadOnlyDictionary<string, string> options, TranslationFormatRegistry registry) =>
         (options.TryGetValue("--format", out var format) && format.Length > 0 ? registry.ResolveById(format) : null)
-        ?? registry.ResolveById("arb")!;
+        ?? registry.ResolveById("xliff")!;
 
     private static ScopeOptions ParseScope(IReadOnlyDictionary<string, string> options) => new(
         options.TryGetValue("--assembly", out var assembly) ? assembly : null,
@@ -643,6 +659,41 @@ internal static class ToolApplication
         registry.ResolveByExtension(Path.GetExtension(path))
         ?? throw new ArgumentException($"No provider for '{path}'.");
 
+    // The dev-side format a returned translation should land as: the format of the existing on-disk catalog for
+    // this assembly and culture, so import round-trips into whatever the repo already uses. An exact
+    // assembly+culture match wins; otherwise a sibling culture of the same assembly fixes the format so a newly
+    // imported language lands alongside the others; with no existing file the authoring default (XLIFF) is used.
+    private static ITranslationFormat ImportTargetProvider(TranslationFormatRegistry registry, string outputDir, string name, string culture)
+    {
+        ITranslationFormat? sameAssembly = null;
+        if (Directory.Exists(outputDir))
+        {
+            foreach (var file in Directory.EnumerateFiles(outputDir))
+            {
+                ITranslationFormat? provider = registry.ResolveByExtension(Path.GetExtension(file));
+                if (provider is null)
+                {
+                    continue;
+                }
+
+                (var existingName, var existingCulture) = SplitCatalogName(Path.GetFileNameWithoutExtension(file));
+                if (!string.Equals(existingName, name, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (string.Equals(existingCulture, culture, StringComparison.OrdinalIgnoreCase))
+                {
+                    return provider;
+                }
+
+                sameAssembly ??= provider;
+            }
+        }
+
+        return sameAssembly ?? registry.ResolveById("xliff")!;
+    }
+
     private static string Extension(ITranslationFormat provider) => provider.Extensions.First();
 
     private static bool SamePath(string left, string right) =>
@@ -665,7 +716,7 @@ internal static class ToolApplication
         }
     }
 
-    private static async Task WriteFileAsync(ITranslationFormat provider, string path, Catalog catalog)
+    private static async Task WriteFileAsync(ITranslationFormat provider, string path, Catalog catalog, CatalogWriteOptions? options = null)
     {
         var directory = Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(directory))
@@ -673,13 +724,21 @@ internal static class ToolApplication
             Directory.CreateDirectory(directory!);
         }
 
-        File.WriteAllBytes(path, await SerializeAsync(provider, catalog).ConfigureAwait(false));
+        // Carry the assembly name from the file name (App.Core.de -> App.Core) into the catalog's source
+        // identity. The published bundle is named by culture alone, so it yields no name and keeps the
+        // format default.
+        var sourceName = SplitCatalogName(Path.GetFileNameWithoutExtension(path)).Name;
+        CatalogWriteOptions effective = (options ?? CatalogWriteOptions.Default) with
+        {
+            SourceName = sourceName.Length == 0 ? null : sourceName
+        };
+        File.WriteAllBytes(path, await SerializeAsync(provider, catalog, effective).ConfigureAwait(false));
     }
 
-    private static async Task<byte[]> SerializeAsync(ITranslationFormat provider, Catalog catalog)
+    private static async Task<byte[]> SerializeAsync(ITranslationFormat provider, Catalog catalog, CatalogWriteOptions? options = null)
     {
         using var stream = new MemoryStream();
-        await provider.WriteAsync(stream, catalog, CancellationToken.None).ConfigureAwait(false);
+        await provider.WriteAsync(stream, catalog, CancellationToken.None, options).ConfigureAwait(false);
         return stream.ToArray();
     }
 

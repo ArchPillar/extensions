@@ -45,7 +45,7 @@ public sealed class PoTranslationFormat : ITranslationFormat
     }
 
     /// <inheritdoc />
-    public async Task WriteAsync(Stream output, Catalog catalog, CancellationToken cancellationToken)
+    public async Task WriteAsync(Stream output, Catalog catalog, CancellationToken cancellationToken, CatalogWriteOptions? options = null)
     {
         if (output is null)
         {
@@ -57,6 +57,10 @@ public sealed class PoTranslationFormat : ITranslationFormat
             throw new ArgumentNullException(nameof(catalog));
         }
 
+        // Portable Object is line-oriented and already compact, and carries the source (msgid) and translation
+        // (msgstr) natively, so there is no whitespace or redundant metadata to strip for a bundle. The options
+        // are accepted for a uniform interface but do not change the output.
+        _ = options;
         var bytes = _utf8NoBom.GetBytes(Serialize(catalog));
         await output.WriteAsync(bytes, 0, bytes.Length, cancellationToken).ConfigureAwait(false);
     }

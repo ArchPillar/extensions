@@ -1,9 +1,0 @@
-{
-  "@@locale": "de",
-  "Acme.WasmGreeting.Greeter::greeting": "Hallo aus der gemeinsamen Bibliothek",
-  "@Acme.WasmGreeting.Greeter::greeting": {
-    "x-category": "Acme.WasmGreeting.Greeter",
-    "x-state": "Translated",
-    "x-source-fingerprint": "00000000000000000000000000000000"
-  }
-}

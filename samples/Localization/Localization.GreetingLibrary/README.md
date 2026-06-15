@@ -14,4 +14,4 @@ This is a class library, not an executable, so there is no `Program.cs` and noth
 
 ## Notes
 
-The English defaults ship in code (`Greeter.cs`, `Validator.cs`); the German override is `Translations/de.arb`, embedded with `Culture="de"`.
+The English defaults ship in code (`Greeter.cs`, `Validator.cs`); the German override is `Translations/de.xliff`, embedded with `Culture="de"`.

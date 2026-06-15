@@ -58,7 +58,7 @@ services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" }
 - **The ambient store** — one process-wide, layered, DI-free store reachable from anywhere, or an
   instantiable `LocalizationContext` constructed directly for a fully static-free setup.
 - **ICU MessageFormat** — arguments, `plural`/`selectordinal`/`select`, embedded CLDR plural data.
-- **Standard formats** — ARB (default), XLIFF 2.1, Portable Object, bundled (no extra packages).
+- **Standard formats** — XLIFF 2.1 (default), ARB, Portable Object, bundled (no extra packages).
 - **Files / embedded / satellites** — loose files by default (trim/AOT-safe); opt-in satellite embedding.
 - **Tooling** — a source generator, the `APL` analyzer diagnostics, and the `dotnet apl` CLI, all bundled.
 

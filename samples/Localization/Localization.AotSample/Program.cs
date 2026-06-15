@@ -6,7 +6,7 @@ using ArchPillar.Extensions.Localization;
 //
 // Demonstrates ArchPillar.Extensions.Localization in a NativeAOT app, the
 // AOT-safe way:
-//   - a loose .arb file copied beside the binary, loaded by the ambient store
+//   - a loose .xliff file copied beside the binary, loaded by the ambient store
 //   - a catalog embedded in the main assembly (advertised by an assembly
 //     attribute, no resource scan)
 //   - deliberately NO culture satellite: NativeAOT cannot load one, so it would

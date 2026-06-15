@@ -93,12 +93,13 @@ dotnet build
 # Run from your app folder. Like `dotnet build`, the tool finds the solution (or lone project)
 # in the current directory — add German across everything in it that has strings:
 dotnet apl add de --output Translations
-#   -> Translations/YourApp.de.arb  (every entry x-state: NeedsTranslation)
+#   -> Translations/YourApp.de.xliff  (every entry state: NeedsTranslation)
 ```
 
-`YourApp.de.arb` is what you hand off. The translator fills in the German and marks each entry
-`Translated`; you commit the file. The catalogs are named `{AssemblyName}.{culture}.arb` so libraries
-never collide, and the build copies them beside the binary automatically.
+`YourApp.de.xliff` is what you hand off. The translator fills in the German and marks each entry
+`Translated`; you commit the file. The catalogs are named `{AssemblyName}.{culture}.xliff` so libraries
+never collide, and the build copies them beside the binary automatically. (XLIFF is the default; pass
+`--format arb` or `--format po` to author in another format — the runtime loads all three.)
 
 > **Pointing it elsewhere:** the cwd default covers the common case; pass a scope only to override it —
 > `--solution YourApp.sln` (when the folder has more than one), `--project YourApp.csproj` (add `--recurse`
@@ -106,7 +107,9 @@ never collide, and the build copies them beside the binary automatically.
 > assemblies have strings and how many.
 
 > When you reference the package, the build also runs `extract` for you after each real build, so the
-> source-language template (`{AssemblyName}.en.arb`) appears in `Translations/` without you asking. As code
+> source-language catalog (`{AssemblyName}.en.xliff`) appears in `Translations/` without you asking. It is
+> *merged*, not overwritten, so you can keep it in git and even edit the source wording in place (a typo or
+> tone fix loads as an override without a recompile); your edits survive the next extract. As code
 > changes, `dotnet apl sync --output Translations` reconciles every language file
 > (and `--check` is your CI gate). The full lifecycle — including handing files to translators as a zip and
 > shipping for production — is in [translation-workflow.md](translation-workflow.md).
@@ -157,9 +160,11 @@ Migrating existing `IStringLocalizer` code? Add the `…Localization.StringLocal
 
 ## 7. Ship it
 
-In development each library keeps its own `{AssemblyName}.{culture}.arb` files, which the build copies
-beside the binary. On **publish**, the build flattens them into one bundle per culture (`de.arb`, `fr.arb`,
-…) so production ships a handful of files instead of one per library — automatically, no configuration. For
+In development each library keeps its own `{AssemblyName}.{culture}.xliff` files, which the build copies
+beside the binary. On **publish**, the build flattens them into one compact bundle per culture (`de.arb`,
+`fr.arb`, …) so production ships a handful of files instead of one per library — automatically, no
+configuration. The bundle is ARB by default even when you author in XLIFF: a runtime bundle needs only the
+translation, so the most compressible container wins (override with `ArchPillarLocalizationBundleFormat`). For
 single-file or NativeAOT publish, opt into embedding instead (`ArchPillarLocalizationEmbedTargets=true`).
 See [translation-workflow.md](translation-workflow.md#deployment) for the details and the trim/AOT matrix.
 

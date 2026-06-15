@@ -30,6 +30,10 @@ public interface ITranslationFormat
     /// <param name="output">The stream to write to.</param>
     /// <param name="catalog">The catalog to serialize.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <param name="options">
+    /// How to serialize — the verbose development layout (the default) or the compact publish bundle. A
+    /// <see langword="null"/> value is treated as <see cref="CatalogWriteOptions.Default"/>.
+    /// </param>
     /// <returns>A task that completes when the catalog has been written.</returns>
-    public Task WriteAsync(Stream output, Catalog catalog, CancellationToken cancellationToken);
+    public Task WriteAsync(Stream output, Catalog catalog, CancellationToken cancellationToken, CatalogWriteOptions? options = null);
 }

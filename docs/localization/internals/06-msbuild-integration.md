@@ -12,13 +12,14 @@ All properties use the `ArchPillarLocalization` prefix and are surfaced to the g
 
 | Property | Default | Purpose |
 |---|---|---|
-| `ArchPillarLocalizationFormat` | `arb` | template/catalog format: `arb` \| `xliff` \| `po` |
+| `ArchPillarLocalizationFormat` | `xliff` | template/catalog **authoring** format: `arb` \| `xliff` \| `po` |
+| `ArchPillarLocalizationBundleFormat` | `arb` | the **published bundle** format (the publish-time merge output), independent of the authoring format: a runtime bundle needs only the translation, so the most compact, compressible container wins — `arb` (JSON) \| `xliff` \| `po` |
 | `ArchPillarLocalizationSourceLanguage` | `en` | the language the in-code defaults are written in (BCP-47) |
 | `ArchPillarLocalizationOutputPath` | `$(MSBuildProjectDirectory)\Translations` | directory where the **template** is written and where target files live once added (source tree, version-controlled) |
 | `ArchPillarLocalizationEmit` | `true` | master switch for the build-time template extraction (the tool's `extract`); `false` disables it (the generated key registry, the analyzer, and the runtime still work) |
 | `ArchPillarLocalizationExtractTransitively` | `false` | extraction runs only where the package is referenced **directly** (the project that authors the strings); set `true` to also extract in a project that references the package transitively or wires the build assets in by hand — see [Reference scope](#reference-scope-direct-vs-transitive) |
 | `ArchPillarLocalizationKeyPattern` | *(none)* | optional regular expression enforced by diagnostic `APL0008` (spec 01) |
-| `ArchPillarLocalizationCopyTargetsToOutput` | `true` | copy **target** catalogs (not the template) to the application output directory so the runtime can load them |
+| `ArchPillarLocalizationCopyTargetsToOutput` | `true` | copy catalogs (the source catalog and the target catalogs; only the neutral `messages.pot` is held back) to the application output directory so the runtime can load them |
 | `ArchPillarLocalizationEmbedTargets` | `false` | instead of copying, embed target catalogs as assembly resources (single-file deployment); mutually exclusive with copy |
 | `ArchPillarLocalizationEmitManifest` | `true` | for a Razor/Blazor project, generate the catalog manifest (`apl-catalogs.json`) and register it as a static web asset so a WebAssembly client can fetch it over HTTP to discover catalogs; inert in non-Razor projects (they load from the file system) |
 
@@ -34,7 +35,9 @@ Example consumer configuration — note there is no language list:
 
 ## Choosing a format
 
-The format is a convenience/authoring choice, not a lock-in — the tool's `convert` (spec 02) moves any template or catalog between all three. The default is **ARB**, because it is the lightest format that maps cleanly to the symbolic-key model (key = JSON key) and is ICU-native and Poedit-readable, with no XML-namespace parsing weight. **XLIFF** is the more *capable* format — it adds a native translation-state machine (initial → needs-review → translated → final) on top of ICU values, which is what professional vendors and translation-management systems expect; choose it when that workflow matters. **Portable Object** is the simplest and most Poedit-traditional, suited to community translators, at the cost of a weaker non-ICU plural model and the `msgctxt`-as-key mapping. Since `convert` is free, picking the default and switching later is cheap.
+The format is a convenience/authoring choice, not a lock-in — the tool's `convert` (spec 02) moves any template or catalog between all three. The authoring default is **XLIFF**, because source and translation are distinct first-class fields (no source-as-metadata an editor can silently drop), it carries a native translation-state machine (initial → needs-review → translated → final) on top of ICU values, and it opens cleanly in Poedit/Lokalize and the management systems professional vendors expect. **ARB** is the lightest format — it maps cleanly to the symbolic-key model (key = JSON key), is ICU-native and Poedit-readable, with no XML-namespace parsing weight; choose it to author when those properties matter. **Portable Object** is the most Poedit-traditional, suited to community translators, at the cost of a weaker non-ICU plural model and the `msgctxt`-as-key mapping. Since `convert` is free, picking the default and switching later is cheap.
+
+The **published bundle** is a separate choice (`ArchPillarLocalizationBundleFormat`, default **ARB**) because it has different priorities from an authoring file: the runtime reads only the translation, so the bundle drops the source entirely and wins on size — measured on a real catalog, a minified ARB bundle gzips to roughly 60% the size of the equivalent XLIFF, which still carries the now-redundant `<source>` and XML tag scaffolding. Authoring in XLIFF and publishing in ARB is the default precisely because each step optimizes for a different thing.
 
 ## What the build emits
 
@@ -84,25 +87,25 @@ So the `extract` target self-gates on **whether the package is referenced direct
 
 Three roles for `OutputPath` and its files:
 
-1. **Template** — authored by the generator, consumed by the tool and translators. Not loaded at runtime and **not** copied to the app output.
+1. **Source catalog** — authored by `extract` (merged into, not overwritten — Decision D-L), consumed by the tool and translators, and editable for source wording. It carries the source language's overrides, so it **is** copied to the app output and loaded at runtime (its un-edited echoes are inert there); only the language-neutral `messages.pot` template is held back.
 2. **Target catalogs** — created on demand (tool/Poedit) in the same directory, edited by translators, committed to the source tree.
-3. **Runtime** — where the application finds the *target* catalogs at run time.
+3. **Runtime** — where the application finds the catalogs (source overrides and target catalogs alike) at run time.
 
-The package `.targets` bridges 2→3. When `ArchPillarLocalizationCopyTargetsToOutput=true` (default), it adds the target files (everything in `OutputPath` except the template) as `Content` with `CopyToOutputDirectory=PreserveNewest`, so they land beside the application binary; the runtime's `LocalizerOptions.TranslationsDirectory` (spec 05) defaults to that copied subdirectory relative to `AppContext.BaseDirectory`. When `ArchPillarLocalizationEmbedTargets=true`, the `.targets` instead adds them as `EmbeddedResource` and the runtime loads them from the assembly manifest (single-file publish). The library supplies the default for both; the consumer may override the runtime directory explicitly.
+The package `.targets` bridges 1+2→3. When `ArchPillarLocalizationCopyTargetsToOutput=true` (default), it adds the catalog files (everything in `OutputPath` except the neutral `messages.pot`) as `Content` with `CopyToOutputDirectory=PreserveNewest`, so they land beside the application binary; the runtime's `LocalizerOptions.TranslationsDirectory` (spec 05) defaults to that copied subdirectory relative to `AppContext.BaseDirectory`. When `ArchPillarLocalizationEmbedTargets=true`, the `.targets` instead adds them as `EmbeddedResource` and the runtime loads them from the assembly manifest (single-file publish). The library supplies the default for both; the consumer may override the runtime directory explicitly.
 
 ## Packaging
 
 - Ship `.props` and `.targets` under `buildTransitive/` so configuration and behaviour flow to consuming projects.
 - `.props` sets the defaults above and declares the `CompilerVisibleProperty` entries the generator reads.
-- `.targets` wires the copy-targets-to-output or embed-targets transform (excluding the template) and runs after the generator in the build graph.
+- `.targets` wires the copy-to-output or embed transform (excluding only the neutral `messages.pot` template) and runs after the generator in the build graph.
 - The analyzer + generator are packaged under `analyzers/dotnet/cs`; the runtime under `lib/`; the `dotnet` tool is shipped as a separate tool package. Referencing the library package activates diagnostics and template emission with zero setup; languages are added later with the tool or Poedit.
 
 ## Acceptance criteria
 
 - [ ] A build emits the key registry (in-assembly) and the source-language template (to `OutputPath`, via the extract target); no target-language file is created or required, and the project file contains no language declaration.
 - [ ] `ArchPillarLocalizationEmit=false` stops the build-time template extraction while leaving the generated key registry, analyzer diagnostics, and runtime lookup functional.
-- [ ] Adding a language with the tool (or Poedit, for Portable Object) creates a target file in `OutputPath` with no build or project edit; a subsequent build does not remove or rewrite it.
-- [ ] The template is not copied to the application output; target catalogs are (or are embedded), and the runtime finds them.
-- [ ] Changing `ArchPillarLocalizationOutputPath` relocates the template and target files together, and the runtime still finds the targets.
+- [ ] Adding a language with the tool (or Poedit, for Portable Object) creates a target file in `OutputPath` with no build or project edit; a subsequent build does not remove or rewrite it, and a re-extract merges into (does not overwrite) the source catalog, preserving any edited source wording.
+- [ ] The source catalog and target catalogs are copied to the application output (or embedded) and the runtime finds them; only the language-neutral `messages.pot` is held back.
+- [ ] Changing `ArchPillarLocalizationOutputPath` relocates the source and target files together, and the runtime still finds them.
 - [ ] With `ArchPillarLocalizationEmbedTargets=true` and a single-file publish, the runtime loads target catalogs from embedded resources with no loose files present.
 - [ ] A fresh project that references the package and sets a format produces a template on build; running `tool add de` then yields a working German-capable app after the German file is translated — all without touching the project or rebuilding to "enable" German.

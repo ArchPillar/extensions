@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xliff version="2.1" srcLang="en" trgLang="en" xmlns="urn:oasis:names:tc:xliff:document:2.1">
+  <file id="Acme.Greeting">
+    <unit id="greeting">
+      <notes>
+        <note category="x-category">Acme.Greeting.Greeter</note>
+        <note category="fingerprint">4c9787b878b45a0e7eb7c348d460d7a5</note>
+      </notes>
+      <segment state="initial" subState="archpillar:NeedsTranslation">
+        <source xml:space="preserve">Hello {name}!</source>
+      </segment>
+    </unit>
+    <unit id="required">
+      <notes>
+        <note category="x-category">Acme.Greeting.Validator</note>
+        <note category="fingerprint">312a2871414bab2f5b47c671aef80b35</note>
+      </notes>
+      <segment state="initial" subState="archpillar:NeedsTranslation">
+        <source xml:space="preserve">{field} is required.</source>
+      </segment>
+    </unit>
+  </file>
+</xliff>

@@ -10,7 +10,7 @@ a time.
       │                       │                                              import (zip)
    sync ◀───────────── code changes                                               │
       │                                                                            ▼
-      └──────────────────────────  commit {AssemblyName}.{culture}.arb  ◀──────────
+      └──────────────────────────  commit {AssemblyName}.{culture}.xliff  ◀────────
                                               │
                                           publish ──▶  merge: one bundle per culture
 ```
@@ -68,21 +68,26 @@ Add `--output Translations` to also report per-language progress (`de: 31/42 tra
 
 ## 2. Extract — the source template
 
-On a real build the package's MSBuild target runs `extract` for you, writing
-`{AssemblyName}.{SourceLanguage}.arb` (e.g. `App.Web.en.arb`) into your `Translations/` folder. To run it
-by hand over a scope:
+On a real build the package's MSBuild target runs `extract` for you, **merging** the freshly extracted strings
+into `{AssemblyName}.{SourceLanguage}.xliff` (e.g. `App.Web.en.xliff`) in your `Translations/` folder — it no longer
+overwrites the file, so the source catalog is a stable artifact you keep in git and whose wording history is
+tracked over time. To run it by hand over a scope:
 
 ```bash
 dotnet apl extract --solution App.sln --output Translations
 ```
 
-This template is the source side; you do not translate it directly and it is not shipped.
+This is the source side. You usually leave it alone — the in-code default is the terminal fallback, so an
+un-edited source entry (an *echo* of the default) is inert and ships nothing. But the source language **is**
+editable: change an entry's wording here to fix a typo or adjust tone without a recompile, and it becomes a
+source *override* that loads above the in-code default and is shipped like any translation. A re-extract
+preserves your edits (and flags one for review if the in-code default later drifts under it).
 
 ## 3. Add a language
 
 ```bash
 dotnet apl add de --solution App.sln --output Translations
-# -> Translations/App.Web.de.arb, Translations/App.Core.de.arb  (all NeedsTranslation)
+# -> Translations/App.Web.de.xliff, Translations/App.Core.de.xliff  (all NeedsTranslation)
 ```
 
 `add` creates the language for **every** assembly that has strings and **skips** any that already have it
@@ -103,10 +108,12 @@ assembly's catalog by its name:
 
 ```bash
 dotnet apl import --input kit-de.zip --output Translations
-#   -> updated Translations/App.Web.de.arb, Translations/App.Core.de.arb
+#   -> updated Translations/App.Web.de.xliff, Translations/App.Core.de.xliff
 ```
 
-Use `--format po` to hand off Portable Object instead of XLIFF.
+`import` writes each returned catalog in the format already on disk for that assembly (so a repo authored
+in ARB stays ARB); a catalog with no existing file lands in the authoring default (XLIFF). Use `--format po`
+on `export` to hand off Portable Object instead of XLIFF.
 
 ## 5. Sync — keep catalogs current as code changes
 
@@ -128,13 +135,16 @@ dotnet apl sync --solution App.sln --output Translations --check
 
 ## Deployment
 
-In development each library owns its `{AssemblyName}.{culture}.arb` files. For production you have three
+In development each library owns its `{AssemblyName}.{culture}.xliff` files. For production you have three
 paths; the build wires the first two automatically.
 
 - **Files (default).** The build copies each library's catalogs beside the binary, then on **publish**
   flattens them into **one bundle per culture** (`de.arb`, `fr.arb`, …) via `dotnet apl merge`, so a 300-
-  library app ships a few files, not hundreds. The runtime loads them identically. Works under every publish
-  mode, including trimming and NativeAOT — this is the recommended path.
+  library app ships a few files, not hundreds. The bundle is ARB regardless of the authoring format
+  (`ArchPillarLocalizationBundleFormat`, default `arb`): a runtime bundle reads only the translation, so the
+  most compressible container wins — a minified ARB bundle gzips to roughly 60% of the XLIFF equivalent, which
+  still carries the now-redundant source. The runtime loads them identically. Works under every publish mode,
+  including trimming and NativeAOT — this is the recommended path.
 - **Embedded / satellites (opt-in, `ArchPillarLocalizationEmbedTargets=true`).** Catalogs become per-culture
   satellite assemblies (or ride in the main assembly), for single-file / self-contained publish.
 - **Manual merge.** Run it yourself for a custom pipeline:
@@ -143,9 +153,9 @@ paths; the build wires the first two automatically.
   dotnet apl merge --input <published Translations> --output <bundle dir> --source en
   ```
 
-The merge skips the source language and untranslated entries — it produces the **runtime** bundle, not a
-translator file. For the trim / single-file / NativeAOT support matrix, see
-[recommendations.md](recommendations.md).
+The merge skips untranslated entries and includes any genuine source-language overrides (a source language with
+no edits contributes no bundle) — it produces the **runtime** bundle, not a translator file. For the trim /
+single-file / NativeAOT support matrix, see [recommendations.md](recommendations.md).
 
 ## Naming convention
 
@@ -153,7 +163,7 @@ These names are a **convention, not a rule** — the runtime reads each catalog'
 (`@@locale`), never its file name, so any name resolves. The convention exists because the names are the one
 thing the *tooling* keys on:
 
-- **Per-assembly dev/source catalogs** are `{AssemblyName}.{culture}.{ext}` (e.g. `App.Web.de.arb`). The
+- **Per-assembly dev/source catalogs** are `{AssemblyName}.{culture}.{ext}` (e.g. `App.Web.de.xliff`). The
   assembly prefix keeps two libraries' `de` catalogs from colliding in one folder, and lets `import` route a
   returned translation back to its origin assembly by file name. The authoring commands write this shape, and
   the samples follow it.

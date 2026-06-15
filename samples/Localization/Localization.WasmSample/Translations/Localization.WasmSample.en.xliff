@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xliff version="2.1" srcLang="en" trgLang="en" xmlns="urn:oasis:names:tc:xliff:document:2.1">
+  <file id="Localization.WasmSample">
+    <unit id="home.title">
+      <notes>
+        <note category="fingerprint">58d32a0f8ae2252f2e16e2ec098e8bb4</note>
+      </notes>
+      <segment state="initial" subState="archpillar:NeedsTranslation">
+        <source xml:space="preserve">Inbox</source>
+      </segment>
+    </unit>
+    <unit id="inbox.count">
+      <notes>
+        <note category="fingerprint">33d740a03a271da0833cd7b0f3837870</note>
+      </notes>
+      <segment state="initial" subState="archpillar:NeedsTranslation">
+        <source xml:space="preserve">{count, plural, =0 {No messages} one {# message} other {# messages}}</source>
+      </segment>
+    </unit>
+    <unit id="inbox.summary">
+      <notes>
+        <note category="x-category">Localization.WasmSample.Pages.Home</note>
+        <note category="fingerprint">8e723a8b0aab1bfbccdfbb94fd5cbef1</note>
+      </notes>
+      <segment state="initial" subState="archpillar:NeedsTranslation">
+        <source xml:space="preserve">inbox.summary</source>
+      </segment>
+    </unit>
+  </file>
+</xliff>

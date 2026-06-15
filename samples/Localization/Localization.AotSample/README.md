@@ -3,7 +3,7 @@
 Localizes a NativeAOT app the AOT-safe way: a loose file plus a main-assembly embedded catalog, with no culture satellite.
 
 ## What it shows
-- A loose `.arb` file copied beside the binary, loaded by the ambient store.
+- A loose `.xliff` file copied beside the binary, loaded by the ambient store.
 - A catalog embedded in the main assembly, advertised by an assembly attribute (no resource scan).
 - Deliberately NO culture satellite: NativeAOT cannot load one, so it would silently degrade to the in-code default.
 

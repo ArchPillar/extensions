@@ -3,8 +3,9 @@
 A user-interface translation library for .NET. Write each translatable string once, at the call
 site, as an in-code default in ICU MessageFormat; a Roslyn generator extracts it at compile time for
 translators; at runtime, translated catalogs (ARB, XLIFF 2.1, or Portable Object) load as pluggable
-overrides. The in-code default is always the source of truth and the terminal fallback, so an app
-with no translation files still runs correctly.
+overrides. The in-code default is always the terminal fallback, so an app with no translation files
+still runs correctly; the source language itself is editable too — its catalog layers over the default
+like any other, so source wording can be corrected without a recompile.
 
 ## Why?
 
@@ -49,14 +50,14 @@ Console.WriteLine(Greet("Ada"));                       // "Hallo Ada!" once a de
 
 | Feature | Description |
 |---------|-------------|
-| In-code default as source of truth | The call-site default renders for the source language and as the terminal fallback for every other. |
+| In-code default as terminal fallback | The call-site default renders when no catalog overrides it, for every language including the source one — which is itself editable via a loadable, git-tracked source catalog. |
 | Compile-time extraction | A Roslyn generator extracts attributed call sites into a source template; an analyzer surfaces `APL` diagnostics in the editor. |
 | Categories (the `ILogger<T>` model) | `ILocalizer<T>` scopes keys by `typeof(T)`'s full name; no user-managed namespaces. |
 | The ambient store | One process-wide, layered, DI-free store (`IConfiguration` model) reachable from anywhere, including exception text. |
 | Instantiable context | `LocalizationContext` is the same environment as an object — construct, configure, dispose; build one directly for an isolated, static-free setup. |
 | Files / embedded / satellites | Loose files by default (trim/AOT-safe); opt-in embedding routes catalogs into culture satellite assemblies. |
 | ICU MessageFormat | Arguments, `plural` / `selectordinal` / `select`, embedded CLDR plural data. |
-| Standard formats | ARB (default), XLIFF 2.1, and Portable Object — round-tripped by the bundled providers. |
+| Standard formats | XLIFF 2.1 (default), ARB, and Portable Object — round-tripped by the bundled providers. |
 | Dependency injection | `AddArchPillarLocalization` feeds the process-wide ambient context and registers injectable native localizers; the generated `AddArchPillarLocalizedBundles()` registers the assembly's `Localized<T>` bundles. |
 | `IStringLocalizer` interop + migration | A separate `…StringLocalizer` package (`AddArchPillarStringLocalizer`): a composing adapter, on-by-default extraction of indexer literals, and a no-op `L(...)` marker — droppable once migration is done. |
 | Blazor WebAssembly / HTTP loading | Where there is no file system, `AddCatalogsFromManifestAsync` fetches catalogs over HTTP, discovering them via a build-emitted manifest; the separate `…AspNetCore` package serves the catalog formats as static files (`UseArchPillarTranslationFiles`). |

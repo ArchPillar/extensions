@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xliff version="2.1" srcLang="en" trgLang="de" xmlns="urn:oasis:names:tc:xliff:document:2.1">
+  <file id="main">
+    <unit id="fromMainEmbed">
+      <notes>
+        <note category="fingerprint">3cc249a336ebfe6180d91a03100de797</note>
+      </notes>
+      <segment state="translated" subState="archpillar:Translated">
+        <source xml:space="preserve">from embed (default)</source>
+        <target xml:space="preserve">Aus dem Hauptassembly</target>
+      </segment>
+    </unit>
+  </file>
+</xliff>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xliff version="2.1" srcLang="en" trgLang="en" xmlns="urn:oasis:names:tc:xliff:document:2.1">
+  <file id="TrimSample">
+    <unit id="fromMain">
+      <notes>
+        <note category="fingerprint">c39d25433ba37c4ec89ea4264b6fb84c</note>
+      </notes>
+      <segment state="initial" subState="archpillar:NeedsTranslation">
+        <source xml:space="preserve">from main (default)</source>
+      </segment>
+    </unit>
+    <unit id="fromSatellite">
+      <notes>
+        <note category="fingerprint">bbd832af1785efad698a0549c235c887</note>
+      </notes>
+      <segment state="initial" subState="archpillar:NeedsTranslation">
+        <source xml:space="preserve">from satellite (default)</source>
+      </segment>
+    </unit>
+  </file>
+</xliff>

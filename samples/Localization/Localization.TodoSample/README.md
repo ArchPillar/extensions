@@ -5,7 +5,7 @@ Demonstrates ArchPillar.Extensions.Localization in a no-DI console app using a s
 ## What it shows
 
 - A self-scoped `Localized<T>` string bundle where the member name is the key and the type is the category
-- In-code English overridden by German and French `.arb` catalogs beside the binary
+- In-code English overridden by German and French `.xliff` catalogs beside the binary
 - ICU plurals (`{count, plural, ...}`) resolved per culture
 - A pseudo-localization QA culture (`qps-ploc`) that X's translatable strings, so anything still readable is not going through the localizer
 
@@ -19,4 +19,4 @@ Prints the to-do list four times — once each for `en`, `de`, `fr`, and `qps-pl
 
 ## Notes
 
-The string bundle lives in `TodoStrings.cs`; the catalogs are `Translations/de.arb` and `Translations/fr.arb`.
+The string bundle lives in `TodoStrings.cs`; the catalogs are `Translations/de.xliff` and `Translations/fr.xliff`.

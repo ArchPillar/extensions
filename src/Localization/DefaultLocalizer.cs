@@ -36,8 +36,9 @@ public sealed class DefaultLocalizer : ILocalizer
     /// <summary>
     /// Initializes an isolated localizer over the given <paramref name="catalogs"/>, bypassing the
     /// translations directory and the ambient store. Intended for tests and self-contained or multi-tenant
-    /// scenarios. The source-language catalog and untranslated entries are skipped exactly as the directory
-    /// loader does; on per-culture overlap, later catalogs win. Hot reload does not apply.
+    /// scenarios. Untranslated entries are skipped exactly as the directory loader does, and the source
+    /// language is loaded as an override layer above the in-code default (which stays the terminal fallback);
+    /// on per-culture overlap, later catalogs win. Hot reload does not apply.
     /// </summary>
     /// <param name="catalogs">The parsed catalogs to load as overrides.</param>
     /// <param name="options">The localizer configuration, or <see langword="null"/> for the defaults.</param>

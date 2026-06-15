@@ -9,15 +9,15 @@ using Microsoft.Extensions.Localization;
 // Demonstrates ArchPillar.Extensions.Localization in an ASP.NET Core minimal API:
 //   - Registering both the DefaultLocalizer and the IStringLocalizer adapter with AddArchPillarLocalization
 //   - ASP.NET request-culture middleware driving the active culture from the ?culture= query string
-//   - The DefaultLocalizer at /: named arguments and ICU plurals, in-code English overridden by de.arb
+//   - The DefaultLocalizer at /: named arguments and ICU plurals, in-code English overridden by de.xliff
 //   - The IStringLocalizer adapter at /strings, where a missing entry returns the key with
 //     ResourceNotFound set (the failure path)
 //
-// Everything lives in this file; the German catalog is Translations/de.arb.
+// Everything lives in this file; the German catalog is Translations/de.xliff.
 // ---------------------------------------------------------------------------
 var builder = WebApplication.CreateBuilder(args);
 
-// English ships in code; a German catalog (Translations/de.arb) loads as an override at runtime. The
+// English ships in code; a German catalog (Translations/de.xliff) loads as an override at runtime. The
 // StringLocalizer interop package registers both the native DefaultLocalizer and the IStringLocalizer adapter via
 // AddArchPillarStringLocalizer.
 builder.Services.AddArchPillarStringLocalizer(new LocalizerOptions

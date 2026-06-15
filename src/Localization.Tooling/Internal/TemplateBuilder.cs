@@ -50,7 +50,7 @@ internal static class TemplateBuilder
 
     // The same stable source fingerprint the generator writes: a truncated SHA-256 over the NFC-normalized
     // source message and context, so a target reconciled against an IL-built template detects drift identically.
-    private static string Fingerprint(string source, string? context)
+    internal static string Fingerprint(string source, string? context)
     {
         var normalized = source.Normalize(NormalizationForm.FormC) + "\0" + (context ?? string.Empty);
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(normalized));

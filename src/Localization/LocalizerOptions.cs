@@ -14,10 +14,17 @@ public sealed class LocalizerOptions
     /// </summary>
     public string TranslationsDirectory { get; init; } = DefaultDirectory();
 
-    /// <summary>The source language whose catalog is not loaded as an override (the in-code default wins).</summary>
+    /// <summary>
+    /// The language the in-code defaults are written in. Its catalog loads as an override layer like any other
+    /// culture (only genuine overrides survive; an echo of the in-code default does not), and it always bypasses
+    /// the <see cref="Cultures"/> allow-list. The in-code default remains the terminal fallback beneath it.
+    /// </summary>
     public string SourceCulture { get; init; } = "en";
 
-    /// <summary>The cultures to load; <see langword="null"/> discovers every culture present in the directory.</summary>
+    /// <summary>
+    /// The target cultures to load; <see langword="null"/> discovers every culture present in the directory.
+    /// The <see cref="SourceCulture"/> is always loaded regardless of this list.
+    /// </summary>
     public IReadOnlyList<string>? Cultures { get; init; }
 
     /// <summary>
