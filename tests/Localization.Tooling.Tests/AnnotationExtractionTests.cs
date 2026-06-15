@@ -190,10 +190,9 @@ public sealed class AnnotationExtractionTests : IDisposable
     }
 
     [Fact]
-    public void ExtractAnnotations_LocalizedDisplayNameTwin_OverridesWithStableKeyAndDefault()
+    public void ExtractAnnotations_LocalizedDisplayNameTwin_KeyComesFromSystemAttribute_DefaultFromTwin()
     {
-        // The twin rides beside the system attribute; extraction uses the twin's stable key and default, and does
-        // not also emit the literal — one display name, one catalog entry.
+        // String-id mode: the [DisplayName] holds the stable key, the twin supplies the source default.
         IReadOnlyList<RawCallSite> sites = ExtractAnnotations("""
             using System.ComponentModel;
             using ArchPillar.Extensions.Localization;
@@ -202,8 +201,8 @@ public sealed class AnnotationExtractionTests : IDisposable
 
             public sealed class RegisterModel
             {
-                [DisplayName("Email address")]
-                [LocalizedDisplayName("register.email.label", "Email address")]
+                [DisplayName("register.email.label")]
+                [LocalizedDisplayName("Email address")]
                 public string Email { get; set; }
             }
             """);
@@ -215,8 +214,9 @@ public sealed class AnnotationExtractionTests : IDisposable
     }
 
     [Fact]
-    public void ExtractAnnotations_LocalizedDisplayNameTwin_OneArgument_UsesItAsKeyAndDefault()
+    public void ExtractAnnotations_TwinWithoutSystemAttribute_IsIgnored()
     {
+        // The twin only supplies a default; with no system attribute there is no key, so nothing is extracted.
         IReadOnlyList<RawCallSite> sites = ExtractAnnotations("""
             using ArchPillar.Extensions.Localization;
 
@@ -229,14 +229,11 @@ public sealed class AnnotationExtractionTests : IDisposable
             }
             """);
 
-        RawCallSite site = Assert.Single(sites);
-        Assert.Equal("Active", site.Key);
-        Assert.Equal("Active", site.Default);
-        Assert.Equal("Demo.AccountStatus", site.Category);
+        Assert.Empty(sites);
     }
 
     [Fact]
-    public void ExtractAnnotations_LocalizedDescriptionTwin_OverridesWithStableKey()
+    public void ExtractAnnotations_LocalizedDescriptionTwin_KeyComesFromSystemAttribute_DefaultFromTwin()
     {
         IReadOnlyList<RawCallSite> sites = ExtractAnnotations("""
             using System.ComponentModel;
@@ -246,8 +243,8 @@ public sealed class AnnotationExtractionTests : IDisposable
 
             public sealed class RegisterModel
             {
-                [Description("Where we send confirmations.")]
-                [LocalizedDescription("register.email.help", "Where we send confirmations.")]
+                [Description("register.email.help")]
+                [LocalizedDescription("Where we send confirmations.")]
                 public string Email { get; set; }
             }
             """);
@@ -258,7 +255,7 @@ public sealed class AnnotationExtractionTests : IDisposable
     }
 
     [Fact]
-    public void ExtractAnnotations_LocalizedMessageTwin_ExtractsKeyAndDefaultUnderDeclaringType()
+    public void ExtractAnnotations_LocalizedMessageTwin_KeyComesFromErrorMessage_DefaultFromTwin()
     {
         IReadOnlyList<RawCallSite> sites = ExtractAnnotations("""
             using System.ComponentModel.DataAnnotations;
@@ -268,8 +265,8 @@ public sealed class AnnotationExtractionTests : IDisposable
 
             public sealed class RegisterModel
             {
-                [Required]
-                [LocalizedMessage<RequiredAttribute>("register.email.required", "An email address is required.")]
+                [Required(ErrorMessage = "register.email.required")]
+                [LocalizedMessage<RequiredAttribute>("An email address is required.")]
                 public string Email { get; set; }
             }
             """);
@@ -278,6 +275,27 @@ public sealed class AnnotationExtractionTests : IDisposable
         Assert.Equal("register.email.required", site.Key);
         Assert.Equal("An email address is required.", site.Default);
         Assert.Equal("Demo.RegisterModel", site.Category);
+    }
+
+    [Fact]
+    public void ExtractAnnotations_LocalizedMessageTwin_WithoutErrorMessage_IsIgnored()
+    {
+        // No ErrorMessage on the validator means no key, so the message twin has nothing to extract under.
+        IReadOnlyList<RawCallSite> sites = ExtractAnnotations("""
+            using System.ComponentModel.DataAnnotations;
+            using ArchPillar.Extensions.Localization;
+
+            namespace Demo;
+
+            public sealed class RegisterModel
+            {
+                [Required]
+                [LocalizedMessage<RequiredAttribute>("An email address is required.")]
+                public string Email { get; set; }
+            }
+            """);
+
+        Assert.Empty(sites);
     }
 
     [Fact]
@@ -291,10 +309,10 @@ public sealed class AnnotationExtractionTests : IDisposable
 
             public sealed class RegisterModel
             {
-                [Required]
-                [StringLength(100)]
-                [LocalizedMessage<RequiredAttribute>("register.email.required", "An email address is required.")]
-                [LocalizedMessage<StringLengthAttribute>("register.email.tooLong", "That email is too long.")]
+                [Required(ErrorMessage = "register.email.required")]
+                [StringLength(100, ErrorMessage = "register.email.tooLong")]
+                [LocalizedMessage<RequiredAttribute>("An email address is required.")]
+                [LocalizedMessage<StringLengthAttribute>("That email is too long.")]
                 public string Email { get; set; }
             }
             """);

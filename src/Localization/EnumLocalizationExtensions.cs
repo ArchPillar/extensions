@@ -57,18 +57,19 @@ public static class EnumLocalizationExtensions
         return context.TranslateInCategory(type.FullName ?? type.Name, annotation.Key, annotation.Default, [], out _);
     }
 
-    // The (key, default) the member's display annotation carries: a [LocalizedDisplayName] twin wins with its
-    // stable key and clean default; otherwise a [Display(Name = …)] literal is both. ([DisplayName] is not valid
-    // on an enum member, so it does not apply here.) Null when no display annotation is present.
+    // The (key, default) the member's display annotation carries: the [Display(Name = …)] value is the key (the
+    // text-as-key default, or a string id when the author prefers one), and a [LocalizedDisplayName] twin, when
+    // present, supplies the source default for that key. ([DisplayName] is not valid on an enum member.) Null when
+    // no [Display(Name)] is present.
     private static (string Key, string Default)? KeyAndDefault(FieldInfo field)
     {
-        LocalizedDisplayNameAttribute? twin = field.GetCustomAttribute<LocalizedDisplayNameAttribute>();
-        if (twin is not null)
+        DisplayAttribute? display = field.GetCustomAttribute<DisplayAttribute>();
+        if (display?.Name is not { } key)
         {
-            return (twin.Key, twin.Default);
+            return null;
         }
 
-        DisplayAttribute? display = field.GetCustomAttribute<DisplayAttribute>();
-        return display?.Name is { } displayName ? (displayName, displayName) : null;
+        LocalizedDisplayNameAttribute? twin = field.GetCustomAttribute<LocalizedDisplayNameAttribute>();
+        return (key, twin?.Default ?? key);
     }
 }

@@ -9,19 +9,21 @@ namespace ArchPillar.Extensions.Localization.AspNetCore;
 /// <summary>
 /// An <see cref="IStringLocalizer"/> that resolves DataAnnotations strings through an ArchPillar
 /// <see cref="ILocalizer"/> scoped to the model type's category. The MVC framework looks a display name or error
-/// message up by its literal; this looks the literal up as the key — the text-as-key the extractor wrote — unless
-/// a <c>[Localized…]</c> twin on the member supplies a stable key for that literal, which it bridges to.
-/// Positional arguments map to <c>{0}</c>, <c>{1}</c>, … so validation messages render through the ICU pipeline.
+/// message up by the system attribute's value — the text itself (text-as-key) or a string id — so that value is
+/// the key directly, with no remapping. The only thing the framework does not hand over is the source default for
+/// a string id; this reads it from the member's <c>[Localized…]</c> twin (or a validator's <c>ErrorMessage</c>
+/// key from <c>[LocalizedMessage&lt;T&gt;]</c>) so a string id still renders its source text when no translation
+/// is loaded. Positional arguments map to <c>{0}</c>, <c>{1}</c>, … so validation messages render through ICU.
 /// </summary>
 internal sealed class ArchPillarDataAnnotationsLocalizer : IStringLocalizer
 {
     private readonly ILocalizer _localizer;
-    private readonly IReadOnlyDictionary<string, (string Key, string Default)> _twinsByLiteral;
+    private readonly IReadOnlyDictionary<string, string> _defaultsByKey;
 
     public ArchPillarDataAnnotationsLocalizer(ILocalizer localizer, Type modelType)
     {
         _localizer = localizer;
-        _twinsByLiteral = BuildTwinMap(modelType);
+        _defaultsByKey = BuildDefaults(modelType);
     }
 
     public LocalizedString this[string name] => Resolve(name, []);
@@ -32,11 +34,11 @@ internal sealed class ArchPillarDataAnnotationsLocalizer : IStringLocalizer
 
     private LocalizedString Resolve(string name, object[] arguments)
     {
-        (var key, var defaultMessage) = _twinsByLiteral.TryGetValue(name, out (string Key, string Default) twin)
-            ? twin
-            : (name, name);
-        var value = _localizer.Translate(key, defaultMessage, Named(arguments));
-        return new LocalizedString(name, value, resourceNotFound: false);
+        // The lookup name is the key. A twin gives that key a source default; without one the key is its own
+        // default (the text-as-key case, where the name already is the source text).
+        var defaultMessage = _defaultsByKey.TryGetValue(name, out var value) ? value : name;
+        var rendered = _localizer.Translate(name, defaultMessage, Named(arguments));
+        return new LocalizedString(name, rendered, resourceNotFound: false);
     }
 
     // Positional arguments become the named arguments "0", "1", … so a {0}-style validation message resolves
@@ -57,39 +59,45 @@ internal sealed class ArchPillarDataAnnotationsLocalizer : IStringLocalizer
         return named;
     }
 
-    // Maps each member's system display/description literal to the stable (key, default) its [Localized…] twin
-    // carries, so the framework's literal lookup bridges to the twin's key. Only a member carrying both a twin and
-    // a system literal contributes; everything else falls through to literal-as-key.
-    private static IReadOnlyDictionary<string, (string Key, string Default)> BuildTwinMap(Type modelType)
+    // Maps each twinned member's stable key to the source default its [Localized…] twin carries: the display /
+    // description key is the system attribute's value, the message key is the validator's ErrorMessage. A key with
+    // no twin is absent from the map and falls back to being its own default (text-as-key).
+    private static IReadOnlyDictionary<string, string> BuildDefaults(Type modelType)
     {
-        var map = new Dictionary<string, (string Key, string Default)>(StringComparer.Ordinal);
-        AddTwins(modelType, map);
+        var map = new Dictionary<string, string>(StringComparer.Ordinal);
+        AddDefaults(modelType, map);
         foreach (PropertyInfo property in modelType.GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
-            AddTwins(property, map);
+            AddDefaults(property, map);
         }
 
         return map;
     }
 
-    private static void AddTwins(MemberInfo member, Dictionary<string, (string Key, string Default)> map)
+    private static void AddDefaults(MemberInfo member, Dictionary<string, string> map)
     {
-        LocalizedDisplayNameAttribute? displayTwin = member.GetCustomAttribute<LocalizedDisplayNameAttribute>();
-        if (displayTwin is not null && DisplayLiteral(member) is { } displayLiteral)
+        if (member.GetCustomAttribute<LocalizedDisplayNameAttribute>() is { } displayTwin && DisplayKey(member) is { } displayKey)
         {
-            map[displayLiteral] = (displayTwin.Key, displayTwin.Default);
+            map[displayKey] = displayTwin.Default;
         }
 
-        LocalizedDescriptionAttribute? descriptionTwin = member.GetCustomAttribute<LocalizedDescriptionAttribute>();
-        if (descriptionTwin is not null && DescriptionLiteral(member) is { } descriptionLiteral)
+        if (member.GetCustomAttribute<LocalizedDescriptionAttribute>() is { } descriptionTwin && DescriptionKey(member) is { } descriptionKey)
         {
-            map[descriptionLiteral] = (descriptionTwin.Key, descriptionTwin.Default);
+            map[descriptionKey] = descriptionTwin.Default;
+        }
+
+        foreach (LocalizedMessageAttribute message in member.GetCustomAttributes<LocalizedMessageAttribute>())
+        {
+            if (ErrorMessageKey(member, message.ValidationType) is { } messageKey)
+            {
+                map[messageKey] = message.Default;
+            }
         }
     }
 
-    // The display-name literal the framework looks the member up by: [DisplayName] or [Display(Name)] (GetName, so
-    // it matches the framework's own resolution). Null when neither carries a non-empty value.
-    private static string? DisplayLiteral(MemberInfo member)
+    // The display-name key the framework looks the member up by — [DisplayName] or [Display(Name)] (GetName, so it
+    // matches the framework's own resolution). Null when neither carries a non-empty value.
+    private static string? DisplayKey(MemberInfo member)
     {
         if (member.GetCustomAttribute<DisplayNameAttribute>()?.DisplayName is { Length: > 0 } displayName)
         {
@@ -99,7 +107,7 @@ internal sealed class ArchPillarDataAnnotationsLocalizer : IStringLocalizer
         return member.GetCustomAttribute<DisplayAttribute>()?.GetName() is { Length: > 0 } name ? name : null;
     }
 
-    private static string? DescriptionLiteral(MemberInfo member)
+    private static string? DescriptionKey(MemberInfo member)
     {
         if (member.GetCustomAttribute<DescriptionAttribute>()?.Description is { Length: > 0 } description)
         {
@@ -110,4 +118,10 @@ internal sealed class ArchPillarDataAnnotationsLocalizer : IStringLocalizer
             ? displayDescription
             : null;
     }
+
+    // The ErrorMessage of the validator named by a message twin — the key that validator's message resolves under.
+    private static string? ErrorMessageKey(MemberInfo member, Type validationType) =>
+        member.GetCustomAttributes()
+            .OfType<ValidationAttribute>()
+            .FirstOrDefault(attribute => attribute.GetType() == validationType)?.ErrorMessage;
 }

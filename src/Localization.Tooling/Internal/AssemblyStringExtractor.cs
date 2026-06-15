@@ -144,65 +144,41 @@ internal sealed class AssemblyStringExtractor : IDisposable
     // Emits one site for a display concept. A Localized twin attribute, which carries a stable key plus a clean
     // source default, takes precedence. Otherwise the system attribute's literal serves as both key and source
     // default, matching the resx-style text-as-key the framework looks up by. With neither present, no site.
-    private static void AddConcept(ICustomAttributeProvider member, string category, List<RawCallSite> sites, string twinAttribute, string? systemLiteral)
+    // Emits one site for a display concept. The system attribute's value is the key (the text-as-key default, or
+    // a string id when the author prefers one); a Localized twin, when present, supplies the source default for
+    // that key instead of reusing the key as the default. Nothing is emitted when there is no system value (no key).
+    private static void AddConcept(ICustomAttributeProvider member, string category, List<RawCallSite> sites, string twinAttribute, string? systemKey)
     {
-        if (TwinKeyAndDefault(member, twinAttribute) is { } twin)
+        if (systemKey is null)
         {
-            sites.Add(new RawCallSite(twin.Key, twin.Default, category, Context: null));
+            return;
         }
-        else if (systemLiteral is not null)
-        {
-            sites.Add(new RawCallSite(systemLiteral, systemLiteral, category, Context: null));
-        }
+
+        sites.Add(new RawCallSite(systemKey, LiteralFromConstructor(member, twinAttribute) ?? systemKey, category, Context: null));
     }
 
-    // Emits a site per [LocalizedMessage<TValidation>] twin — a member may carry one per validator. The attribute
-    // is a constructed generic, matched by its open-generic element name; the validator type argument disambiguates
-    // the call sites for the author but is not itself part of the extracted catalog entry.
+    // Emits a site per [LocalizedMessage<TValidation>] twin — a member may carry one per validator. The twin
+    // supplies the source default; its key is the ErrorMessage of the validator named by the type argument, so the
+    // catalog key matches what the framework looks the message up by. A twin whose validator sets no ErrorMessage
+    // has no key, and is skipped.
     private static void AddValidationMessageSites(ICustomAttributeProvider member, string category, List<RawCallSite> sites)
     {
         foreach (CustomAttribute attribute in member.CustomAttributes)
         {
             if (attribute.AttributeType is GenericInstanceType generic
                 && generic.ElementType.FullName == LocalizedMessageAttribute
-                && KeyAndDefault(attribute) is { } twin)
+                && attribute.ConstructorArguments.Count > 0
+                && attribute.ConstructorArguments[0].Value is string defaultMessage
+                && NamedArgument(member, generic.GenericArguments[0].FullName, "ErrorMessage") is { } key)
             {
-                sites.Add(new RawCallSite(twin.Key, twin.Default, category, Context: null));
+                sites.Add(new RawCallSite(key, defaultMessage, category, Context: null));
             }
         }
-    }
-
-    // The (key, default) the first matching non-generic [Localized…] twin on a member carries, or null when absent.
-    private static (string Key, string Default)? TwinKeyAndDefault(ICustomAttributeProvider member, string attributeFullName)
-    {
-        foreach (CustomAttribute attribute in member.CustomAttributes)
-        {
-            if (attribute.AttributeType.FullName == attributeFullName)
-            {
-                return KeyAndDefault(attribute);
-            }
-        }
-
-        return null;
-    }
-
-    // A twin's constructor carries the key as arg[0] and the default as arg[1]; the one-argument form reuses the
-    // key as the default. Null when there is no string key argument.
-    private static (string Key, string Default)? KeyAndDefault(CustomAttribute attribute)
-    {
-        if (attribute.ConstructorArguments.Count > 0 && attribute.ConstructorArguments[0].Value is string key)
-        {
-            var def = attribute.ConstructorArguments.Count > 1 && attribute.ConstructorArguments[1].Value is string value
-                ? value
-                : key;
-            return (key, def);
-        }
-
-        return null;
     }
 
     // The first constructor-argument string of the named attribute on a member, or null when the attribute is
-    // absent or carries no string argument (e.g. [DisplayName("Email")] -> "Email").
+    // absent or carries no string argument — the [DisplayName("Email")] / [Description(...)] value, and equally a
+    // [Localized…] twin's single constructor argument (its source default).
     private static string? LiteralFromConstructor(ICustomAttributeProvider member, string attributeFullName)
     {
         foreach (CustomAttribute attribute in member.CustomAttributes)

@@ -99,7 +99,7 @@ extracted by the dedicated annotation pass (next), so they need no bridge. Anyth
 round-tripped to translators must go through the native `ILocalizer` API, an extracted indexer literal,
 or an `L(...)` marker. Migrate hot paths to the native API over time.
 
-## Let display annotations extract themselves; reach for a twin only when the key must be stable
+## Let display annotations extract themselves; add a twin only for string-id keys
 
 `[DisplayName]`, `[Display(Name/Description)]`, and `[Description]` are extracted by default (the literal
 is both key and default, scoped to the declaring type), so annotated models and enums reach translators
@@ -107,14 +107,15 @@ with no extra work — there is no reason to restate those strings through `Tran
 out with `ArchPillarLocalizationExtractAnnotations=false` only when you deliberately do not want
 annotations localized.
 
-Add a `[Localized…]` twin **when the literal is a poor key** — long, or likely to be copy-edited — since
-the extracted key is otherwise the literal itself and a later wording change silently orphans the
-translation. The twin gives a stable key while the system attribute stays for the framework to read. For
-enums the literal and the label usually coincide, so most enum members need no twin.
+The literal-as-key default is fine until a wording change copy-edits the key out from under its
+translations. If you would rather key by a **stable string id**, put the id in the system attribute — the
+value the framework looks up — and add a `[Localized…]` twin carrying the source default for that id. The
+twin is purely the default; it never holds the key. For validation, the id goes in the validator's
+`ErrorMessage` and `[LocalizedMessage<TValidation>]` carries the default.
 
 ```csharp
-[Display(Name = "Save changes and continue to payment")]                 // a fragile key
-[LocalizedDisplayName("checkout.continueToPayment", "Save changes and continue to payment")]
+[Display(Name = "checkout.continueToPayment")]                  // the string id is the key
+[LocalizedDisplayName("Save changes and continue to payment")]  // the twin supplies the source default
 public string Continue { get; set; } = "";
 ```
 

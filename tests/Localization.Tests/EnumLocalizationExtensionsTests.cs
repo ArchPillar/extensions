@@ -16,7 +16,8 @@ public sealed class EnumLocalizationExtensionsTests
         [Display(Name = "Active")]
         Active,
 
-        [LocalizedDisplayName("order.status.pending", "Pending review")]
+        [Display(Name = "order.status.pending")]
+        [LocalizedDisplayName("Pending review")]
         Pending,
 
         Unlabelled,
@@ -27,6 +28,13 @@ public sealed class EnumLocalizationExtensionsTests
     {
         using var context = new LocalizationContext(new LocalizerOptions { SourceCulture = "en" });
         Assert.Equal("Active", OrderStatus.Active.GetLocalizedDisplayName(context));
+    }
+
+    [Fact]
+    public void GetLocalizedDisplayName_TwinDefault_NoOverride_ReturnsTheTwinDefaultNotTheKey()
+    {
+        using var context = new LocalizationContext(new LocalizerOptions { SourceCulture = "en" });
+        Assert.Equal("Pending review", OrderStatus.Pending.GetLocalizedDisplayName(context));
     }
 
     [Fact]

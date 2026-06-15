@@ -257,62 +257,65 @@ in-code default, scoped to the declaring type's category, the same text-as-key t
 looks up by. There is no call site to write and no `L(...)` to add: annotate as you already do and the
 strings reach translators. Opt a project out with `ArchPillarLocalizationExtractAnnotations=false`.
 
-Because an attribute argument must be a compile-time constant, the key *is* the literal — which drifts
-if you later fix a typo. A **twin attribute** removes that coupling: pair the system attribute with a
-`[Localized…]` twin carrying a stable key and a clean default. The twin rides beside the system
-attribute (it does not replace it), and extraction — and the integrations below — use the twin's key.
+Some teams prefer a **string id** to text-as-key. For them an **optional twin attribute** carries just the
+source-language default, while the stable id stays where the framework already reads it — in the system
+attribute's value. So the system attribute holds the key and the twin holds the default text:
 
 ```csharp
 public sealed class RegisterModel
 {
-    [Display(Name = "Email address")]                              // extracted under key "Email address"
+    [Display(Name = "Email address")]              // text-as-key: key and default are both "Email address"
     public string Email { get; set; } = "";
 
-    [Display(Name = "Password")]
-    [LocalizedDisplayName("register.password.label", "Password")]  // extracted under key "register.password.label"
+    [Display(Name = "register.password.label")]    // the string id is the key the framework looks up
+    [LocalizedDisplayName("Password")]             // the twin supplies the source default for that id
     public string Password { get; set; } = "";
 }
 ```
 
-There is one twin per display concept — `[LocalizedDisplayName]` (for `[DisplayName]` and
-`[Display(Name)]`) and `[LocalizedDescription]` (for `[Description]` and `[Display(Description)]`) — plus
-one generic twin for the open-ended validation case, `[LocalizedMessage<TValidation>]`, keyed by the
-validator type so a property carrying several validators stays unambiguous:
+Because the framework looks up the system attribute's value either way, that value is the catalog key
+directly — there is no remapping. There is one twin per display concept — `[LocalizedDisplayName]` (for
+`[DisplayName]` and `[Display(Name)]`) and `[LocalizedDescription]` (for `[Description]` and
+`[Display(Description)]`) — plus one generic twin for the open-ended validation case,
+`[LocalizedMessage<TValidation>]`, where the **validator's `ErrorMessage` is the key** and the type
+argument names which validator the default belongs to (so a property with several validators stays
+unambiguous):
 
 ```csharp
-[Required]
-[StringLength(100)]
-[LocalizedMessage<RequiredAttribute>("register.email.required", "An email address is required.")]
-[LocalizedMessage<StringLengthAttribute>("register.email.tooLong", "That email is too long.")]
+[Required(ErrorMessage = "register.email.required")]
+[StringLength(100, ErrorMessage = "register.email.tooLong")]
+[LocalizedMessage<RequiredAttribute>("An email address is required.")]
+[LocalizedMessage<StringLengthAttribute>("That email is too long.")]
 public string Email { get; set; } = "";
 ```
 
 **Enums** read their own annotation at runtime: `value.GetLocalizedDisplayName()` reads the member's
-`[LocalizedDisplayName]` twin (or its `[Display(Name)]` literal) and resolves it through the localizer
-under the enum's category — the localized replacement for the usual hand-rolled `GetDisplayName()`.
+`[Display(Name)]` value as the key (and a `[LocalizedDisplayName]` twin as the source default) and resolves
+it through the localizer under the enum's category — the localized replacement for the usual hand-rolled
+`GetDisplayName()`.
 
 ```csharp
 public enum AccountStatus
 {
-    [Display(Name = "Active")] Active,
-    [LocalizedDisplayName("account.suspended", "Suspended")] Suspended,
+    [Display(Name = "Active")] Active,                                  // text-as-key
+    [Display(Name = "account.suspended")] [LocalizedDisplayName("Suspended")] Suspended,   // string id + default
 }
 
 string label = AccountStatus.Suspended.GetLocalizedDisplayName();   // resolves account.suspended
 ```
 
 **ASP.NET MVC / Razor Pages** route their DataAnnotations through the localizer with one call on the MVC
-builder (in the `…Localization.AspNetCore` package): display names and validation messages resolve under
-the model type's category — by the literal as key, or, where a member has a twin, by the twin's stable key.
+builder (in the `…Localization.AspNetCore` package): display names *and* validation messages resolve under
+the model type's category, by the system attribute's value (text or string id) as the key, falling back to
+the twin's default when no translation is loaded.
 
 ```csharp
 builder.Services.AddControllersWithViews().AddArchPillarDataAnnotationsLocalization();
 ```
 
 > Reading a member's attributes is reflection at runtime — inherent to attributes, which the rest of the
-> library avoids. `[LocalizedMessage<T>]` is extracted to the catalog today, but routing a validator's
-> stable key into the framework's own lookup needs .NET 11's `IValidationLocalizer` /
-> `ErrorMessageKeyProvider` (Minimal APIs and Blazor's new validation); that seam is a follow-up.
+> library avoids. For Minimal APIs and Blazor's new validation, the .NET 11 `IValidationLocalizer` /
+> `ErrorMessageKeyProvider` seam is a separate follow-up; the MVC integration above needs none of it.
 
 ## Dependency injection
 
@@ -380,9 +383,10 @@ interop package is meant to be dropped once you no longer depend on `IStringLoca
   throw new ArgumentException(L("Email is required"));
   ```
 
-> `.resx` keys, a validator's `ErrorMessage`, and view-localization calls are **not** extracted (they
+> `.resx` keys, a bare validator `ErrorMessage`, and view-localization calls are **not** extracted (they
 > have no in-code default to harvest); the adapter still serves them at runtime. Display **annotations**
-> (`[DisplayName]` / `[Display]` / `[Description]`) are extracted separately — see
+> (`[DisplayName]` / `[Display]` / `[Description]`, and a validator `ErrorMessage` paired with a
+> `[LocalizedMessage<T>]` twin) are extracted separately — see
 > [Display annotations](#display-annotations--dataannotations-and-enums). See
 > [recommendations.md](recommendations.md) for the migration ordering.
 
