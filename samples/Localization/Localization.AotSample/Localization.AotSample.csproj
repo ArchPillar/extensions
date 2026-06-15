@@ -22,10 +22,10 @@
 
   <ItemGroup>
     <!-- AOT-safe path #1: a loose file copied beside the binary, loaded by the ambient store's directory. -->
-    <Content Include="Translations\**\*.arb" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Translations\**\*.xliff" CopyToOutputDirectory="PreserveNewest" />
     <!-- AOT-safe path #2: a catalog embedded in the MAIN assembly (WithCulture=false keeps it out of a satellite). -->
-    <None Remove="Embedded/main.de.arb" />
-    <EmbeddedResource Include="Embedded/main.de.arb" LogicalName="aotmain.de.arb" WithCulture="false" />
+    <None Remove="Embedded/main.de.xliff" />
+    <EmbeddedResource Include="Embedded/main.de.xliff" LogicalName="aotmain.de.xliff" WithCulture="false" />
   </ItemGroup>
 
 </Project>

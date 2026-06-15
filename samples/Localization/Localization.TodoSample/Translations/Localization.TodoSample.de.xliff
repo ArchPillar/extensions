@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xliff version="2.1" srcLang="en" trgLang="de" xmlns="urn:oasis:names:tc:xliff:document:2.1">
+  <file id="f1">
+    <unit id="AddHint">
+      <notes>
+        <note category="x-category">Localization.TodoSample.TodoStrings</note>
+        <note category="fingerprint">42710574d6fc99bc54fb4e4c033acaa3</note>
+      </notes>
+      <segment state="translated" subState="archpillar:Translated">
+        <source xml:space="preserve">Gib eine Aufgabe ein und drücke die Eingabetaste, um sie hinzuzufügen.</source>
+        <target xml:space="preserve">Gib eine Aufgabe ein und drücke die Eingabetaste, um sie hinzuzufügen.</target>
+      </segment>
+    </unit>
+    <unit id="Empty">
+      <notes>
+        <note category="x-category">Localization.TodoSample.TodoStrings</note>
+        <note category="fingerprint">8fc32e9842c5ee17c1391b57d9974fcc</note>
+      </notes>
+      <segment state="translated" subState="archpillar:Translated">
+        <source xml:space="preserve">Nichts zu tun — füge deine erste Aufgabe hinzu!</source>
+        <target xml:space="preserve">Nichts zu tun — füge deine erste Aufgabe hinzu!</target>
+      </segment>
+    </unit>
+    <unit id="Remaining">
+      <notes>
+        <note category="x-category">Localization.TodoSample.TodoStrings</note>
+        <note category="fingerprint">c9917598b0dbfac613823a7b5bba7f6e</note>
+      </notes>
+      <segment state="translated" subState="archpillar:Translated">
+        <source xml:space="preserve">{count, plural, =0 {Alles erledigt!} one {# Aufgabe übrig} other {# Aufgaben übrig}}</source>
+        <target xml:space="preserve">{count, plural, =0 {Alles erledigt!} one {# Aufgabe übrig} other {# Aufgaben übrig}}</target>
+      </segment>
+    </unit>
+    <unit id="Title">
+      <notes>
+        <note category="x-category">Localization.TodoSample.TodoStrings</note>
+        <note category="fingerprint">fe27a669408bc08e5c67808ba1d85dbe</note>
+      </notes>
+      <segment state="translated" subState="archpillar:Translated">
+        <source xml:space="preserve">Meine Aufgaben</source>
+        <target xml:space="preserve">Meine Aufgaben</target>
+      </segment>
+    </unit>
+  </file>
+</xliff>

@@ -7,11 +7,11 @@ using Localization.TodoSample;
 //
 // Demonstrates ArchPillar.Extensions.Localization in a no-DI console app:
 //   - A self-scoped Localized<T> string bundle (member name is the key, type is the category)
-//   - In-code English overridden by German and French .arb catalogs beside the binary
+//   - In-code English overridden by German and French .xliff catalogs beside the binary
 //   - ICU plurals ({count, plural, ...}) resolved per culture
 //   - A pseudo-localization QA pass (qps-ploc) that X's translatable strings to catch hardcoded text
 //
-// The string bundle lives in TodoStrings.cs; the catalogs are Translations/de.arb and fr.arb.
+// The string bundle lives in TodoStrings.cs; the catalogs are Translations/de.xliff and fr.xliff.
 // ---------------------------------------------------------------------------
 using var store = new CatalogStore(new LocalizerOptions
 {

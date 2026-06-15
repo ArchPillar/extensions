@@ -385,7 +385,6 @@ internal static class ToolApplication
         var zipPath = Require(options, "--input");
         var outputDir = Require(options, "--output");
         TranslationFormatRegistry registry = BuildRegistry();
-        ITranslationFormat arb = registry.ResolveById("arb")!;
         Directory.CreateDirectory(outputDir);
 
         var imported = 0;
@@ -408,9 +407,12 @@ internal static class ToolApplication
             }
 
             // Route the returned translation back to its origin and the dev format: the entry name carries the
-            // assembly and culture (set by export), so {AssemblyName}.{culture}.arb lands beside the others.
+            // assembly and culture (set by export), so it lands beside the others. The on-disk format is matched
+            // per catalog so import round-trips into whatever the repo already uses (the XLIFF default for a
+            // catalog with no existing file).
             (var name, var culture) = SplitCatalogName(Path.GetFileNameWithoutExtension(entry.Name));
-            await WriteFileAsync(arb, Path.Combine(outputDir, CatalogFileName(name, culture, arb)), catalog).ConfigureAwait(false);
+            ITranslationFormat target = ImportTargetProvider(registry, outputDir, name, culture);
+            await WriteFileAsync(target, Path.Combine(outputDir, CatalogFileName(name, culture, target)), catalog).ConfigureAwait(false);
             imported++;
         }
 
@@ -631,7 +633,7 @@ internal static class ToolApplication
 
     private static ITranslationFormat FormatOf(IReadOnlyDictionary<string, string> options, TranslationFormatRegistry registry) =>
         (options.TryGetValue("--format", out var format) && format.Length > 0 ? registry.ResolveById(format) : null)
-        ?? registry.ResolveById("arb")!;
+        ?? registry.ResolveById("xliff")!;
 
     private static ScopeOptions ParseScope(IReadOnlyDictionary<string, string> options) => new(
         options.TryGetValue("--assembly", out var assembly) ? assembly : null,
@@ -655,6 +657,41 @@ internal static class ToolApplication
     private static ITranslationFormat ProviderFor(TranslationFormatRegistry registry, string path) =>
         registry.ResolveByExtension(Path.GetExtension(path))
         ?? throw new ArgumentException($"No provider for '{path}'.");
+
+    // The dev-side format a returned translation should land as: the format of the existing on-disk catalog for
+    // this assembly and culture, so import round-trips into whatever the repo already uses. An exact
+    // assembly+culture match wins; otherwise a sibling culture of the same assembly fixes the format so a newly
+    // imported language lands alongside the others; with no existing file the authoring default (XLIFF) is used.
+    private static ITranslationFormat ImportTargetProvider(TranslationFormatRegistry registry, string outputDir, string name, string culture)
+    {
+        ITranslationFormat? sameAssembly = null;
+        if (Directory.Exists(outputDir))
+        {
+            foreach (var file in Directory.EnumerateFiles(outputDir))
+            {
+                ITranslationFormat? provider = registry.ResolveByExtension(Path.GetExtension(file));
+                if (provider is null)
+                {
+                    continue;
+                }
+
+                (var existingName, var existingCulture) = SplitCatalogName(Path.GetFileNameWithoutExtension(file));
+                if (!string.Equals(existingName, name, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (string.Equals(existingCulture, culture, StringComparison.OrdinalIgnoreCase))
+                {
+                    return provider;
+                }
+
+                sameAssembly ??= provider;
+            }
+        }
+
+        return sameAssembly ?? registry.ResolveById("xliff")!;
+    }
 
     private static string Extension(ITranslationFormat provider) => provider.Extensions.First();
 

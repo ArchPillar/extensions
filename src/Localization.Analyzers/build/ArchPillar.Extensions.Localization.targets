@@ -70,7 +70,7 @@
       leave the previous run's bundles in place, and the swap below would publish those stale catalogs.
     -->
     <RemoveDir Directories="$(IntermediateOutputPath)apl-merged" />
-    <Exec Command="$(ArchPillarLocalizationToolCommand) merge --input &quot;$([MSBuild]::NormalizePath('$(PublishDir)Translations'))&quot; --output &quot;$([MSBuild]::NormalizePath('$(IntermediateOutputPath)apl-merged'))&quot; --source $(ArchPillarLocalizationSourceLanguage)"
+    <Exec Command="$(ArchPillarLocalizationToolCommand) merge --input &quot;$([MSBuild]::NormalizePath('$(PublishDir)Translations'))&quot; --output &quot;$([MSBuild]::NormalizePath('$(IntermediateOutputPath)apl-merged'))&quot; --source $(ArchPillarLocalizationSourceLanguage) --format $(ArchPillarLocalizationBundleFormat)"
           ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)"
           StandardOutputImportance="low">
       <Output TaskParameter="ExitCode" PropertyName="_ArchPillarMergeExitCode" />
@@ -273,7 +273,7 @@
           DestinationFolder="$(_ArchPillarPubCollectDir)" />
 
     <Exec Condition="'@(_ArchPillarOwnCatalogFile)@(_ArchPillarReferencedCatalog)' != ''"
-          Command="$(ArchPillarLocalizationToolCommand) merge --input &quot;$(_ArchPillarPubCollectDir)&quot; --output &quot;$(_ArchPillarBundleDir)&quot; --source $(ArchPillarLocalizationSourceLanguage) --format $(ArchPillarLocalizationFormat)"
+          Command="$(ArchPillarLocalizationToolCommand) merge --input &quot;$(_ArchPillarPubCollectDir)&quot; --output &quot;$(_ArchPillarBundleDir)&quot; --source $(ArchPillarLocalizationSourceLanguage) --format $(ArchPillarLocalizationBundleFormat)"
           ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)" StandardOutputImportance="low" />
 
     <ItemGroup>

@@ -24,11 +24,11 @@
 
   <ItemGroup>
     <!-- Main-assembly embedded catalog: WithCulture=false keeps the .de. resource in the main assembly. -->
-    <None Remove="Embedded/main.de.arb" />
-    <EmbeddedResource Include="Embedded/main.de.arb" LogicalName="trimmain.de.arb" WithCulture="false" />
+    <None Remove="Embedded/main.de.xliff" />
+    <EmbeddedResource Include="Embedded/main.de.xliff" LogicalName="trimmain.de.xliff" WithCulture="false" />
     <!-- Culture-inferred name routes this one to the 'de' satellite assembly. -->
-    <None Remove="Embedded/sat.de.arb" />
-    <EmbeddedResource Include="Embedded/sat.de.arb" />
+    <None Remove="Embedded/sat.de.xliff" />
+    <EmbeddedResource Include="Embedded/sat.de.xliff" />
   </ItemGroup>
 
 </Project>

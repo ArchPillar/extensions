@@ -14,7 +14,7 @@ using Ambient = ArchPillar.Extensions.Localization.Localizer;
 //   - Switching culture in code at runtime with a button — no reload, no request middleware
 //   - A missing override surfacing via IStringLocalizer's ResourceNotFound (the key shows through)
 //
-// The UI lives in Pages/Home.razor; the German catalog is wwwroot/Translations/Localization.WasmSample.de.arb.
+// The UI lives in Pages/Home.razor; the German catalog is wwwroot/Translations/Localization.WasmSample.de.xliff.
 // ---------------------------------------------------------------------------
 WebAssemblyHostBuilder builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");

@@ -11,7 +11,7 @@ using static ArchPillar.Extensions.Localization.TranslationMarkers;
 // AddLocalization() + .resx without rewriting call sites:
 //   - an IStringLocalizer adapter that composes over the legacy ResourceManager,
 //     so existing .resx translations keep resolving
-//   - ArchPillar's Translations/de.arb entry winning where it has one (Welcome),
+//   - ArchPillar's Translations/de.xliff entry winning where it has one (Welcome),
 //     falling through to the .resx where it doesn't (Goodbye), then to the name
 //   - the L("...") marker, a no-op at runtime that flags strings for extraction
 //
@@ -30,7 +30,7 @@ services.AddLocalization(options => options.ResourcesPath = "Resources");
 // 2) Adopt ArchPillar via the StringLocalizer interop package — the migration on-ramp. Its IStringLocalizer
 //    adapter COMPOSES over the ResourceManager factory registered above: ambient hit wins, otherwise it falls
 //    through to the existing .resx, otherwise the name. The ambient store loads the new German translation
-//    from Translations/de.arb (files-by-default), with no call-site changes. Once the app no longer depends
+//    from Translations/de.xliff (files-by-default), with no call-site changes. Once the app no longer depends
 //    on IStringLocalizer, drop this package and call AddArchPillarLocalization instead.
 services.AddArchPillarStringLocalizer();
 
@@ -42,7 +42,7 @@ foreach (var culture in new[] { "en", "de" })
     CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(culture);
     Console.WriteLine($"--- {culture} ---");
 
-    // "Welcome": ArchPillar's de.arb overrides the legacy .resx — the ambient entry wins.
+    // "Welcome": ArchPillar's de.xliff overrides the legacy .resx — the ambient entry wins.
     Console.WriteLine("Welcome: " + localizer["Welcome"]);
 
     // "Goodbye": only the legacy .resx has it — the adapter falls through, so the existing translation is kept.

@@ -7,6 +7,7 @@ namespace ArchPillar.Extensions.Localization.Tooling.Tests;
 public sealed class ToolApplicationTests : IDisposable
 {
     private static readonly ArbTranslationFormat _arb = new();
+    private static readonly XliffTranslationFormat _xliff = new();
 
     private readonly string _directory;
     private readonly string _template;
@@ -249,14 +250,33 @@ public sealed class ToolApplicationTests : IDisposable
             Assert.Contains(archive.Entries, e => e.Name == "LibB.de.xliff");
         }
 
-        // Import routes each returned file back to its origin assembly's dev catalog, in ARB.
+        // Import routes each returned file back to its origin assembly's dev catalog. The target directory has
+        // no existing catalogs, so each lands in the authoring default (XLIFF).
         var imported = Path.Combine(_directory, "imported");
         Assert.Equal(0, await ToolApplication.RunAsync(["import", "--input", kit, "--output", imported]));
 
-        Catalog libA = await ReadAsync(Path.Combine(imported, "LibA.de.arb"));
+        Catalog libA = await ReadXliffAsync(Path.Combine(imported, "LibA.de.xliff"));
         Assert.Equal("de", libA.Culture);
         Assert.Equal("Speichern", Assert.Single(libA.Entries).TranslatedMessage);
-        Assert.True(File.Exists(Path.Combine(imported, "LibB.de.arb")));
+        Assert.True(File.Exists(Path.Combine(imported, "LibB.de.xliff")));
+    }
+
+    [Fact]
+    public async Task Import_MatchesEachCatalogsExistingOnDiskFormatAsync()
+    {
+        // A repo already authored in ARB: a returned XLIFF translation must land back as ARB, matching the
+        // catalog already on disk rather than forcing the XLIFF authoring default.
+        var catalogs = Path.Combine(_directory, "arb-repo");
+        Directory.CreateDirectory(catalogs);
+        await WriteCatalogAsync(Path.Combine(catalogs, "LibA.de.arb"), "de", ("save", "Speichern"));
+
+        var kit = Path.Combine(_directory, "kit2.zip");
+        Assert.Equal(0, await ToolApplication.RunAsync(["export", "--input", catalogs, "--lang", "de", "--output", kit]));
+
+        Assert.Equal(0, await ToolApplication.RunAsync(["import", "--input", kit, "--output", catalogs]));
+
+        Assert.True(File.Exists(Path.Combine(catalogs, "LibA.de.arb")));
+        Assert.False(File.Exists(Path.Combine(catalogs, "LibA.de.xliff")));
     }
 
     public void Dispose() => Directory.Delete(_directory, recursive: true);
@@ -310,5 +330,11 @@ public sealed class ToolApplicationTests : IDisposable
     {
         using FileStream stream = File.OpenRead(path);
         return await _arb.ReadAsync(stream, CancellationToken.None);
+    }
+
+    private static async Task<Catalog> ReadXliffAsync(string path)
+    {
+        using FileStream stream = File.OpenRead(path);
+        return await _xliff.ReadAsync(stream, CancellationToken.None);
     }
 }

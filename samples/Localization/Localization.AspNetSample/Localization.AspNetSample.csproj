@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Include="Translations\**\*.arb" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Translations\**\*.xliff" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

@@ -12,7 +12,8 @@ All properties use the `ArchPillarLocalization` prefix and are surfaced to the g
 
 | Property | Default | Purpose |
 |---|---|---|
-| `ArchPillarLocalizationFormat` | `arb` | template/catalog format: `arb` \| `xliff` \| `po` |
+| `ArchPillarLocalizationFormat` | `xliff` | template/catalog **authoring** format: `arb` \| `xliff` \| `po` |
+| `ArchPillarLocalizationBundleFormat` | `arb` | the **published bundle** format (the publish-time merge output), independent of the authoring format: a runtime bundle needs only the translation, so the most compact, compressible container wins — `arb` (JSON) \| `xliff` \| `po` |
 | `ArchPillarLocalizationSourceLanguage` | `en` | the language the in-code defaults are written in (BCP-47) |
 | `ArchPillarLocalizationOutputPath` | `$(MSBuildProjectDirectory)\Translations` | directory where the **template** is written and where target files live once added (source tree, version-controlled) |
 | `ArchPillarLocalizationEmit` | `true` | master switch for the build-time template extraction (the tool's `extract`); `false` disables it (the generated key registry, the analyzer, and the runtime still work) |
@@ -34,7 +35,9 @@ Example consumer configuration — note there is no language list:
 
 ## Choosing a format
 
-The format is a convenience/authoring choice, not a lock-in — the tool's `convert` (spec 02) moves any template or catalog between all three. The default is **ARB**, because it is the lightest format that maps cleanly to the symbolic-key model (key = JSON key) and is ICU-native and Poedit-readable, with no XML-namespace parsing weight. **XLIFF** is the more *capable* format — it adds a native translation-state machine (initial → needs-review → translated → final) on top of ICU values, which is what professional vendors and translation-management systems expect; choose it when that workflow matters. **Portable Object** is the simplest and most Poedit-traditional, suited to community translators, at the cost of a weaker non-ICU plural model and the `msgctxt`-as-key mapping. Since `convert` is free, picking the default and switching later is cheap.
+The format is a convenience/authoring choice, not a lock-in — the tool's `convert` (spec 02) moves any template or catalog between all three. The authoring default is **XLIFF**, because source and translation are distinct first-class fields (no source-as-metadata an editor can silently drop), it carries a native translation-state machine (initial → needs-review → translated → final) on top of ICU values, and it opens cleanly in Poedit/Lokalize and the management systems professional vendors expect. **ARB** is the lightest format — it maps cleanly to the symbolic-key model (key = JSON key), is ICU-native and Poedit-readable, with no XML-namespace parsing weight; choose it to author when those properties matter. **Portable Object** is the most Poedit-traditional, suited to community translators, at the cost of a weaker non-ICU plural model and the `msgctxt`-as-key mapping. Since `convert` is free, picking the default and switching later is cheap.
+
+The **published bundle** is a separate choice (`ArchPillarLocalizationBundleFormat`, default **ARB**) because it has different priorities from an authoring file: the runtime reads only the translation, so the bundle drops the source entirely and wins on size — measured on a real catalog, a minified ARB bundle gzips to roughly 60% the size of the equivalent XLIFF, which still carries the now-redundant `<source>` and XML tag scaffolding. Authoring in XLIFF and publishing in ARB is the default precisely because each step optimizes for a different thing.
 
 ## What the build emits
 

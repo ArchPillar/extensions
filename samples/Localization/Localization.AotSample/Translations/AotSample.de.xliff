@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xliff version="2.1" srcLang="en" trgLang="de" xmlns="urn:oasis:names:tc:xliff:document:2.1">
+  <file id="f1">
+    <unit id="fromFiles">
+      <notes>
+        <note category="fingerprint">e40b397094dfc45b1acc66859404324e</note>
+      </notes>
+      <segment state="translated" subState="archpillar:Translated">
+        <source xml:space="preserve">Aus Dateien</source>
+        <target xml:space="preserve">Aus Dateien</target>
+      </segment>
+    </unit>
+  </file>
+</xliff>

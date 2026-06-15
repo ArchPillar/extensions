@@ -19,12 +19,12 @@
 
   <!--
     Batteries included: ship the German catalog inside this library's own DLL as a culture satellite
-    (Culture="de" routes de.arb to de/Acme.Greeting.resources.dll), and mark the assembly so the ambient
+    (Culture="de" routes de.xliff to de/Acme.Greeting.resources.dll), and mark the assembly so the ambient
     store discovers it. A consuming app needs no configuration, no DI, and no files on disk.
   -->
   <ItemGroup>
-    <None Remove="Translations/Acme.Greeting.de.arb" />
-    <EmbeddedResource Include="Translations/Acme.Greeting.de.arb" Culture="de" Link="Acme.Greeting.de.arb" />
+    <None Remove="Translations/Acme.Greeting.de.xliff" />
+    <EmbeddedResource Include="Translations/Acme.Greeting.de.xliff" Culture="de" Link="Acme.Greeting.de.xliff" />
     <AssemblyAttribute Include="ArchPillar.Extensions.Localization.LocalizationSatelliteCatalogsAttribute" />
   </ItemGroup>
 

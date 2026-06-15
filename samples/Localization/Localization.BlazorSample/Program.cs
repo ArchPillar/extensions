@@ -12,13 +12,13 @@ using Microsoft.AspNetCore.Localization;
 //   - Request-culture middleware reading ?culture= so the per-page culture-switch links work on each navigation
 //   - The IStringLocalizer path returning the key with ResourceNotFound when an entry is missing (the failure path)
 //
-// The UI lives in Components/Pages/Home.razor; the German catalog is Translations/de.arb.
+// The UI lives in Components/Pages/Home.razor; the German catalog is Translations/de.xliff.
 // ---------------------------------------------------------------------------
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddRazorComponents();
 
-// English ships in code; the German catalog (Translations/de.arb) loads as a runtime override. The
+// English ships in code; the German catalog (Translations/de.xliff) loads as a runtime override. The
 // StringLocalizer interop package registers both the native DefaultLocalizer and the IStringLocalizer adapter, so
 // components can inject either.
 builder.Services.AddArchPillarStringLocalizer(new LocalizerOptions

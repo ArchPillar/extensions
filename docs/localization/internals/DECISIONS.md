@@ -103,8 +103,12 @@ covered by the tool, not the editor.
   unless `ArchPillarLocalizationKeyPattern` is configured.
 - **Typed accessors:** v1 ships the `const` key registry only (D-4). Typed accessor methods
   are deferred.
-- **Authoring format:** a single format per project, defaulting to `arb`. The runtime still
-  loads mixed formats and prefers by fidelity (D-14).
+- **Authoring format:** a single format per project, defaulting to `xliff` (source and translation
+  as distinct first-class fields; opens cleanly in Poedit/Lokalize/TMS tools). The **published bundle**
+  is a separate knob defaulting to `arb` — a runtime bundle reads only the translation, so the most
+  compact, compressible container wins (a minified ARB bundle gzips to ~60% of the XLIFF equivalent,
+  which still carries the redundant source). The runtime still loads mixed formats and prefers by
+  fidelity (D-14).
 - **Composite key convention:** `Key` and `Context` combine as `context + "\u0004" + key`
   (the gettext `EOT` convention), defined once in `Abstractions` and shared by every provider
   and the runtime lookup.
@@ -306,8 +310,8 @@ All other decisions in `00-architecture.md` (D-1 … D-14) stand, except where *
 default remains the terminal fallback (D-1), though the source language is now also an editable, loadable
 override layer above it (D-L); stable symbolic keys (D-2);
 attribute-driven detection (D-3); the typed key registry (D-4); ICU MessageFormat as the one
-grammar (D-6); embedded CLDR plural data (D-7); the three shipped formats with ARB as default
-(D-8); opt-in hot reload (D-9); delete-on-removal of obsolete keys (D-11); on-demand languages
+grammar (D-6); embedded CLDR plural data (D-7); the three shipped formats (D-8), now defaulting to
+XLIFF for authoring and ARB for the published bundle (amended in D-E); opt-in hot reload (D-9); delete-on-removal of obsolete keys (D-11); on-demand languages
 (D-12); `convert` as a tool capability (D-13); runtime loads-all-formats-prefers-by-fidelity
 (D-14). `IStringLocalizer` / DI interop stays deferred to an integration phase (D-5).
 

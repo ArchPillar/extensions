@@ -57,7 +57,7 @@ Console.WriteLine(Greet("Ada"));                       // "Hallo Ada!" once a de
 | Instantiable context | `LocalizationContext` is the same environment as an object — construct, configure, dispose; build one directly for an isolated, static-free setup. |
 | Files / embedded / satellites | Loose files by default (trim/AOT-safe); opt-in embedding routes catalogs into culture satellite assemblies. |
 | ICU MessageFormat | Arguments, `plural` / `selectordinal` / `select`, embedded CLDR plural data. |
-| Standard formats | ARB (default), XLIFF 2.1, and Portable Object — round-tripped by the bundled providers. |
+| Standard formats | XLIFF 2.1 (default), ARB, and Portable Object — round-tripped by the bundled providers. |
 | Dependency injection | `AddArchPillarLocalization` feeds the process-wide ambient context and registers injectable native localizers; the generated `AddArchPillarLocalizedBundles()` registers the assembly's `Localized<T>` bundles. |
 | `IStringLocalizer` interop + migration | A separate `…StringLocalizer` package (`AddArchPillarStringLocalizer`): a composing adapter, on-by-default extraction of indexer literals, and a no-op `L(...)` marker — droppable once migration is done. |
 | Blazor WebAssembly / HTTP loading | Where there is no file system, `AddCatalogsFromManifestAsync` fetches catalogs over HTTP, discovering them via a build-emitted manifest; the separate `…AspNetCore` package serves the catalog formats as static files (`UseArchPillarTranslationFiles`). |

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xliff version="2.1" srcLang="en" trgLang="fr" xmlns="urn:oasis:names:tc:xliff:document:2.1">
+  <file id="f1">
+    <unit id="AddHint">
+      <notes>
+        <note category="x-category">Localization.TodoSample.TodoStrings</note>
+        <note category="fingerprint">42710574d6fc99bc54fb4e4c033acaa3</note>
+      </notes>
+      <segment state="translated" subState="archpillar:Translated">
+        <source xml:space="preserve">Saisissez une tâche et appuyez sur Entrée pour l'ajouter.</source>
+        <target xml:space="preserve">Saisissez une tâche et appuyez sur Entrée pour l'ajouter.</target>
+      </segment>
+    </unit>
+    <unit id="Empty">
+      <notes>
+        <note category="x-category">Localization.TodoSample.TodoStrings</note>
+        <note category="fingerprint">8fc32e9842c5ee17c1391b57d9974fcc</note>
+      </notes>
+      <segment state="translated" subState="archpillar:Translated">
+        <source xml:space="preserve">Rien à faire — ajoutez votre première tâche !</source>
+        <target xml:space="preserve">Rien à faire — ajoutez votre première tâche !</target>
+      </segment>
+    </unit>
+    <unit id="Remaining">
+      <notes>
+        <note category="x-category">Localization.TodoSample.TodoStrings</note>
+        <note category="fingerprint">c9917598b0dbfac613823a7b5bba7f6e</note>
+      </notes>
+      <segment state="translated" subState="archpillar:Translated">
+        <source xml:space="preserve">{count, plural, =0 {Tout est fait !} one {# tâche restante} other {# tâches restantes}}</source>
+        <target xml:space="preserve">{count, plural, =0 {Tout est fait !} one {# tâche restante} other {# tâches restantes}}</target>
+      </segment>
+    </unit>
+    <unit id="Title">
+      <notes>
+        <note category="x-category">Localization.TodoSample.TodoStrings</note>
+        <note category="fingerprint">fe27a669408bc08e5c67808ba1d85dbe</note>
+      </notes>
+      <segment state="translated" subState="archpillar:Translated">
+        <source xml:space="preserve">Mes tâches</source>
+        <target xml:space="preserve">Mes tâches</target>
+      </segment>
+    </unit>
+  </file>
+</xliff>
