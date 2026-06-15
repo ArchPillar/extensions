@@ -68,15 +68,20 @@ Add `--output Translations` to also report per-language progress (`de: 31/42 tra
 
 ## 2. Extract — the source template
 
-On a real build the package's MSBuild target runs `extract` for you, writing
-`{AssemblyName}.{SourceLanguage}.arb` (e.g. `App.Web.en.arb`) into your `Translations/` folder. To run it
-by hand over a scope:
+On a real build the package's MSBuild target runs `extract` for you, **merging** the freshly extracted strings
+into `{AssemblyName}.{SourceLanguage}.arb` (e.g. `App.Web.en.arb`) in your `Translations/` folder — it no longer
+overwrites the file, so the source catalog is a stable artifact you keep in git and whose wording history is
+tracked over time. To run it by hand over a scope:
 
 ```bash
 dotnet apl extract --solution App.sln --output Translations
 ```
 
-This template is the source side; you do not translate it directly and it is not shipped.
+This is the source side. You usually leave it alone — the in-code default is the terminal fallback, so an
+un-edited source entry (an *echo* of the default) is inert and ships nothing. But the source language **is**
+editable: change an entry's wording here to fix a typo or adjust tone without a recompile, and it becomes a
+source *override* that loads above the in-code default and is shipped like any translation. A re-extract
+preserves your edits (and flags one for review if the in-code default later drifts under it).
 
 ## 3. Add a language
 
@@ -143,9 +148,9 @@ paths; the build wires the first two automatically.
   dotnet apl merge --input <published Translations> --output <bundle dir> --source en
   ```
 
-The merge skips the source language and untranslated entries — it produces the **runtime** bundle, not a
-translator file. For the trim / single-file / NativeAOT support matrix, see
-[recommendations.md](recommendations.md).
+The merge skips untranslated entries and includes any genuine source-language overrides (a source language with
+no edits contributes no bundle) — it produces the **runtime** bundle, not a translator file. For the trim /
+single-file / NativeAOT support matrix, see [recommendations.md](recommendations.md).
 
 ## Naming convention
 

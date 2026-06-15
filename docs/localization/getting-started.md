@@ -106,7 +106,9 @@ never collide, and the build copies them beside the binary automatically.
 > assemblies have strings and how many.
 
 > When you reference the package, the build also runs `extract` for you after each real build, so the
-> source-language template (`{AssemblyName}.en.arb`) appears in `Translations/` without you asking. As code
+> source-language catalog (`{AssemblyName}.en.arb`) appears in `Translations/` without you asking. It is
+> *merged*, not overwritten, so you can keep it in git and even edit the source wording in place (a typo or
+> tone fix loads as an override without a recompile); your edits survive the next extract. As code
 > changes, `dotnet apl sync --output Translations` reconciles every language file
 > (and `--check` is your CI gate). The full lifecycle — including handing files to translators as a zip and
 > shipping for production — is in [translation-workflow.md](translation-workflow.md).

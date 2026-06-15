@@ -263,10 +263,48 @@ among them), and arguments that the generator never saw.
 This is a sizeable engine and is tracked as its own work item; it does not change the `extract` command's
 surface or output, only how it reads.
 
+### D-L — The source language is an editable, loadable override layer; the in-code default stays the terminal fallback.
+D-1 made the source language *uneditable* outside code: the runtime skipped every source-culture catalog, so a
+typo, a tone change, or a legal-wording tweak in the source language required a developer, a recompile, and a
+redeploy — while every *other* language was a translator's file edit. That asymmetry is not what the invariant
+actually needs. The non-negotiable invariant is only that **the in-code default is the terminal fallback** (a
+render never depends on a file existing); it does **not** require the source catalog to be *excluded from the
+override layers*. Excluding it was a stronger choice than the invariant demanded, and it made the source
+language a second-class citizen for the people who own the copy.
+
+**Decision:** the source language loads as an override layer like any other culture, *above* the in-code default,
+which remains the terminal fallback and the floor. The fallback chain is unchanged in spirit — exact culture →
+parent cultures → in-code default — the source culture simply stops being skipped. Two pieces make this safe and
+lean:
+
+- **Echo vs. override, by state.** A source entry that merely repeats the in-code default is an *echo*: it is
+  stored `NeedsTranslation` with no translation, so the existing per-entry runtime filter drops it (it adds
+  nothing over the terminal fallback) and the publish merge ships nothing for it. A source string a human edits
+  away from the default becomes a `Translated` *override* that loads and ships exactly like a target translation.
+  So an app that never edits its source ships and loads nothing extra; only genuine edits travel.
+- **`extract` merges instead of overwriting (the catalog is git-tracked).** The source catalog is no longer a
+  disposable build output rewritten every build; `extract` reconciles the freshly extracted template *into* the
+  existing source catalog (`Reconciler.ReconcileSource`): new keys arrive as echoes, removed keys are dropped
+  (D-11), un-edited echoes silently track the current default, and a hand-edited source string is preserved —
+  re-based onto the current default and flagged `NeedsReview` when the in-code default drifted under it. "Was it
+  edited?" is decided by the stored source fingerprint versus the on-disk value's fingerprint, so a stale echo is
+  never mistaken for an edit. The catalog is therefore a stable artifact a team keeps in git and whose source
+  wording history is tracked over time.
+
+**Consequences:** the runtime stops skipping the source culture (the per-entry filter already keeps only real
+overrides); `merge` and `manifest` include the source language (an un-customized one contributes no bundle); and
+the package `.targets` stop excluding `{AssemblyName}.{SourceLanguage}.*` from copy-to-output, satellite
+embedding, and the Blazor static-web-asset gather (only the language-neutral `messages.pot` template stays
+excluded). This **amends D-1** (source is no longer code-only; the catalog is a merged, git-tracked artifact),
+**D-12** (the source catalog is now also a shippable override surface, though target *languages* are still added
+on demand), and **D-D** / spec 05 / spec 06 wherever they said the source file is never loaded, shipped, or
+edited. The doc-XML analogy in D-1 no longer holds for the source catalog — it is authored, not purely generated.
+
 ## What is unchanged from the specs
 
-All other decisions in `00-architecture.md` (D-1 … D-14) stand: the in-code default is the
-runtime source of truth and terminal fallback (D-1); stable symbolic keys (D-2);
+All other decisions in `00-architecture.md` (D-1 … D-14) stand, except where **D-L** amends them: the in-code
+default remains the terminal fallback (D-1), though the source language is now also an editable, loadable
+override layer above it (D-L); stable symbolic keys (D-2);
 attribute-driven detection (D-3); the typed key registry (D-4); ICU MessageFormat as the one
 grammar (D-6); embedded CLDR plural data (D-7); the three shipped formats with ARB as default
 (D-8); opt-in hot reload (D-9); delete-on-removal of obsolete keys (D-11); on-demand languages

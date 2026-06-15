@@ -67,7 +67,7 @@ public sealed class ToolApplicationTests : IDisposable
     }
 
     [Fact]
-    public async Task Merge_FlattensToOneBundlePerCulture_SkipsSourceAsync()
+    public async Task Merge_FlattensToOneBundlePerCulture_IncludesSourceOverridesAsync()
     {
         var input = Path.Combine(_directory, "input");
         var output = Path.Combine(_directory, "out");
@@ -75,27 +75,29 @@ public sealed class ToolApplicationTests : IDisposable
         await WriteCatalogAsync(Path.Combine(input, "LibA.de.arb"), "de", ("save", "Speichern"));
         await WriteCatalogAsync(Path.Combine(input, "LibB.de.arb"), "de", ("cancel", "Abbrechen"));
         await WriteCatalogAsync(Path.Combine(input, "LibA.fr.arb"), "fr", ("save", "Sauvegarder"));
-        await WriteCatalogAsync(Path.Combine(input, "LibA.en.arb"), "en", ("save", "Save"));
+        await WriteCatalogAsync(Path.Combine(input, "LibA.en.arb"), "en", ("save", "Save")); // a source override
 
         var exit = await ToolApplication.RunAsync(["merge", "--input", input, "--output", output, "--source", "en"]);
 
         Assert.Equal(0, exit);
         Assert.True(File.Exists(Path.Combine(output, "de.arb")));
         Assert.True(File.Exists(Path.Combine(output, "fr.arb")));
-        Assert.False(File.Exists(Path.Combine(output, "en.arb"))); // source culture skipped
+        Assert.True(File.Exists(Path.Combine(output, "en.arb"))); // source overrides are bundled too
 
         Catalog de = await ReadAsync(Path.Combine(output, "de.arb"));
         Assert.Equal(2, de.Entries.Count); // both libraries' de entries merged into one bundle
+        Catalog en = await ReadAsync(Path.Combine(output, "en.arb"));
+        Assert.Equal("Save", Assert.Single(en.Entries).TranslatedMessage);
     }
 
     [Fact]
-    public async Task Manifest_ListsNonSourceCatalogsSortedByCulture_SkipsSourceAsync()
+    public async Task Manifest_ListsCatalogsSortedByCulture_IncludingSourceAsync()
     {
         var input = Path.Combine(_directory, "manifest-input");
         Directory.CreateDirectory(input);
         await WriteCatalogAsync(Path.Combine(input, "App.fr.arb"), "fr", ("save", "Sauvegarder"));
         await WriteCatalogAsync(Path.Combine(input, "App.de.arb"), "de", ("save", "Speichern"));
-        await WriteCatalogAsync(Path.Combine(input, "App.en.arb"), "en", ("save", "Save"));
+        await WriteCatalogAsync(Path.Combine(input, "App.en.arb"), "en", ("save", "Save")); // a source override bundle
 
         var exit = await ToolApplication.RunAsync(["manifest", "--input", input, "--source", "en"]);
 
@@ -106,7 +108,7 @@ public sealed class ToolApplicationTests : IDisposable
         using var document = JsonDocument.Parse(await File.ReadAllTextAsync(manifestPath));
         List<string> files = [.. document.RootElement.GetProperty("catalogs").EnumerateArray()
             .Select(entry => entry.GetProperty("file").GetString()!)];
-        string[] expected = ["App.de.arb", "App.fr.arb"]; // sorted by culture; source 'en' excluded
+        string[] expected = ["App.de.arb", "App.en.arb", "App.fr.arb"]; // sorted by culture; source listed too
         Assert.Equal(expected, files);
     }
 

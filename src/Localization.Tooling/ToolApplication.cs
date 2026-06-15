@@ -142,7 +142,15 @@ internal static class ToolApplication
             }
 
             var name = Path.GetFileNameWithoutExtension(path);
-            await WriteFileAsync(provider, Path.Combine(output, CatalogFileName(name, sourceLanguage, provider)), template).ConfigureAwait(false);
+            var sourcePath = Path.Combine(output, CatalogFileName(name, sourceLanguage, provider));
+
+            // Merge into the existing source catalog rather than overwrite it, so it is a stable, git-tracked
+            // artifact whose hand-edited source wording survives a re-extract (the default's echoes still track
+            // code). A first extract has no file yet, so it merges into an empty source catalog (a clean seed).
+            Catalog existing = File.Exists(sourcePath)
+                ? await ReadFileAsync(provider, sourcePath).ConfigureAwait(false)
+                : new Catalog { Culture = sourceLanguage, Entries = [] };
+            await WriteFileAsync(provider, sourcePath, Reconciler.ReconcileSource(template, existing)).ConfigureAwait(false);
             count++;
         }
 
@@ -470,7 +478,8 @@ internal static class ToolApplication
             catalogs.Add(await ReadFileAsync(ProviderFor(registry, file), file).ConfigureAwait(false));
         }
 
-        // Reuse the runtime's load (precedence + skip source/untranslated), then dump one bundle per culture.
+        // Reuse the runtime's load (precedence, skip untranslated, source loaded as overrides), then dump one
+        // bundle per culture. An un-customized source language contributes no entries, so it yields no bundle.
         IReadOnlyList<Catalog> merged = CatalogLoader.Flatten(catalogs, new LocalizerOptions { SourceCulture = sourceCulture });
         foreach (Catalog catalog in merged)
         {
@@ -481,10 +490,12 @@ internal static class ToolApplication
         return 0;
     }
 
-    // Writes the catalog index the HTTP runtime loader reads (apl-catalogs.json), listing every non-source
-    // catalog in the directory by culture and file name. Run after extract (dev layout, {AssemblyName}.{culture})
-    // and again after merge (published layout, {culture}), so the one manifest path resolves in both — over HTTP
-    // there is no directory to enumerate, so the index is how the client discovers what to fetch.
+    // Writes the catalog index the HTTP runtime loader reads (apl-catalogs.json), listing every catalog in the
+    // directory by culture and file name. Run after extract (dev layout, {AssemblyName}.{culture}) and again
+    // after merge (published layout, {culture}), so the one manifest path resolves in both — over HTTP there is
+    // no directory to enumerate, so the index is how the client discovers what to fetch. The source language is
+    // listed like any other: a merged source bundle exists only when it carries genuine overrides (so an
+    // un-customized source language is absent and lists nothing), and those overrides are fetched the same way.
     private static async Task<int> ManifestAsync(IReadOnlyDictionary<string, string> options)
     {
         var input = Require(options, "--input");
@@ -493,7 +504,6 @@ internal static class ToolApplication
             return Fail($"--input directory '{input}' does not exist.");
         }
 
-        var sourceCulture = SourceLanguage(options);
         var output = options.TryGetValue("--output", out var o) && o.Length > 0
             ? o
             : Path.Combine(input, HttpCatalogLoaderExtensions.DefaultManifestFileName);
@@ -504,9 +514,8 @@ internal static class ToolApplication
         {
             var culture = CultureOf(file);
 
-            // The source-language catalog ships in code as the terminal fallback, so it is never an override to
-            // fetch; an unparseable name (no culture segment) is skipped rather than guessed at.
-            if (string.IsNullOrEmpty(culture) || string.Equals(culture, sourceCulture, StringComparison.OrdinalIgnoreCase))
+            // An unparseable name (no culture segment) is skipped rather than guessed at.
+            if (string.IsNullOrEmpty(culture))
             {
                 continue;
             }

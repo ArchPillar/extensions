@@ -12,9 +12,9 @@ A user-interface translation library for .NET built around three ideas:
 
 ## The non-negotiable invariant
 
-The in-code default message is the **runtime source of truth** for the source language and the **terminal fallback** for every other language. Nothing on the rendering path depends on any translation file existing. Translation files only ever *override* the in-code default for a specific key and culture. This invariant is what makes translations pluggable, makes partial translations degrade gracefully key-by-key, and makes "delete a locale file" a safe operation.
+The in-code default message is the **terminal fallback** for every language, including the source language. Nothing on the rendering path depends on any translation file existing: a missing snapshot, culture, or key degrades to the in-code default. This invariant is what makes translations pluggable, makes partial translations degrade gracefully key-by-key, and makes "delete a locale file" a safe operation.
 
-> **Decision D-1 (resolved): source language is edited in code; in-code defaults are the runtime truth.** The translation files are a compile-time *output*, conceptually identical to the C# documentation XML file (`<GenerateDocumentationFile>`): the source strings live in code, the build emits the catalog as a side effect, and the rendering path never depends on a file existing. Translation files only ever override the in-code default for a specific key and culture.
+> **Decision D-1, as amended by D-L (see `DECISIONS.md`):** the in-code default remains the terminal fallback (the floor that needs no file), but the source language is **not** code-only. It loads as an override layer like any other culture, *above* that floor, so source wording is editable by a translator/copywriter without a recompile. The source catalog is a merged, git-tracked artifact (`extract` reconciles into it, it is not overwritten), and only a *genuine* source override — a string edited away from the in-code default — loads and ships; a bare echo of the default does not. Translation files (source and target alike) only ever override the in-code default for a specific key and culture.
 
 ## Component map
 
@@ -136,7 +136,7 @@ The reconciler and the runtime never touch a file format directly. They operate 
 
 Each decision uses: **Context → Decision → Consequence**.
 
-**D-1 — Source-language ownership.** *Decision (resolved):* source language is edited in code; in-code defaults are the runtime truth, and the catalog files are a compile-time output (the doc-XML model). *Consequence:* runtime never needs a file for the source language; the generator/reconciler treat translation files as pure overrides.
+**D-1 — Source-language ownership.** *Decision (resolved; amended by D-L in `DECISIONS.md`):* the in-code default is the terminal fallback, so the runtime never *needs* a file for the source language. *Amendment (D-L):* the source language is nonetheless editable — its catalog loads as an override layer above the in-code default and is a merged, git-tracked artifact rather than a disposable compile-time output. *Consequence:* a render never depends on a file existing, yet source wording can be corrected without a recompile, and only genuine source overrides (not echoes of the default) load and ship.
 
 **D-2 — Key model.** *Context:* gettext uses source-text-as-key; that orphans translations on any source edit and collapses identical strings across contexts. *Decision:* stable symbolic key + separate in-code default + optional context. *Consequence:* editing the default does not change the key; it marks existing translations *stale* (a recoverable, detectable state) rather than losing them. Fingerprinting (spec 02) implements staleness.
 

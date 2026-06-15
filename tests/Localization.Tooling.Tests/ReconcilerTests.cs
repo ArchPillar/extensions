@@ -1,7 +1,109 @@
+using ArchPillar.Extensions.Localization.Tooling.Internal;
+
 namespace ArchPillar.Extensions.Localization.Tooling.Tests;
 
 public sealed class ReconcilerTests
 {
+    [Fact]
+    public void ReconcileSource_NewKey_IsAnEchoNotAnOverride()
+    {
+        // A freshly extracted source key echoes the in-code default: no stored translation, NeedsTranslation,
+        // so the runtime loader skips it (the in-code default is the terminal fallback).
+        Catalog template = MakeCatalog("en", Entry("home", "Home", Fp("Home")));
+
+        CatalogEntry entry = Single(Reconciler.ReconcileSource(template, MakeCatalog("en")));
+
+        Assert.Equal(TranslationState.NeedsTranslation, entry.State);
+        Assert.Null(entry.TranslatedMessage);
+        Assert.Equal("Home", entry.SourceMessage);
+    }
+
+    [Fact]
+    public void ReconcileSource_UnchangedEcho_TracksTheCurrentDefault()
+    {
+        // The on-disk value still hashes to its stored fingerprint, so it was never hand-edited — re-base it
+        // onto the (drifted) current default rather than pinning the old text.
+        Catalog template = MakeCatalog("en", Entry("home", "Homepage", Fp("Homepage")));
+        Catalog existing = MakeCatalog("en", Entry("home", "Home", Fp("Home")));
+
+        CatalogEntry entry = Single(Reconciler.ReconcileSource(template, existing));
+
+        Assert.Equal(TranslationState.NeedsTranslation, entry.State);
+        Assert.Null(entry.TranslatedMessage);
+        Assert.Equal("Homepage", entry.SourceMessage);
+        Assert.Equal(Fp("Homepage"), entry.SourceFingerprint);
+    }
+
+    [Fact]
+    public void ReconcileSource_HandEditedEcho_BecomesTranslatedOverride()
+    {
+        // A human edited the source value of an echo (the file still held NeedsTranslation); the edit no longer
+        // hashes to the stored fingerprint, so it is preserved as a genuine source override.
+        Catalog template = MakeCatalog("en", Entry("home", "Home", Fp("Home")));
+        Catalog existing = MakeCatalog("en", Entry("home", "Howdy", Fp("Home")));
+
+        CatalogEntry entry = Single(Reconciler.ReconcileSource(template, existing));
+
+        Assert.Equal(TranslationState.Translated, entry.State);
+        Assert.Equal("Howdy", entry.TranslatedMessage);
+    }
+
+    [Fact]
+    public void ReconcileSource_OverrideWithDriftedDefault_IsPreservedAndFlaggedForReview()
+    {
+        Catalog template = MakeCatalog("en", Entry("home", "Hello", Fp("Hello")));
+        Catalog existing = MakeCatalog("en", Entry("home", "Howdy", Fp("Home"), "Howdy", TranslationState.Translated));
+
+        CatalogEntry entry = Single(Reconciler.ReconcileSource(template, existing));
+
+        Assert.Equal(TranslationState.NeedsReview, entry.State);
+        Assert.Equal("Howdy", entry.TranslatedMessage);
+        Assert.Equal("Hello", entry.SourceMessage);
+        Assert.Equal(Fp("Hello"), entry.SourceFingerprint);
+    }
+
+    [Fact]
+    public void ReconcileSource_OverrideRevertedToDefault_CollapsesBackToEcho()
+    {
+        // The override text now equals the current default, so it is no longer an override.
+        Catalog template = MakeCatalog("en", Entry("home", "Home", Fp("Home")));
+        Catalog existing = MakeCatalog("en", Entry("home", "Home", Fp("Home"), "Home", TranslationState.Translated));
+
+        CatalogEntry entry = Single(Reconciler.ReconcileSource(template, existing));
+
+        Assert.Equal(TranslationState.NeedsTranslation, entry.State);
+        Assert.Null(entry.TranslatedMessage);
+    }
+
+    [Fact]
+    public void ReconcileSource_RemovedKey_IsDropped()
+    {
+        Catalog template = MakeCatalog("en", Entry("a", "A", Fp("A")));
+        Catalog existing = MakeCatalog(
+            "en",
+            Entry("a", "A", Fp("A")),
+            Entry("b", "B", Fp("B"), "Bee", TranslationState.Translated));
+
+        Assert.Equal("a", Single(Reconciler.ReconcileSource(template, existing)).Key);
+    }
+
+    [Fact]
+    public void ReconcileSource_IsIdempotent()
+    {
+        Catalog template = MakeCatalog("en", Entry("home", "Home", Fp("Home")));
+        Catalog once = Reconciler.ReconcileSource(template, MakeCatalog("en", Entry("home", "Howdy", Fp("Home"))));
+
+        Catalog twice = Reconciler.ReconcileSource(template, once);
+
+        CatalogEntry first = Single(once);
+        CatalogEntry second = Single(twice);
+        Assert.Equal(first.State, second.State);
+        Assert.Equal(first.TranslatedMessage, second.TranslatedMessage);
+        Assert.Equal(first.SourceFingerprint, second.SourceFingerprint);
+    }
+
+    private static string Fp(string source) => TemplateBuilder.Fingerprint(source, null);
+
     [Fact]
     public void Reconcile_NewKey_IsAddedAsNeedsTranslation()
     {
