@@ -18,7 +18,7 @@ namespace ArchPillar.Extensions.Localization.Tooling;
 /// </summary>
 internal static class ToolApplication
 {
-    private static readonly IReadOnlyCollection<string> _scopeOptions = ["--assembly", "--input", "--project", "--solution", "--recurse"];
+    private static readonly IReadOnlyCollection<string> _scopeOptions = ["--assembly", "--input", "--project", "--solution", "--recurse", "--no-annotations"];
 
     // The options each command accepts. An option outside its command's set is rejected rather than
     // silently ignored, so a typo (e.g. "--chek" for "--check") cannot turn a read-only check into a write.
@@ -88,7 +88,7 @@ internal static class ToolApplication
         using var extractor = new AssemblyStringExtractor();
         foreach (var path in ScopeResolver.Resolve(ParseScope(options)))
         {
-            Catalog? template = TemplateBuilder.Build(extractor, path, sourceLanguage);
+            Catalog? template = TemplateBuilder.Build(extractor, path, sourceLanguage, IncludeAnnotations(options));
             if (template is null)
             {
                 continue;
@@ -135,7 +135,7 @@ internal static class ToolApplication
         using var extractor = new AssemblyStringExtractor();
         foreach (var path in ScopeResolver.Resolve(ParseScope(options)))
         {
-            Catalog? template = TemplateBuilder.Build(extractor, path, sourceLanguage);
+            Catalog? template = TemplateBuilder.Build(extractor, path, sourceLanguage, IncludeAnnotations(options));
             if (template is null)
             {
                 continue;
@@ -197,7 +197,7 @@ internal static class ToolApplication
         using var extractor = new AssemblyStringExtractor();
         foreach (var path in ScopeResolver.Resolve(ParseScope(options)))
         {
-            Catalog? template = TemplateBuilder.Build(extractor, path, sourceLanguage);
+            Catalog? template = TemplateBuilder.Build(extractor, path, sourceLanguage, IncludeAnnotations(options));
             if (template is null)
             {
                 continue;
@@ -259,7 +259,7 @@ internal static class ToolApplication
         using var extractor = new AssemblyStringExtractor();
         foreach (var path in ScopeResolver.Resolve(ParseScope(options)))
         {
-            Catalog? template = TemplateBuilder.Build(extractor, path, sourceLanguage);
+            Catalog? template = TemplateBuilder.Build(extractor, path, sourceLanguage, IncludeAnnotations(options));
             if (template is null)
             {
                 continue;
@@ -615,6 +615,11 @@ internal static class ToolApplication
 
     private static string SourceLanguage(IReadOnlyDictionary<string, string> options) =>
         options.TryGetValue("--source", out var source) && source.Length > 0 ? source : "en";
+
+    // Annotation extraction (display names, descriptions, and validation messages carried by attributes) is on
+    // by default; --no-annotations opts a project out, leaving only the IL call sites in the template.
+    private static bool IncludeAnnotations(IReadOnlyDictionary<string, string> options) =>
+        !options.ContainsKey("--no-annotations");
 
     private static ITranslationFormat FormatOf(IReadOnlyDictionary<string, string> options, TranslationFormatRegistry registry) =>
         (options.TryGetValue("--format", out var format) && format.Length > 0 ? registry.ResolveById(format) : null)

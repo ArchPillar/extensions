@@ -14,18 +14,22 @@ internal static class TemplateBuilder
 {
     /// <summary>Returns the template for <paramref name="assemblyPath"/>, or <see langword="null"/> when the
     /// assembly has no translatable strings. The <paramref name="extractor"/> is shared across a batch so its
-    /// resolver and method cache are reused for every assembly in one scan.</summary>
-    public static Catalog? Build(AssemblyStringExtractor extractor, string assemblyPath, string sourceLanguage)
+    /// resolver and method cache are reused for every assembly in one scan. <paramref name="includeAnnotations"/>
+    /// folds in strings carried by display annotations (<c>[DisplayName]</c> / <c>[Display]</c> /
+    /// <c>[Description]</c> and the <c>[Localized…]</c> twins); pass <see langword="false"/> to opt out and emit
+    /// only the IL call sites. IL call sites take precedence over an annotation on the same (category, key, context).</summary>
+    public static Catalog? Build(AssemblyStringExtractor extractor, string assemblyPath, string sourceLanguage, bool includeAnnotations = true)
     {
-        IReadOnlyList<RawCallSite> sites = extractor.Extract(assemblyPath);
-        if (sites.Count == 0)
+        IReadOnlyList<RawCallSite> callSites = extractor.Extract(assemblyPath);
+        IReadOnlyList<RawCallSite> annotations = includeAnnotations ? extractor.ExtractAnnotations(assemblyPath) : [];
+        if (callSites.Count == 0 && annotations.Count == 0)
         {
             return null;
         }
 
         var seen = new HashSet<string>(StringComparer.Ordinal);
         var entries = new List<CatalogEntry>();
-        foreach (RawCallSite site in sites)
+        foreach (RawCallSite site in callSites.Concat(annotations))
         {
             // One entry per distinct (category, key, context): the same key under a different context is a
             // different string, exactly as the catalog model defines identity.
