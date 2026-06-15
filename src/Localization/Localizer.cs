@@ -56,6 +56,15 @@ public static class Localizer
     public static ILocalizer<T> For<T>() => Ambient.For<T>();
 
     /// <summary>
+    /// Returns the ambient localizer scoped to <paramref name="category"/> — the dynamic-category parallel of
+    /// <see cref="For{T}"/>, for a category computed at runtime rather than a type argument.
+    /// </summary>
+    /// <param name="category">The translation category.</param>
+    /// <returns>The ambient category-scoped localizer.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="category"/> is <see langword="null"/>.</exception>
+    public static ILocalizer ForCategory(string category) => Ambient.ForCategory(category);
+
+    /// <summary>
     /// Translates <paramref name="key"/> through the global ambient store, falling back to
     /// <paramref name="defaultMessage"/>. The free-function form for
     /// <c>using static ArchPillar.Extensions.Localization.Localizer;</c> — the call site then reads

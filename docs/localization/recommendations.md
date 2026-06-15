@@ -93,9 +93,35 @@ var localizer = new DefaultLocalizer(catalogs); // or just the engine over fixed
 
 The adapter serves `IStringLocalizer` call sites, `.resx` keys, DataAnnotations messages, and view
 localization at runtime, but only **constant, valid-ICU indexer literals** are extracted into the
-catalog — `.resx` keys and attribute messages are not (they have no in-code default to harvest).
-Anything you want round-tripped to translators must go through the native `ILocalizer` API, an
-extracted indexer literal, or an `L(...)` marker. Migrate hot paths to the native API over time.
+catalog — `.resx` keys and a validator's `ErrorMessage` are not (they have no in-code default to
+harvest). Display **annotations** are the exception: `[DisplayName]` / `[Display]` / `[Description]` are
+extracted by the dedicated annotation pass (next), so they need no bridge. Anything else you want
+round-tripped to translators must go through the native `ILocalizer` API, an extracted indexer literal,
+or an `L(...)` marker. Migrate hot paths to the native API over time.
+
+## Let display annotations extract themselves; add a twin only for string-id keys
+
+`[DisplayName]`, `[Display(Name/Description)]`, and `[Description]` are extracted by default (the literal
+is both key and default, scoped to the declaring type), so annotated models and enums reach translators
+with no extra work — there is no reason to restate those strings through `Translate(...)`. Opt a project
+out with `ArchPillarLocalizationExtractAnnotations=false` only when you deliberately do not want
+annotations localized.
+
+The literal-as-key default is fine until a wording change copy-edits the key out from under its
+translations. If you would rather key by a **stable string id**, put the id in the system attribute — the
+value the framework looks up — and add a `[Localized…]` twin carrying the source default for that id. The
+twin is purely the default; it never holds the key. For validation, the id goes in the validator's
+`ErrorMessage` and `[LocalizedMessage<TValidation>]` carries the default.
+
+```csharp
+[Display(Name = "checkout.continueToPayment")]                  // the string id is the key
+[LocalizedDisplayName("Save changes and continue to payment")]  // the twin supplies the source default
+public string Continue { get; set; } = "";
+```
+
+> Localize MVC DataAnnotations with `AddArchPillarDataAnnotationsLocalization()` (the `…AspNetCore`
+> package), and enums with `value.GetLocalizedDisplayName()`. Both resolve under the declaring type's
+> category, so a translation added for one is the same entry the other reads.
 
 ## Register the localizer as a singleton
 

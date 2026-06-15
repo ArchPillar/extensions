@@ -14,7 +14,12 @@
           AfterTargets="Build"
           Condition="'$(ArchPillarLocalizationEmit)' == 'true' and '$(DesignTimeBuild)' != 'true' and '$(BuildingProject)' == 'true'
                      and ('$(ArchPillarLocalizationExtractTransitively)' == 'true' or '@(PackageReference->WithMetadataValue('Identity', 'ArchPillar.Extensions.Localization'))' != '')">
-    <Exec Command="$(ArchPillarLocalizationToolCommand) extract --assembly &quot;$(TargetPath)&quot; --output &quot;$([MSBuild]::NormalizePath('$(ArchPillarLocalizationOutputPath)'))&quot; --source $(ArchPillarLocalizationSourceLanguage) --format $(ArchPillarLocalizationFormat)"
+    <!-- Opt out of annotation extraction (display names, descriptions, validation messages) when the consumer
+         set ArchPillarLocalizationExtractAnnotations=false, leaving only the in-code call sites in the template. -->
+    <PropertyGroup>
+      <_ArchPillarExtractAnnotationsArg Condition="'$(ArchPillarLocalizationExtractAnnotations)' == 'false'">--no-annotations</_ArchPillarExtractAnnotationsArg>
+    </PropertyGroup>
+    <Exec Command="$(ArchPillarLocalizationToolCommand) extract --assembly &quot;$(TargetPath)&quot; --output &quot;$([MSBuild]::NormalizePath('$(ArchPillarLocalizationOutputPath)'))&quot; --source $(ArchPillarLocalizationSourceLanguage) --format $(ArchPillarLocalizationFormat) $(_ArchPillarExtractAnnotationsArg)"
           ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)"
           StandardOutputImportance="low" />
   </Target>

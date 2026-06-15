@@ -21,6 +21,10 @@
     <ArchPillarLocalizationSourceLanguage Condition="'$(ArchPillarLocalizationSourceLanguage)' == ''">en</ArchPillarLocalizationSourceLanguage>
     <ArchPillarLocalizationOutputPath Condition="'$(ArchPillarLocalizationOutputPath)' == ''">$(MSBuildProjectDirectory)/Translations</ArchPillarLocalizationOutputPath>
     <ArchPillarLocalizationEmit Condition="'$(ArchPillarLocalizationEmit)' == ''">true</ArchPillarLocalizationEmit>
+    <!-- Display names, descriptions, and validation messages carried by attributes ([DisplayName], [Display],
+         [Description] and the [Localized…] twins) are genuine display values, so they are extracted by default.
+         Set false to opt out, leaving only the in-code call sites in the template. -->
+    <ArchPillarLocalizationExtractAnnotations Condition="'$(ArchPillarLocalizationExtractAnnotations)' == ''">true</ArchPillarLocalizationExtractAnnotations>
     <!-- Template extraction runs only where the package is referenced directly (the project that authors the
          strings). Set true to also extract in a project that references the package transitively, or that wires
          these build assets in by hand (e.g. via Directory.Build) — the escape hatch. The publish-time merge
