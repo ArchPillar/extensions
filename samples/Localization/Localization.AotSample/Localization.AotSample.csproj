@@ -14,6 +14,12 @@
          references (NETSDK1207). `dotnet publish -r <rid>` produces the native binary; a plain build is
          unaffected and the AOT analyzers keep the sample honest. -->
     <PublishAot>true</PublishAot>
+    <!-- Author this sample like any other: extraction generates the en source catalog and the generator runs.
+         The generator/analyzer references are compile-time only (OutputItemType=Analyzer,
+         ReferenceOutputAssembly=false), so they never enter the native image, and PublishAot in the csproj body
+         (not the command line) keeps it from propagating to those netstandard2.0 references. Verified
+         warning-clean through native AOT publish and run. -->
+    <ArchPillarLocalizationSampleAuthoring>true</ArchPillarLocalizationSampleAuthoring>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,10 +28,10 @@
 
   <ItemGroup>
     <!-- AOT-safe path #1: a loose file copied beside the binary, loaded by the ambient store's directory. -->
-    <Content Include="Translations\**\*.arb" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Translations\**\*.xliff" CopyToOutputDirectory="PreserveNewest" />
     <!-- AOT-safe path #2: a catalog embedded in the MAIN assembly (WithCulture=false keeps it out of a satellite). -->
-    <None Remove="Embedded/main.de.arb" />
-    <EmbeddedResource Include="Embedded/main.de.arb" LogicalName="aotmain.de.arb" WithCulture="false" />
+    <None Remove="Embedded/main.de.xliff" />
+    <EmbeddedResource Include="Embedded/main.de.xliff" LogicalName="aotmain.de.xliff" WithCulture="false" />
   </ItemGroup>
 
 </Project>

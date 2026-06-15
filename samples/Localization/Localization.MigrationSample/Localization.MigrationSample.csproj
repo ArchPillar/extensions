@@ -25,7 +25,7 @@
 
   <ItemGroup>
     <!-- ArchPillar's files-by-default catalog: the "new" German translation, loaded by the ambient store. -->
-    <Content Include="Translations\**\*.arb" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Translations\**\*.xliff" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

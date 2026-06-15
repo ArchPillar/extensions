@@ -128,7 +128,7 @@ The tool writes the source-language template (the `.pot`-equivalent / source `.a
 
 ```
 dotnet apl extract   [scope: --solution|--project|--input|--assembly, default cwd]   # template from IL
-                         --format <arb|xliff|po, default arb> --source <bcp47, default en>
+                         --format <arb|xliff|po, default xliff> --source <bcp47, default en>
                          --output <dir, default ./Translations>
 
 dotnet apl add       <lang>                                  # create a target file from the template

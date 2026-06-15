@@ -214,12 +214,12 @@ to fail fast instead.
 ## Container formats
 
 Catalogs round-trip through three standard, translator-tooling-friendly formats, all bundled into the
-runtime (no separate packages, no plugin to register): **ARB** (the default, a JSON dialect with rich
-metadata), **XLIFF 2.1** (the XML interchange standard most TMS tools speak), and **Portable Object**
-(gettext `.po`). You author in whichever your translation pipeline prefers and the runtime loads all
-three side by side; when the same culture and key appear in more than one file the higher-fidelity
-format wins (`xliff` > `arb` > `po`, configurable via `FormatPrecedence`), so a richer XLIFF entry is
-never shadowed by a leaner `.po` one. Each provider (`ArbTranslationFormat`, `XliffTranslationFormat`,
+runtime (no separate packages, no plugin to register): **XLIFF 2.1** (the default — the XML interchange
+standard most TMS tools speak, with source and translation as distinct first-class fields), **ARB** (a
+JSON dialect with rich metadata), and **Portable Object** (gettext `.po`). You author in whichever your
+translation pipeline prefers and the runtime loads all three side by side; when the same culture and key
+appear in more than one file the higher-fidelity format wins (`xliff` > `arb` > `po`, configurable via
+`FormatPrecedence`), so a richer XLIFF entry is never shadowed by a leaner `.po` one. Each provider (`ArbTranslationFormat`, `XliffTranslationFormat`,
 `PoTranslationFormat`) is public and **stream-based**, so a catalog can come from anywhere — a file, an
 embedded resource, an HTTP response, a database column — and you can build a custom `ITranslationSource`
 on top of one.

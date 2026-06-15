@@ -19,4 +19,4 @@ title, pluralized counts, and summary switch culture.
 ## Notes
 Each server-rendered navigation is a fresh request, so the `?culture=` links re-run the
 request-culture middleware and re-render in the chosen culture. The German catalog is
-`Translations/de.arb`.
+`Translations/de.xliff`.

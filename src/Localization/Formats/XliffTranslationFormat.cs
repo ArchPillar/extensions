@@ -46,7 +46,7 @@ public sealed class XliffTranslationFormat : ITranslationFormat
     }
 
     /// <inheritdoc />
-    public async Task WriteAsync(Stream output, Catalog catalog, CancellationToken cancellationToken)
+    public async Task WriteAsync(Stream output, Catalog catalog, CancellationToken cancellationToken, CatalogWriteOptions? options = null)
     {
         if (output is null)
         {
@@ -58,7 +58,7 @@ public sealed class XliffTranslationFormat : ITranslationFormat
             throw new ArgumentNullException(nameof(catalog));
         }
 
-        var bytes = Serialize(catalog);
+        var bytes = Serialize(catalog, options ?? CatalogWriteOptions.Default);
         await output.WriteAsync(bytes, 0, bytes.Length, cancellationToken).ConfigureAwait(false);
     }
 
@@ -197,7 +197,7 @@ public sealed class XliffTranslationFormat : ITranslationFormat
         return Enum.TryParse(subState[SubStatePrefix.Length..], out state);
     }
 
-    private static byte[] Serialize(Catalog catalog)
+    private static byte[] Serialize(Catalog catalog, CatalogWriteOptions options)
     {
         catalog.Headers.TryGetValue("srcLang", out var sourceLanguage);
         var root = new XElement(
@@ -205,11 +205,16 @@ public sealed class XliffTranslationFormat : ITranslationFormat
             new XAttribute("version", "2.1"),
             new XAttribute("srcLang", string.IsNullOrEmpty(sourceLanguage) ? "en" : sourceLanguage!),
             new XAttribute("trgLang", catalog.Culture),
-            new XElement(_ns + "file", new XAttribute("id", "f1"), BuildUnits(catalog)));
+            new XElement(_ns + "file", new XAttribute("id", FileId(options)), BuildUnits(catalog)));
 
         var document = new XDocument(new XDeclaration("1.0", "utf-8", null), root);
-        return Render(document);
+        return Render(document, options.Minify);
     }
+
+    // The <file> id identifies the logical source independently of target language, so it carries the
+    // catalog's source name (the assembly) when known, and a generic token otherwise.
+    private static string FileId(CatalogWriteOptions options) =>
+        string.IsNullOrEmpty(options.SourceName) ? "f1" : options.SourceName!;
 
     private static IEnumerable<XElement> BuildUnits(Catalog catalog)
     {
@@ -269,11 +274,13 @@ public sealed class XliffTranslationFormat : ITranslationFormat
         _ => "initial"
     };
 
-    private static byte[] Render(XDocument document)
+    private static byte[] Render(XDocument document, bool minify)
     {
+        // The publish bundle drops the insignificant indentation; the XLIFF structure (source/target, the
+        // category note the reader needs) is kept, since it is all semantically meaningful.
         var settings = new XmlWriterSettings
         {
-            Indent = true,
+            Indent = !minify,
             IndentChars = "  ",
             NewLineChars = "\n",
             Encoding = _utf8NoBom
@@ -286,7 +293,7 @@ public sealed class XliffTranslationFormat : ITranslationFormat
         }
 
         var text = _utf8NoBom.GetString(buffer.ToArray());
-        return _utf8NoBom.GetBytes(text + "\n");
+        return _utf8NoBom.GetBytes(minify ? text : text + "\n");
     }
 
     private sealed class Notes

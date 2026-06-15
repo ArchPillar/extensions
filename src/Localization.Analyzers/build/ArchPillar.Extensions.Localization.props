@@ -10,7 +10,14 @@
     invoked from the package .targets and written to ArchPillarLocalizationOutputPath.
   -->
   <PropertyGroup>
-    <ArchPillarLocalizationFormat Condition="'$(ArchPillarLocalizationFormat)' == ''">arb</ArchPillarLocalizationFormat>
+    <!-- The format the on-disk dev/source catalogs are authored in. XLIFF by default: source and translation are
+         distinct first-class fields (no source-as-metadata that an editor can drop), and it opens cleanly in
+         Poedit/Lokalize. Override to arb or po per project. -->
+    <ArchPillarLocalizationFormat Condition="'$(ArchPillarLocalizationFormat)' == ''">xliff</ArchPillarLocalizationFormat>
+    <!-- The format of the published per-culture bundle (the publish-time merge output). Defaults to arb,
+         independent of the authoring format: a runtime bundle needs only the translation, so the most compact,
+         compressible container wins (JSON beats XML/PO once the redundant source is dropped). -->
+    <ArchPillarLocalizationBundleFormat Condition="'$(ArchPillarLocalizationBundleFormat)' == ''">arb</ArchPillarLocalizationBundleFormat>
     <ArchPillarLocalizationSourceLanguage Condition="'$(ArchPillarLocalizationSourceLanguage)' == ''">en</ArchPillarLocalizationSourceLanguage>
     <ArchPillarLocalizationOutputPath Condition="'$(ArchPillarLocalizationOutputPath)' == ''">$(MSBuildProjectDirectory)/Translations</ArchPillarLocalizationOutputPath>
     <ArchPillarLocalizationEmit Condition="'$(ArchPillarLocalizationEmit)' == ''">true</ArchPillarLocalizationEmit>

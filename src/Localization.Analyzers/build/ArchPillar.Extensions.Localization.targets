@@ -25,31 +25,33 @@
   </Target>
 
   <!--
-    Copies the target catalogs (everything except the source-language template) beside the application
-    binary, into a Translations folder, so the runtime's ambient directory source loads them. The catalogs are
-    already named {AssemblyName}.{culture}.{ext} (the tool writes them that way), so two referenced libraries
-    shipping (say) de never collide on one output path; they are copied as-is and the source-language template
-    ({AssemblyName}.{SourceLanguage}.*) is excluded. Set ArchPillarLocalizationCopyTargetsToOutput=false to opt
-    out (e.g. when embedding or merging at publish).
+    Copies the catalogs beside the application binary, into a Translations folder, so the runtime's ambient
+    directory source loads them. The catalogs are already named {AssemblyName}.{culture}.{ext} (the tool writes
+    them that way), so two referenced libraries shipping (say) de never collide on one output path; they are
+    copied as-is. The source-language catalog ({AssemblyName}.{SourceLanguage}.*) is copied too — it carries any
+    edited source wording as overrides above the in-code default (its un-edited echoes are inert at runtime).
+    Only the language-neutral Portable Object template (messages.pot) is excluded. Set
+    ArchPillarLocalizationCopyTargetsToOutput=false to opt out (e.g. when embedding or merging at publish).
   -->
   <ItemGroup Condition="'$(ArchPillarLocalizationCopyTargetsToOutput)' == 'true' and '$(ArchPillarLocalizationEmbedTargets)' != 'true' and Exists('$(ArchPillarLocalizationOutputPath)')">
     <Content Include="$(ArchPillarLocalizationOutputPath)\**\*.arb;$(ArchPillarLocalizationOutputPath)\**\*.xliff;$(ArchPillarLocalizationOutputPath)\**\*.xlf;$(ArchPillarLocalizationOutputPath)\**\*.po"
-             Exclude="$(ArchPillarLocalizationOutputPath)\$(AssemblyName).$(ArchPillarLocalizationSourceLanguage).arb;$(ArchPillarLocalizationOutputPath)\$(AssemblyName).$(ArchPillarLocalizationSourceLanguage).xliff;$(ArchPillarLocalizationOutputPath)\$(AssemblyName).$(ArchPillarLocalizationSourceLanguage).xlf;$(ArchPillarLocalizationOutputPath)\messages.pot"
+             Exclude="$(ArchPillarLocalizationOutputPath)\messages.pot"
              CopyToOutputDirectory="PreserveNewest"
              Link="Translations\%(Filename)%(Extension)" />
   </ItemGroup>
 
   <!--
-    Opt-in (ArchPillarLocalizationEmbedTargets=true): embed the target catalogs as standard per-culture
-    SATELLITE assemblies instead of copying them as files — for single-file / self-contained publish. Catalogs
-    are named {AssemblyName}.{culture}.{ext}, so the culture is the trailing dot-segment of the file name
-    (App.de -> de); each lands in <culture>/<AssemblyName>.resources.dll, and the assembly is marked with
-    [LocalizationSatelliteCatalogs] so the runtime probes it lazily per culture. For trimmed/AOT apps prefer
-    the file (copy) path; embedded resources and satellites must be rooted against the trimmer.
+    Opt-in (ArchPillarLocalizationEmbedTargets=true): embed the catalogs as standard per-culture SATELLITE
+    assemblies instead of copying them as files — for single-file / self-contained publish. Catalogs are named
+    {AssemblyName}.{culture}.{ext}, so the culture is the trailing dot-segment of the file name (App.de -> de);
+    each lands in <culture>/<AssemblyName>.resources.dll, and the assembly is marked with
+    [LocalizationSatelliteCatalogs] so the runtime probes it lazily per culture. The source-language catalog is
+    embedded too (as the source-culture satellite) so any edited source wording ships as an override; its
+    un-edited echoes are inert at runtime. For trimmed/AOT apps prefer the file (copy) path; embedded resources
+    and satellites must be rooted against the trimmer.
   -->
   <ItemGroup Condition="'$(ArchPillarLocalizationEmbedTargets)' == 'true' and Exists('$(ArchPillarLocalizationOutputPath)')">
     <EmbeddedResource Include="$(ArchPillarLocalizationOutputPath)\*.arb;$(ArchPillarLocalizationOutputPath)\*.xliff;$(ArchPillarLocalizationOutputPath)\*.xlf"
-                      Exclude="$(ArchPillarLocalizationOutputPath)\$(AssemblyName).$(ArchPillarLocalizationSourceLanguage).arb;$(ArchPillarLocalizationOutputPath)\$(AssemblyName).$(ArchPillarLocalizationSourceLanguage).xliff;$(ArchPillarLocalizationOutputPath)\$(AssemblyName).$(ArchPillarLocalizationSourceLanguage).xlf"
                       Culture="$([System.Text.RegularExpressions.Regex]::Replace('%(Filename)', '^.*\.', ''))"
                       Link="%(Filename)%(Extension)" />
     <AssemblyAttribute Include="ArchPillar.Extensions.Localization.LocalizationSatelliteCatalogsAttribute" />
@@ -73,7 +75,7 @@
       leave the previous run's bundles in place, and the swap below would publish those stale catalogs.
     -->
     <RemoveDir Directories="$(IntermediateOutputPath)apl-merged" />
-    <Exec Command="$(ArchPillarLocalizationToolCommand) merge --input &quot;$([MSBuild]::NormalizePath('$(PublishDir)Translations'))&quot; --output &quot;$([MSBuild]::NormalizePath('$(IntermediateOutputPath)apl-merged'))&quot; --source $(ArchPillarLocalizationSourceLanguage)"
+    <Exec Command="$(ArchPillarLocalizationToolCommand) merge --input &quot;$([MSBuild]::NormalizePath('$(PublishDir)Translations'))&quot; --output &quot;$([MSBuild]::NormalizePath('$(IntermediateOutputPath)apl-merged'))&quot; --source $(ArchPillarLocalizationSourceLanguage) --format $(ArchPillarLocalizationBundleFormat)"
           ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)"
           StandardOutputImportance="low">
       <Output TaskParameter="ExitCode" PropertyName="_ArchPillarMergeExitCode" />
@@ -141,11 +143,12 @@
     <StaticWebAssetContentTypeMapping Include="text/plain" Pattern="*.pot" Priority="1" Cache="$(StaticWebAssetEndpointDefaultMediaCacheControlHeader)" />
   </ItemGroup>
 
-  <!-- Reusable globs for a project's own loose catalogs (source-language template excluded). -->
+  <!-- Reusable globs for a project's own loose catalogs. The source-language catalog is included (it carries
+       edited source wording as overrides; its echoes are inert), so only the neutral PO template is excluded. -->
   <PropertyGroup Condition="'$(ArchPillarLocalizationEmitManifest)' == 'true'">
     <_ArchPillarCatalogRoot>$([MSBuild]::NormalizeDirectory('$(ArchPillarLocalizationOutputPath)'))</_ArchPillarCatalogRoot>
     <_ArchPillarCatalogInclude>$(_ArchPillarCatalogRoot)*.arb;$(_ArchPillarCatalogRoot)*.xliff;$(_ArchPillarCatalogRoot)*.xlf;$(_ArchPillarCatalogRoot)*.po</_ArchPillarCatalogInclude>
-    <_ArchPillarCatalogExclude>$(_ArchPillarCatalogRoot)$(AssemblyName).$(ArchPillarLocalizationSourceLanguage).arb;$(_ArchPillarCatalogRoot)$(AssemblyName).$(ArchPillarLocalizationSourceLanguage).xliff;$(_ArchPillarCatalogRoot)$(AssemblyName).$(ArchPillarLocalizationSourceLanguage).xlf;$(_ArchPillarCatalogRoot)messages.pot</_ArchPillarCatalogExclude>
+    <_ArchPillarCatalogExclude>$(_ArchPillarCatalogRoot)messages.pot</_ArchPillarCatalogExclude>
   </PropertyGroup>
 
   <!--
@@ -275,7 +278,7 @@
           DestinationFolder="$(_ArchPillarPubCollectDir)" />
 
     <Exec Condition="'@(_ArchPillarOwnCatalogFile)@(_ArchPillarReferencedCatalog)' != ''"
-          Command="$(ArchPillarLocalizationToolCommand) merge --input &quot;$(_ArchPillarPubCollectDir)&quot; --output &quot;$(_ArchPillarBundleDir)&quot; --source $(ArchPillarLocalizationSourceLanguage) --format $(ArchPillarLocalizationFormat)"
+          Command="$(ArchPillarLocalizationToolCommand) merge --input &quot;$(_ArchPillarPubCollectDir)&quot; --output &quot;$(_ArchPillarBundleDir)&quot; --source $(ArchPillarLocalizationSourceLanguage) --format $(ArchPillarLocalizationBundleFormat)"
           ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)" StandardOutputImportance="low" />
 
     <ItemGroup>

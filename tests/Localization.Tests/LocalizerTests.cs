@@ -75,10 +75,24 @@ public sealed class LocalizerTests : IDisposable
     }
 
     [Fact]
-    public void Translate_SourceCultureFile_IsNotLoadedAsOverride()
+    public void Translate_SourceCultureOverride_IsLoadedAboveInCodeDefault()
     {
+        // The source language is now editable: a translated source entry overrides the in-code default, so a
+        // copywriter can fix source wording without a recompile. The in-code default stays the terminal fallback.
         var directory = NewDirectory();
         WriteArb(directory, "en", Entry("greeting", "FROM FILE"));
+        DefaultLocalizer localizer = Make(directory);
+
+        Assert.Equal("FROM FILE", localizer.Translate(_en, "greeting", "Hello", null));
+    }
+
+    [Fact]
+    public void Translate_SourceCultureEcho_FallsThroughToInCodeDefault()
+    {
+        // A source entry that merely echoes the in-code default is stored NeedsTranslation (not an override),
+        // so it is not loaded and the in-code default is rendered — no redundant override, no stale-echo risk.
+        var directory = NewDirectory();
+        WriteArb(directory, "en", Entry("greeting", "Hello", "NeedsTranslation"));
         DefaultLocalizer localizer = Make(directory);
 
         Assert.Equal("Hello", localizer.Translate(_en, "greeting", "Hello", null));
@@ -110,10 +124,10 @@ public sealed class LocalizerTests : IDisposable
     }
 
     [Fact]
-    public void Translate_NonEnglishSource_DoesNotAssumeEnglish()
+    public void Translate_NonEnglishSourceOverride_IsLoaded()
     {
-        // Source language is German; the in-code default is German and must be excluded from overrides
-        // when a de.arb exists, while still rendering correctly with German rules.
+        // Source language is German. A de override loads above the in-code German default (the source language
+        // is editable regardless of which language it is); a key with no override falls back to the in-code text.
         var directory = NewDirectory();
         WriteArb(directory, "de", Entry("greeting", "FROM FILE"));
         DefaultLocalizer localizer = Over(new LocalizerOptions
@@ -122,8 +136,8 @@ public sealed class LocalizerTests : IDisposable
             SourceCulture = "de"
         });
 
-        // de is now the source culture, so de.arb is ignored and the in-code German default wins.
-        Assert.Equal("Hallo", localizer.Translate(_de, "greeting", "Hallo", null));
+        Assert.Equal("FROM FILE", localizer.Translate(_de, "greeting", "Hallo", null));
+        Assert.Equal("Tschüss", localizer.Translate(_de, "farewell", "Tschüss", null));
     }
 
     [Fact]
@@ -200,7 +214,7 @@ public sealed class LocalizerTests : IDisposable
     }
 
     [Fact]
-    public void FromCatalogs_SkipsSourceCultureCatalog()
+    public void FromCatalogs_LoadsSourceCultureOverride()
     {
         var enCatalog = new Catalog
         {
@@ -220,7 +234,9 @@ public sealed class LocalizerTests : IDisposable
 
         var localizer = DefaultLocalizer.FromCatalogs([enCatalog], new LocalizerOptions { SourceCulture = "en" });
 
-        Assert.Equal("Hello", localizer.Translate(_en, "greeting", "Hello", null));
+        // The source override is loaded above the in-code default; a key without one still falls back.
+        Assert.Equal("FROM CATALOG", localizer.Translate(_en, "greeting", "Hello", null));
+        Assert.Equal("Hello", localizer.Translate(_en, "missing", "Hello", null));
     }
 
     [Fact]

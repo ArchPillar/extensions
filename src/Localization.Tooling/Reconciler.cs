@@ -1,3 +1,5 @@
+using ArchPillar.Extensions.Localization.Tooling.Internal;
+
 namespace ArchPillar.Extensions.Localization.Tooling;
 
 /// <summary>
@@ -25,6 +27,84 @@ internal static class Reconciler
 
     public static Catalog CreateLanguage(Catalog template, string culture) =>
         Reconcile(template, new Catalog { Culture = culture, Entries = [] });
+
+    /// <summary>
+    /// Merges the freshly extracted template into the existing source-language catalog instead of overwriting
+    /// it, so the source catalog is a stable, git-tracked artifact whose hand edits survive a re-extract. An
+    /// entry that merely echoes the in-code default stays <see cref="TranslationState.NeedsTranslation"/> (it
+    /// is not a runtime override — the in-code default is the terminal fallback) and silently tracks the
+    /// current default; an entry whose on-disk source text was edited away from that default is preserved as a
+    /// <see cref="TranslationState.Translated"/> override (flagged <see cref="TranslationState.NeedsReview"/>
+    /// when the in-code default has drifted under it). Keys gone from the template are dropped (Decision D-11).
+    /// </summary>
+    public static Catalog ReconcileSource(Catalog template, Catalog existingSource)
+    {
+        Dictionary<string, CatalogEntry> existing = Index(existingSource);
+        var entries = new List<CatalogEntry>();
+        foreach (CatalogEntry source in Ordered(template.Entries))
+        {
+            entries.Add(existing.TryGetValue(Composite(source), out CatalogEntry? current)
+                ? MergeSource(source, current)
+                : Echo(source));
+        }
+
+        return existingSource with { Culture = template.Culture, Entries = entries };
+    }
+
+    // A source entry that equals the in-code default: no stored translation and NeedsTranslation, so the
+    // runtime loader drops it (the default already covers it) and it tracks the current default each extract.
+    private static CatalogEntry Echo(CatalogEntry source) => source with
+    {
+        TranslatedMessage = null,
+        PreviousSource = null,
+        State = TranslationState.NeedsTranslation
+    };
+
+    private static CatalogEntry MergeSource(CatalogEntry source, CatalogEntry existing)
+    {
+        // The editable source text on disk: a provider that stores one value per entry round-trips it into
+        // both fields; one that stores source and translation separately keeps the edit in TranslatedMessage.
+        var onDisk = existing.TranslatedMessage ?? existing.SourceMessage;
+
+        // The stored fingerprint is of the default this entry was last written against. If the on-disk value
+        // still hashes to it, the value is an un-customized echo (possibly of an older default) — re-base it
+        // onto the current default. If it differs, a human edited the source wording, so keep it as an override.
+        var customized = !string.Equals(
+            TemplateBuilder.Fingerprint(onDisk, source.Context),
+            existing.SourceFingerprint,
+            StringComparison.Ordinal);
+        if (!customized)
+        {
+            return Echo(source);
+        }
+
+        // A genuine source override. Flag it for review when the in-code default drifted since the edit was
+        // recorded; a fresh edit over a previously un-translated echo becomes translated; otherwise the
+        // existing review-or-translated state is kept. Refresh the displayed source and the non-translation
+        // metadata from the template, exactly as the target merge does.
+        var driftedSinceEdit = !string.Equals(existing.SourceFingerprint, source.SourceFingerprint, StringComparison.Ordinal);
+        TranslationState state = ResolveOverrideState(existing.State, driftedSinceEdit);
+        return existing with
+        {
+            SourceMessage = source.SourceMessage,
+            TranslatedMessage = onDisk,
+            Comment = source.Comment,
+            References = source.References,
+            Placeholders = source.Placeholders,
+            SourceFingerprint = source.SourceFingerprint,
+            State = state
+        };
+    }
+
+    private static TranslationState ResolveOverrideState(TranslationState existing, bool driftedSinceEdit)
+    {
+        if (driftedSinceEdit)
+        {
+            return TranslationState.NeedsReview;
+        }
+
+        return existing == TranslationState.NeedsTranslation ? TranslationState.Translated : existing;
+    }
 
     private static CatalogEntry New(CatalogEntry source) => new()
     {

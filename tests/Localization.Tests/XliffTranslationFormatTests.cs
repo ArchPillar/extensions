@@ -169,6 +169,23 @@ public sealed class XliffTranslationFormatTests
         Assert.Equal("   ", roundTripped.Entries[0].SourceMessage);
     }
 
+    [Fact]
+    public async Task Write_UsesSourceNameAsFileIdAsync()
+    {
+        var xml = Encoding.UTF8.GetString(
+            await WriteAsync(Translated("greeting", "Hallo"), new CatalogWriteOptions { SourceName = "Acme.Greeting" }));
+
+        Assert.Contains("<file id=\"Acme.Greeting\"", xml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Write_WithoutSourceName_FallsBackToGenericFileIdAsync()
+    {
+        var xml = Encoding.UTF8.GetString(await WriteAsync(Translated("greeting", "Hallo")));
+
+        Assert.Contains("<file id=\"f1\"", xml, StringComparison.Ordinal);
+    }
+
     private static Catalog Translated(string key, string message) => new()
     {
         Culture = "de",
@@ -189,10 +206,10 @@ public sealed class XliffTranslationFormatTests
     private static async Task<Catalog> RoundTripAsync(Catalog catalog) =>
         await ReadAsync(await WriteAsync(catalog));
 
-    private static async Task<byte[]> WriteAsync(Catalog catalog)
+    private static async Task<byte[]> WriteAsync(Catalog catalog, CatalogWriteOptions? options = null)
     {
         using var stream = new MemoryStream();
-        await _format.WriteAsync(stream, catalog, CancellationToken.None);
+        await _format.WriteAsync(stream, catalog, CancellationToken.None, options);
         return stream.ToArray();
     }
 

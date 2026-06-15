@@ -19,4 +19,4 @@ The dev server prints a local URL (e.g. `http://localhost:5000`); open it in a b
 
 ## Notes
 
-English ships in code and is the source culture; only the German override (`wwwroot/Translations/de.arb`) is fetched. The UI lives in `Pages/Home.razor`.
+English ships in code and is the source culture; only the German override (`wwwroot/Translations/de.xliff`) is fetched. The UI lives in `Pages/Home.razor`.
