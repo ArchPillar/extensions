@@ -96,10 +96,10 @@ dotnet apl add de --output Translations
 #   -> Translations/YourApp.de.xliff  (every entry state: NeedsTranslation)
 ```
 
-`YourApp.de.xliff` is what you hand off. The translator fills in the German and marks each entry
-`Translated`; you commit the file. The catalogs are named `{AssemblyName}.{culture}.xliff` so libraries
-never collide, and the build copies them beside the binary automatically. (XLIFF is the default; pass
-`--format arb` or `--format po` to author in another format — the runtime loads all three.)
+`YourApp.de.xliff` lists every key with an empty translation, ready to hand to a translator (next step).
+The catalogs are named `{AssemblyName}.{culture}.xliff` so libraries never collide, and the build copies
+them beside the binary automatically. (XLIFF is the default; pass `--format arb` or `--format po` to author
+in another format — the runtime loads all three.)
 
 > **Pointing it elsewhere:** the cwd default covers the common case; pass a scope only to override it —
 > `--solution YourApp.sln` (when the folder has more than one), `--project YourApp.csproj` (add `--recurse`
@@ -114,7 +114,29 @@ never collide, and the build copies them beside the binary automatically. (XLIFF
 > (and `--check` is your CI gate). The full lifecycle — including handing files to translators as a zip and
 > shipping for production — is in [translation-workflow.md](translation-workflow.md).
 
-## 5. Switch culture and see the override
+## 5. Hand off to translators — and back
+
+A single file you can hand over directly, but `export` packages it for you — zipping up every catalog in
+the `--input` folder for **one** language (as XLIFF, the format translation tools speak); `import` then
+routes each returned file back to the right catalog by its name. Run `export` once per language.
+
+```bash
+# Bundle the 'de' files for the translator:
+dotnet apl export --input Translations --lang de --output kit-de.zip
+#   -> kit-de.zip  (every {AssemblyName}.de.xliff)
+
+# ...the translator edits the files and sends the zip back...
+
+dotnet apl import --input kit-de.zip --output Translations
+#   -> updated Translations/YourApp.de.xliff  (entries they finished are now Translated)
+```
+
+The `.xliff` opens in any XLIFF-aware editor — Poedit and Lokalize both show the source and the translation
+side by side. `import` writes each file back in the format already on disk (an ARB repo stays ARB); pass
+`--format po` on `export` to hand off Portable Object instead. Commit the returned files. The full
+lifecycle — scopes, `sync`, deployment — is in [translation-workflow.md](translation-workflow.md).
+
+## 6. Switch culture and see the override
 
 The ambient store loads `Translations/` automatically and resolves against `CurrentUICulture`:
 
@@ -126,7 +148,7 @@ Console.WriteLine(Greet("Ada"));   // "Hallo Ada!"
 Console.WriteLine(Inbox(5));        // "Sie haben 5 Nachrichten"
 ```
 
-## 6. (Optional) Wire up dependency injection
+## 7. (Optional) Wire up dependency injection
 
 DI registration lives in a separate package:
 
@@ -158,15 +180,18 @@ own code. See [the localization context](features.md#the-localization-context) f
 Migrating existing `IStringLocalizer` code? Add the `…Localization.StringLocalizer` package and call
 `AddArchPillarStringLocalizer` instead — see the migration on-ramp in [features.md](features.md).
 
-## 7. Ship it
+## 8. Ship it
 
 In development each library keeps its own `{AssemblyName}.{culture}.xliff` files, which the build copies
 beside the binary. On **publish**, the build flattens them into one compact bundle per culture (`de.arb`,
 `fr.arb`, …) so production ships a handful of files instead of one per library — automatically, no
 configuration. The bundle is ARB by default even when you author in XLIFF: a runtime bundle needs only the
-translation, so the most compressible container wins (override with `ArchPillarLocalizationBundleFormat`). For
-single-file or NativeAOT publish, opt into embedding instead (`ArchPillarLocalizationEmbedTargets=true`).
-See [translation-workflow.md](translation-workflow.md#deployment) for the details and the trim/AOT matrix.
+translation, so the most compressible container wins (override with `ArchPillarLocalizationBundleFormat`). The
+files bundle works under **every** publish mode, including trimming and NativeAOT, so it is the default
+everywhere. To embed catalogs in the assemblies instead — for a single-file or self-contained build — opt into
+`ArchPillarLocalizationEmbedTargets=true`; note NativeAOT cannot load culture satellites, so there it is files
+or a main-assembly embed. See [translation-workflow.md](translation-workflow.md#deployment) for the details and
+the trim/AOT matrix in [recommendations.md](recommendations.md).
 
 ## Next
 

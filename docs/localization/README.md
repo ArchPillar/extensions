@@ -42,9 +42,9 @@ Console.WriteLine(Greet("Ada"));                       // "Hallo Ada!" once a de
 
 `Translate` goes through the process-wide ambient store, reachable with no services (or call
 `Localizer.Default.Translate(...)` without the `using static`). Translations come from a
-`Translations/de.arb` file beside the binary (loaded automatically), an embedded catalog, or
-`Localizer.AddCatalog(...)`. Scope keys by category with `ILocalizer<T>` as an app grows — see
-[getting-started.md](getting-started.md).
+`Translations/<App>.de.xliff` file beside the binary (loaded automatically — any of the three formats),
+an embedded catalog, or `Localizer.AddCatalog(...)`. Scope keys by category with `ILocalizer<T>` as an app
+grows — see [getting-started.md](getting-started.md).
 
 ## Features
 

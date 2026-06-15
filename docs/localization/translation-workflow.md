@@ -29,8 +29,10 @@ dotnet tool install --global ArchPillar.Extensions.Localization.Tooling
 > dotnet apl extract --project samples/Localization/Localization.ConsoleSample/Localization.ConsoleSample.csproj --output /tmp/x
 > dotnet apl add de --project samples/Localization/Localization.ConsoleSample/Localization.ConsoleSample.csproj --output /tmp/x
 > ```
-> (The samples don't *ship* generated catalogs — they demonstrate the runtime — but they let you test
-> extraction end to end. A consuming app gets the generator from the NuGet package automatically.)
+> Every sample commits its catalogs — the generated `{AssemblyName}.en.xliff` source catalog and the
+> `de`/`fr` translations — so they double as a worked example of the git-tracked source workflow, and you
+> can still re-run extraction against them as above. (A consuming app gets the generator from the NuGet
+> package automatically.)
 
 ## Scope: a whole app at once
 
