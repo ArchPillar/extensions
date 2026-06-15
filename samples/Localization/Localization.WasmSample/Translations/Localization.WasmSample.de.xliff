@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <xliff version="2.1" srcLang="en" trgLang="de" xmlns="urn:oasis:names:tc:xliff:document:2.1">
-  <file id="f1">
+  <file id="Localization.WasmSample">
     <unit id="home.title">
       <notes>
         <note category="fingerprint">58d32a0f8ae2252f2e16e2ec098e8bb4</note>

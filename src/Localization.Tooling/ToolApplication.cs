@@ -249,7 +249,8 @@ internal static class ToolApplication
             Catalog template = await ReadFileAsync(ProviderFor(registry, templatePath), templatePath).ConfigureAwait(false);
             ITranslationFormat targetProvider = ProviderFor(registry, targetPath);
             Catalog reconciled = Reconciler.Reconcile(template, await ReadFileAsync(targetProvider, targetPath).ConfigureAwait(false));
-            var updated = await SerializeAsync(targetProvider, reconciled).ConfigureAwait(false);
+            var targetName = SplitCatalogName(Path.GetFileNameWithoutExtension(targetPath)).Name;
+            var updated = await SerializeAsync(targetProvider, reconciled, new CatalogWriteOptions { SourceName = targetName.Length == 0 ? null : targetName }).ConfigureAwait(false);
             if (check)
             {
                 var current = File.ReadAllBytes(targetPath);
@@ -281,7 +282,7 @@ internal static class ToolApplication
             {
                 ITranslationFormat targetProvider = ProviderFor(registry, targetPath);
                 Catalog reconciled = Reconciler.Reconcile(template, await ReadFileAsync(targetProvider, targetPath).ConfigureAwait(false));
-                var updated = await SerializeAsync(targetProvider, reconciled).ConfigureAwait(false);
+                var updated = await SerializeAsync(targetProvider, reconciled, new CatalogWriteOptions { SourceName = name }).ConfigureAwait(false);
                 if (check)
                 {
                     if (!File.ReadAllBytes(targetPath).AsSpan().SequenceEqual(updated))
@@ -369,7 +370,7 @@ internal static class ToolApplication
             {
                 Catalog catalog = await ReadFileAsync(ProviderFor(registry, file), file).ConfigureAwait(false);
                 (var name, _) = SplitCatalogName(Path.GetFileNameWithoutExtension(file));
-                var bytes = await SerializeAsync(target, catalog).ConfigureAwait(false);
+                var bytes = await SerializeAsync(target, catalog, new CatalogWriteOptions { SourceName = name }).ConfigureAwait(false);
                 ZipArchiveEntry entry = zip.CreateEntry(CatalogFileName(name, language, target), CompressionLevel.Optimal);
                 using Stream stream = entry.Open();
                 await stream.WriteAsync(bytes, 0, bytes.Length).ConfigureAwait(false);
@@ -723,7 +724,15 @@ internal static class ToolApplication
             Directory.CreateDirectory(directory!);
         }
 
-        File.WriteAllBytes(path, await SerializeAsync(provider, catalog, options).ConfigureAwait(false));
+        // Carry the assembly name from the file name (App.Core.de -> App.Core) into the catalog's source
+        // identity. The published bundle is named by culture alone, so it yields no name and keeps the
+        // format default.
+        var sourceName = SplitCatalogName(Path.GetFileNameWithoutExtension(path)).Name;
+        CatalogWriteOptions effective = (options ?? CatalogWriteOptions.Default) with
+        {
+            SourceName = sourceName.Length == 0 ? null : sourceName
+        };
+        File.WriteAllBytes(path, await SerializeAsync(provider, catalog, effective).ConfigureAwait(false));
     }
 
     private static async Task<byte[]> SerializeAsync(ITranslationFormat provider, Catalog catalog, CatalogWriteOptions? options = null)

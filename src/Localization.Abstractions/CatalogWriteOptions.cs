@@ -22,4 +22,12 @@ public sealed record CatalogWriteOptions
     /// that store the source and translation separately (they always carry both).
     /// </summary>
     public bool AlwaysWriteSource { get; init; }
+
+    /// <summary>
+    /// The catalog's logical source identity — the assembly name, without the culture or file extension. A
+    /// format that names its container (XLIFF's <c>&lt;file&gt;</c> id) uses it so the same identifier is
+    /// stable across every target language; formats without that concept ignore it. <see langword="null"/>
+    /// leaves the format's generic default identifier in place.
+    /// </summary>
+    public string? SourceName { get; init; }
 }

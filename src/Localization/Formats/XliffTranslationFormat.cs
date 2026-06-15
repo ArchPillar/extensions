@@ -205,11 +205,16 @@ public sealed class XliffTranslationFormat : ITranslationFormat
             new XAttribute("version", "2.1"),
             new XAttribute("srcLang", string.IsNullOrEmpty(sourceLanguage) ? "en" : sourceLanguage!),
             new XAttribute("trgLang", catalog.Culture),
-            new XElement(_ns + "file", new XAttribute("id", "f1"), BuildUnits(catalog)));
+            new XElement(_ns + "file", new XAttribute("id", FileId(options)), BuildUnits(catalog)));
 
         var document = new XDocument(new XDeclaration("1.0", "utf-8", null), root);
         return Render(document, options.Minify);
     }
+
+    // The <file> id identifies the logical source independently of target language, so it carries the
+    // catalog's source name (the assembly) when known, and a generic token otherwise.
+    private static string FileId(CatalogWriteOptions options) =>
+        string.IsNullOrEmpty(options.SourceName) ? "f1" : options.SourceName!;
 
     private static IEnumerable<XElement> BuildUnits(Catalog catalog)
     {

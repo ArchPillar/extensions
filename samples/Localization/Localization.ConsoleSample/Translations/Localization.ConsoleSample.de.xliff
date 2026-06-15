@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <xliff version="2.1" srcLang="en" trgLang="de" xmlns="urn:oasis:names:tc:xliff:document:2.1">
-  <file id="f1">
+  <file id="Localization.ConsoleSample">
     <unit id="home.greeting">
       <notes>
         <note category="fingerprint">6ef7c2f7178bed7959f90d6c7a8118da</note>
