@@ -37,18 +37,31 @@
     <ArchPillarLocalizationExtractTransitively Condition="'$(_ArchPillarSampleAuthoring)' == 'true'">true</ArchPillarLocalizationExtractTransitively>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <!-- These helper references are build-time tooling, not part of the app. A self-contained
+         `dotnet publish -r <rid>` propagates the RID/publish properties as global properties to every
+         ProjectReference; left alone, the tool builds to bin/$(Configuration)/net8.0/<rid>/ and the extract
+         target (which looks under net8.0/) cannot find it. Undefining them pins the helpers to their plain,
+         deterministic framework-dependent output regardless of how the consuming sample is published. -->
+    <_ArchPillarHelperUndefineProperties>RuntimeIdentifier;RuntimeIdentifiers;SelfContained;PublishSingleFile;PublishTrimmed;PublishAot</_ArchPillarHelperUndefineProperties>
+  </PropertyGroup>
+
   <ItemGroup Condition="'$(_ArchPillarSampleAuthoring)' == 'true'">
     <!-- Build-order only: guarantees the tool DLL exists before the extract target runs, and replaces the
          `dotnet run` rebuild that raced the graph's own build of the tool. net8.0 is pinned to match the DLL
          path above (the tool's only framework); no output is referenced or copied. -->
     <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\src\Localization.Tooling\ArchPillar.Extensions.Localization.Tooling.csproj"
-                      ReferenceOutputAssembly="false" SetTargetFramework="TargetFramework=net8.0" Private="false" />
+                      ReferenceOutputAssembly="false" SetTargetFramework="TargetFramework=net8.0" Private="false"
+                      UndefineProperties="$(_ArchPillarHelperUndefineProperties)" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\src\Localization.Analyzers\ArchPillar.Extensions.Localization.Analyzers.csproj"
-                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false"
+                      UndefineProperties="$(_ArchPillarHelperUndefineProperties)" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\src\Localization.Abstractions\ArchPillar.Extensions.Localization.Abstractions.csproj"
-                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false"
+                      UndefineProperties="$(_ArchPillarHelperUndefineProperties)" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)..\..\src\Localization.MessageFormat\ArchPillar.Extensions.Localization.MessageFormat.csproj"
-                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false"
+                      UndefineProperties="$(_ArchPillarHelperUndefineProperties)" />
   </ItemGroup>
 
   <Import Project="$(MSBuildThisFileDirectory)..\..\src\Localization.Analyzers\build\ArchPillar.Extensions.Localization.targets"
