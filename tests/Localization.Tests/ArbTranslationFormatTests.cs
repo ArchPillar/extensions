@@ -46,6 +46,8 @@ public sealed class ArbTranslationFormatTests
         Assert.Equal("de", roundTripped.Culture);
         Assert.Equal("home.greeting", entry.Key);
         Assert.Equal("Hallo {name}", entry.TranslatedMessage);
+        // The source text survives translation (preserved under x-source), so the translator keeps the original.
+        Assert.Equal("Hello {name}", entry.SourceMessage);
         Assert.Equal("home page", entry.Context);
         Assert.Equal("A greeting", entry.Comment);
         Assert.Equal("Hi {name}", entry.PreviousSource);
@@ -167,6 +169,43 @@ public sealed class ArbTranslationFormatTests
         CatalogEntry entry = Assert.Single(catalog.Entries);
         Assert.Equal("greeting", entry.Key);
         Assert.Equal("Hello", entry.TranslatedMessage);
+    }
+
+    [Fact]
+    public async Task Write_TranslatedEntry_EmitsXSourceSoTheOriginalIsKeptAsync()
+    {
+        var text = Encoding.UTF8.GetString(await WriteAsync(new Catalog
+        {
+            Culture = "de",
+            Entries =
+            [
+                new CatalogEntry
+                {
+                    Key = "save",
+                    SourceMessage = "Save",
+                    TranslatedMessage = "Speichern",
+                    SourceFingerprint = "fp",
+                    State = TranslationState.Translated
+                }
+            ]
+        }));
+
+        // The value is the translation; the original source is preserved alongside it under x-source.
+        Assert.Contains("\"save\": \"Speichern\"", text);
+        Assert.Contains("\"x-source\": \"Save\"", text);
+    }
+
+    [Fact]
+    public async Task Write_UntranslatedEntry_OmitsXSourceSinceValueIsTheSourceAsync()
+    {
+        // An untranslated entry's value already is the source, so x-source would be redundant and is not written.
+        var text = Encoding.UTF8.GetString(await WriteAsync(new Catalog
+        {
+            Culture = "de",
+            Entries = [new CatalogEntry { Key = "save", SourceMessage = "Save", SourceFingerprint = "fp" }]
+        }));
+
+        Assert.DoesNotContain("\"x-source\":", text);
     }
 
     [Fact]
