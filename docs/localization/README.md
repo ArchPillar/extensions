@@ -46,6 +46,22 @@ Console.WriteLine(Greet("Ada"));                       // "Hallo Ada!" once a de
 an embedded catalog, or `Localizer.AddCatalog(...)`. Scope keys by category with `ILocalizer<T>` as an app
 grows — see [getting-started.md](getting-started.md).
 
+## The workflow at a glance
+
+1. Write each string in code as `Translate("key", "English default")`.
+2. Build. The analyzer flags bad keys and placeholders as you type, and `extract` writes the source catalog.
+3. Commit the source catalog; edit its wording later without a recompile.
+4. `dotnet apl add de` creates the German file, every entry untranslated.
+5. `dotnet apl export --lang de --output kit-de.zip` — or `--output ./kits` for one zip per language.
+6. The translator edits the `.xliff` in Poedit or Lokalize, source beside translation.
+7. `dotnet apl import --input kit-de.zip` routes each file home; commit it.
+8. Code changed? `dotnet apl sync` reconciles every language; `--check` is the CI gate.
+9. Run. The app loads `Translations/` for `CurrentUICulture`, else renders the in-code default — never a missing-string crash.
+10. Publish. The build merges every catalog into one bundle per culture and ships it.
+
+Every command takes the same scope: run from the app folder, or pass `--solution` / `--project`. The full
+lifecycle and commands are in [translation-workflow.md](translation-workflow.md).
+
 ## Features
 
 | Feature | Description |

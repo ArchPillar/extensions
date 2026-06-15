@@ -30,10 +30,10 @@ internal static class ToolApplication
             ["add"] = Scope("--source", "--format", "--template", "--output", "--force"),
             ["sync"] = Scope("--source", "--template", "--target", "--output", "--check"),
             ["convert"] = new HashSet<string>(StringComparer.Ordinal) { "--from", "--to", "--output" },
-            ["export"] = new HashSet<string>(StringComparer.Ordinal) { "--input", "--lang", "--output", "--format" },
-            ["import"] = new HashSet<string>(StringComparer.Ordinal) { "--input", "--output" },
-            ["merge"] = new HashSet<string>(StringComparer.Ordinal) { "--input", "--output", "--format", "--source" },
-            ["manifest"] = new HashSet<string>(StringComparer.Ordinal) { "--input", "--output", "--source" }
+            ["export"] = new HashSet<string>(StringComparer.Ordinal) { "--input", "--project", "--solution", "--recurse", "--lang", "--output", "--format", "--source" },
+            ["import"] = new HashSet<string>(StringComparer.Ordinal) { "--input", "--project", "--solution", "--output" },
+            ["merge"] = new HashSet<string>(StringComparer.Ordinal) { "--input", "--project", "--solution", "--recurse", "--output", "--format", "--source" },
+            ["manifest"] = new HashSet<string>(StringComparer.Ordinal) { "--input", "--project", "--solution", "--recurse", "--output", "--source" }
         };
 
     public static async Task<int> RunAsync(string[] arguments)
@@ -338,53 +338,94 @@ internal static class ToolApplication
 
     private static async Task<int> ExportAsync(IReadOnlyDictionary<string, string> options)
     {
-        var catalogDirectory = Require(options, "--input");
-        var language = Require(options, "--lang");
-        var outputZip = Require(options, "--output");
+        var output = Require(options, "--output");
+        var language = options.TryGetValue("--lang", out var lang) && lang.Length > 0 ? lang : null;
+        var sourceCulture = SourceLanguage(options);
         var formatId = options.TryGetValue("--format", out var f) && f.Length > 0 ? f : "xliff";
         TranslationFormatRegistry registry = BuildRegistry();
         ITranslationFormat target = registry.ResolveById(formatId) ?? throw new ArgumentException($"Unknown format '{formatId}'.");
 
-        var matched = EnumerateCatalogFiles(catalogDirectory, registry)
-            .Where(file => string.Equals(CultureOf(file), language, StringComparison.OrdinalIgnoreCase))
+        IReadOnlyList<string> directories = CatalogDirectoryResolver.ResolveDirectories(ParseScope(options));
+        var matched = directories
+            .SelectMany(directory => EnumerateCatalogFiles(directory, registry))
+            .Where(file => language is null
+                ? !string.Equals(CultureOf(file), sourceCulture, StringComparison.OrdinalIgnoreCase)
+                : string.Equals(CultureOf(file), language, StringComparison.OrdinalIgnoreCase))
             .ToList();
         if (matched.Count == 0)
         {
-            return Fail($"No '{language}' catalogs found in '{catalogDirectory}'.");
+            return Fail(language is null
+                ? "No target catalogs found in scope."
+                : $"No '{language}' catalogs found in scope.");
         }
 
-        var directory = Path.GetDirectoryName(Path.GetFullPath(outputZip));
-        if (!string.IsNullOrEmpty(directory))
+        // With --lang, --output is a single zip for that one culture. Without it, --output is a directory and
+        // each culture gets its own <culture>.zip, so every language can go to a different translator.
+        if (language is not null)
         {
-            Directory.CreateDirectory(directory!);
-        }
-
-        if (File.Exists(outputZip))
-        {
-            File.Delete(outputZip);
-        }
-
-        using (ZipArchive zip = ZipFile.Open(outputZip, ZipArchiveMode.Create))
-        {
-            foreach (var file in matched)
+            var parent = Path.GetDirectoryName(Path.GetFullPath(output));
+            if (!string.IsNullOrEmpty(parent))
             {
-                Catalog catalog = await ReadFileAsync(ProviderFor(registry, file), file).ConfigureAwait(false);
-                (var name, _) = SplitCatalogName(Path.GetFileNameWithoutExtension(file));
-                var bytes = await SerializeAsync(target, catalog, new CatalogWriteOptions { SourceName = name }).ConfigureAwait(false);
-                ZipArchiveEntry entry = zip.CreateEntry(CatalogFileName(name, language, target), CompressionLevel.Optimal);
-                using Stream stream = entry.Open();
-                await stream.WriteAsync(bytes, 0, bytes.Length).ConfigureAwait(false);
+                Directory.CreateDirectory(parent!);
             }
+
+            var written = await WriteCatalogZipAsync(output, matched, target, registry).ConfigureAwait(false);
+            Success($"Exported {written} '{language}' catalog(s) to {output}");
+            return 0;
         }
 
-        Success($"Exported {matched.Count} '{language}' catalog(s) to {outputZip}");
+        Directory.CreateDirectory(output);
+        var total = 0;
+        var languages = 0;
+        foreach (IGrouping<string, string> group in matched.GroupBy(CultureOf, StringComparer.OrdinalIgnoreCase).OrderBy(g => g.Key, StringComparer.Ordinal))
+        {
+            total += await WriteCatalogZipAsync(Path.Combine(output, group.Key + ".zip"), group, target, registry).ConfigureAwait(false);
+            languages++;
+        }
+
+        Success($"Exported {total} catalog(s) across {languages} language(s) to {output}");
         return 0;
+    }
+
+    // Writes the given catalog files into a single zip (replacing any existing one), each re-serialized to the
+    // target format and named {Assembly}.{culture}.{ext}. A duplicate name — a catalog gathered from two
+    // overlapping scope roots — is written once, first match wins, mirroring ScopeResolver's single-copy rule.
+    private static async Task<int> WriteCatalogZipAsync(string zipPath, IEnumerable<string> files, ITranslationFormat target, TranslationFormatRegistry registry)
+    {
+        if (File.Exists(zipPath))
+        {
+            File.Delete(zipPath);
+        }
+
+        var written = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var count = 0;
+        using ZipArchive zip = ZipFile.Open(zipPath, ZipArchiveMode.Create);
+        foreach (var file in files)
+        {
+            (var name, var culture) = SplitCatalogName(Path.GetFileNameWithoutExtension(file));
+            var entryName = CatalogFileName(name, culture, target);
+            if (!written.Add(entryName))
+            {
+                continue;
+            }
+
+            Catalog catalog = await ReadFileAsync(ProviderFor(registry, file), file).ConfigureAwait(false);
+            var bytes = await SerializeAsync(target, catalog, new CatalogWriteOptions { SourceName = name }).ConfigureAwait(false);
+            ZipArchiveEntry entry = zip.CreateEntry(entryName, CompressionLevel.Optimal);
+            using Stream stream = entry.Open();
+            await stream.WriteAsync(bytes, 0, bytes.Length).ConfigureAwait(false);
+            count++;
+        }
+
+        return count;
     }
 
     private static async Task<int> ImportAsync(IReadOnlyDictionary<string, string> options)
     {
         var zipPath = Require(options, "--input");
-        var outputDir = Require(options, "--output");
+        var outputDir = options.TryGetValue("--output", out var output) && output.Length > 0
+            ? output
+            : CatalogDirectoryResolver.ResolveWriteDirectory(ParseScope(options));
         TranslationFormatRegistry registry = BuildRegistry();
         Directory.CreateDirectory(outputDir);
 
@@ -464,12 +505,14 @@ internal static class ToolApplication
 
     private static async Task<int> MergeAsync(IReadOnlyDictionary<string, string> options)
     {
-        var input = Require(options, "--input");
         var output = Require(options, "--output");
-        var inputDirectory = File.Exists(input) ? Path.GetDirectoryName(Path.GetFullPath(input))! : input;
-        if (SamePath(inputDirectory, output))
+        IReadOnlyList<string> inputDirectories = CatalogDirectoryResolver.ResolveDirectories(ParseScope(options));
+        foreach (var inputDirectory in inputDirectories)
         {
-            return Fail("--output must differ from the --input location; merging into it would overwrite the source catalogs.");
+            if (SamePath(inputDirectory, output))
+            {
+                return Fail("--output must differ from the --input location; merging into it would overwrite the source catalogs.");
+            }
         }
 
         var formatId = options.TryGetValue("--format", out var f) && f.Length > 0 ? f : "arb";
@@ -478,7 +521,7 @@ internal static class ToolApplication
         ITranslationFormat outputProvider = registry.ResolveById(formatId) ?? throw new ArgumentException($"Unknown format '{formatId}'.");
 
         var catalogs = new List<Catalog>();
-        foreach (var file in EnumerateCatalogFiles(input, registry))
+        foreach (var file in inputDirectories.SelectMany(directory => EnumerateCatalogFiles(directory, registry)))
         {
             catalogs.Add(await ReadFileAsync(ProviderFor(registry, file), file).ConfigureAwait(false));
         }
@@ -505,19 +548,19 @@ internal static class ToolApplication
     // un-customized source language is absent and lists nothing), and those overrides are fetched the same way.
     private static async Task<int> ManifestAsync(IReadOnlyDictionary<string, string> options)
     {
-        var input = Require(options, "--input");
-        if (!Directory.Exists(input))
+        IReadOnlyList<string> inputDirectories = CatalogDirectoryResolver.ResolveDirectories(ParseScope(options));
+        if (inputDirectories.Count == 0)
         {
-            return Fail($"--input directory '{input}' does not exist.");
+            return Fail("No catalog directory found in scope.");
         }
 
         var output = options.TryGetValue("--output", out var o) && o.Length > 0
             ? o
-            : Path.Combine(input, HttpCatalogLoaderExtensions.DefaultManifestFileName);
+            : Path.Combine(inputDirectories[0], HttpCatalogLoaderExtensions.DefaultManifestFileName);
         TranslationFormatRegistry registry = BuildRegistry();
 
         var entries = new List<(string Culture, string File)>();
-        foreach (var file in EnumerateCatalogFiles(input, registry))
+        foreach (var file in inputDirectories.SelectMany(directory => EnumerateCatalogFiles(directory, registry)))
         {
             var culture = CultureOf(file);
 
@@ -792,6 +835,9 @@ internal static class ToolApplication
         Console.Error.WriteLine("dotnet apl <status|extract|add|sync|export|import|convert|merge|manifest> [options]");
         Console.Error.WriteLine("  scope (status/extract/add/sync): defaults to the project/solution in the current directory;");
         Console.Error.WriteLine("    or --assembly <dll> | --input <dir> | --project [<csproj>|<dir>] [--recurse] | --solution [<sln>|<dir>]");
+        Console.Error.WriteLine("  scope (export/import/merge/manifest): defaults to the project/solution's Translations folder in the");
+        Console.Error.WriteLine("    current directory; or --input <catalogdir> | --project [<csproj>|<dir>] [--recurse] | --solution [<sln>|<dir>]");
+        Console.Error.WriteLine("    (export/merge/manifest read every in-scope Translations folder; import writes to one, defaulting like above)");
         return 2;
     }
 }
