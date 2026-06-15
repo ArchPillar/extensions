@@ -8,9 +8,10 @@ namespace ArchPillar.Extensions.Localization.Formats;
 /// The Application Resource Bundle (ARB) container-format provider. ARB is a single JSON object per
 /// locale: non-<c>@</c> keys are translatable entries whose value is an ICU MessageFormat string, a
 /// sibling <c>@key</c> object carries metadata, and <c>@@</c> keys are file-level metadata. State,
-/// references, the preserved source text (<c>x-source</c>, written when the value is a distinct
-/// translation), previous-source, and the source fingerprint live under <c>x-</c> metadata, which the
-/// ARB spec permits and other tools ignore.
+/// references, the preserved source text (<c>source_text</c>, a predefined ARB attribute written when
+/// the value is a distinct translation), previous-source, and the source fingerprint live under
+/// metadata: <c>source_text</c> is part of the ARB spec, the <c>x-</c>-prefixed fields are custom
+/// extensions the spec permits and other tools ignore.
 /// </summary>
 public sealed class ArbTranslationFormat : ITranslationFormat
 {
@@ -139,9 +140,10 @@ public sealed class ArbTranslationFormat : ITranslationFormat
         {
             Key = QualifiedKey.Unqualify(member, category, context),
             // ARB stores one value per key, so a translated entry's value is the translation. The source text
-            // is preserved separately under x-source (written on save when it differs from the value), so the
-            // original stays visible to a translator and round-trips; a file without it falls back to the value.
-            SourceMessage = GetString(meta, "x-source") ?? value,
+            // is preserved separately under the spec's source_text attribute (written on save when it differs
+            // from the value), so the original stays visible to translation tools and round-trips; a file
+            // without it falls back to the value.
+            SourceMessage = GetString(meta, "source_text") ?? value,
             // An entry explicitly marked NeedsTranslation has no translation (its value is the source
             // placeholder), so it picks up a refreshed source on the next sync instead of pinning the old one.
             // A file without x-state (a hand-authored or Flutter ARB) carries the value as the translation.
@@ -256,9 +258,10 @@ public sealed class ArbTranslationFormat : ITranslationFormat
         WriteReferences(writer, entry.References);
         // Preserve the source text whenever the value is a distinct translation (ARB's single value per key would
         // otherwise lose it once translated), so a translator keeps the original to work from and it round-trips.
+        // source_text is a predefined ARB attribute meant for exactly this, so tools that read it recognise it.
         if (!string.Equals(entry.SourceMessage, value, StringComparison.Ordinal))
         {
-            writer.WriteString("x-source", entry.SourceMessage);
+            writer.WriteString("source_text", entry.SourceMessage);
         }
 
         WriteOptionalString(writer, "x-previous-source", entry.PreviousSource);
