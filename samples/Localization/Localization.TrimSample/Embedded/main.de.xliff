@@ -6,7 +6,7 @@
         <note category="fingerprint">sample</note>
       </notes>
       <segment state="translated" subState="archpillar:Translated">
-        <source xml:space="preserve">Aus dem Hauptassembly</source>
+        <source xml:space="preserve">from main (default)</source>
         <target xml:space="preserve">Aus dem Hauptassembly</target>
       </segment>
     </unit>

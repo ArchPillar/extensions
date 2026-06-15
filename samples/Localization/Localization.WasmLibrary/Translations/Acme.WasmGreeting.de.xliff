@@ -3,12 +3,11 @@
   <file id="f1">
     <unit id="greeting">
       <notes>
-        <note category="x-category">Acme.WasmGreeting.Greeter</note>
-        <note category="fingerprint">00000000000000000000000000000000</note>
+        <note category="x-category">!!0</note>
+        <note category="fingerprint">11334bc9b6431fdd09063735ad05af96</note>
       </notes>
-      <segment state="translated" subState="archpillar:Translated">
-        <source xml:space="preserve">Hallo aus der gemeinsamen Bibliothek</source>
-        <target xml:space="preserve">Hallo aus der gemeinsamen Bibliothek</target>
+      <segment state="initial" subState="archpillar:NeedsTranslation">
+        <source xml:space="preserve">Hello from the shared library</source>
       </segment>
     </unit>
   </file>

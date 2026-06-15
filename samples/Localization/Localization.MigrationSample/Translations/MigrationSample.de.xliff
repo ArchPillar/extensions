@@ -33,7 +33,7 @@
         <note category="fingerprint">2cb04305df4250d5b243dff9d605954b</note>
       </notes>
       <segment state="translated" subState="archpillar:Translated">
-        <source xml:space="preserve">Willkommen (neu, aus ArchPillar)</source>
+        <source xml:space="preserve">Welcome</source>
         <target xml:space="preserve">Willkommen (neu, aus ArchPillar)</target>
       </segment>
     </unit>
