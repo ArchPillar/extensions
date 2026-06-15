@@ -59,6 +59,7 @@ Console.WriteLine(Greet("Ada"));                       // "Hallo Ada!" once a de
 | Standard formats | ARB (default), XLIFF 2.1, and Portable Object — round-tripped by the bundled providers. |
 | Dependency injection | `AddArchPillarLocalization` feeds the process-wide ambient context and registers injectable native localizers; the generated `AddArchPillarLocalizedBundles()` registers the assembly's `Localized<T>` bundles. |
 | `IStringLocalizer` interop + migration | A separate `…StringLocalizer` package (`AddArchPillarStringLocalizer`): a composing adapter, on-by-default extraction of indexer literals, and a no-op `L(...)` marker — droppable once migration is done. |
+| Display annotations | `[DisplayName]` / `[Display]` / `[Description]` extracted by default (opt-out); `[Localized…]` twins carry a stable key + default; `GetLocalizedDisplayName()` localizes enums; the `…AspNetCore` package routes MVC DataAnnotations through the localizer. |
 | Blazor WebAssembly / HTTP loading | Where there is no file system, `AddCatalogsFromManifestAsync` fetches catalogs over HTTP, discovering them via a build-emitted manifest; the separate `…AspNetCore` package serves the catalog formats as static files (`UseArchPillarTranslationFiles`). |
 | Publishing | A publish-time merge to one bundle per culture; a documented trim / single-file / AOT matrix. |
 | Zero external dependencies | The runtime, formats, and ICU parser use only the BCL — no third-party packages. |

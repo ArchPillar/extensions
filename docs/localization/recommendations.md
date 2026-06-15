@@ -93,9 +93,34 @@ var localizer = new DefaultLocalizer(catalogs); // or just the engine over fixed
 
 The adapter serves `IStringLocalizer` call sites, `.resx` keys, DataAnnotations messages, and view
 localization at runtime, but only **constant, valid-ICU indexer literals** are extracted into the
-catalog — `.resx` keys and attribute messages are not (they have no in-code default to harvest).
-Anything you want round-tripped to translators must go through the native `ILocalizer` API, an
-extracted indexer literal, or an `L(...)` marker. Migrate hot paths to the native API over time.
+catalog — `.resx` keys and a validator's `ErrorMessage` are not (they have no in-code default to
+harvest). Display **annotations** are the exception: `[DisplayName]` / `[Display]` / `[Description]` are
+extracted by the dedicated annotation pass (next), so they need no bridge. Anything else you want
+round-tripped to translators must go through the native `ILocalizer` API, an extracted indexer literal,
+or an `L(...)` marker. Migrate hot paths to the native API over time.
+
+## Let display annotations extract themselves; reach for a twin only when the key must be stable
+
+`[DisplayName]`, `[Display(Name/Description)]`, and `[Description]` are extracted by default (the literal
+is both key and default, scoped to the declaring type), so annotated models and enums reach translators
+with no extra work — there is no reason to restate those strings through `Translate(...)`. Opt a project
+out with `ArchPillarLocalizationExtractAnnotations=false` only when you deliberately do not want
+annotations localized.
+
+Add a `[Localized…]` twin **when the literal is a poor key** — long, or likely to be copy-edited — since
+the extracted key is otherwise the literal itself and a later wording change silently orphans the
+translation. The twin gives a stable key while the system attribute stays for the framework to read. For
+enums the literal and the label usually coincide, so most enum members need no twin.
+
+```csharp
+[Display(Name = "Save changes and continue to payment")]                 // a fragile key
+[LocalizedDisplayName("checkout.continueToPayment", "Save changes and continue to payment")]
+public string Continue { get; set; } = "";
+```
+
+> Localize MVC DataAnnotations with `AddArchPillarDataAnnotationsLocalization()` (the `…AspNetCore`
+> package), and enums with `value.GetLocalizedDisplayName()`. Both resolve under the declaring type's
+> category, so a translation added for one is the same entry the other reads.
 
 ## Register the localizer as a singleton
 

@@ -248,6 +248,72 @@ The `dotnet apl` tool turns the emitted template into per-language files (`add`,
 `sync --check` as a CI gate) and merges them at publish time. Nothing touches a translator's files as
 a build side effect.
 
+## Display annotations — DataAnnotations and enums
+
+`[DisplayName]`, `[Display(Name = …)]`, `[Display(Description = …)]`, and `[Description]` carry genuine
+display text that ASP.NET model metadata and other reflection consumers render, so the extractor lifts
+them into the template **by default** — the system attribute's literal becomes both the key and the
+in-code default, scoped to the declaring type's category, the same text-as-key the framework already
+looks up by. There is no call site to write and no `L(...)` to add: annotate as you already do and the
+strings reach translators. Opt a project out with `ArchPillarLocalizationExtractAnnotations=false`.
+
+Because an attribute argument must be a compile-time constant, the key *is* the literal — which drifts
+if you later fix a typo. A **twin attribute** removes that coupling: pair the system attribute with a
+`[Localized…]` twin carrying a stable key and a clean default. The twin rides beside the system
+attribute (it does not replace it), and extraction — and the integrations below — use the twin's key.
+
+```csharp
+public sealed class RegisterModel
+{
+    [Display(Name = "Email address")]                              // extracted under key "Email address"
+    public string Email { get; set; } = "";
+
+    [Display(Name = "Password")]
+    [LocalizedDisplayName("register.password.label", "Password")]  // extracted under key "register.password.label"
+    public string Password { get; set; } = "";
+}
+```
+
+There is one twin per display concept — `[LocalizedDisplayName]` (for `[DisplayName]` and
+`[Display(Name)]`) and `[LocalizedDescription]` (for `[Description]` and `[Display(Description)]`) — plus
+one generic twin for the open-ended validation case, `[LocalizedMessage<TValidation>]`, keyed by the
+validator type so a property carrying several validators stays unambiguous:
+
+```csharp
+[Required]
+[StringLength(100)]
+[LocalizedMessage<RequiredAttribute>("register.email.required", "An email address is required.")]
+[LocalizedMessage<StringLengthAttribute>("register.email.tooLong", "That email is too long.")]
+public string Email { get; set; } = "";
+```
+
+**Enums** read their own annotation at runtime: `value.GetLocalizedDisplayName()` reads the member's
+`[LocalizedDisplayName]` twin (or its `[Display(Name)]` literal) and resolves it through the localizer
+under the enum's category — the localized replacement for the usual hand-rolled `GetDisplayName()`.
+
+```csharp
+public enum AccountStatus
+{
+    [Display(Name = "Active")] Active,
+    [LocalizedDisplayName("account.suspended", "Suspended")] Suspended,
+}
+
+string label = AccountStatus.Suspended.GetLocalizedDisplayName();   // resolves account.suspended
+```
+
+**ASP.NET MVC / Razor Pages** route their DataAnnotations through the localizer with one call on the MVC
+builder (in the `…Localization.AspNetCore` package): display names and validation messages resolve under
+the model type's category — by the literal as key, or, where a member has a twin, by the twin's stable key.
+
+```csharp
+builder.Services.AddControllersWithViews().AddArchPillarDataAnnotationsLocalization();
+```
+
+> Reading a member's attributes is reflection at runtime — inherent to attributes, which the rest of the
+> library avoids. `[LocalizedMessage<T>]` is extracted to the catalog today, but routing a validator's
+> stable key into the framework's own lookup needs .NET 11's `IValidationLocalizer` /
+> `ErrorMessageKeyProvider` (Minimal APIs and Blazor's new validation); that seam is a follow-up.
+
 ## Dependency injection
 
 `AddArchPillarLocalization` (in the `…Localization.DependencyInjection` package) configures a single
@@ -314,8 +380,10 @@ interop package is meant to be dropped once you no longer depend on `IStringLoca
   throw new ArgumentException(L("Email is required"));
   ```
 
-> `.resx` keys, DataAnnotations messages, and view-localization calls are **not** extracted (they have
-> no in-code default to harvest); the adapter still serves them at runtime. See
+> `.resx` keys, a validator's `ErrorMessage`, and view-localization calls are **not** extracted (they
+> have no in-code default to harvest); the adapter still serves them at runtime. Display **annotations**
+> (`[DisplayName]` / `[Display]` / `[Description]`) are extracted separately — see
+> [Display annotations](#display-annotations--dataannotations-and-enums). See
 > [recommendations.md](recommendations.md) for the migration ordering.
 
 ## Publishing — merge per culture
