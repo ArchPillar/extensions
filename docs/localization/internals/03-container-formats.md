@@ -95,6 +95,13 @@ The asymmetry that drives complexity: Portable Object has the richest *metadata*
 - **State, references, previous-source, fingerprint:** ARB defines no native fields for these. Persist them under custom `x-`-prefixed metadata inside `"@key"` (e.g., `"x-state"`, `"x-references"`, `"x-previous-source"`, `"x-source-fingerprint"`), which the spec permits and tools ignore. The fingerprint (`x-source-fingerprint`) must be persisted because the reconciler needs it and ARB has nowhere else to put it.
 - **Removed keys:** a deleted key's entry and its `"@key"` metadata are simply absent on the next write (Decision D-11). ARB has no obsolete concept and we want none.
 
+## Write profiles
+
+`Write` takes a `CatalogWriteOptions` selecting the output shape (the default is the verbose dev layout):
+
+- **Self-describing source catalog (`AlwaysWriteSource`):** the `extract` write of the source-language catalog emits `source_text` (the in-code default) on *every* entry, even an un-edited echo where it equals the value. The source language has no separate original on disk — the value *is* the source — so without this a copywriter editing the value in place would lose the in-code default it was based on. PO/XLIFF carry source and translation separately and ignore the flag.
+- **Minified publish bundle (`Minify`):** the publish-time `merge` write drops insignificant whitespace and every annotation the runtime does not read (state, fingerprint, `source_text`, comments, references, placeholders). For ARB the only metadata kept is `x-category` and `context`, because the reader needs them to recover the bare key from the category-qualified member name (`Unqualify` strips a *known* prefix). An entry with neither needs no `@key` object at all. An absent `x-state` therefore reads back as a usable translation (`Translated`), not as untranslated; only an explicit `NeedsTranslation` marks a placeholder. XLIFF drops its indentation (its structure is all meaningful); PO is line-oriented and already compact.
+
 ## Shared provider requirements
 
 - **Round-trip fidelity:** `Read` then `Write` of an unchanged catalog must be byte-stable (modulo a single normalized formatting). This is what keeps version-control diffs meaningful and is a hard test gate.

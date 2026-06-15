@@ -59,7 +59,7 @@ public sealed class TranslationFormatRegistryTests
         public Task<Catalog> ReadAsync(Stream input, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
 
-        public Task WriteAsync(Stream output, Catalog catalog, CancellationToken cancellationToken) =>
+        public Task WriteAsync(Stream output, Catalog catalog, CancellationToken cancellationToken, CatalogWriteOptions? options = null) =>
             throw new NotSupportedException();
     }
 }

@@ -88,6 +88,12 @@ public sealed class ToolApplicationTests : IDisposable
         Assert.Equal(2, de.Entries.Count); // both libraries' de entries merged into one bundle
         Catalog en = await ReadAsync(Path.Combine(output, "en.arb"));
         Assert.Equal("Save", Assert.Single(en.Entries).TranslatedMessage);
+
+        // The published bundle is minified: one compact line, no translator/tooling annotations.
+        var deText = await File.ReadAllTextAsync(Path.Combine(output, "de.arb"));
+        Assert.DoesNotContain("\n", deText);
+        Assert.DoesNotContain("x-state", deText);
+        Assert.DoesNotContain("x-source-fingerprint", deText);
     }
 
     [Fact]

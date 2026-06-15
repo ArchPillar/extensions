@@ -150,7 +150,9 @@ internal static class ToolApplication
             Catalog existing = File.Exists(sourcePath)
                 ? await ReadFileAsync(provider, sourcePath).ConfigureAwait(false)
                 : new Catalog { Culture = sourceLanguage, Entries = [] };
-            await WriteFileAsync(provider, sourcePath, Reconciler.ReconcileSource(template, existing)).ConfigureAwait(false);
+            // The source catalog is self-describing: every entry carries source_text (the in-code default),
+            // even un-edited echoes, so a copywriter who edits the value in place still has the original.
+            await WriteFileAsync(provider, sourcePath, Reconciler.ReconcileSource(template, existing), new CatalogWriteOptions { AlwaysWriteSource = true }).ConfigureAwait(false);
             count++;
         }
 
@@ -483,7 +485,9 @@ internal static class ToolApplication
         IReadOnlyList<Catalog> merged = CatalogLoader.Flatten(catalogs, new LocalizerOptions { SourceCulture = sourceCulture });
         foreach (Catalog catalog in merged)
         {
-            await WriteFileAsync(outputProvider, Path.Combine(output, catalog.Culture + Extension(outputProvider)), catalog).ConfigureAwait(false);
+            // The published bundle is a runtime artifact, not a translator's working file: minify it (drop
+            // whitespace and every annotation the runtime does not read).
+            await WriteFileAsync(outputProvider, Path.Combine(output, catalog.Culture + Extension(outputProvider)), catalog, new CatalogWriteOptions { Minify = true }).ConfigureAwait(false);
         }
 
         Success($"Merged {catalogs.Count} catalog(s) into {merged.Count} bundle(s) in {output}");
@@ -674,7 +678,7 @@ internal static class ToolApplication
         }
     }
 
-    private static async Task WriteFileAsync(ITranslationFormat provider, string path, Catalog catalog)
+    private static async Task WriteFileAsync(ITranslationFormat provider, string path, Catalog catalog, CatalogWriteOptions? options = null)
     {
         var directory = Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(directory))
@@ -682,13 +686,13 @@ internal static class ToolApplication
             Directory.CreateDirectory(directory!);
         }
 
-        File.WriteAllBytes(path, await SerializeAsync(provider, catalog).ConfigureAwait(false));
+        File.WriteAllBytes(path, await SerializeAsync(provider, catalog, options).ConfigureAwait(false));
     }
 
-    private static async Task<byte[]> SerializeAsync(ITranslationFormat provider, Catalog catalog)
+    private static async Task<byte[]> SerializeAsync(ITranslationFormat provider, Catalog catalog, CatalogWriteOptions? options = null)
     {
         using var stream = new MemoryStream();
-        await provider.WriteAsync(stream, catalog, CancellationToken.None).ConfigureAwait(false);
+        await provider.WriteAsync(stream, catalog, CancellationToken.None, options).ConfigureAwait(false);
         return stream.ToArray();
     }
 

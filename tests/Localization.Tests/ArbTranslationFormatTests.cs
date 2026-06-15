@@ -228,6 +228,99 @@ public sealed class ArbTranslationFormatTests
     }
 
     [Fact]
+    public async Task Write_Minified_IsCompactAndDropsTranslatorMetadataAsync()
+    {
+        var catalog = new Catalog
+        {
+            Culture = "de",
+            Entries =
+            [
+                new CatalogEntry
+                {
+                    Key = "home.greeting",
+                    SourceMessage = "Hello {name}",
+                    TranslatedMessage = "Hallo {name}",
+                    Comment = "A greeting",
+                    Placeholders = ["name"],
+                    References = [new SourceReference("Home.cs", 12, 5)],
+                    SourceFingerprint = "abc123",
+                    State = TranslationState.Translated
+                }
+            ]
+        };
+
+        var text = Encoding.UTF8.GetString(await WriteAsync(catalog, new CatalogWriteOptions { Minify = true }));
+
+        // One compact line carrying only the value; every translator/tooling annotation is dropped.
+        Assert.DoesNotContain("\n", text);
+        Assert.Contains("\"home.greeting\":\"Hallo {name}\"", text);
+        Assert.DoesNotContain("x-state", text);
+        Assert.DoesNotContain("x-source-fingerprint", text);
+        Assert.DoesNotContain("source_text", text);
+        Assert.DoesNotContain("description", text);
+        Assert.DoesNotContain("placeholders", text);
+    }
+
+    [Fact]
+    public async Task Write_Minified_KeepsCategoryAndContextSoTheKeyRoundTripsAsync()
+    {
+        var catalog = new Catalog
+        {
+            Culture = "de",
+            Entries =
+            [
+                new CatalogEntry
+                {
+                    Key = "save",
+                    Category = "Acme.Buttons",
+                    Context = "verb",
+                    SourceMessage = "Save",
+                    TranslatedMessage = "Speichern",
+                    SourceFingerprint = "x",
+                    State = TranslationState.Translated
+                }
+            ]
+        };
+
+        Catalog roundTripped = await ReadAsync(await WriteAsync(catalog, new CatalogWriteOptions { Minify = true }));
+
+        CatalogEntry entry = Assert.Single(roundTripped.Entries);
+        Assert.Equal("save", entry.Key);
+        Assert.Equal("Acme.Buttons", entry.Category);
+        Assert.Equal("verb", entry.Context);
+        Assert.Equal("Speichern", entry.TranslatedMessage);
+        // The bundle drops x-state, so the reader must treat the absent state as a usable translation.
+        Assert.Equal(TranslationState.Translated, entry.State);
+    }
+
+    [Fact]
+    public async Task Read_AbsentState_IsTreatedAsTranslatedAsync()
+    {
+        Catalog catalog = await ReadAsync(Encoding.UTF8.GetBytes("""{ "@@locale": "de", "k": "v" }"""));
+
+        CatalogEntry entry = Assert.Single(catalog.Entries);
+        Assert.Equal("v", entry.TranslatedMessage);
+        Assert.Equal(TranslationState.Translated, entry.State);
+    }
+
+    [Fact]
+    public async Task Write_AlwaysWriteSource_EmitsSourceTextEvenForAnEchoAsync()
+    {
+        // A source-catalog echo: the value equals the source and there is no translation. AlwaysWriteSource
+        // still records the original, so editing the value in place does not lose it.
+        var catalog = new Catalog
+        {
+            Culture = "en",
+            Entries = [new CatalogEntry { Key = "home.greeting", SourceMessage = "Hello {name}", SourceFingerprint = "fp" }]
+        };
+
+        var text = Encoding.UTF8.GetString(await WriteAsync(catalog, new CatalogWriteOptions { AlwaysWriteSource = true }));
+
+        Assert.Contains("\"home.greeting\": \"Hello {name}\"", text);
+        Assert.Contains("\"source_text\": \"Hello {name}\"", text);
+    }
+
+    [Fact]
     public async Task Write_GlobalKey_EmitsBareMemberAsync()
     {
         // A global (uncategorized) key is its own member — no "::" prefix — matching standard ARB so a
@@ -299,10 +392,12 @@ public sealed class ArbTranslationFormatTests
     private static async Task<Catalog> RoundTripAsync(Catalog catalog) =>
         await ReadAsync(await WriteAsync(catalog));
 
-    private static async Task<byte[]> WriteAsync(Catalog catalog)
+    private static async Task<byte[]> WriteAsync(Catalog catalog) => await WriteAsync(catalog, CatalogWriteOptions.Default);
+
+    private static async Task<byte[]> WriteAsync(Catalog catalog, CatalogWriteOptions options)
     {
         using var stream = new MemoryStream();
-        await _format.WriteAsync(stream, catalog, CancellationToken.None);
+        await _format.WriteAsync(stream, catalog, CancellationToken.None, options);
         return stream.ToArray();
     }
 

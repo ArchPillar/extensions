@@ -23,6 +23,12 @@ public sealed class ArbTranslationFormat : ITranslationFormat
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
+    private static readonly JsonWriterOptions _minifiedWriterOptions = new()
+    {
+        Indented = false,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+
     /// <inheritdoc />
     public string FormatId => "arb";
 
@@ -53,7 +59,7 @@ public sealed class ArbTranslationFormat : ITranslationFormat
     }
 
     /// <inheritdoc />
-    public async Task WriteAsync(Stream output, Catalog catalog, CancellationToken cancellationToken)
+    public async Task WriteAsync(Stream output, Catalog catalog, CancellationToken cancellationToken, CatalogWriteOptions? options = null)
     {
         if (output is null)
         {
@@ -65,7 +71,7 @@ public sealed class ArbTranslationFormat : ITranslationFormat
             throw new ArgumentNullException(nameof(catalog));
         }
 
-        var bytes = Serialize(catalog);
+        var bytes = Serialize(catalog, options ?? CatalogWriteOptions.Default);
         await output.WriteAsync(bytes, 0, bytes.Length, cancellationToken).ConfigureAwait(false);
     }
 
@@ -157,7 +163,10 @@ public sealed class ArbTranslationFormat : ITranslationFormat
             Placeholders = GetPlaceholders(meta),
             References = GetReferences(meta),
             SourceFingerprint = GetString(meta, "x-source-fingerprint") ?? string.Empty,
-            State = ParseState(stateText)
+            // An absent x-state is not "untranslated": it means the file carries no workflow annotation, so the
+            // value is taken as a usable translation (a hand-authored Flutter ARB, or the minified publish
+            // bundle, which drops x-state). Only an explicit NeedsTranslation marks an untranslated placeholder.
+            State = stateText is null ? TranslationState.Translated : ParseState(stateText)
         };
     }
 
@@ -216,10 +225,10 @@ public sealed class ArbTranslationFormat : ITranslationFormat
     private static TranslationState ParseState(string? state) =>
         Enum.TryParse(state, out TranslationState parsed) ? parsed : TranslationState.NeedsTranslation;
 
-    private static byte[] Serialize(Catalog catalog)
+    private static byte[] Serialize(Catalog catalog, CatalogWriteOptions options)
     {
         using var buffer = new MemoryStream();
-        using (var writer = new Utf8JsonWriter(buffer, _writerOptions))
+        using (var writer = new Utf8JsonWriter(buffer, options.Minify ? _minifiedWriterOptions : _writerOptions))
         {
             writer.WriteStartObject();
             writer.WriteString("@@locale", catalog.Culture);
@@ -230,17 +239,19 @@ public sealed class ArbTranslationFormat : ITranslationFormat
 
             foreach (CatalogEntry entry in catalog.Entries)
             {
-                WriteEntry(writer, entry);
+                WriteEntry(writer, entry, options);
             }
 
             writer.WriteEndObject();
         }
 
         var json = _utf8NoBom.GetString(buffer.ToArray()).Replace("\r\n", "\n", StringComparison.Ordinal);
-        return _utf8NoBom.GetBytes(json + "\n");
+        // The minified bundle is a single compact line with no trailing newline; the development layout ends
+        // with one, the usual convention for a hand-edited, git-tracked text file.
+        return _utf8NoBom.GetBytes(options.Minify ? json : json + "\n");
     }
 
-    private static void WriteEntry(Utf8JsonWriter writer, CatalogEntry entry)
+    private static void WriteEntry(Utf8JsonWriter writer, CatalogEntry entry, CatalogWriteOptions options)
     {
         // The member name is the category-qualified identity, so entries from different categories (or with
         // different contexts) never collide as JSON members, and a key beginning with "@" becomes a member
@@ -248,6 +259,13 @@ public sealed class ArbTranslationFormat : ITranslationFormat
         var member = QualifiedKey.Qualify(entry.Category, entry.Key, entry.Context);
         var value = entry.TranslatedMessage ?? entry.SourceMessage;
         writer.WriteString(member, value);
+
+        if (options.Minify)
+        {
+            WriteMinifiedMetadata(writer, member, entry);
+            return;
+        }
+
         writer.WritePropertyName("@" + member);
         writer.WriteStartObject();
         WriteOptionalString(writer, "description", entry.Comment);
@@ -259,13 +277,34 @@ public sealed class ArbTranslationFormat : ITranslationFormat
         // Preserve the source text whenever the value is a distinct translation (ARB's single value per key would
         // otherwise lose it once translated), so a translator keeps the original to work from and it round-trips.
         // source_text is a predefined ARB attribute meant for exactly this, so tools that read it recognise it.
-        if (!string.Equals(entry.SourceMessage, value, StringComparison.Ordinal))
+        // AlwaysWriteSource emits it even for an echo (value == source) so the self-describing source catalog
+        // still carries the original the moment a copywriter edits the value.
+        if (options.AlwaysWriteSource || !string.Equals(entry.SourceMessage, value, StringComparison.Ordinal))
         {
             writer.WriteString("source_text", entry.SourceMessage);
         }
 
         WriteOptionalString(writer, "x-previous-source", entry.PreviousSource);
         writer.WriteString("x-source-fingerprint", entry.SourceFingerprint);
+        writer.WriteEndObject();
+    }
+
+    // The publish bundle keeps only what the runtime needs to resolve an entry: the value (already written) and
+    // the category and context, which the reader uses to recover the bare key from the member name. State,
+    // fingerprint, source text, comments, references and placeholders are all translator/tooling metadata and
+    // are dropped — an absent x-state reads back as a usable translation. Entries with no category or context
+    // need no metadata object at all, so it is omitted entirely.
+    private static void WriteMinifiedMetadata(Utf8JsonWriter writer, string member, CatalogEntry entry)
+    {
+        if (string.IsNullOrEmpty(entry.Category) && string.IsNullOrEmpty(entry.Context))
+        {
+            return;
+        }
+
+        writer.WritePropertyName("@" + member);
+        writer.WriteStartObject();
+        WriteOptionalString(writer, "context", entry.Context);
+        WriteOptionalString(writer, "x-category", entry.Category);
         writer.WriteEndObject();
     }
 
