@@ -116,25 +116,31 @@ in another format — the runtime loads all three.)
 
 ## 5. Hand off to translators — and back
 
-A single file you can hand over directly, but `export` packages it for you — zipping up every catalog in
-the `--input` folder for **one** language (as XLIFF, the format translation tools speak); `import` then
-routes each returned file back to the right catalog by its name. Run `export` once per language.
+`export` bundles the catalogs for a translator; `import` routes each returned file back to the right catalog
+by its name. Both take the **same scope** as the other commands, so from your app folder they find the
+catalogs the way `add` did — no need to name the folder:
 
 ```bash
-# Bundle the 'de' files for the translator:
-dotnet apl export --input Translations --lang de --output kit-de.zip
-#   -> kit-de.zip  (every {AssemblyName}.de.xliff)
+# One language → one zip:
+dotnet apl export --lang de --output kit-de.zip
+#   -> kit-de.zip  (every {AssemblyName}.de.xliff in scope)
 
 # ...the translator edits the files and sends the zip back...
 
-dotnet apl import --input kit-de.zip --output Translations
-#   -> updated Translations/YourApp.de.xliff  (entries they finished are now Translated)
+dotnet apl import --input kit-de.zip
+#   -> updates Translations/YourApp.de.xliff  (entries they finished are now Translated)
+
+# Every language at once → one <culture>.zip per language in a folder:
+dotnet apl export --output ./kits
+#   -> ./kits/de.zip, ./kits/fr.zip, …  (the source language is never handed off)
 ```
 
-The `.xliff` opens in any XLIFF-aware editor — Poedit and Lokalize both show the source and the translation
-side by side. `import` writes each file back in the format already on disk (an ARB repo stays ARB); pass
-`--format po` on `export` to hand off Portable Object instead. Commit the returned files. The full
-lifecycle — scopes, `sync`, deployment — is in [translation-workflow.md](translation-workflow.md).
+`--lang` is an optional filter — omit it to export every target language. As with the other commands the
+scope defaults to the current directory; pass `--solution App.sln`, `--project App.csproj`, or an explicit
+`--input <dir>` to point elsewhere. The `.xliff` opens in any XLIFF-aware editor — Poedit and Lokalize show
+the source and the translation side by side. `import` writes each file back in the format already on disk (an
+ARB repo stays ARB); pass `--format po` on `export` to hand off Portable Object instead. Commit the returned
+files. The full lifecycle — scopes, `sync`, deployment — is in [translation-workflow.md](translation-workflow.md).
 
 ## 6. Switch culture and see the override
 

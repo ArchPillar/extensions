@@ -279,7 +279,91 @@ public sealed class ToolApplicationTests : IDisposable
         Assert.False(File.Exists(Path.Combine(catalogs, "LibA.de.xliff")));
     }
 
+    [Fact]
+    public async Task Export_WithoutLang_WritesOneZipPerTargetCultureExcludingSourceAsync()
+    {
+        var catalogs = Path.Combine(_directory, "all-langs");
+        Directory.CreateDirectory(catalogs);
+        await WriteCatalogAsync(Path.Combine(catalogs, "LibA.de.arb"), "de", ("save", "Speichern"));
+        await WriteCatalogAsync(Path.Combine(catalogs, "LibA.fr.arb"), "fr", ("save", "Enregistrer"));
+        await WriteCatalogAsync(Path.Combine(catalogs, "LibA.en.arb"), "en", ("save", "Save")); // source — not handed off
+
+        // No --lang: --output is a directory and every target culture gets its own <culture>.zip.
+        var kits = Path.Combine(_directory, "kits");
+        Assert.Equal(0, await ToolApplication.RunAsync(["export", "--input", catalogs, "--output", kits, "--source", "en"]));
+
+        Assert.True(File.Exists(Path.Combine(kits, "de.zip")));
+        Assert.True(File.Exists(Path.Combine(kits, "fr.zip")));
+        Assert.False(File.Exists(Path.Combine(kits, "en.zip")));
+
+        using ZipArchive de = ZipFile.OpenRead(Path.Combine(kits, "de.zip"));
+        Assert.Equal("LibA.de.xliff", Assert.Single(de.Entries).Name);
+    }
+
+    [Fact]
+    public async Task Export_SolutionScope_GathersCatalogsFromEveryProjectsTranslationsAsync()
+    {
+        // Per-project layout: each project keeps its own Translations folder, wired into a solution.
+        var projA = await CreateProjectWithCatalogAsync("ProjA", "LibA", "de", ("save", "Speichern"));
+        var projB = await CreateProjectWithCatalogAsync("ProjB", "LibB", "de", ("cancel", "Abbrechen"));
+        var solution = Path.Combine(_directory, "App.slnx");
+        await File.WriteAllTextAsync(solution,
+            $"""
+            <Solution>
+              <Project Path="{Path.GetRelativePath(_directory, projA)}" />
+              <Project Path="{Path.GetRelativePath(_directory, projB)}" />
+            </Solution>
+            """);
+
+        var kit = Path.Combine(_directory, "sln-de.zip");
+        Assert.Equal(0, await ToolApplication.RunAsync(["export", "--solution", solution, "--lang", "de", "--output", kit]));
+
+        using ZipArchive archive = ZipFile.OpenRead(kit);
+        Assert.Equal(2, archive.Entries.Count);
+        Assert.Contains(archive.Entries, entry => entry.Name == "LibA.de.xliff");
+        Assert.Contains(archive.Entries, entry => entry.Name == "LibB.de.xliff");
+    }
+
+    [Fact]
+    public async Task Import_WithoutOutput_WritesToTheProjectsTranslationsFolderAsync()
+    {
+        var project = await CreateProjectWithCatalogAsync("App", "App", "de", ("save", "Speichern"));
+        var translations = Path.Combine(Path.GetDirectoryName(project)!, "Translations");
+        var kit = Path.Combine(_directory, "app-de.zip");
+        Assert.Equal(0, await ToolApplication.RunAsync(["export", "--project", project, "--lang", "de", "--output", kit]));
+
+        // Re-import with no --output: it resolves the write directory from the project scope (its Translations).
+        File.Delete(Path.Combine(translations, "App.de.arb"));
+        Assert.Equal(0, await ToolApplication.RunAsync(["import", "--input", kit, "--project", project]));
+
+        Assert.True(File.Exists(Path.Combine(translations, "App.de.xliff")));
+    }
+
+    [Fact]
+    public async Task Merge_ProjectScope_FindsCatalogsViaTheTranslationsConventionAsync()
+    {
+        var project = await CreateProjectWithCatalogAsync("App", "App", "de", ("save", "Speichern"));
+        var bundles = Path.Combine(_directory, "bundles");
+        Assert.Equal(0, await ToolApplication.RunAsync(["merge", "--project", project, "--output", bundles, "--source", "en"]));
+
+        Assert.True(File.Exists(Path.Combine(bundles, "de.arb")));
+    }
+
     public void Dispose() => Directory.Delete(_directory, recursive: true);
+
+    // A project on disk with a sibling Translations folder holding one catalog — the per-project layout the
+    // scope resolver discovers. No build: the catalog commands read files, never IL.
+    private async Task<string> CreateProjectWithCatalogAsync(string projectName, string assemblyName, string culture, params (string Key, string Message)[] entries)
+    {
+        var projectDir = Path.Combine(_directory, projectName);
+        Directory.CreateDirectory(projectDir);
+        var projectPath = Path.Combine(projectDir, projectName + ".csproj");
+        await File.WriteAllTextAsync(projectPath, "<Project Sdk=\"Microsoft.NET.Sdk\" />\n");
+        var translations = Path.Combine(projectDir, "Translations");
+        Directory.CreateDirectory(translations);
+        await WriteCatalogAsync(Path.Combine(translations, $"{assemblyName}.{culture}.arb"), culture, entries);
+        return projectPath;
+    }
 
     private async Task WriteCatalogAsync(string path, string culture, params (string Key, string Message)[] entries)
     {

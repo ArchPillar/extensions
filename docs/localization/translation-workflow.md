@@ -52,6 +52,12 @@ Translations`. `--project` and `--solution` also accept a **folder** or no value
 that folder (or the current directory). An ambiguous folder (more than one project/solution) is an error
 rather than a guess.
 
+The catalog commands (`export`, `import`, `merge`, `manifest`) take the **same scope** — the only difference
+is what they read off each in-scope project: its `Translations` folder rather than its built assembly. So
+`export --solution App.sln` gathers every project's catalogs and a bare `export` uses the current
+project/solution's `Translations`, exactly as `add`/`sync` do. For these commands `--input <dir>` names an
+explicit catalog folder (their low-level form, in place of `--assembly`).
+
 The tool **extracts the strings from each built assembly's IL** (Decision D-K — reading compiled metadata,
 never source, so it also catches strings in Razor/Blazor/MVC generated code), so the assemblies must be
 built first. It reads them without loading code, so pointing `--input` at a large output tree is safe. An
@@ -97,19 +103,28 @@ dotnet apl add de --solution App.sln --output Translations
 
 ## 4. Hand off to translators — and back
 
-Bundle the per-assembly catalogs for a language into a single zip, converted to XLIFF (the format most
-translation tools speak):
+`export` bundles the per-assembly catalogs into a zip, converted to XLIFF (the format most translation tools
+speak). It takes the same scope as the authoring commands, so a `--solution`/`--project`/cwd run gathers every
+in-scope `Translations` folder:
 
 ```bash
-dotnet apl export --input Translations --lang de --output kit-de.zip
+dotnet apl export --solution App.sln --lang de --output kit-de.zip
 #   kit-de.zip:  App.Web.de.xliff, App.Core.de.xliff
 ```
 
-Send `kit-de.zip`. When it comes back translated, import it — each file is routed back to its origin
-assembly's catalog by its name:
+`--lang` is an optional filter. Omit it and `--output` becomes a **directory** with one `<culture>.zip` per
+target language (the source language is never handed off):
 
 ```bash
-dotnet apl import --input kit-de.zip --output Translations
+dotnet apl export --solution App.sln --output ./kits
+#   ./kits/de.zip, ./kits/fr.zip, …
+```
+
+Send the zip. When it comes back translated, import it — each file is routed back to its origin assembly's
+catalog by its name, into the scope's `Translations` folder (or an explicit `--output`):
+
+```bash
+dotnet apl import --input kit-de.zip --solution App.sln
 #   -> updated Translations/App.Web.de.xliff, Translations/App.Core.de.xliff
 ```
 
