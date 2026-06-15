@@ -116,9 +116,9 @@ in another format — the runtime loads all three.)
 
 ## 5. Hand off to translators — and back
 
-A single file you can hand over directly, but the tool gives you a round-trip that also scales once an app
-spans several assemblies: `export` bundles every language file into one zip (as XLIFF, the format
-translation tools speak), and `import` routes each returned file back to the right catalog by its name.
+A single file you can hand over directly, but `export` packages it for you — zipping up every catalog in
+the `--input` folder for **one** language (as XLIFF, the format translation tools speak); `import` then
+routes each returned file back to the right catalog by its name. Run `export` once per language.
 
 ```bash
 # Bundle the 'de' files for the translator:
