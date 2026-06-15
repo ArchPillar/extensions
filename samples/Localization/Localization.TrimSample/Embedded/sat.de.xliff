@@ -3,7 +3,7 @@
   <file id="sat">
     <unit id="fromSatellite">
       <notes>
-        <note category="fingerprint">sample</note>
+        <note category="fingerprint">bbd832af1785efad698a0549c235c887</note>
       </notes>
       <segment state="translated" subState="archpillar:Translated">
         <source xml:space="preserve">from satellite (default)</source>

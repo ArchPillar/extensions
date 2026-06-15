@@ -16,6 +16,12 @@
     <PublishTrimmed>true</PublishTrimmed>
     <TrimMode>full</TrimMode>
     <PublishSingleFile>true</PublishSingleFile>
+    <!-- Author this sample like any other: extraction generates the en source catalog and the generator runs.
+         The generator/analyzer references are compile-time only (OutputItemType=Analyzer,
+         ReferenceOutputAssembly=false), so trimming never touches them, and PublishTrimmed in the csproj body
+         (not the command line) keeps it from propagating to those netstandard2.0 references. Verified
+         warning-clean through trimmed single-file publish and run. -->
+    <ArchPillarLocalizationSampleAuthoring>true</ArchPillarLocalizationSampleAuthoring>
   </PropertyGroup>
 
   <ItemGroup>

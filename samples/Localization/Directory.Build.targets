@@ -17,17 +17,19 @@
   </PropertyGroup>
 
   <!--
-    Wire the generator (as analyzers, the set the package ships) and the package's extract/copy/merge targets,
-    EXCEPT for samples that manage their own catalogs (embedded satellites, a fetched-asset model, …) which set
-    ArchPillarLocalizationSampleAuthoring=false, and the trimmed / AOT samples, whose netstandard2.0 analyzer
-    references must not be pulled in. Decided here, in .targets, so PublishTrimmed/PublishAot set in the project
-    body are visible.
+    Wire the generator (as analyzers, the set the package ships) and the package's extract/copy/merge targets.
+    A sample opts OUT with ArchPillarLocalizationSampleAuthoring=false when it manages its own catalogs by a
+    different model. Trimmed / AOT samples default off but may opt IN (in their csproj): the generator/analyzer
+    references are compile-time only (OutputItemType=Analyzer, ReferenceOutputAssembly=false) so they never enter
+    the trimmed/AOT app, and PublishTrimmed/PublishAot set in the project body (not the command line) keep them
+    from propagating to those netstandard2.0 references. Decided here, in .targets, so PublishTrimmed/PublishAot
+    set in the project body are visible.
   -->
   <PropertyGroup>
-    <!-- A sample may opt in explicitly (ArchPillarLocalizationSampleAuthoring=true) even when it is trimmed:
-         the Blazor WebAssembly sample is trimmed by default but must still author and serve its catalogs through
-         the build pipeline. The dedicated trim/AOT samples set PublishTrimmed/PublishAot and do NOT opt in, so
-         they stay excluded (their netstandard2.0 analyzer references must not be pulled in). -->
+    <!-- Author by default. A sample opts in explicitly (ArchPillarLocalizationSampleAuthoring=true) when it is
+         trimmed or AOT (this first condition wins over the default-off below): the Blazor WebAssembly sample
+         (trimmed), the NativeAOT sample, and the trimmed single-file sample all opt in and author like the rest.
+         Extraction generating the en source catalog is verified warning-clean through their publishes. -->
     <_ArchPillarSampleAuthoring Condition="'$(ArchPillarLocalizationSampleAuthoring)' == 'true'">true</_ArchPillarSampleAuthoring>
     <_ArchPillarSampleAuthoring Condition="'$(_ArchPillarSampleAuthoring)' != 'true' and '$(ArchPillarLocalizationSampleAuthoring)' != 'false' and '$(PublishTrimmed)' != 'true' and '$(PublishAot)' != 'true'">true</_ArchPillarSampleAuthoring>
     <!-- The samples wire these build assets in by hand (no PackageReference), so they take the escape hatch to

@@ -3,7 +3,7 @@
   <file id="main">
     <unit id="fromMainEmbed">
       <notes>
-        <note category="fingerprint">sample</note>
+        <note category="fingerprint">3cc249a336ebfe6180d91a03100de797</note>
       </notes>
       <segment state="translated" subState="archpillar:Translated">
         <source xml:space="preserve">from embed (default)</source>
