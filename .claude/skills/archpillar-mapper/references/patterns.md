@@ -4,8 +4,10 @@ Practical guidance beyond the core rules in `SKILL.md`.
 
 ## Choosing a mapping style
 
-- **Member-init** (`src => new TDest { … }`) is the default — concise, reads like a normal
-  object initializer, and every assigned property is tracked as a required mapping.
+- **Member-init** (`src => new TDest { … }`) is the default and preferred — concise, reads like a
+  normal object initializer, and (when the DTO uses `required` members) the C# compiler catches a
+  missing assignment at compile time, before the library's build-time coverage check. Every
+  assigned property is tracked as a required mapping.
 - **Fluent** (`.Map(d => d.X, s => …)`) is a co-equal style, not just a fallback. It is the
   form used for **mapper inheritance** (`Inherit(baseMapper).For<TDerived>()`, to add the derived
   type's extra properties) and the natural choice for `.Optional()` / `.Ignore()` or a computed

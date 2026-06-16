@@ -44,16 +44,31 @@ var rows = await db.Orders
 Scalar `Map()` and collection `Project()` are both inlined; nested mappers, enum mappers, and
 variables inside them resolve exactly as for a top-level `Project(mapper)`.
 
+This is **mix mode** — your own projection mixed with mapper calls. Two ways to inline it: the
+automatic `IQueryExpressionInterceptor` enabled by `UseArchPillarMapper()`, or an explicit
+`ApplyMappers()` call on the query (see below).
+
+> **Recommendation: prefer the explicit `ApplyMappers()` helper for mix-mode queries.** The
+> automatic interceptor works for the common case, but it runs *after* EF Core's parameter
+> extraction, which breaks the one combination below. Inlining manually with `ApplyMappers()`
+> avoids that edge case entirely and makes the inlining point visible in the query.
+
 > `Map()` / `Project()` used **inside a mapper definition** are always inlined by the core
 > library and never need this package. The companion is only for direct calls inside your own
 > queries.
 
-## Hand-written queries containing `Invoke` — `ApplyMappers()`
+## The edge case that bites: mix mode + `Invoke`
 
+**Mix mode combined with inline escaping (`Invoke`) only works if `ApplyMappers()` is called.**
 The automatic interceptor runs *after* EF Core's parameter extraction, so it cannot inline a
 mapper that contains an `Invoke` call (a nested mapping that deliberately opted out of
-expression-tree inlining). For those queries, call `ApplyMappers()` — the explicit counterpart
-that runs the same rewrite at query-construction time, *before* parameter extraction:
+expression-tree inlining) — the invoke box would be spliced in too late to be lifted into a
+query parameter, and EF rejects it as a captured constant. The interceptor detects this and
+throws a clear error pointing here.
+
+The fix — and the reason to prefer it for all mix-mode queries — is `ApplyMappers()`, the
+explicit counterpart that runs the same rewrite at query-construction time, *before* parameter
+extraction, so the box (and any variable boxes) parameterize normally:
 
 ```csharp
 using ArchPillar.Extensions.Mapper.EntityFrameworkCore;

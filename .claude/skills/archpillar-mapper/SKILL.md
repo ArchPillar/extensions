@@ -40,9 +40,10 @@ mapping an entity to a DTO, writing a LINQ/EF Core projection, defining or editi
 
 Both styles are first-class and combine freely on the same mapper:
 
-- **Member-init** — pass `src => new TDest { … }` to `CreateMapper`. Preferred for
-  straightforward mappings; reads like a normal object initializer, and every assigned property
-  is tracked as a required mapping.
+- **Member-init** — pass `src => new TDest { … }` to `CreateMapper`. **Preferred** — it reads
+  like a normal object initializer, and if the DTO declares `required` members the C# *compiler*
+  flags a missing assignment at compile time, before the library's build-time coverage check even
+  runs. Every assigned property is tracked as a required mapping.
 - **Fluent per-property** — chain `.Map(dest => …, src => …)`. This is the form used for **mapper
   inheritance** (`Inherit(baseMapper).For<TDerived>().Map(…)`, to add the derived type's extra
   properties) and for **customizing a clone mapper** (see below), and the natural choice for
