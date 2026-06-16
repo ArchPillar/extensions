@@ -8,3 +8,6 @@ Console.WriteLine("  " + Translate("greeting", "Hello {name}!", ("name", "Ada"))
 CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en");
 Console.WriteLine("  en/1: " + Translate("inbox", "You have {count, plural, =0 {no messages} one {# message} other {# messages}}", ("count", 1)));
 Console.WriteLine("  en/5: " + Translate("inbox", "You have {count, plural, =0 {no messages} one {# message} other {# messages}}", ("count", 5)));
+
+Console.WriteLine();
+LocOracle.Demo.Run();
