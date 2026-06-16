@@ -73,6 +73,9 @@ A user-interface translation library. Translatable strings are written once at t
 │   ├── primitives/                        # Primitives documentation
 │   ├── commands/                          # Commands documentation and spec
 │   └── localization/                      # Localization docs (user-facing) + internals/ (spec, decisions)
+├── tools/
+│   └── skill-oracle/                     # Oracles that validate the LLM Agent Skills against published packages
+│       └── mapper/                       # Oracle for the Mapper skill (docs/mapper/internals/llm-skill-testing.md)
 ├── Directory.Build.props                  # Shared project properties
 ├── Directory.Build.targets                # Roslyn analyzer configuration
 ├── Directory.Packages.props               # Central package management
