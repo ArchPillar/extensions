@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Pin to the published package + an EF Core major that matches the addon.
+       Bump these versions when re-validating against a newer release. -->
+  <ItemGroup>
+    <PackageReference Include="ArchPillar.Extensions.Mapper" Version="1.4.4" />
+    <PackageReference Include="ArchPillar.Extensions.Mapper.EntityFrameworkCore" Version="1.4.4" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.9" />
+  </ItemGroup>
+</Project>
