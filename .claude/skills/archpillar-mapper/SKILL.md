@@ -43,10 +43,15 @@ Both styles are first-class and combine freely on the same mapper:
 - **Member-init** — pass `src => new TDest { … }` to `CreateMapper`. Preferred for
   straightforward mappings; reads like a normal object initializer, and every assigned property
   is tracked as a required mapping.
-- **Fluent per-property** — chain `.Map(dest => …, src => …)`. This is the **required** form for
-  **mapper inheritance** (`Inherit(baseMapper).For<TDerived>().Map(…)`) and **clone-mapper
-  customization** (`CreateCloneMapper<T>().Map(…)` / `.Ignore(…)`), and the natural choice for
+- **Fluent per-property** — chain `.Map(dest => …, src => …)`. This is the form used for **mapper
+  inheritance** (`Inherit(baseMapper).For<TDerived>().Map(…)`, to add the derived type's extra
+  properties) and for **customizing a clone mapper** (see below), and the natural choice for
   `.Optional()` / `.Ignore()` or a computed property.
+
+A **clone mapper** is the one case that needs no explicit mapping: `CreateCloneMapper<T>()`
+auto-wires every public settable property as an identity mapping (`dest.Prop = src.Prop`). You
+only chain `.Ignore(d => d.X)` to exclude a property or `.Map(d => d.X, s => …)` to override one
+— customization is optional.
 - **Combined** — start with a member-init for the simple properties, then chain `.Map()`,
   `.Optional()`, or `.Ignore()` for the rest.
 

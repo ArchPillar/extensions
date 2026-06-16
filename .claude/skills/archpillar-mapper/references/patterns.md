@@ -7,11 +7,13 @@ Practical guidance beyond the core rules in `SKILL.md`.
 - **Member-init** (`src => new TDest { … }`) is the default — concise, reads like a normal
   object initializer, and every assigned property is tracked as a required mapping.
 - **Fluent** (`.Map(d => d.X, s => …)`) is a co-equal style, not just a fallback. It is the
-  **required** form for **mapper inheritance** (`Inherit(baseMapper).For<TDerived>()`) and
-  **clone-mapper customization** (`CreateCloneMapper<T>().Map(…)` / `.Ignore(…)`), and the
-  natural choice for `.Optional()` / `.Ignore()` or a computed expression. The two styles
-  combine: start with a member-init for the straightforward properties, then chain `.Map()` /
-  `.Optional()` / `.Ignore()` for the rest.
+  form used for **mapper inheritance** (`Inherit(baseMapper).For<TDerived>()`, to add the derived
+  type's extra properties) and the natural choice for `.Optional()` / `.Ignore()` or a computed
+  expression. The two styles combine: start with a member-init for the straightforward
+  properties, then chain `.Map()` / `.Optional()` / `.Ignore()` for the rest.
+- **Clone mappers need no explicit mapping.** `CreateCloneMapper<T>()` auto-wires every public
+  settable property as an identity mapping; chain `.Ignore(d => d.X)` to exclude or
+  `.Map(d => d.X, s => …)` to override — customization is optional, not required.
 
 ## Projection vs in-memory: when translatability matters
 
