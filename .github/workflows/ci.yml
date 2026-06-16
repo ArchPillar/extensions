@@ -11,15 +11,20 @@ jobs:
     name: Skills manifest check
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    env:
+      SKILLS_REPO: ArchPillar/claude-skills
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      # Fails if a published skill is missing from the marketplace manifest (would silently never
-      # ship) or the manifest lists a skill that does not exist.
+      # The builder is canonical in the marketplace repo; fetch it (public, shallow clone) and check
+      # this repo's manifest against it. Fails if a published skill is missing from the manifest
+      # (would silently never ship) or the manifest lists a skill that does not exist.
+      - name: Fetch the canonical builder
+        run: git clone --depth 1 "https://github.com/${SKILLS_REPO}.git" target
       - name: Check skill marketplace manifest
-        run: python3 tools/skill-marketplace/build_marketplace.py --check
+        run: python3 target/build_marketplace.py --check --source-root "$GITHUB_WORKSPACE"
 
   build-and-test:
     runs-on: ubuntu-latest

@@ -2,7 +2,9 @@ name: Publish Claude skills
 
 # Publishes this repo's Agent Skills into the shared marketplace repo, on par with (but separate
 # from) the NuGet publish. The monorepo is the source of truth; the marketplace repo is a generated
-# mirror. Gating is derived from publish.yml — only published libraries get a plugin.
+# mirror. The marketplace repo owns the canonical builder (build_marketplace.py); this job clones it
+# and runs it against this checkout (--source-root). Gating is derived from publish.yml — only
+# published libraries get a plugin.
 #
 # Auth: a GitHub App (org-owned, scoped to the marketplace repo with Contents: write). The job mints
 # a short-lived installation token at runtime — no personal PAT, auto-rotating. Two secrets required
@@ -48,11 +50,14 @@ jobs:
           set -euo pipefail
           VERSION=${GITHUB_TAG#v}
 
+          # Clone the marketplace repo: it is both the merge target (--into) and the home of the
+          # canonical builder we run.
           git clone "https://x-access-token:${TOKEN}@github.com/${SKILLS_REPO}.git" target
 
-          python3 tools/skill-marketplace/build_marketplace.py \
-            --version "$VERSION" \
+          python3 target/build_marketplace.py \
+            --source-root "$GITHUB_WORKSPACE" \
             --into target \
+            --version "$VERSION" \
             --source-repo "https://github.com/${GITHUB_REPOSITORY}" \
             --marketplace-repo "${SKILLS_REPO}"
 
