@@ -187,8 +187,12 @@ public void AppMappers_AllMappersBuild()
 }
 ```
 
-See `references/patterns.md` for testing the actual mapping output on both the in-memory and the
-expression path.
+When a mapper is used with EF Core, also add a test that runs `Project(mapper)` against a **real
+relational provider** (SQLite, or Testcontainers/real Postgres/SQL Server) and materializes the
+results — that is the only way to prove the expression translated to SQL. The
+`EntityFrameworkCore.InMemory` provider does *not* validate translation. These are all
+application-code tests; see `references/patterns.md` for the full three-tier approach (build →
+in-memory output → SQL translation).
 
 ## EF Core companion package
 

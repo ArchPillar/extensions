@@ -153,8 +153,34 @@ public void Order_ToExpression_ProducesValidExpression()
 }
 ```
 
-For projection, exercise it against `Microsoft.EntityFrameworkCore.InMemory` with
-`Project(mappers.Order).ToListAsync()` and assert the results materialize.
+**Finally, test that projection translates to SQL.** When a mapper is used with EF Core, add a
+test that runs `Project(mapper)` against a **real relational provider** and materializes the
+results — this is the only way to prove the expression actually compiled to SQL.
+
+```csharp
+[Fact]
+public async Task Order_Project_TranslatesToSql()
+{
+    await using var db = CreateDbContext(); // real provider (SQLite / Testcontainers Postgres / SQL Server)
+    var mappers = new AppMappers();
+
+    List<OrderDto> rows = await db.Orders
+        .Project(mappers.Order, o => o.Include(m => m.CustomerName))
+        .ToListAsync();   // throws here if the expression can't be translated
+
+    Assert.NotEmpty(rows);
+}
+```
+
+> Caveat: the `Microsoft.EntityFrameworkCore.InMemory` provider does **not** validate SQL
+> translation — it evaluates the expression in memory, so a projection that would fail against a
+> database can pass against InMemory. Use a relational provider (SQLite in-memory is the
+> lightest; Testcontainers/real Postgres or SQL Server is the most faithful) for translation
+> coverage. Cover whichever optional `Include()` combinations the application actually requests,
+> since each adds joins to the translated query.
+
+All of the above are **application-code tests** — they live in the consuming application and
+validate its mapper definitions and EF Core usage, not the library itself.
 
 ## Performance notes
 
