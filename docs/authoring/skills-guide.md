@@ -204,27 +204,35 @@ absence would let an agent get it wrong.**
 Skills ship through a Claude Code plugin marketplace, treated like NuGet publishing — the monorepo
 is the source of truth, the marketplace is a generated mirror:
 
-- **A separate, shared marketplace repo** (`ArchPillar/claude-skills`) is the published artifact:
-  `.claude-plugin/marketplace.json` plus one plugin per library under `plugins/<lib>/`. It is
-  **generated, never hand-edited** — no `plugins/` folder pollutes the libraries repo.
+- **A separate, shared marketplace repo** (`ArchPillar/claude-skills`) is the published artifact and
+  the home of the canonical builder: `build_marketplace.py` plus the generated
+  `.claude-plugin/marketplace.json` and one plugin per library under `plugins/<lib>/`. The generated
+  artifacts are **never hand-edited** — no `plugins/` folder pollutes the libraries repo.
 - **Two manifests** make the multi-repo model explicit and auditable:
   - the per-repo **source manifest** (`tools/skill-marketplace/skills.json`) declares the skills
     this repo publishes;
   - the marketplace's **provenance** (`.claude-plugin/sources.json`) records which source repo and
     version each plugin came from, so a repo can update **and delete** its own plugins without
     touching another repo's.
-- **Published-gating, derived from CI.** `tools/skill-marketplace/build_marketplace.py` publishes a
-  listed skill only if its package appears in `publish.yml` — an unpublished library gets no plugin,
-  with no hardcoded include-list.
-- **Sharable across repos.** The builder is repo-agnostic (source repo + marketplace come from the
-  manifest or CLI), so several repos can publish into one marketplace; `marketplace.json` is
-  regenerated as the union of all plugins present.
+- **Published-gating, derived from CI.** The builder publishes a listed skill only if its package
+  appears in this repo's `publish.yml` — an unpublished library gets no plugin, with no hardcoded
+  include-list.
+- **One shared builder, consumed from the marketplace.** `build_marketplace.py` is canonical in
+  `ArchPillar/claude-skills`, so every source repo runs one implementation with no drift. It is
+  repo-agnostic: `--source-root` points it at a source-repo checkout (where it reads `.claude/skills/`,
+  the manifest, and `publish.yml`), `--into` at the marketplace checkout it merges into. This repo
+  keeps only its source manifest under `tools/skill-marketplace/`; the publish and PR-check workflows
+  clone the builder rather than vendoring it. `marketplace.json` is regenerated as the union of all
+  plugins present, so several repos can publish into one marketplace.
 - **A dedicated release workflow** (`.github/workflows/publish-skills.yml`, separate from
-  `publish.yml`) builds and pushes directly to the marketplace repo's `main` on `release: published`
-  (a generated artifact repo, so no PR flow). It authenticates as an **org-owned GitHub App** scoped
-  to the marketplace repo (Contents: write), minting a short-lived installation token at runtime —
-  no personal PAT. Configure the `SKILLS_APP_ID` and `SKILLS_APP_PRIVATE_KEY` secrets on the source
-  repo.
+  `publish.yml`) clones the marketplace repo, runs its canonical builder against this checkout
+  (`--source-root "$GITHUB_WORKSPACE"`), and pushes the regenerated artifacts directly to the
+  marketplace repo's `main` on `release: published` (a generated artifact repo, so no PR flow). It
+  authenticates as an **org-owned GitHub App** scoped to the marketplace repo (Contents: write),
+  minting a short-lived installation token at runtime — no personal PAT. Configure the
+  `SKILLS_APP_ID` and `SKILLS_APP_PRIVATE_KEY` secrets on the source repo. The PR-time manifest check
+  (`ci.yml`) likewise clones the builder (the marketplace repo is public — a plain shallow clone) and
+  runs `--check --source-root "$GITHUB_WORKSPACE"`.
 
 Users install with `/plugin marketplace add ArchPillar/claude-skills` then
 `/plugin install archpillar-<library>@archpillar`.
