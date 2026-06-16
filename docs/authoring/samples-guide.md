@@ -4,8 +4,8 @@ How to write an example project for a library in this monorepo. This is the stan
 sample is expected to follow, and the reference a reviewer (human or agent) checks a sample
 PR against.
 
-The companion guide for prose documentation is
-[documentation-guide.md](documentation-guide.md).
+The companion guides are [documentation-guide.md](documentation-guide.md) (prose documentation)
+and [skills-guide.md](skills-guide.md) (LLM agent skills).
 
 ## What a sample is for
 

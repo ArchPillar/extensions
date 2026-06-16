@@ -32,16 +32,15 @@ jobs:
       - name: Pack
         run: |
           VERSION=${GITHUB_TAG#v}
-          # The whole monorepo ships on one version (the release tag). Localization is still maturing, so it
-          # goes out as a prerelease: the "-preview" suffix is forced here so a stable localization build can
-          # never be published by accident. Drop the suffix to promote it onto the same stable train.
-          PREVIEW="$VERSION-preview"
+          # The whole monorepo ships on one version: the release tag. Cut a prerelease tag
+          # (e.g. v1.4.5-preview1) to publish every package as that prerelease — the way to keep
+          # Localization on a preview train while it matures, without special-casing it here.
 
-          # Mapper — stable
+          # Mapper
           dotnet pack src/Mapper/ArchPillar.Extensions.Mapper.csproj -c Release --no-build -o ./nupkgs -p:PackageVersion=$VERSION
           dotnet pack src/Mapper.EntityFrameworkCore/ArchPillar.Extensions.Mapper.EntityFrameworkCore.csproj -c Release --no-build -o ./nupkgs -p:PackageVersion=$VERSION
 
-          # Localization — preview. The analyzer and code-fixes are bundled into the main package, not published.
+          # Localization. The analyzer and code-fixes are bundled into the main package, not published.
           for project in \
             Localization/ArchPillar.Extensions.Localization \
             Localization.Abstractions/ArchPillar.Extensions.Localization.Abstractions \
@@ -51,7 +50,7 @@ jobs:
             Localization.AspNetCore/ArchPillar.Extensions.Localization.AspNetCore \
             Localization.Tooling/ArchPillar.Extensions.Localization.Tooling
           do
-            dotnet pack "src/$project.csproj" -c Release --no-build -o ./nupkgs -p:PackageVersion=$PREVIEW
+            dotnet pack "src/$project.csproj" -c Release --no-build -o ./nupkgs -p:PackageVersion=$VERSION
           done
         env:
           GITHUB_TAG: ${{ github.event.release.tag_name }}

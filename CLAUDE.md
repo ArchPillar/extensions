@@ -6,7 +6,7 @@ A monorepo of standalone .NET libraries published under the `ArchPillar.Extensio
 
 - **Mapper** (`src/Mapper/`) — object-to-object DTO mapping and LINQ/EF Core expression projection. Read `docs/mapper/internals/SPEC.md` for full design philosophy and API surface.
 
-When writing or reviewing **documentation or sample projects**, follow the authoring standards in `docs/authoring/` — `documentation-guide.md` (user-vs-developer audience split, canonical skeletons, house style) and `samples-guide.md` (naming, structure, the per-sample README). Each guide ends with a review checklist; apply it before considering a docs/samples change done.
+When writing or reviewing **documentation, sample projects, or LLM agent skills**, follow the authoring standards in `docs/authoring/` — `documentation-guide.md` (user-vs-developer audience split, canonical skeletons, house style), `samples-guide.md` (naming, structure, the per-sample README), and `skills-guide.md` (one skill per library, generate from the SPEC, the compile/run oracle against the published package). Each guide ends with a review checklist; apply it before considering a docs/samples/skills change done. For the general skill-authoring craft (frontmatter, CSO, progressive disclosure, RED-GREEN-REFACTOR), `skills-guide.md` defers to the `superpowers:writing-skills` skill — use it, don't duplicate it.
 
 ## Build & Test Commands
 

@@ -15,6 +15,7 @@ it, see the user-facing docs at [`../`](../).
 | [05-runtime.md](05-runtime.md) | The runtime call API, fallback chain, lock-free lookup, and hot reload. |
 | [06-msbuild-integration.md](06-msbuild-integration.md) | The MSBuild property surface and what the build emits. |
 | [TODO.md](TODO.md) | The working implementation tracker. |
+| [llm-skill-testing.md](llm-skill-testing.md) | How the library's LLM Agent Skill is validated against the published package — extraction, `APL` diagnostics, runtime resolution — and how to re-run the oracle. |
 
 The numbered documents (`00`–`06`) are the original detailed design set; `DECISIONS.md` records the
 choices actually made for this repository and overrides them on any conflict.
