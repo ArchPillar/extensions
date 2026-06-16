@@ -2,10 +2,11 @@
 name: archpillar-localization
 description: >-
   Use when a project references ArchPillar.Extensions.Localization and you are adding, editing, or
-  reviewing user-facing translatable strings, ICU MessageFormat defaults, ILocalizer / ILocalizer<T>
-  usage, Localized<T> string bundles, the `dotnet apl` tooling, or its DI / IStringLocalizer /
-  ASP.NET DataAnnotations integration — including any time you would otherwise reach for .resx,
-  IStringLocalizer, or string concatenation for plurals/gender in such a project.
+  reviewing user-facing translatable strings, ICU MessageFormat defaults, the ILocalizer and
+  category-scoped generic ILocalizer, Localized string bundles, the `dotnet apl` tooling, or its
+  DI / IStringLocalizer / ASP.NET DataAnnotations integration — including any time you would
+  otherwise reach for .resx, IStringLocalizer, or string concatenation for plurals/gender in such
+  a project.
 ---
 
 # ArchPillar.Extensions.Localization
@@ -42,7 +43,7 @@ These are the habits to unlearn coming from `.resx` / `IStringLocalizer` / `stri
 
 1. **Author strings as in-code defaults, not resource files.** New translatable text is a
    `Translate(key, "Default text")` call — never a new `.resx` entry. `.resx` / `IStringLocalizer`
-   exist only as a **migration interop** layer (see `references/interop-and-annotations.md`).
+   exist only as a **migration interop** layer (see `references/di-runtime-and-interop.md`).
 2. **Key and default must be compile-time constants.** A non-constant key or default is an error
    (`APL0001`). Put runtime data in **ICU placeholders** (`"Hello {name}"`), never in string
    interpolation or concatenation — `$"Hello {name}"` defeats extraction and is not translatable.
