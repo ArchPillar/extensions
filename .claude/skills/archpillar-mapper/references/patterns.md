@@ -125,9 +125,13 @@ public void AppMappers_AllMappersBuild()
 }
 ```
 
-Equivalently, run `EagerBuildAll()` (or a dedicated "resolve and build all mappers" startup mode)
-on boot so the same errors fail fast in CI / at deploy time rather than on the first request. If
-your context does not call `EagerBuildAll()` in its constructor, call it explicitly in the test.
+Match the application's instantiation mode: if the app wires `MapperContext`s through DI, resolve
+them from the service provider (`sp.GetRequiredService<AppMappers>()`) so constructor injection,
+nested contexts, `GlobalMapperOptions`, and transformers are exercised too; if it just `new`s the
+context, do that. Equivalently, run `EagerBuildAll()` (or a dedicated "resolve and build all
+mappers" startup mode) on boot so the same errors fail fast in CI / at deploy time rather than on
+the first request. If your context does not call `EagerBuildAll()` in its constructor, call it
+explicitly in the test.
 
 **Then test the output** — exercise **both** paths, the compiled delegate and the expression tree.
 

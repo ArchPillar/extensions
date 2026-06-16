@@ -177,11 +177,15 @@ Many mapper defects are invisible to the C# compiler — an unmapped non-nullabl
 property, a circular mapper reference, a non-bijective `SymmetricEnumMapper` — and surface only
 when the mapper is **built**. Because building is lazy by default, exercise it explicitly:
 
-- **In a unit test**, construct the context with `EagerBuildAll()` in its constructor (or call a
-  build helper) and assert it does not throw. Constructing the context *is* the test — it forces
-  every mapper to assemble and compile, turning latent config errors into a failed test.
+- **In a unit test** (preferred), construct the context the way the application does and assert
+  it does not throw. **Match the app's instantiation mode** — if the app wires contexts through
+  DI, resolve them from the service provider so constructor injection, nested contexts,
+  `GlobalMapperOptions`, and transformers are all exercised; if it just `new`s the context, do
+  that. Constructing it *is* the test — it forces every mapper to assemble and compile, turning
+  latent config errors into a failed test.
 - **At startup**, the same `EagerBuildAll()` call (or a dedicated "resolve and build all mappers"
-  health-check mode) surfaces those errors on boot instead of on the first request.
+  health-check mode), using that same instantiation path, surfaces those errors on boot instead
+  of on the first request.
 
 ```csharp
 [Fact]
@@ -190,6 +194,10 @@ public void AppMappers_AllMappersBuild()
     // Throws if any mapper has an unmapped property, circular reference,
     // or (for SymmetricEnumMapper) a non-bijective mapping.
     _ = new AppMappers(); // ctor calls EagerBuildAll()
+
+    // Or, when the app uses DI — exercise the real wiring:
+    // using var sp = BuildAppServiceProvider();
+    // _ = sp.GetRequiredService<AppMappers>();
 }
 ```
 
