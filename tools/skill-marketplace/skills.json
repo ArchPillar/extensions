@@ -1,12 +1,20 @@
 {
-  "$comment": "Source manifest: the skills THIS repo publishes to the shared marketplace. The builder publishes each entry only if its skill exists under .claude/skills/ AND its package is published (present in .github/workflows/publish.yml) — declared intent, gated by what actually ships. CLI flags override sourceRepo/marketplace for portability.",
+  "$comment": "Source manifest: the skills THIS repo publishes to the shared marketplace. The builder publishes each entry only if its skill exists under .claude/skills/ AND its package is published (present in .github/workflows/publish.yml) — declared intent, gated by what actually ships. 'description' is the standalone text shown in the Claude apps' plugin list; if omitted the builder falls back to the skill's lead paragraph. CLI flags override sourceRepo/marketplace for portability.",
   "sourceRepo": "https://github.com/ArchPillar/extensions",
   "marketplace": {
     "name": "archpillar",
     "repo": "ArchPillar/claude-skills"
   },
   "skills": [
-    { "name": "archpillar-mapper", "package": "ArchPillar.Extensions.Mapper" },
-    { "name": "archpillar-localization", "package": "ArchPillar.Extensions.Localization" }
+    {
+      "name": "archpillar-mapper",
+      "package": "ArchPillar.Extensions.Mapper",
+      "description": "Explicit, compile-checked object-to-object and DTO mapping for .NET. One mapper definition runs both as an in-memory mapper and as a LINQ/EF Core projection that translates to SQL — and unlike AutoMapper, every mapping is a named, navigable C# property while any unmapped property fails the build, so there is no hidden convention magic."
+    },
+    {
+      "name": "archpillar-localization",
+      "package": "ArchPillar.Extensions.Localization",
+      "description": "Compile-time-extracted UI translation for .NET. Each string is written once at the call site as an in-code ICU MessageFormat default (also the runtime fallback, so the app works with zero translation files); a Roslyn generator extracts them for translators, and per-language catalogs load at runtime as overrides — an alternative to .resx / IStringLocalizer with no \"missing resource\" state and culture-correct plurals."
+    }
   ]
 }
