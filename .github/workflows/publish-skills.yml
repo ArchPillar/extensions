@@ -1,0 +1,57 @@
+name: Publish Claude skills
+
+# Publishes this repo's Agent Skills into the shared marketplace repo, on par with (but separate
+# from) the NuGet publish. The monorepo is the source of truth; the marketplace repo is a generated
+# mirror. Gating is derived from publish.yml — only published libraries get a plugin.
+#
+# Requires a repository secret `SKILLS_PUBLISH_TOKEN`: a token with write access to the marketplace
+# repo (ArchPillar/claude-skills). Without it, the job logs and exits cleanly.
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish-skills:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SKILLS_REPO: ArchPillar/claude-skills
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build and publish to the marketplace repo
+        env:
+          TOKEN: ${{ secrets.SKILLS_PUBLISH_TOKEN }}
+          GITHUB_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          if [ -z "${TOKEN:-}" ]; then
+            echo "SKILLS_PUBLISH_TOKEN is not set; skipping skill publish."
+            exit 0
+          fi
+          VERSION=${GITHUB_TAG#v}
+
+          git clone "https://x-access-token:${TOKEN}@github.com/${SKILLS_REPO}.git" target
+
+          python3 tools/skill-marketplace/build_marketplace.py \
+            --version "$VERSION" \
+            --into target \
+            --source-repo "https://github.com/${GITHUB_REPOSITORY}" \
+            --marketplace-repo "${SKILLS_REPO}"
+
+          cd target
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No marketplace changes to publish."
+            exit 0
+          fi
+          git commit -m "Publish skills from ${GITHUB_REPOSITORY}@${VERSION}"
+          git branch -M main
+          git push -u origin main

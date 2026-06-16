@@ -199,6 +199,33 @@ When you do update:
 The same litmus test governs authoring and maintenance alike: **include something only if its
 absence would let an agent get it wrong.**
 
+## Delivery: the skill marketplace
+
+Skills ship through a Claude Code plugin marketplace, treated like NuGet publishing — the monorepo
+is the source of truth, the marketplace is a generated mirror:
+
+- **A separate, shared marketplace repo** (`ArchPillar/claude-skills`) is the published artifact:
+  `.claude-plugin/marketplace.json` plus one plugin per library under `plugins/<lib>/`. It is
+  **generated, never hand-edited** — no `plugins/` folder pollutes the libraries repo.
+- **Two manifests** make the multi-repo model explicit and auditable:
+  - the per-repo **source manifest** (`tools/skill-marketplace/skills.json`) declares the skills
+    this repo publishes;
+  - the marketplace's **provenance** (`.claude-plugin/sources.json`) records which source repo and
+    version each plugin came from, so a repo can update **and delete** its own plugins without
+    touching another repo's.
+- **Published-gating, derived from CI.** `tools/skill-marketplace/build_marketplace.py` publishes a
+  listed skill only if its package appears in `publish.yml` — an unpublished library gets no plugin,
+  with no hardcoded include-list.
+- **Sharable across repos.** The builder is repo-agnostic (source repo + marketplace come from the
+  manifest or CLI), so several repos can publish into one marketplace; `marketplace.json` is
+  regenerated as the union of all plugins present.
+- **A dedicated release workflow** (`.github/workflows/publish-skills.yml`, separate from
+  `publish.yml`) builds and pushes to the marketplace repo's `main` on `release: published`. It
+  needs a `SKILLS_PUBLISH_TOKEN` secret with write access to the marketplace repo.
+
+Users install with `/plugin marketplace add ArchPillar/claude-skills` then
+`/plugin install archpillar-<library>@archpillar`.
+
 ## Required artifacts
 
 Every library skill ships:
@@ -209,6 +236,7 @@ Every library skill ships:
 | `.claude/skills/archpillar-{library}/references/*.md` | On-demand depth and add-on coverage, as earned. |
 | `tools/skill-oracle/{library}/` | Isolated harness + committed skill-generated `candidates/`. |
 | `docs/{library}/internals/llm-skill-testing.md` | Oracle methodology for this library; indexed in `internals/README.md`. |
+| Entry in `tools/skill-marketplace/skills.json` | So the skill publishes to the marketplace (still gated by `publish.yml`). |
 
 ## Registering a new skill
 
@@ -216,7 +244,9 @@ Every library skill ships:
 2. Stand up the `tools/skill-oracle/{library}/` harness; run the gates; commit the passing candidates.
 3. Run the baseline contrast in isolation and confirm the skill is doing real work.
 4. Add `docs/{library}/internals/llm-skill-testing.md` and link it from that `internals/README.md`.
-5. The `tools/` tree is already listed in the top-level [`README.md`](../../README.md); add a sub-entry
+5. Add the skill to `tools/skill-marketplace/skills.json` so it publishes to the marketplace once the
+   library is published; the `publish-skills.yml` workflow handles the rest on release.
+6. The `tools/` tree is already listed in the top-level [`README.md`](../../README.md); add a sub-entry
    only if the structure note needs it.
 
 ## Review checklist
@@ -240,6 +270,8 @@ A skill change is ready when every applicable item is true:
       non-zero on failure; candidates are committed with provenance headers.
 - [ ] The baseline contrast was run **in isolation** and confirms the skill changes the outcome.
 - [ ] `docs/{library}/internals/llm-skill-testing.md` exists and is indexed.
+- [ ] The skill is listed in `tools/skill-marketplace/skills.json`, and its library is published
+      (`publish.yml`), so `build_marketplace.py` ships it to the marketplace.
 - [ ] For a library change, the skill was updated **only** if it affected the mental model, a rule,
       the idiom, or an add-on — additive API with no new pitfall was left to the docs, and stale
       guidance was pruned.

@@ -1,0 +1,12 @@
+{
+  "$comment": "Source manifest: the skills THIS repo publishes to the shared marketplace. The builder publishes each entry only if its skill exists under .claude/skills/ AND its package is published (present in .github/workflows/publish.yml) — declared intent, gated by what actually ships. CLI flags override sourceRepo/marketplace for portability.",
+  "sourceRepo": "https://github.com/ArchPillar/extensions",
+  "marketplace": {
+    "name": "archpillar",
+    "repo": "ArchPillar/claude-skills"
+  },
+  "skills": [
+    { "name": "archpillar-mapper", "package": "ArchPillar.Extensions.Mapper" },
+    { "name": "archpillar-localization", "package": "ArchPillar.Extensions.Localization" }
+  ]
+}

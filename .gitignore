@@ -61,3 +61,6 @@ nupkgs/
 
 # Superpowers session artifacts (specs, plans, etc.)
 docs/superpowers/
+
+# Generated skill-marketplace staging output (built by tools/skill-marketplace/build_marketplace.py)
+tools/skill-marketplace/dist/

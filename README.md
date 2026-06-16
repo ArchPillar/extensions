@@ -74,6 +74,7 @@ A user-interface translation library. Translatable strings are written once at t
 │   ├── commands/                          # Commands documentation and spec
 │   └── localization/                      # Localization docs (user-facing) + internals/ (spec, decisions)
 ├── tools/
+│   ├── skill-marketplace/                # Builds/publishes the Agent Skills to the shared marketplace repo
 │   └── skill-oracle/                     # Oracles that validate the LLM Agent Skills against published packages
 │       └── mapper/                       # Oracle for the Mapper skill (docs/mapper/internals/llm-skill-testing.md)
 ├── Directory.Build.props                  # Shared project properties
