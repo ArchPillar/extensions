@@ -1,14 +1,10 @@
 ---
 name: archpillar-mapper
 description: >-
-  Write and review object-to-object / DTO mapping and LINQ-EF Core projection code with
-  ArchPillar.Extensions.Mapper — the explicit, expression-tree-based .NET mapping library
-  built around MapperContext, Mapper<TSource,TDest>, Map(), and Project(). Use whenever a
-  project references ArchPillar.Extensions.Mapper and you are authoring or editing mappers,
-  DTO projections, MapperContext definitions, enum mappings, or EF Core projections — and
-  use it INSTEAD of reaching for AutoMapper-style conventions, profiles, or attributes.
-  Covers the explicit-mapping rules, EF Core-translatable expression constraints, optional
-  properties, runtime variables, enum mapping, MapTo, inheritance, and DI setup.
+  Use when a project references ArchPillar.Extensions.Mapper and you are writing or editing
+  object-to-object / DTO mapping, LINQ or EF Core projections, a MapperContext, enum mappings,
+  or clone/update (MapTo) mappings — including any time you would otherwise reach for
+  AutoMapper-style conventions, profiles, or attributes in such a project.
 ---
 
 # ArchPillar.Extensions.Mapper
@@ -16,13 +12,7 @@ description: >-
 A lightweight .NET mapping library built on expression trees. **One mapper definition drives
 both in-memory object mapping and LINQ/EF Core projection.** It is deliberately the opposite of
 AutoMapper: everything is explicit, every mapper is a named C# property, and unmapped
-destination properties are build-time errors.
-
-## When this applies
-
-Use this skill when the target project references `ArchPillar.Extensions.Mapper` and you are:
-mapping an entity to a DTO, writing a LINQ/EF Core projection, defining or editing a
-`MapperContext`, mapping enums, or cloning/updating objects. Requires .NET 9+ / C# 13.
+destination properties are build-time errors. Requires .NET 9+ / C# 13.
 
 ## The mental model (read this first)
 
@@ -30,64 +20,55 @@ mapping an entity to a DTO, writing a LINQ/EF Core projection, defining or editi
   property** of type `Mapper<TSource, TDest>` (or `EnumMapper<,>` / `SymmetricEnumMapper<,>`),
   initialized in the constructor. Because mappers are named properties, *Go to Definition* and
   *Find All References* work — that traceability is the entire point of the library.
-- A mapper is defined by a **member-init expression**, by **fluent per-property `.Map()`
-  calls**, or a **combination** of the two (see below). The library compiles that definition
-  into both a compiled delegate (`Map`, for in-memory mapping) and an expression tree
-  (`Project` / `ToExpression`, for a LINQ provider).
+- A mapper definition compiles into both a compiled delegate (`Map`, in-memory) and an
+  expression tree (`Project` / `ToExpression`, for a LINQ provider).
 - The context is **thread-safe**; register it as a **singleton**.
 
 ## Two ways to define a mapper
 
-Both styles are first-class and combine freely on the same mapper:
+Both styles are first-class and combine on the same mapper:
 
-- **Member-init** — pass `src => new TDest { … }` to `CreateMapper`. **Preferred** — it reads
-  like a normal object initializer, and if the DTO declares `required` members the C# *compiler*
-  flags a missing assignment at compile time, before the library's build-time coverage check even
-  runs. Every assigned property is tracked as a required mapping.
-- **Fluent per-property** — chain `.Map(dest => …, src => …)`. This is the form used for **mapper
-  inheritance** (`Inherit(baseMapper).For<TDerived>().Map(…)`, to add the derived type's extra
-  properties) and for **customizing a clone mapper** (see below), and the natural choice for
-  `.Optional()` / `.Ignore()` or a computed property.
+- **Member-init** (`src => new TDest { … }`, passed to `CreateMapper`) — **preferred**: reads
+  like a normal object initializer, and with `required` DTO members the C# *compiler* catches a
+  missing assignment before the library's build-time coverage check even runs. Every assigned
+  property is tracked as a required mapping.
+- **Fluent** (`.Map(dest => …, src => …)`) — the form used for **mapper inheritance**
+  (`Inherit(baseMapper).For<TDerived>().Map(…)`, to add the derived type's extra properties) and
+  the natural choice for `.Optional()` / `.Ignore()` or a computed property.
+- **Combined** — member-init for the simple properties, then chain `.Map()` / `.Optional()` /
+  `.Ignore()` for the rest.
 
-A **clone mapper** is the one case that needs no explicit mapping: `CreateCloneMapper<T>()`
-auto-wires every public settable property as an identity mapping (`dest.Prop = src.Prop`). You
-only chain `.Ignore(d => d.X)` to exclude a property or `.Map(d => d.X, s => …)` to override one
-— customization is optional.
-- **Combined** — start with a member-init for the simple properties, then chain `.Map()`,
-  `.Optional()`, or `.Ignore()` for the rest.
+**Clone mappers** need no explicit mapping: `CreateCloneMapper<T>()` auto-wires every public
+settable property as an identity mapping; chain `.Ignore(d => d.X)` / `.Map(d => d.X, s => …)`
+only to exclude or override.
 
 ## Rules that are easy to get wrong — follow these exactly
 
-These are the constraints an AI tends to violate by defaulting to AutoMapper habits. Honor them
-or the code will fail at build time or query time.
+These are the constraints an AI tends to violate by defaulting to AutoMapper habits.
 
 1. **No convention-based / name-based auto-mapping. No attributes. No profiles.** Every
-   destination property is mapped explicitly, marked `.Optional()`, or `.Ignore()`d. There is
-   no `[Map]` attribute and no "map by matching names" — do not invent one.
+   destination property is mapped explicitly, marked `.Optional()`, or `.Ignore()`d. There is no
+   `[Map]` attribute and no "map by matching names" — do not invent one.
 2. **Coverage is enforced at build time.** Every non-nullable destination property must be
    covered, or `Build()` throws `InvalidOperationException` listing the gaps. Nullable
    destination properties (`int?`, `string?`) are auto-ignored under the default mode.
 3. **Object-initializer syntax only — never a parameterized constructor.** Destination types
-   need a public parameterless constructor; `CreateMapper` validates this at build time
-   regardless of how the mapper is used. Write `src => new TDest { Id = src.Id }`, never
-   `src => new TDest(src.Id)`. (If a use case never needs expression projection, a plain
-   constructor call is simpler than a mapper.)
-4. **EF Core-translatability is required only on the projection path.** A mapper *always*
-   compiles to an in-memory delegate; for **in-memory-only** mapping (`Map` / `MapTo`) the
-   expression can contain `throw`, delegate/`Func<>` calls, and arbitrary C# methods — they just
-   run as compiled code. The translatability rule (no `throw`, no delegate invocation, no
-   provider-untranslatable method calls) kicks in *only* when the mapper is consumed via
-   `Project()` / `ToExpression()` against a LINQ provider like EF Core. The library's design
-   goal is "one definition, two modes," so **prefer** translatable expressions unless you know a
-   mapper is in-memory only. When a *nested* mapper can't be translated but its parent is
-   projected, opt that nested mapper out of inlining with `Invoke(src.X)` instead of
-   `Map(src.X)` (see `references/patterns.md`). (The `_ => throw …` arm in a `CreateEnumMapper`
-   switch is always fine — that switch runs at build time to build a lookup table and is never
-   embedded in the translated expression.)
+   need a public parameterless constructor; `CreateMapper` validates this at build time. Write
+   `src => new TDest { Id = src.Id }`, never `src => new TDest(src.Id)`. (If a use case never
+   needs expression projection, a plain constructor call is simpler than a mapper.)
+4. **EF Core-translatability applies only on the projection path.** A mapper always compiles to
+   an in-memory delegate, so for **in-memory-only** mapping (`Map` / `MapTo`) the expression may
+   use `throw`, delegates, and arbitrary C# methods. The translatability rule (no `throw`, no
+   delegate invocation, no provider-untranslatable method calls) applies **only** when the mapper
+   is consumed via `Project()` / `ToExpression()`. Prefer translatable expressions unless a mapper
+   is in-memory only; when a *nested* mapper can't be translated, use `Invoke(src.X)` instead of
+   `Map(src.X)` to run it in memory on the projection path. (A `_ => throw …` arm in a
+   `CreateEnumMapper` switch is always fine — it runs at build time, never in the translated
+   expression.) See `references/patterns.md`.
 5. **Nested mappers are composed by reference, then inlined.** Use the leaf mapper property:
-   `Child.Map(src.Child)` for one object, `src.Children.Project(Child).ToList()` for a
-   collection. The build step inlines the child's expression into the parent, so the provider
-   sees one flat tree — no N+1, no client evaluation.
+   `Child.Map(src.Child)` for one object, `src.Children.Project(Child).ToList()` for a collection.
+   The build step inlines the child's expression into the parent, so the provider sees one flat
+   tree — no N+1, no client evaluation.
 
 ## Canonical example
 
@@ -173,40 +154,23 @@ Coverage modes: `NonNullableProperties` (default), `AllProperties`, `None`. Set 
 
 ## Validate mappers by building them
 
-Many mapper defects are invisible to the C# compiler — an unmapped non-nullable destination
-property, a circular mapper reference, a non-bijective `SymmetricEnumMapper` — and surface only
-when the mapper is **built**. Because building is lazy by default, exercise it explicitly:
-
-- **In a unit test** (preferred), construct the context the way the application does and assert
-  it does not throw. **Match the app's instantiation mode** — if the app wires contexts through
-  DI, resolve them from the service provider so constructor injection, nested contexts,
-  `GlobalMapperOptions`, and transformers are all exercised; if it just `new`s the context, do
-  that. Constructing it *is* the test — it forces every mapper to assemble and compile, turning
-  latent config errors into a failed test.
-- **At startup**, the same `EagerBuildAll()` call (or a dedicated "resolve and build all mappers"
-  health-check mode), using that same instantiation path, surfaces those errors on boot instead
-  of on the first request.
+Many defects are invisible to the C# compiler — an unmapped non-nullable property, a circular
+reference, a non-bijective `SymmetricEnumMapper` — and surface only when a mapper is **built**
+(lazy by default). The cheapest high-value test forces a full build and asserts no throw.
+**Match the application's instantiation mode**: resolve the context from DI if the app uses DI
+(so constructor injection, nested contexts, `GlobalMapperOptions`, and transformers are
+exercised), otherwise `new` it. Prefer a unit test over a startup check.
 
 ```csharp
 [Fact]
-public void AppMappers_AllMappersBuild()
-{
-    // Throws if any mapper has an unmapped property, circular reference,
-    // or (for SymmetricEnumMapper) a non-bijective mapping.
-    _ = new AppMappers(); // ctor calls EagerBuildAll()
-
-    // Or, when the app uses DI — exercise the real wiring:
-    // using var sp = BuildAppServiceProvider();
-    // _ = sp.GetRequiredService<AppMappers>();
-}
+public void AppMappers_AllMappersBuild() => _ = new AppMappers(); // ctor calls EagerBuildAll()
+// DI variant: using var sp = BuildAppServiceProvider(); _ = sp.GetRequiredService<AppMappers>();
 ```
 
-When a mapper is used with EF Core, also add a test that runs `Project(mapper)` against a **real
-relational provider** (SQLite, or Testcontainers/real Postgres/SQL Server) and materializes the
-results — that is the only way to prove the expression translated to SQL. The
-`EntityFrameworkCore.InMemory` provider does *not* validate translation. These are all
-application-code tests; see `references/patterns.md` for the full three-tier approach (build →
-in-memory output → SQL translation).
+When a mapper is used with EF Core, also run `Project(mapper)` against a **real relational
+provider** to prove the expression compiles to SQL — `EntityFrameworkCore.InMemory` does *not*
+validate translation. These are application-code tests; see `references/patterns.md` for the full
+three-tier approach (build → in-memory output → SQL translation).
 
 ## EF Core companion package
 
@@ -218,9 +182,9 @@ involves `UseArchPillarMapper`, `ApplyMappers`, calling `Map()`/`Project()` insi
 
 ## Deeper guidance
 
-- [`references/patterns.md`](references/patterns.md) — pitfalls, when to use which mapping
-  style, transformers, circular-reference handling, and how to test mappers (both the
-  in-memory and the expression path).
-- Full docs live in the repo under `docs/mapper/` (`features.md`, `recommendations.md`,
-  `internals/SPEC.md`) and are published via Context7 (`archpillar/extensions`). Prefer those
-  for exhaustive API surface; this skill is the working subset.
+- [`references/patterns.md`](references/patterns.md) — pitfalls, mapping-style choice,
+  projection-vs-in-memory translatability + `Invoke`, transformers, circular-reference handling,
+  and the three-tier testing approach.
+- Full docs live under `docs/mapper/` (`features.md`, `recommendations.md`, `internals/SPEC.md`)
+  and are published via Context7 (`archpillar/extensions`). Prefer those for exhaustive API
+  surface; this skill is the working subset.
