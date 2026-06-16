@@ -187,6 +187,26 @@ catalogs merge into the same layered store and resolve identically.
 > Trimming, single-file, and NativeAOT behave differently for embedded catalogs — see the matrix in
 > [recommendations.md](recommendations.md). The files path is safe everywhere.
 
+## Eager vs on-demand culture loading
+
+By default the directory layer reads **every** culture's files up front, into one merged snapshot — right
+for a server that handles many cultures at once and cannot predict which a given request needs. Set
+`CultureLoading.OnDemand` and the store instead reads a culture's files only the first time that culture is
+requested, so a single-user client (CLI, desktop, Blazor) keeps just the active language in memory:
+
+```csharp
+Localizer.Configure(new LocalizerOptions { CultureLoading = CultureLoading.OnDemand });
+```
+
+A **language switch is live — no restart.** The first lookup in a not-yet-loaded culture reads that
+culture's (small) files, its parent chain (`de-AT` → `de`) included, and swaps the snapshot in atomically;
+every lookup after, and every lookup once a culture is loaded, is the same lock-free read as eager loading.
+Switching back to an already-loaded culture is free, and a culture with no file falls to the in-code default
+as always.
+
+> On-demand applies to the **file** layer. Satellite assemblies are already per-culture — they load the
+> first time a culture is used regardless of this setting — and the in-code default needs no file at all.
+
 ## ICU MessageFormat and plurals
 
 Defaults and translations are written in **ICU MessageFormat**, the same grammar `.po`/`.arb` translators

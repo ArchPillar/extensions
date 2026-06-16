@@ -167,6 +167,31 @@ A missing manifest, a missing catalog, or a malformed one is skipped, so a parti
 in-code defaults rather than throwing. When you would rather name the catalogs than discover them, the
 primitive `AddCatalogsFromHttpAsync(http, ["Translations/App.de.arb"])` fetches exactly the URIs you pass.
 
+To download only the active language instead of every catalog, pass the culture — it fetches that culture, its
+parent chain, and the source language, and nothing else:
+
+```csharp
+await Localizer.AddCatalogsFromManifestAsync(http, CultureInfo.CurrentUICulture);
+```
+
+Call it again on a culture switch to pull the newly selected language in; an already-fetched one is simply
+re-layered, harmlessly.
+
+## Load cultures on demand in a single-user client
+
+A server serves many cultures at once, so it loads them all up front (the default). A **single-user client —
+CLI, desktop, Blazor** — only ever shows one language at a time, so set `CultureLoading.OnDemand` to read a
+culture's files only when it is first requested rather than the whole directory:
+
+```csharp
+services.AddArchPillarLocalization(new LocalizerOptions { CultureLoading = CultureLoading.OnDemand });
+```
+
+A language switch loads the new culture on the fly and resolves it on the next lookup — **no restart** — and a
+culture loaded once is never re-read. Leave the default (`CultureLoading.Eager`) for servers, which cannot
+predict which culture a given request needs. (For a WebAssembly client there is no directory; achieve the same
+narrow download with the culture-scoped `AddCatalogsFromManifestAsync` above.)
+
 ## Serve `.arb` catalogs from ASP.NET Core — register the content type
 
 The static file middleware returns 404 for an unknown file extension by default, so an ASP.NET Core host

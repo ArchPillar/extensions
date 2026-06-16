@@ -38,6 +38,7 @@ public sealed class CatalogStore : IDisposable
     private readonly TimeSpan _hotReloadDebounce;
     private readonly IReadOnlyList<string> _formatPrecedence;
     private readonly IReadOnlyList<string>? _cultures;
+    private readonly bool _loadOnDemand;
     private HashSet<string> _loadedCultures = new(StringComparer.OrdinalIgnoreCase);
     private RenderingContext _context;
     private string _directory;
@@ -59,7 +60,13 @@ public sealed class CatalogStore : IDisposable
     public CatalogStore(LocalizerOptions options)
         : this(options ?? throw new ArgumentNullException(nameof(options)), discover: false)
     {
-        _directoryCatalogs.AddRange(CatalogLoader.LoadDirectory(Options));
+        // On-demand defers each culture's files to the first lookup that requests it (EnsureCulture); eager
+        // reads the whole directory now.
+        if (!_loadOnDemand)
+        {
+            _directoryCatalogs.AddRange(CatalogLoader.LoadDirectory(Options));
+        }
+
         Rebuild();
         _scannedLoaded = true;
         if (_enableHotReload)
@@ -74,6 +81,7 @@ public sealed class CatalogStore : IDisposable
         _context = RenderingContext.For(options.SourceCulture, options.MissingArguments);
         _formatPrecedence = options.FormatPrecedence;
         _cultures = options.Cultures;
+        _loadOnDemand = options.CultureLoading == CultureLoading.OnDemand;
         _directory = options.TranslationsDirectory;
         _enableHotReload = options.EnableHotReload;
         _hotReloadDebounce = options.HotReloadDebounce;
@@ -96,6 +104,7 @@ public sealed class CatalogStore : IDisposable
         Sources = [.. _sources],
         FormatPrecedence = _formatPrecedence,
         Cultures = _cultures,
+        CultureLoading = _loadOnDemand ? CultureLoading.OnDemand : CultureLoading.Eager,
         TranslationsDirectory = _directory,
         EnableHotReload = _enableHotReload,
         HotReloadDebounce = _hotReloadDebounce
@@ -158,10 +167,11 @@ public sealed class CatalogStore : IDisposable
             }
 
             // Already started: re-read the directory layer against the new directory; otherwise EnsureStarted
-            // reads it on first use. I/O (the file read) stays off _gate.
+            // reads it on first use. I/O (the file read) stays off _gate. On-demand re-reads only the cultures
+            // already in use, so a switch's lazily-loaded language survives a reconfigure.
             if (Volatile.Read(ref _scannedLoaded))
             {
-                List<Catalog> catalogs = CatalogLoader.LoadDirectory(Options);
+                List<Catalog> catalogs = CatalogLoader.LoadDirectory(Options, DirectoryCultureFilter());
                 lock (_gate)
                 {
                     _directoryCatalogs.Clear();
@@ -182,7 +192,7 @@ public sealed class CatalogStore : IDisposable
     /// <summary>Reloads the catalogs from the translations directory and swaps the snapshot in atomically.</summary>
     public void Reload()
     {
-        List<Catalog> catalogs = CatalogLoader.LoadDirectory(Options);
+        List<Catalog> catalogs = CatalogLoader.LoadDirectory(Options, DirectoryCultureFilter());
         lock (_gate)
         {
             _directoryCatalogs.Clear();
@@ -190,6 +200,11 @@ public sealed class CatalogStore : IDisposable
             Rebuild();
         }
     }
+
+    // In on-demand mode, restrict a directory (re)load to the cultures already in use; eager loads them all.
+    // The in-use set is replaced wholesale, never mutated, so the read reference is a stable snapshot.
+    private IReadOnlySet<string>? DirectoryCultureFilter() =>
+        _loadOnDemand ? Volatile.Read(ref _loadedCultures) : null;
 
     /// <summary>Eagerly loads the catalogs now — for the ambient store, runs its lazy startup (directory read
     /// + assembly discovery) up front instead of on first lookup. A no-op for an already-loaded store.</summary>
@@ -267,8 +282,11 @@ public sealed class CatalogStore : IDisposable
         _debounce?.Dispose();
     }
 
-    // Loads the satellite catalogs for a culture (and its parents) the first time the culture is used. The
-    // fast path is a volatile bool plus a lock-free set read, so a files-only app pays almost nothing.
+    // Loads the catalogs a culture (and its parents) needs the first time the culture is used: its satellites
+    // always, and — under on-demand loading — its directory files too. The fast path is a volatile bool plus a
+    // lock-free set read, so an already-loaded culture (and an eager files-only app) pays almost nothing. The
+    // switching thread blocks here until the load is committed, so its very next lookup resolves the new
+    // culture; no restart, and a culture loaded once is never re-read.
     internal void EnsureCulture(CultureInfo culture)
     {
         if (_discover)
@@ -276,7 +294,7 @@ public sealed class CatalogStore : IDisposable
             EnsureStarted();
         }
 
-        if (!_hasSatellites)
+        if (!_hasSatellites && !_loadOnDemand)
         {
             return;
         }
@@ -286,17 +304,34 @@ public sealed class CatalogStore : IDisposable
             return;
         }
 
-        // Register the requested culture and its parents as "in use" (cheap, no reflection), then load their
-        // satellites outside the lock via the reconcile.
+        // Register the requested culture and its parents as "in use" (cheap, no reflection), collecting the ones
+        // this call newly added — the under-lock set Add is the gate, so a culture is loaded exactly once even
+        // if two threads request it at the same time.
+        var added = new List<string>();
         lock (_gate)
         {
             var loaded = new HashSet<string>(_loadedCultures, StringComparer.OrdinalIgnoreCase);
             for (CultureInfo? current = culture; current is not null && !string.IsNullOrEmpty(current.Name); current = current.Parent)
             {
-                loaded.Add(current.Name);
+                if (loaded.Add(current.Name))
+                {
+                    added.Add(current.Name);
+                }
             }
 
             Volatile.Write(ref _loadedCultures, loaded);
+        }
+
+        // On-demand: read the newly in-use cultures' files outside the lock, then commit and rebuild so the
+        // atomically-swapped snapshot carries them. Eager has already read every culture, so this is skipped.
+        if (_loadOnDemand && added.Count > 0)
+        {
+            List<Catalog> catalogs = CatalogLoader.LoadDirectory(Options, new HashSet<string>(added, StringComparer.OrdinalIgnoreCase));
+            lock (_gate)
+            {
+                _directoryCatalogs.AddRange(catalogs);
+                Rebuild();
+            }
         }
 
         ReconcileSatellites();
@@ -328,11 +363,14 @@ public sealed class CatalogStore : IDisposable
                 }
             }
 
-            List<Catalog> directory = CatalogLoader.LoadDirectory(Options);
-            lock (_gate)
+            if (!_loadOnDemand)
             {
-                _directoryCatalogs.Clear();
-                _directoryCatalogs.AddRange(directory);
+                List<Catalog> directory = CatalogLoader.LoadDirectory(Options);
+                lock (_gate)
+                {
+                    _directoryCatalogs.Clear();
+                    _directoryCatalogs.AddRange(directory);
+                }
             }
 
             foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())

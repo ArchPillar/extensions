@@ -21,7 +21,14 @@ internal static class CatalogLoader
     /// the format precedence (<c>xliff</c> &gt; <c>arb</c> &gt; <c>po</c> by default). Filtering (source
     /// culture, untranslated entries) is left to <see cref="BuildSnapshot"/>, which the directory layer feeds.
     /// </summary>
-    public static List<Catalog> LoadDirectory(LocalizerOptions options)
+    public static List<Catalog> LoadDirectory(LocalizerOptions options) => LoadDirectory(options, cultures: null);
+
+    /// <summary>
+    /// As <see cref="LoadDirectory(LocalizerOptions)"/>, but when <paramref name="cultures"/> is non-null only
+    /// reads files whose name ends with one of those culture tags — the on-demand path, which opens just the
+    /// requested cultures' files instead of the whole directory.
+    /// </summary>
+    public static List<Catalog> LoadDirectory(LocalizerOptions options, IReadOnlySet<string>? cultures)
     {
         var catalogs = new List<Catalog>();
         if (!Directory.Exists(options.TranslationsDirectory))
@@ -32,6 +39,11 @@ internal static class CatalogLoader
         TranslationFormatRegistry registry = BuildRegistry();
         foreach (var file in OrderedFiles(options.TranslationsDirectory, registry, options.FormatPrecedence))
         {
+            if (cultures?.Contains(CultureFromFileName(file)) == false)
+            {
+                continue;
+            }
+
             ITranslationFormat? format = registry.ResolveByExtension(Path.GetExtension(file));
             if (format is null)
             {
@@ -46,6 +58,16 @@ internal static class CatalogLoader
         }
 
         return catalogs;
+    }
+
+    // The culture tag a catalog file name ends with: App.Web.de.xliff -> "de", de.arb -> "de". The runtime
+    // resolves the authoritative culture from the file's content; this name-based read only decides which files
+    // on-demand loading opens, keying off the {AssemblyName}.{culture}.{ext} naming convention.
+    private static string CultureFromFileName(string file)
+    {
+        var name = Path.GetFileNameWithoutExtension(file);
+        var lastDot = name.LastIndexOf('.');
+        return lastDot >= 0 ? name[(lastDot + 1)..] : name;
     }
 
     public static TranslationSnapshot BuildSnapshot(IEnumerable<Catalog> catalogs, LocalizerOptions options)

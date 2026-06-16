@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using ArchPillar.Extensions.Localization.Formats;
 
@@ -111,6 +112,82 @@ public static class HttpCatalogLoaderExtensions
         }
 
         return await context.AddCatalogsFromHttpAsync(httpClient, catalogUris, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// As <see cref="AddCatalogsFromManifestAsync(LocalizationContext, HttpClient, string, CancellationToken)"/>,
+    /// but fetches only the catalogs <paramref name="culture"/> needs — that culture, its parent chain, and the
+    /// source language — rather than every catalog in the manifest. The on-demand counterpart for a Blazor
+    /// WebAssembly client that should download just the active language; call it again on a culture switch to pull
+    /// the newly selected one in (an already-loaded culture's files are simply re-layered, harmlessly).
+    /// </summary>
+    /// <param name="context">The localization context to load into.</param>
+    /// <param name="httpClient">The client used to fetch the manifest and catalogs; its base address resolves a relative URI.</param>
+    /// <param name="culture">The culture whose catalogs to fetch, with its parent chain and the source language.</param>
+    /// <param name="manifestUri">The manifest URI, relative to the client's base address, or absolute.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The number of catalogs successfully loaded.</returns>
+    /// <exception cref="ArgumentNullException">A required argument is <see langword="null"/>.</exception>
+    public static async Task<int> AddCatalogsFromManifestAsync(
+        this LocalizationContext context,
+        HttpClient httpClient,
+        CultureInfo culture,
+        string manifestUri = DefaultManifestPath,
+        CancellationToken cancellationToken = default)
+    {
+        if (context is null)
+        {
+            throw new ArgumentNullException(nameof(context));
+        }
+
+        if (httpClient is null)
+        {
+            throw new ArgumentNullException(nameof(httpClient));
+        }
+
+        if (culture is null)
+        {
+            throw new ArgumentNullException(nameof(culture));
+        }
+
+        if (manifestUri is null)
+        {
+            throw new ArgumentNullException(nameof(manifestUri));
+        }
+
+        HashSet<string> wanted = CultureChain(culture);
+        wanted.Add(context.SourceCultureName);
+
+        IReadOnlyList<string> catalogUris = await TryReadManifestAsync(httpClient, manifestUri, cancellationToken).ConfigureAwait(false);
+        var scoped = catalogUris.Where(uri => wanted.Contains(CultureFromUri(uri))).ToList();
+        if (scoped.Count == 0)
+        {
+            return 0;
+        }
+
+        return await context.AddCatalogsFromHttpAsync(httpClient, scoped, cancellationToken).ConfigureAwait(false);
+    }
+
+    // The culture and its parent chain (de-AT -> de), by name, for a culture-scoped fetch.
+    private static HashSet<string> CultureChain(CultureInfo culture)
+    {
+        var chain = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (CultureInfo? current = culture; current is not null && !string.IsNullOrEmpty(current.Name); current = current.Parent)
+        {
+            chain.Add(current.Name);
+        }
+
+        return chain;
+    }
+
+    // The culture tag a catalog URI's file name ends with: Translations/App.de.xliff -> "de", de.arb -> "de".
+    private static string CultureFromUri(string requestUri)
+    {
+        var end = requestUri.IndexOfAny(['?', '#']);
+        var path = end >= 0 ? requestUri[..end] : requestUri;
+        var name = Path.GetFileNameWithoutExtension(path);
+        var lastDot = name.LastIndexOf('.');
+        return lastDot >= 0 ? name[(lastDot + 1)..] : name;
     }
 
     private static async Task<Catalog?> TryReadCatalogAsync(
