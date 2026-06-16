@@ -13,6 +13,7 @@ namespace ArchPillar.Extensions.Localization.Tests;
 public sealed class HttpCatalogLoaderTests : IDisposable
 {
     private static readonly CultureInfo _german = CultureInfo.GetCultureInfo("de");
+    private static readonly CultureInfo _french = CultureInfo.GetCultureInfo("fr");
     private readonly List<IDisposable> _disposables = [];
 
     [Fact]
@@ -78,6 +79,33 @@ public sealed class HttpCatalogLoaderTests : IDisposable
 
         Assert.Equal(1, loaded);
         WithCulture(_german, () => Assert.Equal("Hallo", context.Default.Translate("greeting", "Hello")));
+    }
+
+    [Fact]
+    public async Task AddCatalogsFromManifest_ForCulture_FetchesOnlyThatCultureAndTheSourceAsync()
+    {
+        var de = await ArbBytesAsync("de", "greeting", "Hallo");
+        var fr = await ArbBytesAsync("fr", "greeting", "Bonjour");
+        var en = await ArbBytesAsync("en", "greeting", "Hello (source)");
+        const string Manifest = "{\"version\":1,\"catalogs\":["
+            + "{\"culture\":\"de\",\"file\":\"App.de.arb\"},"
+            + "{\"culture\":\"fr\",\"file\":\"App.fr.arb\"},"
+            + "{\"culture\":\"en\",\"file\":\"App.en.arb\"}]}";
+        HttpClient http = NewClient(new()
+        {
+            ["/Translations/apl-catalogs.json"] = Ok(Encoding.UTF8.GetBytes(Manifest)),
+            ["/Translations/App.de.arb"] = Ok(de),
+            ["/Translations/App.fr.arb"] = Ok(fr),
+            ["/Translations/App.en.arb"] = Ok(en)
+        });
+        using var context = new LocalizationContext(new LocalizerOptions { SourceCulture = "en" });
+
+        // Scoped to German: it fetches de and the source (en), but not fr.
+        var loaded = await context.AddCatalogsFromManifestAsync(http, _german);
+
+        Assert.Equal(2, loaded);
+        WithCulture(_german, () => Assert.Equal("Hallo", context.Default.Translate("greeting", "Hello")));
+        WithCulture(_french, () => Assert.Equal("Hello", context.Default.Translate("greeting", "Hello"))); // fr not fetched
     }
 
     [Fact]

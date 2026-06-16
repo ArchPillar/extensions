@@ -72,6 +72,7 @@ lifecycle and commands are in [translation-workflow.md](translation-workflow.md)
 | The ambient store | One process-wide, layered, DI-free store (`IConfiguration` model) reachable from anywhere, including exception text. |
 | Instantiable context | `LocalizationContext` is the same environment as an object — construct, configure, dispose; build one directly for an isolated, static-free setup. |
 | Files / embedded / satellites | Loose files by default (trim/AOT-safe); opt-in embedding routes catalogs into culture satellite assemblies. |
+| Eager or on-demand loading | Load every culture up front (the server default), or `CultureLoading.OnDemand` to load each culture only when first requested — a single-user client switches language live, no restart. |
 | ICU MessageFormat | Arguments, `plural` / `selectordinal` / `select`, embedded CLDR plural data. |
 | Standard formats | XLIFF 2.1 (default), ARB, and Portable Object — round-tripped by the bundled providers. |
 | Dependency injection | `AddArchPillarLocalization` feeds the process-wide ambient context and registers injectable native localizers; the generated `AddArchPillarLocalizedBundles()` registers the assembly's `Localized<T>` bundles. |

@@ -137,6 +137,10 @@ public sealed class LocalizationContext : IDisposable
 
     internal void EnsureCulture(CultureInfo culture) => _store.EnsureCulture(culture);
 
+    // The source language these catalogs are written in — the HTTP loader uses it so a culture-scoped fetch
+    // still pulls the source-language overrides.
+    internal string SourceCultureName => _store.Context.SourceCultureName;
+
     // The found-aware ambient lookup the IStringLocalizer adapter composes over.
     internal string TranslateInCategory(
         string category,
