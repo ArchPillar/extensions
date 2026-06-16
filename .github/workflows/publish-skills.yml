@@ -4,8 +4,13 @@ name: Publish Claude skills
 # from) the NuGet publish. The monorepo is the source of truth; the marketplace repo is a generated
 # mirror. Gating is derived from publish.yml — only published libraries get a plugin.
 #
-# Requires a repository secret `SKILLS_PUBLISH_TOKEN`: a token with write access to the marketplace
-# repo (ArchPillar/claude-skills). Without it, the job logs and exits cleanly.
+# Auth: a GitHub App (org-owned, scoped to the marketplace repo with Contents: write). The job mints
+# a short-lived installation token at runtime — no personal PAT, auto-rotating. Two secrets required
+# on this repo:
+#   SKILLS_APP_ID           - the GitHub App's App ID
+#   SKILLS_APP_PRIVATE_KEY  - the App's private key (PEM)
+# Without them the token step fails; the publish is intended to run only when they are configured.
+# Pushes directly to the marketplace repo's main (it is a generated artifact; no PR flow).
 
 on:
   release:
@@ -24,16 +29,23 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Mint marketplace token (GitHub App)
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.SKILLS_APP_ID }}
+          private-key: ${{ secrets.SKILLS_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: claude-skills
+
       - name: Build and publish to the marketplace repo
         env:
-          TOKEN: ${{ secrets.SKILLS_PUBLISH_TOKEN }}
+          TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           GITHUB_TAG: ${{ github.event.release.tag_name }}
         run: |
           set -euo pipefail
-          if [ -z "${TOKEN:-}" ]; then
-            echo "SKILLS_PUBLISH_TOKEN is not set; skipping skill publish."
-            exit 0
-          fi
           VERSION=${GITHUB_TAG#v}
 
           git clone "https://x-access-token:${TOKEN}@github.com/${SKILLS_REPO}.git" target
@@ -45,8 +57,13 @@ jobs:
             --marketplace-repo "${SKILLS_REPO}"
 
           cd target
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Attribute commits to the App's bot identity (numeric id form → verified attribution).
+          USER_ID=$(gh api "/users/${APP_SLUG}[bot]" --jq .id 2>/dev/null || echo "")
+          EMAIL="${APP_SLUG}[bot]@users.noreply.github.com"
+          [ -n "$USER_ID" ] && EMAIL="${USER_ID}+${APP_SLUG}[bot]@users.noreply.github.com"
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "$EMAIL"
+
           git add -A
           if git diff --cached --quiet; then
             echo "No marketplace changes to publish."

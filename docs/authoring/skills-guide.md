@@ -220,8 +220,11 @@ is the source of truth, the marketplace is a generated mirror:
   manifest or CLI), so several repos can publish into one marketplace; `marketplace.json` is
   regenerated as the union of all plugins present.
 - **A dedicated release workflow** (`.github/workflows/publish-skills.yml`, separate from
-  `publish.yml`) builds and pushes to the marketplace repo's `main` on `release: published`. It
-  needs a `SKILLS_PUBLISH_TOKEN` secret with write access to the marketplace repo.
+  `publish.yml`) builds and pushes directly to the marketplace repo's `main` on `release: published`
+  (a generated artifact repo, so no PR flow). It authenticates as an **org-owned GitHub App** scoped
+  to the marketplace repo (Contents: write), minting a short-lived installation token at runtime —
+  no personal PAT. Configure the `SKILLS_APP_ID` and `SKILLS_APP_PRIVATE_KEY` secrets on the source
+  repo.
 
 Users install with `/plugin marketplace add ArchPillar/claude-skills` then
 `/plugin install archpillar-<library>@archpillar`.
