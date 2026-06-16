@@ -15,13 +15,14 @@ Reading the skill back to ourselves proves neither. The oracle exists to test th
 
 ## What the oracle checks
 
-The harness lives at [`tools/skill-oracle/mapper/`](../../../tools/skill-oracle/mapper/). It references the **published NuGet packages** (`ArchPillar.Extensions.Mapper`, `ArchPillar.Extensions.Mapper.EntityFrameworkCore`) — what a consumer actually installs, not the in-repo source — and runs skill-generated code through three gates:
+The harness lives at [`tools/skill-oracle/mapper/`](../../../tools/skill-oracle/mapper/). It references the **published NuGet packages** (`ArchPillar.Extensions.Mapper`, `ArchPillar.Extensions.Mapper.EntityFrameworkCore`) — what a consumer actually installs, not the in-repo source — and runs skill-generated code through four gates:
 
 1. **Compile** — the code compiles against the package. Catches API/signature drift.
 2. **Build-time validation** — each `MapperContext` is constructed and `EagerBuildAll()` runs, exercising coverage validation, enum bijection checks, and circular-reference detection.
-3. **SQL translation** — a representative projection runs against a real relational provider (SQLite), proving the expression translates and executes end to end (enum `CASE`, runtime-variable substitution, optional `Include()` join, nested-collection projection).
+3. **Behavior** — each mapper is actually invoked and its output asserted: the many-to-one enum collapse (`High → Urgent`), the dictionary key/value mapping, and the `MapTo` `DeepWithIdentity` merge (collection instance preserved, matched element kept and updated, unmatched removed, new added). Building a mapper is not the same as it mapping correctly — this gate is what proves the latter.
+4. **SQL translation** — a representative projection runs against a real relational provider (SQLite) and its values are asserted, proving the expression translates and executes end to end (enum `CASE`, runtime-variable substitution, optional `Include()` join, nested-collection projection).
 
-The committed `candidates/` are skill-generated solutions to scenarios chosen to stress judgement, not just recall — a many-to-one enum (must pick `EnumMapper`), a dictionary projection, and an in-place `MapTo` with `DeepWithIdentity`. Each file's header records the scenario that produced it.
+The runner exits non-zero if any assertion fails (`ORACLE FAILED`). The committed `candidates/` are skill-generated solutions to scenarios chosen to stress judgement, not just recall — a many-to-one enum (must pick `EnumMapper`), a dictionary projection, and an in-place `MapTo` with `DeepWithIdentity`. Each file's header records the scenario that produced it.
 
 ## Running it
 
