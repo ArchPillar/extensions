@@ -1,0 +1,18 @@
+<Project>
+  <!-- Standalone harness: shadows the repo root Directory.Build.props. References PUBLISHED
+       NuGet packages, so it must NOT inherit central package management, analyzers, or
+       warnings-as-errors. -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>14.0</LangVersion>
+    <OutputType>Exe</OutputType>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <RunAnalyzers>true</RunAnalyzers>   <!-- the ArchPillar analyzer must run; this is its test -->
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;CS8618;CS0169;CS0649</NoWarn>
+  </PropertyGroup>
+</Project>
