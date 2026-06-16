@@ -7,6 +7,20 @@ on:
     branches: [main]
 
 jobs:
+  skills-manifest:
+    name: Skills manifest check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # Fails if a published skill is missing from the marketplace manifest (would silently never
+      # ship) or the manifest lists a skill that does not exist.
+      - name: Check skill marketplace manifest
+        run: python3 tools/skill-marketplace/build_marketplace.py --check
+
   build-and-test:
     runs-on: ubuntu-latest
     # Cap the job so a hanging test can never burn the runner for hours.

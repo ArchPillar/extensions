@@ -49,6 +49,47 @@ def plugin_dir_name(skill: str) -> str:
     return skill[len(SKILL_PREFIX):] if skill.startswith(SKILL_PREFIX) else skill
 
 
+def derive_package(lib: str) -> str:
+    """mapper -> ArchPillar.Extensions.Mapper (PascalCase each hyphen segment)."""
+    pascal = "".join(seg[:1].upper() + seg[1:] for seg in lib.split("-"))
+    return f"ArchPillar.Extensions.{pascal}"
+
+
+def check_manifest(manifest: dict, root: Path) -> list[str]:
+    """Validate skills.json against reality. Returns a list of errors (empty == OK).
+
+    Guards the bookkeeping: every listed skill must exist, and every *published* skill present
+    under .claude/skills/ must be listed (else it would silently never ship to the marketplace).
+    """
+    skills_dir = root / ".claude" / "skills"
+    publish_yml = (root / ".github" / "workflows" / "publish.yml").read_text(encoding="utf-8")
+    errors: list[str] = []
+    listed: dict[str, str] = {}
+
+    for entry in manifest["skills"]:
+        name = entry["name"]
+        if name in listed:
+            errors.append(f"duplicate manifest entry: {name}")
+        package = entry.get("package") or derive_package(plugin_dir_name(name))
+        listed[name] = package
+        if not (skills_dir / name / "SKILL.md").is_file():
+            errors.append(f"manifest lists '{name}' but {skills_dir}/{name}/SKILL.md is missing")
+        if package not in publish_yml:
+            print(f"WARN: '{name}' -> {package} is not published yet; it will be skipped until it is")
+
+    for skill_dir in sorted(skills_dir.glob(f"{SKILL_PREFIX}*")):
+        if not (skill_dir / "SKILL.md").is_file():
+            continue
+        name = skill_dir.name
+        package = derive_package(plugin_dir_name(name))
+        if package in publish_yml and name not in listed:
+            errors.append(
+                f"published skill '{name}' ({package}) is not listed in the manifest — "
+                f"it will never publish to the marketplace"
+            )
+    return errors
+
+
 def short_description(skill_md: Path) -> str:
     """First sentence of the SKILL.md body (after frontmatter and the H1), as a one-liner."""
     text = skill_md.read_text(encoding="utf-8")
@@ -181,10 +222,21 @@ def main() -> int:
     p.add_argument("--author-name", default="ArchPillar")
     p.add_argument("--license", default="MIT")
     p.add_argument("--require-published", action="store_true")
+    p.add_argument("--check", action="store_true", help="validate the manifest and exit (no build)")
     args = p.parse_args()
 
     root = repo_root()
     manifest = read_json(root / args.manifest if not Path(args.manifest).is_absolute() else Path(args.manifest))
+
+    if args.check:
+        errors = check_manifest(manifest, root)
+        for e in errors:
+            print(f"ERROR: {e}", file=sys.stderr)
+        if errors:
+            return 1
+        print("Manifest OK")
+        return 0
+
     args.source_repo = args.source_repo or manifest["sourceRepo"]
     args.marketplace_repo = args.marketplace_repo or manifest["marketplace"]["repo"]
     marketplace_name = manifest["marketplace"]["name"]
