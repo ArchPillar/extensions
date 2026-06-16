@@ -43,7 +43,22 @@ Re-run the oracle whenever **the skill** or **the package** changes:
 - **Regression** (package changed) — bump the pinned versions in `Mapper.SkillOracle.csproj`, then `dotnet run`. Recompiling the committed `candidates/` against the new package catches API drift introduced by a release.
 - **Skill validation** (skill changed) — regenerate a `candidates/*.cs` file by giving a fresh agent the scenario documented at the top of that file *with the current skill*, paste the output over the candidate, then `dotnet run`. This catches skill drift, and is the only mode that re-exercises the skill text itself.
 
-For a true picture, periodically re-run the **baseline contrast**: give an agent the same scenario *without* the skill and confirm its output still fails to compile. If the model can do the task without the skill, the skill has become redundant for that scenario.
+### Generating candidates in isolation
+
+When an agent generates a candidate, it must work in a directory **outside this repository** —
+copy the scenario (and, for the skill arm only, a copy of `SKILL.md`) into a temp folder such as
+`/tmp/oracle-run/` and instruct the agent to stay inside it. Running an agent in the repo lets it
+read `src/` and `docs/` and reverse-engineer the real API, which contaminates both arms: a baseline
+agent is no longer skill-free, and a skill arm no longer measures the skill rather than the source.
+
+> This is best-effort, not a hard sandbox — an agent can still read absolute paths if it
+> deliberately tries — so pair the temp folder with an explicit instruction not to access anything
+> under the repository.
+
+For a true picture, periodically re-run the **baseline contrast**: give an isolated agent the same
+scenario *without* the skill and confirm its output still fails to compile (it hallucinates
+`IMapperConfiguration` / `MapEnum` / `ProjectTo`). If the model can do the task without the skill,
+the skill has become redundant for that scenario.
 
 ## Adding a scenario
 
