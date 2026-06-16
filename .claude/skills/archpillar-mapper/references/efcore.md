@@ -118,3 +118,7 @@ db.Orders.Select(o => mappers.OrderStatusMapper.Map(o.Status)); // → CASE o.St
   **not** recognized.
 - Variable values bound at an inline call site bake in as constants captured at compile time;
   prefer `Include()` for optional properties over `Set()` for compile-time-stable behavior.
+- **Match EF Core major versions.** This package hooks EF Core internals, so its EF Core
+  dependency must align with the EF Core major version your app uses. A mismatch (e.g. mixing an
+  EF Core 9 and an EF Core 10 assembly) surfaces as a `MissingMethodException` at *query time*,
+  not at compile time — keep the `Microsoft.EntityFrameworkCore.*` packages on one major.
