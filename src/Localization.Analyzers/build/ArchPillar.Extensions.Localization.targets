@@ -228,8 +228,13 @@
     </DefineStaticWebAssets>
 
     <MakeDir Condition="'@(_ArchPillarBuildCatalog)' != ''" Directories="$(_ArchPillarBuildManifestDir)" />
+    <!-- Trim the trailing separator off the collect dir before quoting it: the property keeps its slash for the
+         globbing and ContentRoot above, but a double-quoted path that ends in a backslash escapes the closing
+         quote on Windows, so the tool would receive a single mangled input value (the output and source options
+         swallowed into it) and exit 2. NormalizePath would not help here: it preserves a trailing separator that
+         is already present, so the separator must be trimmed explicitly. -->
     <Exec Condition="'@(_ArchPillarBuildCatalog)' != ''"
-          Command="$(ArchPillarLocalizationToolCommand) manifest --input &quot;$(_ArchPillarBuildCollectDir)&quot; --output &quot;$(_ArchPillarBuildManifestDir)apl-catalogs.json&quot; --source $(ArchPillarLocalizationSourceLanguage)"
+          Command="$(ArchPillarLocalizationToolCommand) manifest --input &quot;$([System.IO.Path]::TrimEndingDirectorySeparator('$(_ArchPillarBuildCollectDir)'))&quot; --output &quot;$(_ArchPillarBuildManifestDir)apl-catalogs.json&quot; --source $(ArchPillarLocalizationSourceLanguage)"
           ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)" StandardOutputImportance="low" />
 
     <ItemGroup>
@@ -277,8 +282,10 @@
           SourceFiles="@(_ArchPillarOwnCatalogFile);@(_ArchPillarReferencedCatalog)"
           DestinationFolder="$(_ArchPillarPubCollectDir)" />
 
+    <!-- Trim the trailing separators before quoting (see the build manifest call above): a double-quoted path
+         ending in a separator escapes the closing quote on Windows, mangling the argument. Both dirs need it. -->
     <Exec Condition="'@(_ArchPillarOwnCatalogFile)@(_ArchPillarReferencedCatalog)' != ''"
-          Command="$(ArchPillarLocalizationToolCommand) merge --input &quot;$(_ArchPillarPubCollectDir)&quot; --output &quot;$(_ArchPillarBundleDir)&quot; --source $(ArchPillarLocalizationSourceLanguage) --format $(ArchPillarLocalizationBundleFormat)"
+          Command="$(ArchPillarLocalizationToolCommand) merge --input &quot;$([System.IO.Path]::TrimEndingDirectorySeparator('$(_ArchPillarPubCollectDir)'))&quot; --output &quot;$([System.IO.Path]::TrimEndingDirectorySeparator('$(_ArchPillarBundleDir)'))&quot; --source $(ArchPillarLocalizationSourceLanguage) --format $(ArchPillarLocalizationBundleFormat)"
           ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)" StandardOutputImportance="low" />
 
     <ItemGroup>
@@ -301,8 +308,9 @@
       <Output TaskParameter="Assets" ItemName="_ArchPillarPubBundleAsset" />
     </DefineStaticWebAssets>
 
+    <!-- Trim the trailing separator before quoting, as above. -->
     <Exec Condition="'@(_ArchPillarBundle)' != ''"
-          Command="$(ArchPillarLocalizationToolCommand) manifest --input &quot;$(_ArchPillarBundleDir)&quot; --output &quot;$(_ArchPillarPubManifestDir)apl-catalogs.json&quot; --source $(ArchPillarLocalizationSourceLanguage)"
+          Command="$(ArchPillarLocalizationToolCommand) manifest --input &quot;$([System.IO.Path]::TrimEndingDirectorySeparator('$(_ArchPillarBundleDir)'))&quot; --output &quot;$(_ArchPillarPubManifestDir)apl-catalogs.json&quot; --source $(ArchPillarLocalizationSourceLanguage)"
           ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)" StandardOutputImportance="low" />
 
     <ItemGroup>
