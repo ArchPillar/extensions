@@ -29,8 +29,7 @@ destination properties are build-time errors.
 | **Repo / docs** | `github.com/ArchPillar/extensions` · Context7 `archpillar/extensions` |
 
 The packages are published on NuGet, currently as a **preview** — `--prerelease` is required until a
-stable release. Take NuGet as the source of truth for the current version; a GitHub "latest release"
-can trail it, because preview releases are not flagged "latest" on GitHub.
+stable release.
 
 ## The mental model (read this first)
 

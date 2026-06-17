@@ -120,8 +120,8 @@ State, verified against the `.csproj`/`LICENSE` — never from memory: the **pac
 **install command** (`--prerelease` while the library is preview-only), the **target frameworks**,
 the **license**, and a **repo / Context7** link. Their absence is not cosmetic: without them an agent
 fabricates a package-name search, then hedges with false "not on NuGet" / "license unknown" claims.
-Prefer NuGet (not the GitHub "latest release") as the source of truth for the current version, and do
-not pin a version number in the skill — it drifts from what shipped.
+Do not pin a version number in the skill — it drifts from what shipped; point at NuGet / Context7 for
+the current version.
 
 ### The AOT / trimming story
 
@@ -218,8 +218,12 @@ release. When a library gains a feature, decide deliberately whether the skill c
 
 - alters the **mental model** or the recommended idiom;
 - adds a new way to **get it wrong** — a new rule, or a footgun a default-trained agent would hit;
-- changes or invalidates an existing rule, example, or cheat-sheet row; or
-- introduces a new **opt-in add-on** (a new `references/` page and a package-table row).
+- changes or invalidates an existing rule, example, or cheat-sheet row;
+- introduces a new **opt-in add-on** (a new `references/` page and a package-table row); or
+- changes a **distribution fact or the AOT/trimming story** the `## Install` / `## NativeAOT and
+  trimming` blocks assert — a new target framework, the first stable (non-preview) release, or AOT
+  support landing where the skill currently says "not supported". These are stated as fact, so a
+  stale one is a wrong fact, not just a missing feature.
 
 **Leave the skill alone when the change** is just another API a competent consumer would use
 correctly straight from the docs — a new overload, a niche option, an additive feature with no new
