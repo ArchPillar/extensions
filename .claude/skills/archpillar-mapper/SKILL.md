@@ -1,10 +1,11 @@
 ---
 name: archpillar-mapper
 description: >-
-  Use when a project references ArchPillar.Extensions.Mapper and you are writing or editing
-  object-to-object / DTO mapping, LINQ or EF Core projections, a MapperContext, enum mappings,
-  or clone/update (MapTo) mappings — including any time you would otherwise reach for
-  AutoMapper-style conventions, profiles, or attributes in such a project.
+  Use when working on object mapping in a .NET project — object-to-object / DTO mapping, LINQ or
+  EF Core projections, a MapperContext, enum mappings, or clone/update (MapTo) merges — whether
+  ArchPillar.Extensions.Mapper is already referenced or you are choosing, introducing, or migrating
+  a mapping approach. Applies any time you would otherwise reach for AutoMapper, Mapster, or
+  hand-rolled mapping profiles, attributes, or conventions.
 ---
 
 # ArchPillar.Extensions.Mapper

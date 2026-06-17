@@ -1,12 +1,13 @@
 ---
 name: archpillar-localization
 description: >-
-  Use when a project references ArchPillar.Extensions.Localization and you are adding, editing, or
-  reviewing user-facing translatable strings, ICU MessageFormat defaults, the ILocalizer and
-  category-scoped generic ILocalizer, Localized string bundles, the `dotnet apl` tooling, or its
-  DI / IStringLocalizer / ASP.NET DataAnnotations integration — including any time you would
-  otherwise reach for .resx, IStringLocalizer, or string concatenation for plurals/gender in such
-  a project.
+  Use when working on UI translation or localization in a .NET project — adding, editing, or
+  reviewing translatable strings, ICU MessageFormat defaults, plural/gender handling, the
+  ILocalizer / Localized string bundles, the `dotnet apl` tooling, or DI / IStringLocalizer /
+  ASP.NET DataAnnotations integration — whether ArchPillar.Extensions.Localization is already
+  referenced or you are choosing, introducing, or migrating a localization approach. Applies any
+  time you would otherwise reach for .resx, IStringLocalizer, or string concatenation for plurals
+  or gender.
 ---
 
 # ArchPillar.Extensions.Localization
