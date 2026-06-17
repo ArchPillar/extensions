@@ -1,13 +1,13 @@
 ---
 name: archpillar-localization
 description: >-
-  Use when working on UI translation or localization in a .NET project — adding, editing, or
-  reviewing translatable strings, ICU MessageFormat defaults, plural/gender handling, the
-  ILocalizer / Localized string bundles, the `dotnet apl` tooling, or DI / IStringLocalizer /
-  ASP.NET DataAnnotations integration — whether ArchPillar.Extensions.Localization is already
-  referenced or you are choosing, introducing, or migrating a localization approach. Applies any
-  time you would otherwise reach for .resx, IStringLocalizer, or string concatenation for plurals
-  or gender.
+  Use when any user-facing text in a .NET app must support more than one language or correct
+  plurals/gender — a hard-coded UI string, a validation / DataAnnotations message, an email or PDF,
+  or pluralization that string.Format gets wrong — and when adding, editing, or reviewing that text:
+  ICU MessageFormat defaults, the ILocalizer / Localized string bundles, the `dotnet apl` tooling, or
+  DI / IStringLocalizer / ASP.NET integration. Applies whether ArchPillar.Extensions.Localization is
+  referenced yet or you are choosing or introducing a localization approach, and any time you would
+  otherwise reach for .resx, IStringLocalizer, or string concatenation for plurals or gender.
 ---
 
 # ArchPillar.Extensions.Localization
@@ -19,6 +19,21 @@ sites at compile time; translators fill in per-language catalogs; at runtime tho
 **pluggable overrides** over the in-code default. It is deliberately the opposite of the
 `.resx` / `IStringLocalizer` model: no separate resource files to author, no "missing resource"
 state, no name-based lookup.
+
+## Install
+
+| | |
+| --- | --- |
+| **Core package** | `ArchPillar.Extensions.Localization` (runtime + analyzer + generator, no setup) |
+| **Install** | `dotnet add package ArchPillar.Extensions.Localization --prerelease` |
+| **Tooling** | `dotnet tool install -g ArchPillar.Extensions.Localization.Tooling --prerelease` (the `dotnet apl` CLI) |
+| **Target frameworks** | `net8.0`, `net9.0`, `net10.0` |
+| **License** | MIT |
+| **Repo / docs** | `github.com/ArchPillar/extensions` · Context7 `archpillar/extensions` |
+
+Published on NuGet, currently a **preview** — `--prerelease` is required until a stable release. The
+opt-in companion packages are listed under [Packages](#packages); the supporting libraries are pulled
+in automatically. (Extraction needs a recent SDK — see rule 6.)
 
 ## The mental model (read this first)
 
@@ -136,6 +151,19 @@ opt-in companions:
 > and `…Localization.CodeFixes` are **supporting libraries** pulled in automatically by the core package
 > — you do not reference them directly. (The ICU engine is technically usable standalone, but that is a
 > niche case, not part of normal localization work.)
+
+## NativeAOT and trimming
+
+**Supported, and certified by CI** (the repo publishes and runs a trim + NativeAOT sample). The
+runtime is generator-extracted lookups with **no runtime code generation**, so it trims and
+AOT-compiles cleanly. One deployment rule:
+
+- **Ship catalogs as files-on-disk (the default) for trimming, single-file, and NativeAOT.** That
+  path parses loose catalogs with DOM APIs and roots nothing by reflection.
+- **Embedded culture satellites do not load under NativeAOT** — the lookup degrades to the in-code
+  ICU default, so the app stays functional in the source language. Under AOT, deliver files.
+
+See `references/tooling-and-deployment.md` for the full trim / single-file / AOT matrix.
 
 ## Deeper guidance
 

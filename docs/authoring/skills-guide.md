@@ -86,12 +86,19 @@ Use this heading order; adapt the prose, not the structure.
   (AutoMapper/Mapster; `.resx` / `IStringLocalizer` / `string.Format`) — so the skill matches the
   moment an agent is about to pick the wrong-but-familiar approach, before any ArchPillar package is
   in the project.
+- **Lead with the upstream problem, not just the library's nouns.** A consumer hits the *problem*
+  (exposing an EF entity through an API, hiding a password hash from a DTO, keeping DTOs in sync)
+  before the conversation ever reaches the library's vocabulary (`MapperContext`, `EnumMapper`). If
+  the trigger only lists the API nouns it fires too late. Name the problems and decisions first.
 
 ```text
 # ArchPillar.Extensions.{Library}
 
 <one paragraph: what it is + the headline property, framed against the opposing approach>
 
+## Install                                 — distribution facts up top: package id(s), the
+                                            `dotnet add package … --prerelease` line, target
+                                            frameworks, license, repo/Context7 link (see below)
 ## The mental model (read this first)   — lead with the SMALL surface: the few entry points a
                                            consumer actually writes against
 ## <Two ways to …> / core usage          — the primary authoring pattern(s)
@@ -101,9 +108,27 @@ Use this heading order; adapt the prose, not the structure.
 ## Feature cheat-sheet                    — table: need → API → note
 ## Production defaults                     — singleton/eager/registration patterns, if any
 ## <Validate / testing>                    — lightweight; see "What to say about testing" below
+## NativeAOT and trimming                  — only if the library does runtime codegen/reflection;
+                                            state the real story honestly (see below)
 ## Packages                                — opt-in companions only; supporting libs noted as auto-included
 ## Deeper guidance                         — pointers to references/ and to docs/ + Context7
 ```
+
+### Distribution facts (the `## Install` block)
+
+State, verified against the `.csproj`/`LICENSE` — never from memory: the **package id(s)**, the
+**install command** (`--prerelease` while the library is preview-only), the **target frameworks**,
+the **license**, and a **repo / Context7** link. Their absence is not cosmetic: without them an agent
+fabricates a package-name search, then hedges with false "not on NuGet" / "license unknown" claims.
+Do not pin a version number in the skill — it drifts from what shipped; point at NuGet / Context7 for
+the current version.
+
+### The AOT / trimming story
+
+If the library relies on **runtime expression compilation or reflection**, say so plainly and state
+whether NativeAOT and trimming are supported. Guessing here produces confidently wrong advice. Base
+the statement on the architecture and on what CI actually certifies (e.g. a trim/AOT sample), not on
+hope — and if a library is *not* AOT/trim-safe, say that outright rather than omitting it.
 
 Keep the body to the working subset; push depth into `references/{topic}.md` loaded on demand. Lead
 the mental model with how *small* the everyday surface is — a reader who thinks the library is large
@@ -193,8 +218,12 @@ release. When a library gains a feature, decide deliberately whether the skill c
 
 - alters the **mental model** or the recommended idiom;
 - adds a new way to **get it wrong** — a new rule, or a footgun a default-trained agent would hit;
-- changes or invalidates an existing rule, example, or cheat-sheet row; or
-- introduces a new **opt-in add-on** (a new `references/` page and a package-table row).
+- changes or invalidates an existing rule, example, or cheat-sheet row;
+- introduces a new **opt-in add-on** (a new `references/` page and a package-table row); or
+- changes a **distribution fact or the AOT/trimming story** the `## Install` / `## NativeAOT and
+  trimming` blocks assert — a new target framework, the first stable (non-preview) release, or AOT
+  support landing where the skill currently says "not supported". These are stated as fact, so a
+  stale one is a wrong fact, not just a missing feature.
 
 **Leave the skill alone when the change** is just another API a competent consumer would use
 correctly straight from the docs — a new overload, a niche option, an additive feature with no new
@@ -281,10 +310,15 @@ A skill change is ready when every applicable item is true:
 - [ ] Exactly one skill for the library, named `archpillar-{library}`; opt-in add-ons are
       `references/` pages, not separate skills.
 - [ ] `description` is triggering-conditions-only, triggers on the .NET task (not on the package
-      already being referenced) so it covers adoption as well as usage, and includes the "instead of
+      already being referenced) so it covers adoption as well as usage, leads with the upstream
+      problem/decision (not just the library's API nouns), and includes the "instead of
       `<wrong habit>`" trigger.
 - [ ] Body follows the skeleton; leads with the small consumer surface; the "rules easy to get wrong"
       section captures the opinionated core.
+- [ ] An `## Install` block states the package id(s), install command, target frameworks, and license,
+      each verified against the `.csproj`/`LICENSE` — not from memory, and no pinned version that drifts.
+- [ ] If the library does runtime expression compilation or reflection, the AOT/trimming story is
+      stated honestly (supported, or explicitly not — never an unconfirmed guess).
 - [ ] Authored from `internals/SPEC.md`; no duplication of exhaustive API surface (linked instead).
 - [ ] Supporting/internal libraries are not presented as opt-in packages.
 - [ ] Testing guidance is the lightweight "build/validate at least once"; correctness testing is not
