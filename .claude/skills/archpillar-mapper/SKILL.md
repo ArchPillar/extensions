@@ -1,11 +1,13 @@
 ---
 name: archpillar-mapper
 description: >-
-  Use when working on object mapping in a .NET project — object-to-object / DTO mapping, LINQ or
-  EF Core projections, a MapperContext, enum mappings, or clone/update (MapTo) merges — whether
-  ArchPillar.Extensions.Mapper is already referenced or you are choosing, introducing, or migrating
-  a mapping approach. Applies any time you would otherwise reach for AutoMapper, Mapster, or
-  hand-rolled mapping profiles, attributes, or conventions.
+  Use when deciding how to move data between objects in a .NET project — building API or response
+  DTOs, exposing or deliberately hiding fields from EF Core entities (e.g. keeping a password hash
+  out of a DTO), shaping projection results, or keeping DTOs in sync with their entities — and when
+  writing or migrating that code: object-to-object / DTO mapping, LINQ or EF Core projections, a
+  MapperContext, enum mappings, or clone/update (MapTo) merges. Applies whether
+  ArchPillar.Extensions.Mapper is referenced yet or you are choosing or introducing a mapping
+  approach, and any time you would otherwise reach for AutoMapper, Mapster, or hand-rolled mapping.
 ---
 
 # ArchPillar.Extensions.Mapper
@@ -13,7 +15,22 @@ description: >-
 A lightweight .NET mapping library built on expression trees. **One mapper definition drives
 both in-memory object mapping and LINQ/EF Core projection.** It is deliberately the opposite of
 AutoMapper: everything is explicit, every mapper is a named C# property, and unmapped
-destination properties are build-time errors. Requires .NET 9+ / C# 13.
+destination properties are build-time errors.
+
+## Install
+
+| | |
+| --- | --- |
+| **Core package** | `ArchPillar.Extensions.Mapper` |
+| **EF Core add-on** | `ArchPillar.Extensions.Mapper.EntityFrameworkCore` (optional; see below) |
+| **Install** | `dotnet add package ArchPillar.Extensions.Mapper --prerelease` |
+| **Target frameworks** | `net8.0`, `net9.0`, `net10.0` |
+| **License** | MIT |
+| **Repo / docs** | `github.com/ArchPillar/extensions` · Context7 `archpillar/extensions` |
+
+The packages are published on NuGet, currently as a **preview** — `--prerelease` is required until a
+stable release. Take NuGet as the source of truth for the current version; a GitHub "latest release"
+can trail it, because preview releases are not flagged "latest" on GitHub.
 
 ## The mental model (read this first)
 
@@ -180,6 +197,21 @@ nothing extra. The optional `ArchPillar.Extensions.Mapper.EntityFrameworkCore` p
 direct mapper calls inside hand-written `Select`s and flat SQL `CASE` for enums. **If the task
 involves `UseArchPillarMapper`, `ApplyMappers`, calling `Map()`/`Project()` inside your own
 `Select`, or enum-to-SQL translation, read [`references/efcore.md`](references/efcore.md).**
+
+## NativeAOT and trimming
+
+Mapper builds each mapper by composing an expression tree and calling `Expression.Compile()` at
+runtime (lazily, or eagerly via `EagerBuildAll()`), reflecting over the source/destination properties
+while it does so. That design needs runtime code generation and full member metadata, so:
+
+- **NativeAOT: not supported.** `Expression.Compile()` requires a runtime that can emit code, which
+  NativeAOT does not provide. Do not use the library in a `PublishAot` app.
+- **Trimming: not safe.** The library carries no trimming annotations, so an aggressive trimmer can
+  remove properties a mapper reflects over. Avoid `PublishTrimmed`, or keep the mapped entity/DTO
+  types fully rooted.
+
+The intended host is a normal JIT runtime (ASP.NET Core, console, worker). The repo's trim/NativeAOT
+CI sample exercises Localization only — it does not certify Mapper.
 
 ## Deeper guidance
 
