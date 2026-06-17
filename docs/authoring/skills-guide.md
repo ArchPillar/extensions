@@ -71,9 +71,21 @@ do not duplicate it.
 
 ## SKILL.md skeleton
 
-Use this heading order; adapt the prose, not the structure. (Frontmatter per
-`superpowers:writing-skills` — `description` is triggers-only, including the "instead of
-`<wrong habit>`" trigger.)
+Use this heading order; adapt the prose, not the structure.
+
+**Frontmatter** follows `superpowers:writing-skills` — `description` is triggering-conditions-only
+(never a workflow summary). Two repo-specific rules for the trigger:
+
+- **Trigger on the task, not on the dependency.** Do not gate the description on the package already
+  being referenced (`Use when a project references ArchPillar.Extensions.X …`). That only fires for
+  projects that have *already adopted* the library, so the skill never surfaces during the decision
+  to use it — and adoption matters as much as day-to-day usage. Phrase the trigger around the .NET
+  task itself (object→DTO mapping, translatable UI strings) and explicitly cover *choosing,
+  introducing, or migrating* an approach as well as editing existing usage.
+- **Include the "instead of `<wrong habit>`" trigger** — the default tools a model reaches for
+  (AutoMapper/Mapster; `.resx` / `IStringLocalizer` / `string.Format`) — so the skill matches the
+  moment an agent is about to pick the wrong-but-familiar approach, before any ArchPillar package is
+  in the project.
 
 ```text
 # ArchPillar.Extensions.{Library}
@@ -268,7 +280,9 @@ A skill change is ready when every applicable item is true:
       disclosure, RED-GREEN-REFACTOR) — not duplicated here.
 - [ ] Exactly one skill for the library, named `archpillar-{library}`; opt-in add-ons are
       `references/` pages, not separate skills.
-- [ ] `description` is triggering-conditions-only and includes the "instead of `<wrong habit>`" trigger.
+- [ ] `description` is triggering-conditions-only, triggers on the .NET task (not on the package
+      already being referenced) so it covers adoption as well as usage, and includes the "instead of
+      `<wrong habit>`" trigger.
 - [ ] Body follows the skeleton; leads with the small consumer surface; the "rules easy to get wrong"
       section captures the opinionated core.
 - [ ] Authored from `internals/SPEC.md`; no duplication of exhaustive API surface (linked instead).
