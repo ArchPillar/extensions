@@ -7,29 +7,28 @@ namespace ArchPillar.Extensions.Localization.Tests;
 internal sealed class ProviderStrings;
 
 /// <summary>
-/// Proves the store is provider-agnostic: a custom <see cref="ICatalogProvider"/> registered through
-/// <see cref="LocalizationContext.AddProvider"/> loads and resolves through the same path as the built-in
-/// directory provider, and — appended after the configured providers — wins on overlap.
+/// Proves the store is provider-agnostic: a custom <see cref="ICatalogProvider"/> configured through
+/// <see cref="LocalizerOptions.Providers"/> loads and resolves through the same path as the built-in directory
+/// provider, and — layered after the configured providers — wins on overlap.
 /// </summary>
 public sealed class CatalogProviderTests
 {
     private static readonly CultureInfo _german = CultureInfo.GetCultureInfo("de");
 
     [Fact]
-    public void AddedProvider_CatalogsLoadAndResolve()
+    public void ConfiguredProvider_CatalogsLoadAndResolve()
     {
         var provider = new InMemoryCatalogProvider(("de", "Hallo"));
-        using var context = new LocalizationContext(new LocalizerOptions { SourceCulture = "en" });
-        context.AddProvider(provider);
+        using var context = new LocalizationContext(new LocalizerOptions { SourceCulture = "en", Providers = [provider] });
 
         WithCulture(_german, () => Assert.Equal("Hallo", context.For<ProviderStrings>().Translate("hello", "Hello")));
     }
 
     [Fact]
-    public void AddedProvider_WinsOverTheDirectoryProviderOnOverlap()
+    public void ConfiguredProvider_WinsOverTheDirectoryProviderOnOverlap()
     {
         // A directory the auto-default reads, holding a different translation than the custom provider. The
-        // added provider is appended after the directory provider, so it wins on the layered last-wins merge.
+        // configured provider is layered after the directory provider, so it wins on the layered last-wins merge.
         var directory = Path.Combine(Path.GetTempPath(), "aplprov-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         try
@@ -37,8 +36,7 @@ public sealed class CatalogProviderTests
             File.WriteAllText(Path.Combine(directory, "de.arb"), Arb("de", "Aus dem Verzeichnis"));
 
             var provider = new InMemoryCatalogProvider(("de", "Vom Provider"));
-            using var context = new LocalizationContext(new LocalizerOptions { TranslationsDirectory = directory });
-            context.AddProvider(provider);
+            using var context = new LocalizationContext(new LocalizerOptions { TranslationsDirectory = directory, Providers = [provider] });
 
             WithCulture(_german, () => Assert.Equal("Vom Provider", context.For<ProviderStrings>().Translate("hello", "Hello")));
         }
@@ -46,22 +44,6 @@ public sealed class CatalogProviderTests
         {
             Directory.Delete(directory, recursive: true);
         }
-    }
-
-    [Fact]
-    public void AddedProvider_SurvivesAReconfigure()
-    {
-        var provider = new InMemoryCatalogProvider(("de", "Vom Provider"));
-        using var context = new LocalizationContext(new LocalizerOptions { SourceCulture = "en" });
-        context.AddProvider(provider);
-
-        WithCulture(_german, () => Assert.Equal("Vom Provider", context.For<ProviderStrings>().Translate("hello", "Hello")));
-
-        // A reconfigure rebuilds the options-derived providers but keeps the runtime-added ones, so the custom
-        // provider's catalogs remain after re-applying options.
-        context.Configure(new LocalizerOptions { SourceCulture = "en" });
-
-        WithCulture(_german, () => Assert.Equal("Vom Provider", context.For<ProviderStrings>().Translate("hello", "Hello")));
     }
 
     private static string Arb(string culture, string hello) => $$"""

@@ -1,4 +1,5 @@
 using System.Globalization;
+using ArchPillar.Extensions.Localization.Internal;
 
 namespace ArchPillar.Extensions.Localization.Tests;
 
@@ -12,21 +13,27 @@ public sealed class ForCategoryTests
     [Fact]
     public void ForCategory_ResolvesOverrideUnderTheGivenCategory()
     {
-        using var context = new LocalizationContext(new LocalizerOptions { SourceCulture = "en" });
-        context.AddCatalog(new Catalog
+        using var context = new LocalizationContext(new LocalizerOptions
         {
-            Culture = "de",
-            Entries =
+            SourceCulture = "en",
+            Sources =
             [
-                new CatalogEntry
+                Layer(new Catalog
                 {
-                    Category = "Shop.Cart",
-                    Key = "title",
-                    SourceMessage = "Cart",
-                    TranslatedMessage = "Warenkorb",
-                    SourceFingerprint = "",
-                    State = TranslationState.Translated,
-                },
+                    Culture = "de",
+                    Entries =
+                    [
+                        new CatalogEntry
+                        {
+                            Category = "Shop.Cart",
+                            Key = "title",
+                            SourceMessage = "Cart",
+                            TranslatedMessage = "Warenkorb",
+                            SourceFingerprint = "",
+                            State = TranslationState.Translated,
+                        },
+                    ],
+                }),
             ],
         });
 
@@ -55,4 +62,7 @@ public sealed class ForCategoryTests
         using var context = new LocalizationContext(new LocalizerOptions { SourceCulture = "en" });
         Assert.Throws<ArgumentNullException>(() => context.ForCategory(null!));
     }
+
+    private static ITranslationSource Layer(Catalog catalog) =>
+        new SnapshotTranslationSource(CatalogLoader.BuildSnapshot([catalog], new LocalizerOptions()));
 }

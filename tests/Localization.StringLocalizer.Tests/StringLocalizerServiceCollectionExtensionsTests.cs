@@ -1,4 +1,6 @@
 using System.Globalization;
+using System.Text;
+using ArchPillar.Extensions.Localization.Internal;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
 using Ambient = ArchPillar.Extensions.Localization.Localizer;
@@ -65,7 +67,7 @@ public sealed class StringLocalizerServiceCollectionExtensionsTests : IDisposabl
     public void StringLocalizer_ComposesOverAPreviouslyRegisteredFactory()
     {
         Ambient.Reset();
-        Ambient.AddCatalog(new Catalog
+        var catalog = new Catalog
         {
             Culture = "de",
             Entries =
@@ -80,11 +82,11 @@ public sealed class StringLocalizerServiceCollectionExtensionsTests : IDisposabl
                     State = TranslationState.Translated
                 }
             ]
-        });
+        };
 
         var services = new ServiceCollection();
         services.AddSingleton<IStringLocalizerFactory>(new FakeFactory());
-        services.AddArchPillarStringLocalizer(new LocalizerOptions { SourceCulture = "en" });
+        services.AddArchPillarStringLocalizer(new LocalizerOptions { SourceCulture = "en", Sources = [Layer(catalog)] });
         using ServiceProvider provider = services.BuildServiceProvider();
 
         IStringLocalizer localizer = provider.GetRequiredService<IStringLocalizerFactory>().Create(typeof(Buttons));
@@ -110,25 +112,20 @@ public sealed class StringLocalizerServiceCollectionExtensionsTests : IDisposabl
     public void GetAllStrings_IncludesAmbientEntriesForTheCategory()
     {
         Ambient.Reset();
-        Ambient.AddCatalog(new Catalog
-        {
-            Culture = "de",
-            Entries =
-            [
-                new CatalogEntry
-                {
-                    Category = typeof(Buttons).FullName!,
-                    Key = "save",
-                    SourceMessage = "Save",
-                    TranslatedMessage = "Speichern",
-                    SourceFingerprint = "fp",
-                    State = TranslationState.Translated
-                }
-            ]
-        });
+
+        // GetAllStrings enumerates the loaded catalog snapshot (not the per-key sources), so the ambient entry must
+        // be a loaded catalog — configured here through a provider that serves it as ARB.
+        var arb = $$"""
+            {
+              "@@locale": "de",
+              "@@x-category": "{{typeof(Buttons).FullName}}",
+              "save": "Speichern",
+              "@save": { "x-state": "Translated", "x-source-fingerprint": "fp" }
+            }
+            """;
 
         var services = new ServiceCollection();
-        services.AddArchPillarStringLocalizer(new LocalizerOptions { SourceCulture = "en" });
+        services.AddArchPillarStringLocalizer(new LocalizerOptions { SourceCulture = "en", Providers = [new ArbCatalogProvider("de", arb)] });
         using ServiceProvider provider = services.BuildServiceProvider();
         IStringLocalizer localizer = provider.GetRequiredService<IStringLocalizerFactory>().Create(typeof(Buttons));
 
@@ -231,6 +228,38 @@ public sealed class StringLocalizerServiceCollectionExtensionsTests : IDisposabl
         finally
         {
             CultureInfo.CurrentUICulture = original;
+        }
+    }
+
+    private static ITranslationSource Layer(Catalog catalog) =>
+        new SnapshotTranslationSource(CatalogLoader.BuildSnapshot([catalog], new LocalizerOptions()));
+
+    // A minimal in-memory provider serving one culture's ARB bytes, so the catalog lands in the merged snapshot
+    // (enumerable through GetAllStrings) rather than being consulted only per key like a translation source.
+    private sealed class ArbCatalogProvider(string culture, string arb) : ICatalogProvider
+    {
+        private readonly CatalogDescriptor _descriptor = new()
+        {
+            Culture = culture,
+            Format = "arb",
+            Name = culture + ".arb",
+            Source = new CatalogSource.Synchronous(() => new MemoryStream(Encoding.UTF8.GetBytes(arb)))
+        };
+
+        public IReadOnlyList<CatalogDescriptor> Catalogs => [_descriptor];
+
+        public IReadOnlyList<CatalogDescriptor> CatalogsFor(CultureInfo requested) =>
+            string.Equals(requested.Name, culture, StringComparison.OrdinalIgnoreCase) ? [_descriptor] : [];
+
+        public IDisposable Watch(Action<CatalogDescriptor> onChanged) => NoOpWatch.Instance;
+
+        private sealed class NoOpWatch : IDisposable
+        {
+            public static readonly NoOpWatch Instance = new();
+
+            public void Dispose()
+            {
+            }
         }
     }
 

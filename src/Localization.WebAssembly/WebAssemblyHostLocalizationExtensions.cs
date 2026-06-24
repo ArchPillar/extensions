@@ -7,26 +7,30 @@ namespace ArchPillar.Extensions.Localization;
 /// <summary>
 /// Wires HTTP catalog loading for a Blazor WebAssembly client. A browser has no readable file system, so the
 /// directory source finds nothing; catalogs are fetched over HTTP from the app's static web assets instead. This
-/// registers the build-emitted manifest as a catalog provider on the ambient store and loads the active language
-/// now, so the first render is localized and any other language is fetched the moment it is needed.
+/// fetches the build-emitted manifest, configures the ambient store with it as a catalog provider, and loads the
+/// active language now, so the first render is localized and any other language is fetched the moment it is needed.
 /// </summary>
 public static class WebAssemblyHostLocalizationExtensions
 {
     /// <summary>
-    /// Registers the manifest at <paramref name="manifestUri"/> as a catalog provider on the ambient localizer and
-    /// loads the active language (<see cref="CultureInfo.CurrentUICulture"/>) now. Call it on the built host before
-    /// <c>RunAsync</c>. It uses the app's DI-registered <see cref="HttpClient"/> — the one the Blazor WebAssembly
-    /// template registers over the host base address — so the container owns the client and the provider reuses it
-    /// to fetch languages selected later.
+    /// Builds an HTTP <see cref="ManifestCatalogProvider"/> from the manifest at <paramref name="manifestUri"/> and
+    /// configures the ambient localizer with it (layered above <paramref name="options"/>'s providers), then loads
+    /// the active language (<see cref="CultureInfo.CurrentUICulture"/>) now. Call it on the built host before
+    /// <c>RunAsync</c>, passing the same <paramref name="options"/> used to register localization in DI — the
+    /// provider can only be built from the host's <see cref="HttpClient"/> after the host is built, so this is where
+    /// the final configuration happens. It uses the app's DI-registered <see cref="HttpClient"/> (the one the Blazor
+    /// WebAssembly template registers over the host base address), so the provider reuses it for later languages.
     /// </summary>
     /// <param name="host">The Blazor WebAssembly host.</param>
+    /// <param name="options">The localizer options to configure with, or <see langword="null"/> for the defaults.</param>
     /// <param name="manifestUri">The manifest URI, relative to the client's base address, or absolute.</param>
     /// <param name="cancellationToken">A token to cancel the initial load.</param>
-    /// <returns>A task that completes once the manifest provider is registered and the active language is loaded.</returns>
+    /// <returns>A task that completes once the store is configured and the active language is loaded.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="host"/> is <see langword="null"/>.</exception>
     /// <exception cref="InvalidOperationException">No <see cref="HttpClient"/> is registered in the host's services.</exception>
     public static async Task UseArchPillarLocalizationAsync(
         this WebAssemblyHost host,
+        LocalizerOptions? options = null,
         string manifestUri = ManifestCatalogProvider.DefaultManifestPath,
         CancellationToken cancellationToken = default)
     {
@@ -35,11 +39,13 @@ public static class WebAssemblyHostLocalizationExtensions
             throw new ArgumentNullException(nameof(host));
         }
 
+        LocalizerOptions resolved = options ?? new LocalizerOptions();
         HttpClient httpClient = host.Services.GetRequiredService<HttpClient>();
         ManifestCatalogProvider provider = await ManifestCatalogProvider
-            .CreateAsync(httpClient, manifestUri, Localizer.SourceCultureName, cancellationToken)
+            .CreateAsync(httpClient, manifestUri, resolved.SourceCulture, cancellationToken)
             .ConfigureAwait(false);
-        Localizer.AddProvider(provider);
+
+        Localizer.Configure(resolved with { Providers = [.. resolved.Providers, provider] });
         await Localizer.LoadCultureAsync(CultureInfo.CurrentUICulture, cancellationToken).ConfigureAwait(false);
     }
 }

@@ -25,7 +25,7 @@ public sealed class DefaultLocalizer : ILocalizer
     /// </summary>
     /// <param name="store">The catalogue store to resolve against.</param>
     /// <exception cref="ArgumentNullException"><paramref name="store"/> is <see langword="null"/>.</exception>
-    public DefaultLocalizer(CatalogStore store)
+    internal DefaultLocalizer(CatalogStore store)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
         _context = null;

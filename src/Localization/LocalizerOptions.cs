@@ -4,9 +4,10 @@ namespace ArchPillar.Extensions.Localization;
 
 /// <summary>
 /// Configuration for a <see cref="DefaultLocalizer"/>: where to load catalogs from, the source language, the
-/// format precedence on overlap, and the missing-argument and hot-reload behaviour.
+/// format precedence on overlap, and the missing-argument and hot-reload behaviour. Everything is configured here —
+/// there is no runtime mutation surface; to add a provider or source, build new options (<c>with</c>) and reconfigure.
 /// </summary>
-public sealed class LocalizerOptions
+public sealed record LocalizerOptions
 {
     /// <summary>
     /// The directory containing translation catalog files. Defaults to a <c>Translations</c> directory
@@ -59,6 +60,13 @@ public sealed class LocalizerOptions
     /// or a live translation service. Empty by default.
     /// </summary>
     public IReadOnlyList<ITranslationSource> Sources { get; init; } = [];
+
+    /// <summary>
+    /// Catalog providers to load from, layered beneath the built-in directory provider (and, for the ambient store,
+    /// the resource provider). Use for a source the directory provider cannot reach — an HTTP
+    /// <see cref="ManifestCatalogProvider"/> for a Blazor WebAssembly client, say. Empty by default.
+    /// </summary>
+    public IReadOnlyList<ICatalogProvider> Providers { get; init; } = [];
 
     private static string DefaultDirectory() => Path.Combine(AppContext.BaseDirectory, "Translations");
 }

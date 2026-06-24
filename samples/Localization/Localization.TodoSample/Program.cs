@@ -13,15 +13,14 @@ using Localization.TodoSample;
 //
 // The string bundle lives in TodoStrings.cs; the catalogs are Translations/de.xliff and fr.xliff.
 // ---------------------------------------------------------------------------
-using var store = new CatalogStore(new LocalizerOptions
+using var context = new LocalizationContext(new LocalizerOptions
 {
     TranslationsDirectory = Path.Combine(AppContext.BaseDirectory, "Translations"),
     SourceCulture = "en",
     Sources = [new PseudoLocalizationSource("qps-ploc")]
 });
-var localizer = new DefaultLocalizer(store);
 
-var strings = new TodoStrings(new LocalizerFactory(localizer).Create<TodoStrings>());
+var strings = new TodoStrings(context.For<TodoStrings>());
 
 // A fixed to-do list. The task titles and the checkbox glyph are deliberately hardcoded (not
 // translatable), so the pseudo run shows them unchanged — that is the point of the smoke test.

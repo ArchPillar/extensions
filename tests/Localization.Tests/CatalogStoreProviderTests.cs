@@ -115,31 +115,6 @@ public sealed class CatalogStoreProviderTests
         }
     }
 
-    [Fact]
-    public void Reload_RereadsTheContentOfAKnownFile()
-    {
-        // The provider is born ready: its descriptor set is fixed at construction. Reload re-reads the bytes of
-        // the catalogs already discovered, so an edit to a known file is picked up. (A brand-new file is
-        // discovered through the directory Watch under hot reload, not Reload — see HotReload_RebuildsOnFileChange.)
-        var directory = NewDirectory();
-        try
-        {
-            WriteArb(directory, "de", "Hallo");
-
-            using var store = new CatalogStore(new LocalizerOptions { TranslationsDirectory = directory });
-            Assert.Equal("Hallo", Resolve(store, _german));
-
-            WriteArb(directory, "de", "Servus");
-            store.Reload();
-
-            Assert.Equal("Servus", Resolve(store, _german));
-        }
-        finally
-        {
-            Directory.Delete(directory, recursive: true);
-        }
-    }
-
     private static string? Resolve(CatalogStore store, CultureInfo culture)
     {
         store.Snapshot.ByCulture.TryGetValue(culture.Name, out IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>? byCategory);

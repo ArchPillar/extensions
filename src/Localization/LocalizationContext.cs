@@ -92,34 +92,9 @@ public sealed class LocalizationContext : IDisposable
         params (string Name, object? Value)[] arguments) =>
         Default.Translate(key, defaultMessage, context, arguments);
 
-    /// <summary>Layers a catalog into the store as a host source (a later source wins).</summary>
-    /// <param name="catalog">The catalog to add.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="catalog"/> is <see langword="null"/>.</exception>
-    public void AddCatalog(Catalog catalog)
-    {
-        if (catalog is null)
-        {
-            throw new ArgumentNullException(nameof(catalog));
-        }
-
-        _store.AddCatalog(catalog);
-    }
-
-    /// <summary>Layers a dynamic source into the store (a later source wins).</summary>
-    /// <param name="source">The source to add.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="source"/> is <see langword="null"/>.</exception>
-    public void AddSource(ITranslationSource source)
-    {
-        if (source is null)
-        {
-            throw new ArgumentNullException(nameof(source));
-        }
-
-        _store.AddSource(source);
-    }
-
     /// <summary>Applies the configuration — source culture, missing-argument policy, translations directory, format
-    /// precedence, culture loading, hot reload, the culture allow-list, and dynamic sources — in one rebuild.</summary>
+    /// precedence, culture loading, hot reload, the culture allow-list, providers, and dynamic sources — in one
+    /// rebuild. This is the only way to add catalogs, providers, or sources: build new options and reconfigure.</summary>
     /// <param name="options">The configuration to apply.</param>
     /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
     public void Configure(LocalizerOptions options)
@@ -134,24 +109,6 @@ public sealed class LocalizationContext : IDisposable
 
     /// <summary>Eagerly loads the catalogs now (otherwise the ambient store loads them lazily on first use).</summary>
     public void Load() => _store.EnsureStarted();
-
-    /// <summary>
-    /// Registers a catalog provider with the store at runtime, appended after the configured providers and kept
-    /// across a reconfigure. A host with no readable file system (Blazor WebAssembly) registers an HTTP-backed
-    /// provider this way; an asynchronous provider's catalogs are loaded through <see cref="LoadCultureAsync"/> or
-    /// <see cref="PreloadAllAsync"/>.
-    /// </summary>
-    /// <param name="provider">The catalog provider to register.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="provider"/> is <see langword="null"/>.</exception>
-    public void AddProvider(ICatalogProvider provider)
-    {
-        if (provider is null)
-        {
-            throw new ArgumentNullException(nameof(provider));
-        }
-
-        _store.AddProvider(provider);
-    }
 
     /// <summary>
     /// Loads the catalogs for <paramref name="culture"/> from every registered provider — awaiting the

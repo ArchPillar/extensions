@@ -97,16 +97,6 @@ public static class Localizer
         params (string Name, object? Value)[] arguments) =>
         Ambient.Translate(key, defaultMessage, context, arguments);
 
-    /// <summary>Layers a catalog into the ambient store as a host source (a later source wins).</summary>
-    /// <param name="catalog">The catalog to add.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="catalog"/> is <see langword="null"/>.</exception>
-    public static void AddCatalog(Catalog catalog) => Ambient.AddCatalog(catalog);
-
-    /// <summary>Layers a dynamic source into the ambient store (a later source wins).</summary>
-    /// <param name="source">The source to add.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="source"/> is <see langword="null"/>.</exception>
-    public static void AddSource(ITranslationSource source) => Ambient.AddSource(source);
-
     /// <summary>Raised after any commit that changed the ambient store's merged snapshot — a background
     /// asynchronous load landing, a watched catalog reloading. A UI layer subscribes to re-render.</summary>
     public static event Action? CatalogsChanged
@@ -120,13 +110,6 @@ public static class Localizer
     /// in code as defaults. A host registering a culture-scoped catalog provider reads it so the fetch still pulls
     /// the source-language overrides.</summary>
     public static string SourceCultureName => Ambient.SourceCultureName;
-
-    /// <summary>Registers a catalog provider with the ambient store at runtime (kept across a reconfigure). A
-    /// host with no readable file system (Blazor WebAssembly) adds an HTTP <see cref="ManifestCatalogProvider"/>
-    /// — created through <see cref="ManifestCatalogProvider.CreateAsync"/> — this way.</summary>
-    /// <param name="provider">The catalog provider to register.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="provider"/> is <see langword="null"/>.</exception>
-    public static void AddProvider(ICatalogProvider provider) => Ambient.AddProvider(provider);
 
     /// <summary>
     /// Loads the catalogs for <paramref name="culture"/> from every registered provider — awaiting the

@@ -8,70 +8,67 @@ using ArchPillar.Extensions.Localization.Internal;
 namespace ArchPillar.Extensions.Localization;
 
 /// <summary>
-/// Owns a layered set of translation catalogs and keeps the merged snapshot current. It is provider-agnostic:
-/// it loads from an ordered list of <see cref="ICatalogProvider"/>s (lowest-precedence-first) and never knows
-/// where the bytes come from. A plain <c>new CatalogStore(options)</c> is a directory-backed store: it auto-wires
-/// a <see cref="DirectoryCatalogProvider"/> over <see cref="LocalizerOptions.TranslationsDirectory"/> and
-/// watches it when <see cref="LocalizerOptions.EnableHotReload"/> is set. The process-wide ambient store
-/// (<see cref="Localizer"/>) additionally auto-wires a <see cref="ResourceCatalogProvider"/> for the
-/// library-embedded and satellite catalogs assemblies ship. A host adds further providers — an HTTP
-/// <see cref="ManifestCatalogProvider"/>, say — through <see cref="AddProvider"/>. Either way it exposes the
-/// merged snapshot for a <see cref="DefaultLocalizer"/> to resolve against — it is the catalogue source, not a
-/// localizer.
+/// Owns the layered set of translation catalogs and keeps the merged snapshot current. Provider-agnostic: it loads
+/// from an ordered list of <see cref="ICatalogProvider"/>s (lowest precedence first) and exposes the merged
+/// snapshot and resolution layers for a <see cref="DefaultLocalizer"/>. <c>new CatalogStore(options)</c> is
+/// directory-backed; the ambient store (<see cref="Localizer"/>) also discovers embedded and satellite catalogs.
 /// </summary>
-public sealed class CatalogStore : IDisposable
+internal sealed class CatalogStore : IDisposable
 {
-    // _gate guards ONLY the in-memory bookkeeping: the per-provider catalog dictionaries, the dedup/failed sets,
-    // and the snapshot rebuild/swap — all short, allocation-light operations. The catalog providers (which may do
-    // reflection — reading assembly attributes, GetSatelliteAssembly, reading embedded resources — and I/O —
-    // reading files or fetching over HTTP) are NEVER invoked while holding _gate. That is deliberate: those
-    // operations take the CLR loader lock, and the resource provider's AssemblyLoad watch fires while the loader
-    // lock is held. If _gate were held across a loader-lock operation, the watch callback taking _gate would
-    // invert the lock order and deadlock. Keeping _gate off the provider calls makes that impossible.
+    #region Fields
+
+    // Guards only the in-memory bookkeeping (provider dictionaries, dedup/failed sets, snapshot swap) — all short.
+    // Provider calls (reflection + I/O) are NEVER made under _gate: they take the CLR loader lock, and the resource
+    // provider's AssemblyLoad watch fires under that lock, so holding _gate across one would invert lock order and
+    // deadlock.
     private readonly object _gate = new();
     private readonly object _startupGate = new();
-    private readonly List<Catalog> _hostCatalogs = [];
     private readonly List<ITranslationSource> _sources = [];
     private readonly TranslationFormatRegistry _registry = BuiltInTranslationFormats.CreateRegistry();
     private bool _enableHotReload;
     private IReadOnlyList<string> _formatPrecedence = [];
     private IReadOnlyList<string>? _cultures;
     private bool _eager;
-    // Whether this store discovers embedded and satellite catalogs (the ambient store): when set, the
-    // auto-default provider list gets a ResourceCatalogProvider beneath the directory provider. Fixed at
-    // construction — it is an intrinsic property of the store, not a setting carried on the options.
+    // Ambient-store flag: when set, DefaultProviders adds a ResourceCatalogProvider beneath the directory one.
     private readonly bool _discover;
-    // The per-provider state, one entry per registered provider. Replaces the old parallel arrays. The list is
-    // swapped wholesale on reconfigure; mutation of a single state's dictionaries is done under _gate.
+    // One entry per provider, swapped wholesale on reconfigure; a state's dictionaries mutate only under _gate.
     private List<ProviderState> _states = [];
-    // Providers registered at runtime via AddProvider — kept here so a reconfigure (which rebuilds the
-    // options-derived providers) re-appends them rather than dropping them.
-    private readonly List<ICatalogProvider> _addedProviders = [];
-    // The in-flight asynchronous culture loads, keyed by culture name, so a background load is enqueued once per
-    // culture and a concurrent miss coalesces onto the running task rather than firing a second fetch.
-    private readonly ConcurrentDictionary<string, Task> _backgroundLoads = new(StringComparer.OrdinalIgnoreCase);
-    private HashSet<string> _loadedCultures = new(StringComparer.OrdinalIgnoreCase);
+    // In-flight async loads, keyed by descriptor identity so a load is enqueued once and concurrent misses coalesce.
+    private readonly ConcurrentDictionary<(string Culture, string Name), Task> _backgroundLoads = new();
+    // In-use cultures, used as a set: the hot-path lookup is lock-free and TryAdd gates each culture's load to one
+    // caller, so registering a culture needs no lock or copy.
+    private readonly ConcurrentDictionary<string, byte> _loadedCultures = new(StringComparer.OrdinalIgnoreCase);
+
     private RenderingContext _context = RenderingContext.Default;
     private bool _watching;
     private bool _started;
+    // Whether a snapshot has been built; a rebuild also fires when this is false, so startup/reconfigure establish
+    // the baseline even when nothing loads.
+    private bool _snapshotBuilt;
+    // Set under _gate when a catalog is committed; cleared by the publishing rebuild.
+    private bool _dirty;
+    // Open-batch count; while positive, rebuilds defer. Read/written only under _gate.
+    private int _batchDepth;
     private TranslationSnapshot _snapshot = TranslationSnapshot.Empty;
     private IReadOnlyList<ITranslationSource> _layers = [];
 
-    /// <summary>Raised after any commit that changed the merged snapshot — a background asynchronous load
-    /// landing, a watched catalog reloading. The components layer subscribes to trigger a re-render; an inline
-    /// synchronous load resolves directly and needs no event.</summary>
+    /// <summary>Raised after a rebuild that changed the merged snapshot. Raised once per operation and outside
+    /// <c>_gate</c>, so a subscriber may re-enter the store.</summary>
     public event Action? CatalogsChanged;
 
-    /// <summary>The shared rendering context (source culture, missing-argument policy, formatter) — read live
-    /// by a localizer over this store, so a configuration change is observed without rebuilding it.</summary>
-    internal RenderingContext Context => Volatile.Read(ref _context);
+    #endregion
+
+    #region Properties
+
+    /// <summary>The shared rendering context, read live so a configuration change is seen without rebuilding the
+    /// localizer.</summary>
+    public RenderingContext Context => Volatile.Read(ref _context);
 
     /// <summary>The source language these catalogs are written in.</summary>
-    internal string SourceCultureName => Context.SourceCultureName;
+    public string SourceCultureName => Context.SourceCultureName;
 
-    /// <summary>The current merged snapshot; replaced atomically on every change, so a reader always sees a
-    /// consistent view and a resolving localizer observes a change on its next lookup.</summary>
-    internal TranslationSnapshot Snapshot
+    /// <summary>The current merged snapshot, swapped atomically on every change.</summary>
+    public TranslationSnapshot Snapshot
     {
         get
         {
@@ -80,9 +77,9 @@ public sealed class CatalogStore : IDisposable
         }
     }
 
-    /// <summary>The ordered resolution layers — custom sources (a later-added source wins) above the merged
-    /// catalog snapshot — so a localizer resolves every layer the same way, with no special path for sources.</summary>
-    internal IReadOnlyList<ITranslationSource> Layers
+    /// <summary>The resolution layers — custom sources (newest wins) above the merged snapshot — so a localizer
+    /// treats every layer alike.</summary>
+    public IReadOnlyList<ITranslationSource> Layers
     {
         get
         {
@@ -91,18 +88,21 @@ public sealed class CatalogStore : IDisposable
         }
     }
 
-    // The minimal options BuildSnapshot needs: the source culture (loaded as an override and exempt from the
-    // allow-list) and the Cultures allow-list. The store no longer round-trips a full options object.
+    // The minimal options BuildSnapshot needs: source culture (an override, exempt from the allow-list) and the
+    // Cultures allow-list.
     private LocalizerOptions SnapshotOptions => new()
     {
         SourceCulture = Context.SourceCultureName,
         Cultures = _cultures
     };
 
+    #endregion
+
+    #region Construction
+
     /// <summary>
-    /// Initializes a new directory-backed <see cref="CatalogStore"/> over <paramref name="options"/>. It loads
-    /// through a <see cref="DirectoryCatalogProvider"/> over the configured directory immediately, watching it for
-    /// changes when <see cref="LocalizerOptions.EnableHotReload"/> is set.
+    /// Initializes a directory-backed <see cref="CatalogStore"/> over <paramref name="options"/>, loading through a
+    /// <see cref="DirectoryCatalogProvider"/> immediately and watching it when hot reload is set.
     /// </summary>
     /// <param name="options">The catalogue configuration.</param>
     /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
@@ -118,47 +118,18 @@ public sealed class CatalogStore : IDisposable
         ApplyOptions(options);
     }
 
-    /// <summary>Creates the process-wide ambient store: it auto-wires the resource and directory providers,
-    /// discovering embedded and satellite catalogs as assemblies load, and runs its startup lazily on first
-    /// use.</summary>
-    internal static CatalogStore CreateAmbient() => new(new LocalizerOptions(), discover: true);
+    /// <summary>Creates the process-wide ambient store: auto-wires the resource + directory providers and starts
+    /// lazily on first use.</summary>
+    public static CatalogStore CreateAmbient() => new(new LocalizerOptions(), discover: true);
 
-    /// <summary>Reloads the catalogs from every provider and swaps the snapshot in atomically.</summary>
-    public void Reload()
-    {
-        EnsureStarted();
-        IReadOnlyList<ProviderState> states = Volatile.Read(ref _states);
-        var changed = false;
-        foreach (ProviderState state in states)
-        {
-            changed |= ReloadProvider(state);
-        }
+    #endregion
 
-        if (changed)
-        {
-            CommitRebuild();
-        }
-    }
+    #region Public API
 
-    /// <inheritdoc />
-    public void Dispose()
-    {
-        // Stop watching (file-system and assembly-load) before returning, so no in-flight change can rebuild a
-        // disposed store. Each watch handle owns and disposes its own watcher/timer.
-        foreach (ProviderState state in Volatile.Read(ref _states))
-        {
-            state.Watch?.Dispose();
-        }
-    }
-
-    /// <summary>Re-applies <paramref name="options"/> in one rebuild — the configuration the ambient store is set
-    /// up with (e.g. by AddArchPillarLocalization). It re-derives the rendering context and catalogue settings,
-    /// rebuilds the provider list from the options, and reloads, fully replacing the loaded catalogs. Because the
-    /// list is rebuilt exactly as at construction, a changed <see cref="LocalizerOptions.TranslationsDirectory"/>
-    /// takes effect with no special-casing. Runtime-added providers (<see cref="AddProvider"/>), layered host
-    /// catalogs, dynamic sources, and the in-use culture set survive, so the same cultures reload from the new
-    /// configuration.</summary>
-    internal void Configure(LocalizerOptions options)
+    /// <summary>Re-applies <paramref name="options"/> in one rebuild: re-derives the context and rebuilds the
+    /// provider list from scratch, fully replacing the loaded catalogs. Runtime additions (providers, host
+    /// catalogs, sources) and the in-use culture set survive, so the same cultures reload against the new config.</summary>
+    public void Configure(LocalizerOptions options)
     {
         lock (_startupGate)
         {
@@ -167,11 +138,10 @@ public sealed class CatalogStore : IDisposable
         }
     }
 
-    // One-time startup, also run eagerly via LocalizationContext.Load: enumerate every provider's full catalog
-    // list when eager, probe the already in-use cultures, and (under hot reload) subscribe each provider's watch.
-    // _startupGate (not _gate) serializes this so concurrent first calls run it once; the reflection and I/O
-    // inside run WITHOUT _gate, which is taken only for the short commits.
-    internal void EnsureStarted()
+    // One-time startup (also forced by LocalizationContext.Load): subscribe watches, then either eager-load every
+    // provider whole or (on-demand) probe just the in-use cultures. Serialized by _startupGate; provider I/O runs
+    // without _gate. Idempotent.
+    public void EnsureStarted()
     {
         if (Volatile.Read(ref _started))
         {
@@ -183,9 +153,8 @@ public sealed class CatalogStore : IDisposable
             StartCore();
         }
 
-        // The startup body — a local function so it can only run from inside the _startupGate lock above, never
-        // be called without it. Idempotent: returns immediately once started. Sets up the watches before the
-        // initial scan so a change racing startup is not missed.
+        // Idempotent body, only reachable under _startupGate. Watches are set before the scan so a racing change is
+        // not missed; the batch rebuilds even when nothing loads, establishing the baseline.
         void StartCore()
         {
             if (Volatile.Read(ref _started))
@@ -204,251 +173,132 @@ public sealed class CatalogStore : IDisposable
                 }
             }
 
-            // Startup commits the snapshot unconditionally below, so the per-ingest "changed" results are not
-            // accumulated here — the helpers run for their side effects (the loaded catalogs), and CatalogsChanged
-            // is for later edges, not startup.
-            foreach (ProviderState state in states)
+            BeginBatch();
+            try
             {
-                if (_eager)
+                foreach (ProviderState state in states)
                 {
-                    // "Load everything" — every catalog the provider can enumerate, synchronous inline, async queued.
-                    Ingest(state, state.Provider.Catalogs);
-                }
-
-                // Probe the already in-use cultures (satellites are not enumerable, only probed; on-demand reads
-                // its files here too). The per-state dedup keeps an eager catalog from being added twice.
-                foreach (var cultureName in Volatile.Read(ref _loadedCultures))
-                {
-                    IngestCulture(state, CultureInfo.GetCultureInfo(cultureName));
+                    if (_eager)
+                    {
+                        // The enumerable list is the complete set, so load it whole; CatalogsFor(culture) is a
+                        // deterministic subset of it, so per-culture probing would only re-cover what this loads.
+                        Load(state, state.Provider.Catalogs);
+                    }
+                    else
+                    {
+                        // On-demand: pull only the in-use cultures. A reconfigure keeps the in-use set, so this is
+                        // what reloads them against the rebuilt providers (otherwise their retained "in use" mark
+                        // would make EnsureCulture's fast path skip the reload).
+                        foreach (var cultureName in _loadedCultures.Keys)
+                        {
+                            LoadCulture(state, CultureInfo.GetCultureInfo(cultureName));
+                        }
+                    }
                 }
             }
-
-            lock (_gate)
+            finally
             {
-                Rebuild();
+                EndBatch();
             }
 
             Volatile.Write(ref _started, true);
         }
     }
 
-    // Loads the catalogs a culture (and its parents) needs the first time the culture is used: every provider's
-    // CatalogsFor(culture) for the newly in-use cultures — directory files under on-demand, satellite probes for
-    // the resource provider. Synchronous descriptors load inline and resolve immediately; asynchronous ones are
-    // handed to the background queue (never opened inline — that would block or deadlock in WASM). The fast path
-    // is a lock-free set read, so an already-loaded culture pays almost nothing. The switching thread blocks here
-    // only for the synchronous loads, so its very next lookup resolves them; the asynchronous ones land later via
-    // CatalogsChanged.
-    internal void EnsureCulture(CultureInfo culture)
+    // Loads the catalogs a culture (and its parents) needs on a lookup miss. Synchronous descriptors load inline
+    // and resolve on the next lookup; asynchronous ones go to the background queue (never opened inline — would
+    // block in WASM) and surface through CatalogsChanged as they land. The fast path is a lock-free set read; the
+    // load reuses the awaited core with no drain, which completes synchronously (see LoadCultureCoreAsync).
+    public void EnsureCulture(CultureInfo culture)
     {
         EnsureStarted();
 
-        if (Volatile.Read(ref _loadedCultures).Contains(culture.Name))
+        if (_loadedCultures.ContainsKey(culture.Name))
         {
             return;
         }
 
-        // Register the requested culture and its parents as "in use" (cheap, no reflection), collecting the ones
-        // this call newly added — the under-lock set Add is the gate, so a culture is loaded exactly once even
-        // if two threads request it at the same time.
-        var added = new List<string>();
-        lock (_gate)
-        {
-            var loaded = new HashSet<string>(_loadedCultures, StringComparer.OrdinalIgnoreCase);
-            for (CultureInfo? current = culture; current is not null && !string.IsNullOrEmpty(current.Name); current = current.Parent)
-            {
-                if (loaded.Add(current.Name))
-                {
-                    added.Add(current.Name);
-                }
-            }
-
-            Volatile.Write(ref _loadedCultures, loaded);
-        }
-
-        if (added.Count == 0)
-        {
-            return;
-        }
-
-        // Probe each provider for the newly in-use cultures (provider I/O and reflection run outside _gate); the
-        // per-state dedup means an eager directory whose files were already read, or a satellite already probed,
-        // is not added twice. Commit and rebuild once so the atomically-swapped snapshot carries the synchronous
-        // loads; asynchronous descriptors are queued and surface through CatalogsChanged when they land.
-        IReadOnlyList<ProviderState> states = Volatile.Read(ref _states);
-        var changed = false;
-        foreach (ProviderState state in states)
-        {
-            foreach (var cultureName in added)
-            {
-                changed |= IngestCulture(state, CultureInfo.GetCultureInfo(cultureName));
-            }
-        }
-
-        // The synchronous on-demand path resolves directly on the switching thread's next lookup, so it commits
-        // the snapshot but does NOT raise CatalogsChanged (that event is for loads that land later, asynchronously).
-        if (changed)
-        {
-            CommitRebuild();
-        }
+        LoadCultureCoreAsync(culture, drain: false, CancellationToken.None).GetAwaiter().GetResult();
     }
 
-    // Registers a provider at runtime, appended after the configured providers and kept across reconfiguration.
-    // The provider construction and its watch subscription happen on the caller; only the short list growth runs
-    // under _gate. Under Eager it ingests the provider's full catalog list now (synchronous inline, asynchronous
-    // queued); under OnDemand it ingests nothing up front and EnsureCulture pulls per culture. A synchronous
-    // provider's already in-use cultures are probed too, so a provider added after a culture switch still surfaces.
-    internal void AddProvider(ICatalogProvider provider)
-    {
-        var state = new ProviderState(provider);
-        if (_enableHotReload && Volatile.Read(ref _watching))
-        {
-            state.Watch = provider.Watch(descriptor => OnCatalogChanged(state, descriptor));
-        }
+    // Awaited preload of one culture (and its parent chain): loads the same catalogs the miss path does, then drains
+    // the background queue so the subsequent lookups resolve with no flash. The token cancels the wait, not the
+    // shared fetch.
+    public Task LoadCultureAsync(CultureInfo culture, CancellationToken cancellationToken) =>
+        LoadCultureCoreAsync(culture, drain: true, cancellationToken);
 
-        lock (_gate)
-        {
-            _addedProviders.Add(provider);
-            _states = [.. _states, state];
-        }
-
-        if (!Volatile.Read(ref _started))
-        {
-            // Not started yet: EnsureStarted will ingest this state along with the rest.
-            return;
-        }
-
-        var changed = false;
-        if (_eager)
-        {
-            changed |= Ingest(state, provider.Catalogs).SyncChanged;
-        }
-
-        foreach (var cultureName in Volatile.Read(ref _loadedCultures))
-        {
-            changed |= IngestCulture(state, CultureInfo.GetCultureInfo(cultureName));
-        }
-
-        // Like EnsureCulture, the synchronous additive path commits but does not raise CatalogsChanged.
-        if (changed)
-        {
-            CommitRebuild();
-        }
-    }
-
-    // Awaited preload of a single culture: the same ingest the on-demand path uses — synchronous descriptors loaded
-    // inline, asynchronous ones enqueued onto the background queue — then awaits those background tasks so the queue
-    // drains for this culture (and its parent chain) before returning. There is no second async-open path: preload
-    // enqueues exactly like a synchronous miss and just waits for the result, so the subsequent synchronous lookups
-    // resolve an already-loaded snapshot with no flash. The cancellation token cancels the wait, not the shared
-    // coalesced fetch — a background load joined by several callers cannot be owned by one token. The per-state
-    // dedup means a re-select, or an overlap with an on-demand probe, never double-layers.
-    internal async Task LoadCultureAsync(CultureInfo culture, CancellationToken cancellationToken)
+    // The shared body of EnsureCulture and LoadCultureAsync — the BCL's "one core behind a sync and an async method"
+    // bridge (as System.IO and ADO.NET use it), so the two share logic without duplicating it. Marks the culture and
+    // its parents in-use (TryAdd gates each load to one caller) and loads the chain in a batch. When draining (the
+    // awaited path) the wait sits INSIDE the batch, so the asynchronous loads commit deferred and the whole culture
+    // publishes in a single rebuild when the batch closes; when not draining (the miss path) the batch closes at
+    // once and the asynchronous loads publish individually as they land.
+    //
+    // This is the safe form of sync-over-async, not the blocking kind: with drain false the method reaches no await,
+    // so it completes synchronously and EnsureCulture's GetResult() merely unwraps an already-completed task — it
+    // never blocks. INVARIANT: keep the only await behind the drain guard; an unguarded await would suspend the
+    // no-drain path, and the unwrap would then block (and could deadlock under a captured synchronization context).
+    private async Task LoadCultureCoreAsync(CultureInfo culture, bool drain, CancellationToken cancellationToken)
     {
         EnsureStarted();
 
         var chain = new List<string>();
-        lock (_gate)
+        for (CultureInfo? current = culture; current is not null && !string.IsNullOrEmpty(current.Name); current = current.Parent)
         {
-            var loaded = new HashSet<string>(_loadedCultures, StringComparer.OrdinalIgnoreCase);
-            for (CultureInfo? current = culture; current is not null && !string.IsNullOrEmpty(current.Name); current = current.Parent)
-            {
-                chain.Add(current.Name);
-                loaded.Add(current.Name);
-            }
-
-            Volatile.Write(ref _loadedCultures, loaded);
+            chain.Add(current.Name);
+            _loadedCultures.TryAdd(current.Name, 0);
         }
 
         IReadOnlyList<ProviderState> states = Volatile.Read(ref _states);
-        var syncChanged = false;
         var pending = new List<Task>();
-        foreach (ProviderState state in states)
+        BeginBatch();
+        try
         {
-            foreach (var cultureName in chain)
+            foreach (ProviderState state in states)
             {
-                (var changed, IReadOnlyList<Task> tasks) = Ingest(state, state.Provider.CatalogsFor(CultureInfo.GetCultureInfo(cultureName)));
-                syncChanged |= changed;
-                pending.AddRange(tasks);
+                foreach (var cultureName in chain)
+                {
+                    LoadCulture(state, CultureInfo.GetCultureInfo(cultureName), pending);
+                }
+            }
+
+            if (drain)
+            {
+                await DrainAsync(pending, cancellationToken).ConfigureAwait(false);
             }
         }
-
-        await DrainAsync(syncChanged, pending, cancellationToken).ConfigureAwait(false);
+        finally
+        {
+            EndBatch();
+        }
     }
 
-    // Awaited preload of every known culture: the same ingest, run over each provider's enumerable Catalogs plus the
-    // in-use culture set, then drained. The eager-server "load everything" for an asynchronous context.
-    internal async Task PreloadAllAsync(CancellationToken cancellationToken)
+    // Awaited preload of everything: load each provider's full inventory and drain the queue. CatalogsFor(culture)
+    // only ever returns a subset of that inventory, so probing per culture would add nothing to load here.
+    public async Task PreloadAllAsync(CancellationToken cancellationToken)
     {
         EnsureStarted();
 
         IReadOnlyList<ProviderState> states = Volatile.Read(ref _states);
-        var cultures = new HashSet<string>(Volatile.Read(ref _loadedCultures), StringComparer.OrdinalIgnoreCase);
-        var syncChanged = false;
         var pending = new List<Task>();
-        foreach (ProviderState state in states)
+        BeginBatch();
+        try
         {
-            (var changedAll, IReadOnlyList<Task> tasksAll) = Ingest(state, state.Provider.Catalogs);
-            syncChanged |= changedAll;
-            pending.AddRange(tasksAll);
-
-            foreach (var cultureName in cultures)
+            foreach (ProviderState state in states)
             {
-                (var changed, IReadOnlyList<Task> tasks) = Ingest(state, state.Provider.CatalogsFor(CultureInfo.GetCultureInfo(cultureName)));
-                syncChanged |= changed;
-                pending.AddRange(tasks);
-            }
-        }
-
-        await DrainAsync(syncChanged, pending, cancellationToken).ConfigureAwait(false);
-    }
-
-    // The awaited-trigger tail: surface the synchronous loads now (they committed into the provider states during
-    // ingest; rebuild the snapshot so they resolve before the await returns), then wait for the enqueued background
-    // tasks to drain. Each background task commits and raises CatalogsChanged as it lands, so nothing is committed
-    // twice here. The token cancels only this wait.
-    private async Task DrainAsync(bool syncChanged, IReadOnlyList<Task> pending, CancellationToken cancellationToken)
-    {
-        if (syncChanged)
-        {
-            CommitRebuild();
-        }
-
-        if (pending.Count > 0)
-        {
-            await Task.WhenAll(pending).WaitAsync(cancellationToken).ConfigureAwait(false);
-        }
-    }
-
-    /// <summary>Layers a catalog into the store as a host source (a later source wins).</summary>
-    internal void AddCatalog(Catalog catalog)
-    {
-        lock (_gate)
-        {
-            _hostCatalogs.Add(catalog);
-            Rebuild();
-        }
-    }
-
-    /// <summary>Layers a dynamic source into the store (a later source wins).</summary>
-    internal void AddSource(ITranslationSource source)
-    {
-        lock (_gate)
-        {
-            // Idempotent for the same source instance: re-registering (e.g. AddArchPillarLocalization called
-            // twice with the same options) must not stack duplicate layers onto the process-global store.
-            if (_sources.Contains(source))
-            {
-                return;
+                Load(state, state.Provider.Catalogs, pending);
             }
 
-            _sources.Add(source);
-            Rebuild();
+            await DrainAsync(pending, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            EndBatch();
         }
     }
 
     /// <summary>Clears all layered catalogs, sources, and loaded state, returning the store to empty.</summary>
-    internal void Reset()
+    public void Reset()
     {
         lock (_gate)
         {
@@ -458,30 +308,43 @@ public sealed class CatalogStore : IDisposable
                 state.Failed.Clear();
             }
 
-            _hostCatalogs.Clear();
             _sources.Clear();
-            _loadedCultures = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            _loadedCultures.Clear();
             Volatile.Write(ref _context, RenderingContext.Default);
             _started = false;
-            Rebuild();
+            // Clear _dirty/_snapshotBuilt so the rebuild below is a silent baseline build; the next EnsureStarted
+            // re-publishes whatever the reloaded providers carry.
+            _dirty = false;
+            _snapshotBuilt = false;
+        }
+
+        Rebuild();
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        // Stop watching before returning so no in-flight change rebuilds a disposed store. Each handle owns its watcher.
+        foreach (ProviderState state in Volatile.Read(ref _states))
+        {
+            state.Watch?.Dispose();
         }
     }
 
-    // The single options-application path, shared by construction and Configure so the two can never drift. It
-    // re-derives the rendering context, re-reads the catalogue settings, and rebuilds the provider list and its
-    // per-provider state from scratch — fully replacing the loaded catalogs. (Constant reconfiguration is not an
-    // expected scenario, so a full rebuild is the simple, safe choice.) Runtime additions survive: the host
-    // catalogs (AddCatalog), dynamic sources (AddSource), runtime providers (AddProvider), and in-use culture set
-    // are untouched, so the following EnsureStarted reloads the same cultures against the new providers. Provider
-    // construction and the old watch teardown run OUTSIDE _gate (they take the CLR loader lock); only the short
-    // field swaps run under it, so the AssemblyLoad-watch-vs-_gate ordering never inverts. Resetting
-    // _started/_watching makes the next EnsureStarted re-enumerate, re-probe the in-use cultures, and re-subscribe.
+    #endregion
+
+    #region Internals
+
+    // The single options path, shared by construction and Configure. Re-derives the context and rebuilds the
+    // provider list (the built-in directory/resource providers plus options.Providers) and per-provider state from
+    // scratch; the layered sources are likewise replaced from options.Sources. The in-use culture set survives.
+    // Provider construction and old-watch teardown run outside _gate (loader lock); only the field swap is under it.
+    // Resetting _started/_watching/_snapshotBuilt makes the next EnsureStarted re-enumerate and rebuild the baseline.
     private void ApplyOptions(LocalizerOptions options)
     {
         var context = RenderingContext.For(options.SourceCulture, options.MissingArguments);
         IReadOnlyList<ICatalogProvider> configured = DefaultProviders(options.TranslationsDirectory, options.HotReloadDebounce, _discover);
-        IReadOnlyList<ICatalogProvider> providers =
-            _addedProviders.Count == 0 ? configured : [.. configured, .. _addedProviders];
+        IReadOnlyList<ICatalogProvider> providers = [.. configured, .. options.Providers];
 
         foreach (ProviderState state in Volatile.Read(ref _states))
         {
@@ -501,25 +364,19 @@ public sealed class CatalogStore : IDisposable
             _cultures = options.Cultures;
             _eager = options.CultureLoading == CultureLoading.Eager;
             _enableHotReload = options.EnableHotReload;
-            foreach (ITranslationSource source in options.Sources ?? [])
-            {
-                if (!_sources.Contains(source))
-                {
-                    _sources.Add(source);
-                }
-            }
+            _sources.Clear();
+            _sources.AddRange(options.Sources);
 
             _states = states;
             _started = false;
             _watching = false;
+            _dirty = false;
+            _snapshotBuilt = false;
         }
     }
 
-    // A provider signalled that a single catalog changed (a file edited under hot reload, an assembly loaded):
-    // force-reload just that descriptor — clear its identity from the provider's loaded and failed sets, then load
-    // per its union (synchronous inline, asynchronous queued) — commit, and raise CatalogsChanged. A load that
-    // throws (a deleted file) leaves the identity removed. Runs OUTSIDE _gate, which is exactly why no provider
-    // call may sit under _gate: this can fire while the CLR loader lock is held (the resource watch).
+    // A provider signalled one catalog changed (a hot-reload edit, an assembly load): clear its identity and reload
+    // it. Not batched, so a synchronous reload publishes immediately. Runs outside _gate (may fire under the loader lock).
     private void OnCatalogChanged(ProviderState state, CatalogDescriptor descriptor)
     {
         (string, string) identity = descriptor.Identity;
@@ -529,128 +386,75 @@ public sealed class CatalogStore : IDisposable
             state.Failed.Remove(identity);
         }
 
-        // The ingest helpers filter by union arm internally (IngestSynchronous skips non-synchronous descriptors,
-        // EnqueueAsynchronous skips non-asynchronous ones), so this needs no explicit switch on descriptor.Source.
-        var changed = Ingest(state, [descriptor]).SyncChanged;
-        CommitAndNotify(changed);
+        Load(state, [descriptor]);
     }
 
-    // Reloads one provider's full catalog list (used by Reload): clears its committed catalogs and failed marks,
-    // then re-ingests the synchronous descriptors inline and re-queues the asynchronous ones. Returns whether the
-    // synchronous re-ingest changed anything. The provider call and parse run outside _gate.
-    private bool ReloadProvider(ProviderState state)
-    {
-        IReadOnlyList<CatalogDescriptor> all = state.Provider.Catalogs;
-        lock (_gate)
-        {
-            state.Catalogs.Clear();
-            state.Failed.Clear();
-        }
+    // Probes one provider for a culture. An awaited caller passes a list to collect the background tasks.
+    private void LoadCulture(ProviderState state, CultureInfo culture, List<Task>? pending = null) =>
+        Load(state, state.Provider.CatalogsFor(culture), pending);
 
-        // Eager re-ingests the whole enumerable list (synchronous inline, asynchronous queued); on-demand restricts
-        // the enumerable list to the in-use cultures and only ingests the synchronous arm — the asynchronous ones
-        // for an in-use culture come through the per-culture probe below.
-        var changed = _eager
-            ? Ingest(state, all).SyncChanged
-            : IngestSynchronous(state, Filtered(all));
-
-        foreach (var cultureName in Volatile.Read(ref _loadedCultures))
-        {
-            changed |= IngestCulture(state, CultureInfo.GetCultureInfo(cultureName));
-        }
-
-        return changed;
-
-        // On-demand reload restricts the enumerable list to the in-use cultures, so a switch's lazily-loaded
-        // language survives a reload without pulling in cultures that were never requested.
-        IReadOnlyList<CatalogDescriptor> Filtered(IReadOnlyList<CatalogDescriptor> descriptors)
-        {
-            HashSet<string> loaded = Volatile.Read(ref _loadedCultures);
-            return [.. descriptors.Where(descriptor => loaded.Contains(descriptor.Culture))];
-        }
-    }
-
-    // On-demand probe of one provider for a single culture: ingest its descriptors for that culture, discarding the
-    // background tasks (an on-demand trigger does not await them — they land later via CatalogsChanged). Returns
-    // whether the synchronous loads changed anything.
-    private bool IngestCulture(ProviderState state, CultureInfo culture) =>
-        Ingest(state, state.Provider.CatalogsFor(culture)).SyncChanged;
-
-    // The single ingest path every trigger funnels through: load the synchronous descriptors among the set inline
-    // (deduped) and enqueue the asynchronous ones onto the background queue. The on-demand triggers — StartCore,
-    // EnsureCulture, AddProvider, ReloadProvider, IngestCulture, OnCatalogChanged — take only the SyncChanged flag
-    // and let the queued loads land later through CatalogsChanged; the awaited triggers (LoadCultureAsync,
-    // PreloadAllAsync) additionally await the returned Pending tasks to drain the queue before returning. There is
-    // no separate async-open path: preload enqueues exactly as a synchronous miss does and just waits. The provider
-    // open and parse run outside _gate; only the short commit holds it.
-    private (bool SyncChanged, IReadOnlyList<Task> Pending) Ingest(ProviderState state, IReadOnlyList<CatalogDescriptor> descriptors)
-    {
-        var changed = IngestSynchronous(state, descriptors);
-        IReadOnlyList<Task> pending = EnqueueAsynchronous(descriptors);
-        return (changed, pending);
-    }
-
-    // The shared commit-and-raise tail for the paths that surface a later edge (force-reload and the background
-    // queue): rebuild the snapshot and raise CatalogsChanged once if anything changed. The synchronous on-demand
-    // triggers (EnsureCulture, AddProvider) deliberately do NOT use this — they commit without raising the event
-    // because they resolve directly on the caller's next lookup; the awaited triggers commit their synchronous part
-    // through DrainAsync and let each background task raise the event as it lands.
-    private void CommitAndNotify(bool changed)
-    {
-        if (changed)
-        {
-            CommitRebuild();
-            CatalogsChanged?.Invoke();
-        }
-    }
-
-    // Loads the synchronous descriptors among the given set into the provider's state: for each not already loaded
-    // or failed, open via the Synchronous union arm and hand the stream to the shared ReadInto. Asynchronous
-    // descriptors are skipped here (the background queue handles them). The open and parse run outside _gate; only
-    // the short commit holds it. Returns whether anything was added.
-    private bool IngestSynchronous(ProviderState state, IReadOnlyList<CatalogDescriptor> descriptors)
+    // The single load path: per descriptor, a synchronous source is opened and parsed inline; an asynchronous one
+    // is enqueued onto the coalesced background queue (its task collected when an awaited caller passed a list).
+    // Already loaded/failed catalogs are skipped. Provider open and parse run outside _gate.
+    private void Load(ProviderState state, IReadOnlyList<CatalogDescriptor> descriptors, List<Task>? pending = null)
     {
         var loaded = new List<(CatalogDescriptor Descriptor, Catalog Catalog)>();
         var failures = new List<(string, string)>();
         foreach (CatalogDescriptor descriptor in descriptors)
         {
-            if (descriptor.Source is not CatalogSource.Synchronous synchronous || AlreadyHandled(state, descriptor.Identity))
+            if (AlreadyHandled(state, descriptor.Identity))
             {
                 continue;
             }
 
-            try
+            switch (descriptor.Source)
             {
-                using Stream stream = synchronous.Open();
-                ReadInto(descriptor, stream, loaded, failures);
-            }
-            catch (Exception exception) when (IsCatalogLoadFailure(exception))
-            {
-                failures.Add(descriptor.Identity);
+                case CatalogSource.Synchronous synchronous:
+                    try
+                    {
+                        using Stream stream = synchronous.Open();
+                        ReadInto(descriptor, stream, loaded, failures);
+                    }
+                    catch (Exception exception) when (IsCatalogLoadFailure(exception))
+                    {
+                        failures.Add(descriptor.Identity);
+                    }
+
+                    break;
+
+                case CatalogSource.Asynchronous:
+                    // Always enqueue first, then collect — a null-conditional add on the result would skip the
+                    // enqueue itself when no list was passed.
+                    Task task = EnqueueAsync(state, descriptor);
+                    pending?.Add(task);
+                    break;
             }
         }
 
-        return CommitLoaded(state, loaded, failures);
+        CommitLoaded(state, loaded, failures);
     }
 
-    // The asynchronous counterpart of IngestSynchronous, the single async-open site — used only by the background
-    // loader (RunBackgroundLoadAsync), which both the on-demand miss and the awaited preload feed through. Differs
-    // from the synchronous loop in exactly one line — awaiting the open instead of calling it — and shares ReadInto
-    // for everything after the stream. Returns whether anything was added.
-    private async Task<bool> IngestAsynchronousAsync(ProviderState state, IReadOnlyList<CatalogDescriptor> descriptors, CancellationToken cancellationToken)
+    // Coalesces a background load by identity: GetOrAdd starts it once; concurrent misses join the running task.
+    private Task EnqueueAsync(ProviderState state, CatalogDescriptor descriptor) =>
+        _backgroundLoads.GetOrAdd(descriptor.Identity, _ => RunBackgroundLoadAsync(state, descriptor));
+
+    // Background body for one async catalog: open, parse, commit (outside any batch, so it publishes if it landed),
+    // and remove from the in-flight map. The only async-open site, so a synchronous lookup never blocks.
+    private async Task RunBackgroundLoadAsync(ProviderState state, CatalogDescriptor descriptor)
     {
-        var loaded = new List<(CatalogDescriptor Descriptor, Catalog Catalog)>();
-        var failures = new List<(string, string)>();
-        foreach (CatalogDescriptor descriptor in descriptors)
+        try
         {
+            await Task.Yield();
             if (descriptor.Source is not CatalogSource.Asynchronous asynchronous || AlreadyHandled(state, descriptor.Identity))
             {
-                continue;
+                return;
             }
 
+            var loaded = new List<(CatalogDescriptor Descriptor, Catalog Catalog)>();
+            var failures = new List<(string, string)>();
             try
             {
-                Stream stream = await asynchronous.OpenAsync(cancellationToken).ConfigureAwait(false);
+                Stream stream = await asynchronous.OpenAsync(CancellationToken.None).ConfigureAwait(false);
                 await using (stream.ConfigureAwait(false))
                 {
                     ReadInto(descriptor, stream, loaded, failures);
@@ -660,18 +464,17 @@ public sealed class CatalogStore : IDisposable
             {
                 failures.Add(descriptor.Identity);
             }
-        }
 
-        return CommitLoaded(state, loaded, failures);
+            CommitLoaded(state, loaded, failures);
+        }
+        finally
+        {
+            _backgroundLoads.TryRemove(descriptor.Identity, out _);
+        }
     }
 
-    // The one place a catalog's bytes become a Catalog: resolve the descriptor's format and parse the already-open
-    // stream, staging the parsed catalog into loaded or — when no format matches — the identity into failures. Both
-    // ingest loops funnel through this; the only thing they do not share is obtaining the stream (a synchronous
-    // source is opened inline, an asynchronous source is awaited), because a synchronous lookup cannot await and an
-    // asynchronous fetch cannot block. A parse that throws a known load failure is caught by the caller's try (the
-    // same catch that guards the open), so a malformed or missing catalog is marked failed and dropped — never
-    // fatal; an unrelated/fatal exception (a bug in a reader, out-of-memory) is left to propagate rather than masked.
+    // Parses an open stream into a Catalog using the descriptor's format, staging it into loaded or — when no format
+    // matches — its identity into failures. A parse that throws a known load failure is caught by the caller's try.
     private void ReadInto(CatalogDescriptor descriptor, Stream stream, List<(CatalogDescriptor Descriptor, Catalog Catalog)> loaded, List<(string, string)> failures)
     {
         ITranslationFormat? format = _registry.Resolve(descriptor.Format);
@@ -684,101 +487,44 @@ public sealed class CatalogStore : IDisposable
         loaded.Add((descriptor, format.Read(stream)));
     }
 
-    // Whether an exception is an expected catalog-load failure — an I/O or parse error the providers and formats
-    // actually throw when a catalog is missing or malformed — rather than an unrelated or fatal exception that
-    // should propagate. Mirrors the async path's intent (OperationCanceledException is excluded, so a cancellation
-    // or async timeout propagates) and narrows the sync path off its former bare catch. The format readers throw
-    // JsonException (ARB), XmlException (XLIFF), and NotSupportedException (XLIFF 1.x); FormatException covers the
-    // remaining parse shapes; the stream opens throw IOException/UnauthorizedAccessException (file) or
-    // HttpRequestException (HTTP manifest).
-    private static bool IsCatalogLoadFailure(Exception exception) =>
-        exception is IOException
-            or UnauthorizedAccessException
-            or HttpRequestException
-            or JsonException
-            or XmlException
-            or FormatException
-            or NotSupportedException;
-
-    // Queues a coalesced background load for every culture an asynchronous descriptor among the given set carries,
-    // returning the background tasks so an awaited caller (preload) can drain them; an on-demand caller ignores the
-    // result and lets the loads land later via CatalogsChanged. Each queued task awaits the opens, reads
-    // synchronously, commits under _gate, raises CatalogsChanged, and removes itself from the in-flight map. On
-    // failure the descriptor's identity is marked failed and dropped — no retry, no timer. The synchronous lookup
-    // path uses this so an asynchronous catalog never blocks or deadlocks the lookup.
-    private IReadOnlyList<Task> EnqueueAsynchronous(IReadOnlyList<CatalogDescriptor> descriptors)
+    // Awaits the enqueued background tasks; each publishes as it lands. The token cancels only the wait.
+    private static async Task DrainAsync(IReadOnlyList<Task> pending, CancellationToken cancellationToken)
     {
-        List<Task>? pending = null;
-        foreach (CatalogDescriptor descriptor in descriptors)
+        if (pending.Count > 0)
         {
-            if (descriptor.Source is CatalogSource.Asynchronous)
-            {
-                // Coalesce by culture: GetOrAdd starts the load once and a concurrent miss joins the running task.
-                // The per-descriptor dedup inside the task (AlreadyHandled) means an already-loaded catalog is a
-                // no-op even if its culture is re-enqueued. This coalescing-by-culture is safe only because no
-                // asynchronous-loading provider emits Watch signals today: a force-reload (OnCatalogChanged) clears
-                // the identity then re-enqueues, but if a load for that culture were already in flight, GetOrAdd
-                // would hand back the running task — which already listed its descriptors before the clear — and
-                // the force-reload would be silently dropped. The only Watch-emitting providers (directory,
-                // resource) are synchronous, so this path is unreachable; a future asynchronous-watching provider
-                // would need a different force-reload route (e.g. keyed by identity, or a re-enqueue after the
-                // in-flight task drains).
-                Task task = _backgroundLoads.GetOrAdd(descriptor.Culture, key => RunBackgroundLoadAsync(key));
-                (pending ??= []).Add(task);
-            }
-        }
-
-        return pending ?? [];
-    }
-
-    // The body of a coalesced background culture load: opens and reads every provider's asynchronous descriptors
-    // for the culture, commits, and raises CatalogsChanged once if anything landed. Always removes the culture
-    // from the in-flight map on completion so a later miss can re-enqueue it.
-    private async Task RunBackgroundLoadAsync(string culture)
-    {
-        try
-        {
-            await Task.Yield();
-            var cultureInfo = CultureInfo.GetCultureInfo(culture);
-            IReadOnlyList<ProviderState> states = Volatile.Read(ref _states);
-            var changed = false;
-            // The task is keyed by culture and re-lists every provider's CatalogsFor(culture) itself: the
-            // descriptors that EnqueueAsynchronous was called with only gated whether to enqueue this culture, they
-            // are not the load list. Re-listing here is harmless because AlreadyHandled dedups whatever a sibling
-            // enqueue already loaded.
-            foreach (ProviderState state in states)
-            {
-                IReadOnlyList<CatalogDescriptor> descriptors = state.Provider.CatalogsFor(cultureInfo);
-                changed |= await IngestAsynchronousAsync(state, descriptors, CancellationToken.None).ConfigureAwait(false);
-            }
-
-            CommitAndNotify(changed);
-        }
-        finally
-        {
-            _backgroundLoads.TryRemove(culture, out _);
+            await Task.WhenAll(pending).WaitAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 
-    // Whether an identity is already committed or marked failed in a provider's state, so it is not re-loaded.
-    private bool AlreadyHandled(ProviderState state, (string, string) identity)
+    // Opens a batch; rebuilds defer until the matching EndBatch. Nestable. Pair with EndBatch in a finally.
+    private void BeginBatch()
     {
         lock (_gate)
         {
-            return state.Catalogs.ContainsKey(identity) || state.Failed.Contains(identity);
+            _batchDepth++;
         }
     }
 
-    // Commits the parsed catalogs and failure marks into the provider's state under _gate, deduping by identity.
-    // Returns whether any catalog was added.
-    private bool CommitLoaded(ProviderState state, List<(CatalogDescriptor Descriptor, Catalog Catalog)> loaded, List<(string, string)> failures)
+    // Closes a batch, then rebuilds — publishes now if this was the outermost batch, else defers again.
+    private void EndBatch()
+    {
+        lock (_gate)
+        {
+            _batchDepth--;
+        }
+
+        Rebuild();
+    }
+
+    // Commits the parsed catalogs and failures under _gate, deduping by identity and setting the dirty flag when a
+    // catalog is actually added. The trailing Rebuild then publishes the change or, inside a batch, defers it.
+    private void CommitLoaded(ProviderState state, List<(CatalogDescriptor Descriptor, Catalog Catalog)> loaded, List<(string, string)> failures)
     {
         if (loaded.Count == 0 && failures.Count == 0)
         {
-            return false;
+            return;
         }
 
-        var added = false;
         lock (_gate)
         {
             foreach ((CatalogDescriptor descriptor, Catalog catalog) in loaded)
@@ -786,7 +532,7 @@ public sealed class CatalogStore : IDisposable
                 if (!state.Catalogs.ContainsKey(descriptor.Identity))
                 {
                     state.Catalogs[descriptor.Identity] = new LoadedCatalog(catalog, descriptor.Format);
-                    added = true;
+                    _dirty = true;
                 }
             }
 
@@ -799,59 +545,74 @@ public sealed class CatalogStore : IDisposable
             }
         }
 
-        return added;
+        Rebuild();
     }
 
-    // Rebuilds and swaps the snapshot under _gate (taking the lock for the short commit). Used by the off-gate
-    // load paths so the commit is serialized with the others.
-    private void CommitRebuild()
+    // The single rebuild-and-publish point; takes _gate itself so no caller holds it across the notify. In a batch
+    // it just marks dirty and defers. Otherwise, when there is something to publish (a load, or the missing
+    // baseline), it rebuilds the snapshot and layers, swaps them atomically, and raises CatalogsChanged outside
+    // _gate — but only for a real change; a baseline-only build is silent. Merge is low-to-high by provider order,
+    // format-precedence within a provider (xliff > arb > po).
+    private void Rebuild()
+    {
+        var publish = false;
+        lock (_gate)
+        {
+            if (_batchDepth > 0)
+            {
+                _dirty = true;
+                return;
+            }
+
+            if (!_dirty && _snapshotBuilt)
+            {
+                return;
+            }
+
+            publish = _dirty;
+            _dirty = false;
+
+            var all = new List<Catalog>();
+            foreach (ProviderState state in _states)
+            {
+                all.AddRange(OrderedCatalogs(state));
+            }
+
+            TranslationSnapshot snapshot = CatalogLoader.BuildSnapshot(all, SnapshotOptions);
+            Volatile.Write(ref _snapshot, snapshot);
+
+            // Custom sources first (newest wins), the snapshot last.
+            var layers = new List<ITranslationSource>(_sources.Count + 1);
+            for (var index = _sources.Count - 1; index >= 0; index--)
+            {
+                layers.Add(_sources[index]);
+            }
+
+            layers.Add(new SnapshotTranslationSource(snapshot));
+            Volatile.Write(ref _layers, layers);
+            _snapshotBuilt = true;
+        }
+
+        if (publish)
+        {
+            CatalogsChanged?.Invoke();
+        }
+    }
+
+    // Whether an identity is already committed or marked failed, so it is not re-loaded.
+    private bool AlreadyHandled(ProviderState state, (string, string) identity)
     {
         lock (_gate)
         {
-            Rebuild();
+            return state.Catalogs.ContainsKey(identity) || state.Failed.Contains(identity);
         }
     }
 
-    // Rebuilds the merged snapshot from the current layers and swaps it in atomically. Callers hold _gate so the
-    // dictionaries are consistent; the swap itself is a single volatile write, so lookups never tear. Layered
-    // low-to-high precedence by provider order (a later provider wins on overlap); within a provider, catalogs are
-    // ordered by format precedence (xliff > arb > po by default) so the later-wins merge resolves overlap the same
-    // way regardless of load order. Host catalogs (explicit AddCatalog) layer on top.
-    private void Rebuild()
-    {
-        var all = new List<Catalog>();
-        foreach (ProviderState state in _states)
-        {
-            all.AddRange(OrderedCatalogs(state));
-        }
-
-        all.AddRange(_hostCatalogs);
-        TranslationSnapshot snapshot = CatalogLoader.BuildSnapshot(all, SnapshotOptions);
-        Volatile.Write(ref _snapshot, snapshot);
-
-        // The resolution layers: custom sources first (a later-added source wins, so iterate newest-first),
-        // then the snapshot as the lowest layer. A localizer walks these in order, treating every layer alike.
-        var layers = new List<ITranslationSource>(_sources.Count + 1);
-        for (var index = _sources.Count - 1; index >= 0; index--)
-        {
-            layers.Add(_sources[index]);
-        }
-
-        layers.Add(new SnapshotTranslationSource(snapshot));
-        Volatile.Write(ref _layers, layers);
-    }
-
-    // One provider's catalogs, lowest-precedence format first then tie-broken by the catalog's order key, so the
-    // layered last-wins merge reproduces the format precedence deterministically rather than depending on the
-    // dictionary's enumeration order.
+    // One provider's catalogs ordered lowest-precedence-format first, ties broken by ordinal name, so the last-wins
+    // merge is deterministic regardless of dictionary (file-system) enumeration order.
     private List<Catalog> OrderedCatalogs(ProviderState state)
     {
         var entries = new List<KeyValuePair<(string Culture, string Name), LoadedCatalog>>(state.Catalogs);
-
-        // Lowest-precedence format first, then — for equal-rank catalogs (same format, e.g. two .arb files for one
-        // culture) — by ordinal name, so the later-named file lands last and wins the layered merge. Without the
-        // tie-break, equal-rank order would be the dictionary's enumeration order (effectively the file system's),
-        // which differs across machines and makes the winner non-deterministic.
         entries.Sort((left, right) =>
         {
             var byRank = Rank(right.Value.Format).CompareTo(Rank(left.Value.Format));
@@ -867,16 +628,15 @@ public sealed class CatalogStore : IDisposable
         return catalogs;
     }
 
-    // The auto-default provider list for a directory: a directory provider, with the resource provider beneath
-    // it for the ambient/discover store (resource first so app files win on overlap).
+    // The auto-default provider list: a directory provider, with the resource provider beneath it for the ambient
+    // store (resource first so app files win on overlap).
     private static IReadOnlyList<ICatalogProvider> DefaultProviders(string directory, TimeSpan debounce, bool discover)
     {
         var directoryProvider = new DirectoryCatalogProvider(directory, debounce);
         return discover ? [new ResourceCatalogProvider(), directoryProvider] : [directoryProvider];
     }
 
-    // The precedence rank of a format, lower wins on the last-wins merge once OrderedCatalogs places the higher
-    // rank later. An unranked or unresolved format sorts to the bottom (int.MaxValue).
+    // A format's precedence rank (lower wins once OrderedCatalogs places it later); unranked sorts last.
     private int Rank(string format)
     {
         ITranslationFormat? resolved = _registry.Resolve(format);
@@ -896,11 +656,26 @@ public sealed class CatalogStore : IDisposable
         return int.MaxValue;
     }
 
-    // A committed catalog and the format it was parsed from, kept so Rebuild can order by format precedence.
+    // Whether an exception is an expected catalog-load failure (missing/malformed) rather than an unrelated or fatal
+    // one that should propagate. OperationCanceledException is excluded, so cancellation propagates.
+    private static bool IsCatalogLoadFailure(Exception exception) =>
+        exception is IOException
+            or UnauthorizedAccessException
+            or HttpRequestException
+            or JsonException
+            or XmlException
+            or FormatException
+            or NotSupportedException;
+
+    #endregion
+
+    #region Nested types
+
+    // A committed catalog with the format it was parsed from, so Rebuild can order by precedence.
     private sealed record LoadedCatalog(Catalog Catalog, string Format);
 
-    // One provider's mutable bookkeeping: the committed catalogs (keyed by identity, deduped), the identities
-    // that failed to load (dropped, not retried), and the watch handle. Mutated only under the store's _gate.
+    // One provider's bookkeeping: committed catalogs (deduped by identity), failed identities (dropped, not
+    // retried), and the watch handle. Mutated only under _gate.
     private sealed class ProviderState(ICatalogProvider provider)
     {
         public ICatalogProvider Provider { get; } = provider;
@@ -911,4 +686,6 @@ public sealed class CatalogStore : IDisposable
 
         public IDisposable? Watch { get; set; }
     }
+
+    #endregion
 }

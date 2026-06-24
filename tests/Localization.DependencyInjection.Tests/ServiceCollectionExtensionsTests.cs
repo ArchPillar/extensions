@@ -1,4 +1,5 @@
 using System.Globalization;
+using ArchPillar.Extensions.Localization.Internal;
 using ArchPillar.Extensions.Localization.MessageFormat;
 using Microsoft.Extensions.DependencyInjection;
 using Ambient = ArchPillar.Extensions.Localization.Localizer;
@@ -24,7 +25,7 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
     public void TypedLocalizer_ReadsTheAmbientStore()
     {
         Ambient.Reset();
-        Ambient.AddCatalog(new Catalog
+        var catalog = new Catalog
         {
             Culture = "de",
             Entries =
@@ -39,10 +40,10 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
                     State = TranslationState.Translated
                 }
             ]
-        });
+        };
 
         var services = new ServiceCollection();
-        services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" });
+        services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en", Sources = [Layer(catalog)] });
         using ServiceProvider provider = services.BuildServiceProvider();
 
         ILocalizer<Buttons> localizer = provider.GetRequiredService<ILocalizer<Buttons>>();
@@ -99,6 +100,9 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
             CultureInfo.CurrentUICulture = original;
         }
     }
+
+    private static ITranslationSource Layer(Catalog catalog) =>
+        new SnapshotTranslationSource(CatalogLoader.BuildSnapshot([catalog], new LocalizerOptions()));
 
     private sealed class Buttons;
 }

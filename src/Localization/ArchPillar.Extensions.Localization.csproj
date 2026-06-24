@@ -37,6 +37,9 @@
     <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.DependencyInjection" />
     <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.DependencyInjection.Tests" />
     <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.StringLocalizer" />
+    <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.StringLocalizer.Tests" />
+    <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.AspNetCore.Tests" />
+    <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.Benchmarks" />
   </ItemGroup>
 
   <ItemGroup>

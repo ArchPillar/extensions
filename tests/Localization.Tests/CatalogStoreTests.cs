@@ -20,8 +20,7 @@ public sealed class CatalogStoreTests
     [Fact]
     public void EnsureCulture_SynchronousProvider_LoadsInlineAndResolvesImmediately()
     {
-        using CatalogStore store = EmptyStore(CultureLoading.OnDemand);
-        store.AddProvider(new StubProvider(Synchronous("de", "Hallo")));
+        using CatalogStore store = StoreWith(CultureLoading.OnDemand, new StubProvider(Synchronous("de", "Hallo")));
 
         Assert.Null(Resolve(store, _german));
 
@@ -34,14 +33,12 @@ public sealed class CatalogStoreTests
     [Fact]
     public async Task EnsureCulture_AsynchronousOnlyCulture_ReturnsDefaultThenResolvesAfterCatalogsChangedAsync()
     {
-        using CatalogStore store = EmptyStore(CultureLoading.OnDemand);
-        var changed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        store.CatalogsChanged += () => changed.TrySetResult();
-
         // Hold the background fetch at a gate so the "still default" state below is observable deterministically:
         // without it the queued load can commit before the assertion and the test flakes.
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        store.AddProvider(new StubProvider(GatedAsynchronous("de", "Hallo", gate.Task)));
+        using CatalogStore store = StoreWith(CultureLoading.OnDemand, new StubProvider(GatedAsynchronous("de", "Hallo", gate.Task)));
+        var changed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        store.CatalogsChanged += () => changed.TrySetResult();
 
         // The synchronous miss must not block on the network: it returns nothing now and queues a background load
         // (parked at the gate, so it cannot have committed yet).
@@ -57,8 +54,7 @@ public sealed class CatalogStoreTests
     [Fact]
     public async Task LoadCultureAsync_AsynchronousProvider_ResolvesWithNoFlashAsync()
     {
-        using CatalogStore store = EmptyStore(CultureLoading.OnDemand);
-        store.AddProvider(new StubProvider(Asynchronous("de", "Hallo")));
+        using CatalogStore store = StoreWith(CultureLoading.OnDemand, new StubProvider(Asynchronous("de", "Hallo")));
 
         await store.LoadCultureAsync(_german, CancellationToken.None);
 
@@ -69,8 +65,7 @@ public sealed class CatalogStoreTests
     [Fact]
     public async Task PreloadAllAsync_LoadsAllKnownCulturesAsync()
     {
-        using CatalogStore store = EmptyStore(CultureLoading.OnDemand);
-        store.AddProvider(new StubProvider(Asynchronous("de", "Hallo"), Asynchronous("fr", "Bonjour")));
+        using CatalogStore store = StoreWith(CultureLoading.OnDemand, new StubProvider(Asynchronous("de", "Hallo"), Asynchronous("fr", "Bonjour")));
 
         await store.PreloadAllAsync(CancellationToken.None);
 
@@ -81,9 +76,8 @@ public sealed class CatalogStoreTests
     [Fact]
     public void EnsureCulture_MalformedCatalog_IsMarkedFailedAndNotRetried()
     {
-        using CatalogStore store = EmptyStore(CultureLoading.OnDemand);
         var provider = new StubProvider(Malformed("de"));
-        store.AddProvider(provider);
+        using CatalogStore store = StoreWith(CultureLoading.OnDemand, provider);
 
         store.EnsureCulture(_german);
 
@@ -99,10 +93,9 @@ public sealed class CatalogStoreTests
     [Fact]
     public void Eager_LoadsAllEnumerableCulturesAtStartup()
     {
-        using CatalogStore store = EmptyStore(CultureLoading.Eager);
-        store.AddProvider(new StubProvider(Synchronous("de", "Hallo"), Synchronous("fr", "Bonjour")));
+        using CatalogStore store = StoreWith(CultureLoading.Eager, new StubProvider(Synchronous("de", "Hallo"), Synchronous("fr", "Bonjour")));
 
-        // Eager ingests every enumerable catalog at AddProvider time — no one had to request a culture.
+        // Eager ingests every enumerable catalog at startup — no one had to request a culture.
         Assert.Equal("Hallo", Resolve(store, _german));
         Assert.Equal("Bonjour", Resolve(store, _french));
     }
@@ -110,8 +103,7 @@ public sealed class CatalogStoreTests
     [Fact]
     public void OnDemand_LoadsNothingUntilRequested()
     {
-        using CatalogStore store = EmptyStore(CultureLoading.OnDemand);
-        store.AddProvider(new StubProvider(Synchronous("de", "Hallo")));
+        using CatalogStore store = StoreWith(CultureLoading.OnDemand, new StubProvider(Synchronous("de", "Hallo")));
 
         // On-demand ingests nothing up front.
         Assert.Empty(store.Snapshot.ByCulture);
@@ -132,14 +124,14 @@ public sealed class CatalogStoreTests
     [Fact]
     public void Watch_FiresEditedDescriptor_UpdatesSnapshotAndRaisesCatalogsChanged()
     {
+        var watchable = new WatchableProvider(Synchronous("de", "Hallo"));
         using var store = new CatalogStore(new LocalizerOptions
         {
             SourceCulture = "en",
             CultureLoading = CultureLoading.Eager,
-            EnableHotReload = true
+            EnableHotReload = true,
+            Providers = [watchable]
         });
-        var watchable = new WatchableProvider(Synchronous("de", "Hallo"));
-        store.AddProvider(watchable);
         Assert.Equal("Hallo", Resolve(store, _german));
 
         var changedRaised = false;
@@ -153,14 +145,38 @@ public sealed class CatalogStoreTests
         Assert.True(changedRaised);
     }
 
-    private static CatalogStore EmptyStore(CultureLoading loading) =>
+    [Fact]
+    public void Configure_OnDemand_ReloadsInUseCulturesAgainstTheRebuiltProviders()
+    {
+        // On-demand, so a reconfigure reloads the in-use culture only through StartCore's per-culture probe (eager
+        // would reload it through the whole inventory instead). The provider survives because it comes from options.
+        var options = new LocalizerOptions
+        {
+            TranslationsDirectory = Path.Combine(Path.GetTempPath(), "apl-empty-" + Guid.NewGuid().ToString("N")),
+            SourceCulture = "en",
+            CultureLoading = CultureLoading.OnDemand,
+            Providers = [new StubProvider(Synchronous("de", "Hallo"))]
+        };
+        using var store = new CatalogStore(options);
+        store.EnsureCulture(_german);
+        Assert.Equal("Hallo", Resolve(store, _german));
+
+        // A reconfigure rebuilds the provider states from scratch but keeps the in-use culture set, so de must
+        // reload — otherwise its retained "in use" mark makes EnsureCulture's fast path skip it and it resolves empty.
+        store.Configure(options);
+
+        Assert.Equal("Hallo", Resolve(store, _german));
+    }
+
+    private static CatalogStore StoreWith(CultureLoading loading, params ICatalogProvider[] providers) =>
         new(new LocalizerOptions
         {
             // A directory that does not exist, so the auto-wired directory provider contributes nothing and the
-            // test drives the store purely through the stub provider it adds.
+            // test drives the store purely through the stub providers it configures.
             TranslationsDirectory = Path.Combine(Path.GetTempPath(), "apl-empty-" + Guid.NewGuid().ToString("N")),
             SourceCulture = "en",
-            CultureLoading = loading
+            CultureLoading = loading,
+            Providers = providers
         });
 
     private static string? Resolve(CatalogStore store, CultureInfo culture)

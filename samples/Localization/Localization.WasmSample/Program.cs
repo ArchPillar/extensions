@@ -22,7 +22,8 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 
 // The Blazor template's app-lifetime HttpClient over the host base address; the catalog loader reuses it.
 builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
-builder.Services.AddArchPillarStringLocalizer(new LocalizerOptions { SourceCulture = "en" });
+var options = new LocalizerOptions { SourceCulture = "en" };
+builder.Services.AddArchPillarStringLocalizer(options);
 
 WebAssemblyHost host = builder.Build();
 
@@ -30,6 +31,6 @@ WebAssemblyHost host = builder.Build();
 // them up front). This registers the build-emitted manifest (wwwroot/Translations/apl-catalogs.json) as the
 // on-demand culture loader and loads the active language now — the rest are loaded on demand when the app selects
 // one (see Home.razor), instant from the cache. English ships in code, so only an override is ever fetched.
-await host.UseArchPillarLocalizationAsync();
+await host.UseArchPillarLocalizationAsync(options);
 
 await host.RunAsync();
