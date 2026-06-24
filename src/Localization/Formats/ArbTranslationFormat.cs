@@ -45,16 +45,14 @@ public sealed class ArbTranslationFormat : ITranslationFormat
         | FormatCapabilities.PreviousSource;
 
     /// <inheritdoc />
-    public async Task<Catalog> ReadAsync(Stream input, CancellationToken cancellationToken)
+    public Catalog Read(Stream input)
     {
         if (input is null)
         {
             throw new ArgumentNullException(nameof(input));
         }
 
-        using JsonDocument document = await JsonDocument
-            .ParseAsync(input, default, cancellationToken)
-            .ConfigureAwait(false);
+        using var document = JsonDocument.Parse(input);
         return Parse(document.RootElement);
     }
 

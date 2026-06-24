@@ -127,6 +127,9 @@
   <Folder Name="/src/Localization.AspNetCore/">
     <Project Path="src/Localization.AspNetCore/ArchPillar.Extensions.Localization.AspNetCore.csproj" />
   </Folder>
+  <Folder Name="/src/Localization.WebAssembly/">
+    <Project Path="src/Localization.WebAssembly/ArchPillar.Extensions.Localization.WebAssembly.csproj" />
+  </Folder>
   <Folder Name="/tests/" />
   <Folder Name="/tests/Mapper.Tests/">
     <Project Path="tests/Mapper.Tests/ArchPillar.Extensions.Mapper.Tests.csproj" />

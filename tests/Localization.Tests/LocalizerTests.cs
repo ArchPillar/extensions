@@ -161,18 +161,21 @@ public sealed class LocalizerTests : IDisposable
     }
 
     [Fact]
-    public void Reload_PicksUpNewlyAddedFile()
+    public void Reload_RereadsTheContentOfAKnownFile()
     {
+        // A born-ready provider's descriptor set is fixed at construction; Reload re-reads the bytes of the
+        // already-discovered catalogs, so an edit to a known file is picked up on the next lookup.
         var directory = NewDirectory();
+        WriteArb(directory, "de", Entry("greeting", "Hallo"));
         var store = new CatalogStore(new LocalizerOptions { TranslationsDirectory = directory, SourceCulture = "en" });
         _stores.Add(store);
         var localizer = new DefaultLocalizer(store);
-        Assert.Equal("Hello", localizer.Translate(_de, "greeting", "Hello", null));
+        Assert.Equal("Hallo", localizer.Translate(_de, "greeting", "Hello", null));
 
-        WriteArb(directory, "de", Entry("greeting", "Hallo"));
+        WriteArb(directory, "de", Entry("greeting", "Servus"));
         store.Reload();
 
-        Assert.Equal("Hallo", localizer.Translate(_de, "greeting", "Hello", null));
+        Assert.Equal("Servus", localizer.Translate(_de, "greeting", "Hello", null));
     }
 
     [Fact]

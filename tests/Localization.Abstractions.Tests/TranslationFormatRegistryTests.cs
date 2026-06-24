@@ -56,7 +56,7 @@ public sealed class TranslationFormatRegistryTests
 
         public FormatCapabilities Capabilities => FormatCapabilities.None;
 
-        public Task<Catalog> ReadAsync(Stream input, CancellationToken cancellationToken) =>
+        public Catalog Read(Stream input) =>
             throw new NotSupportedException();
 
         public Task WriteAsync(Stream output, Catalog catalog, CancellationToken cancellationToken, CatalogWriteOptions? options = null) =>

@@ -46,7 +46,7 @@ public sealed class ScopeToolingTests : IDisposable
 
         // One add creates the German file for every assembly that has strings.
         Assert.Equal(0, await ToolApplication.RunAsync(["add", "de", "--input", _binDirectory, "--output", _catalogs]));
-        Catalog libADe = await ReadAsync(Path.Combine(_catalogs, "LibA.de.xliff"));
+        Catalog libADe = Read(Path.Combine(_catalogs, "LibA.de.xliff"));
         Assert.Equal("de", libADe.Culture);
         Assert.Equal("save", Assert.Single(libADe.Entries).Key);
         Assert.True(File.Exists(Path.Combine(_catalogs, "LibB.de.xliff")));
@@ -63,7 +63,7 @@ public sealed class ScopeToolingTests : IDisposable
 
         // A translator (or merge) drops an entry from one library's catalog; the scoped check must catch it.
         var libBDe = Path.Combine(_catalogs, "LibB.de.xliff");
-        Catalog stale = await ReadAsync(libBDe);
+        Catalog stale = Read(libBDe);
         await WriteAsync(libBDe, stale with { Entries = [] });
 
         Assert.Equal(1, await ToolApplication.RunAsync(["sync", "--input", _binDirectory, "--output", _catalogs, "--check"]));
@@ -77,12 +77,12 @@ public sealed class ScopeToolingTests : IDisposable
 
         // Translate LibA, then add de again: the existing file must be left untouched (not reset to untranslated).
         var libADe = Path.Combine(_catalogs, "LibA.de.xliff");
-        Catalog catalog = await ReadAsync(libADe);
+        Catalog catalog = Read(libADe);
         await WriteAsync(libADe, catalog with { Entries = [.. catalog.Entries.Select(e => e with { TranslatedMessage = "Speichern", State = TranslationState.Translated })] });
 
         Assert.Equal(0, await ToolApplication.RunAsync(["add", "de", "--input", _binDirectory, "--output", _catalogs]));
 
-        Catalog after = await ReadAsync(libADe);
+        Catalog after = Read(libADe);
         Assert.Equal("Speichern", Assert.Single(after.Entries).TranslatedMessage);
     }
 
@@ -109,11 +109,11 @@ public sealed class ScopeToolingTests : IDisposable
 
     public void Dispose() => Directory.Delete(_root, recursive: true);
 
-    private static async Task<Catalog> ReadAsync(string path)
+    private static Catalog Read(string path)
     {
         var format = new XliffTranslationFormat();
         using var stream = new MemoryStream(File.ReadAllBytes(path));
-        return await format.ReadAsync(stream, CancellationToken.None);
+        return format.Read(stream);
     }
 
     private static async Task WriteAsync(string path, Catalog catalog)

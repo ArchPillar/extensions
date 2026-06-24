@@ -110,7 +110,7 @@ public sealed class ToolGateTests : IDisposable
         // The translator's content — the key and the finished translation — survives the round trip. (A
         // single-value ARB for a target locale carries only the translation, not a separate source string,
         // so "Hallo" is the value that must come back intact.)
-        CatalogEntry entry = Assert.Single((await ReadCatalogAsync(roundTripped)).Entries);
+        CatalogEntry entry = Assert.Single(ReadCatalog(roundTripped).Entries);
         Assert.Equal("greeting", entry.Key);
         Assert.Equal("Hallo", entry.TranslatedMessage);
     }
@@ -124,10 +124,10 @@ public sealed class ToolGateTests : IDisposable
         await format.WriteAsync(stream, catalog, CancellationToken.None);
     }
 
-    private static async Task<Catalog> ReadCatalogAsync(string path)
+    private static Catalog ReadCatalog(string path)
     {
         var format = new ArbTranslationFormat();
         using var stream = new MemoryStream(File.ReadAllBytes(path));
-        return await format.ReadAsync(stream, CancellationToken.None);
+        return format.Read(stream);
     }
 }
