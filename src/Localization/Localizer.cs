@@ -1,3 +1,4 @@
+using System.Globalization;
 
 namespace ArchPillar.Extensions.Localization;
 
@@ -106,37 +107,46 @@ public static class Localizer
     /// <exception cref="ArgumentNullException"><paramref name="source"/> is <see langword="null"/>.</exception>
     public static void AddSource(ITranslationSource source) => Ambient.AddSource(source);
 
-    /// <summary>
-    /// Fetches each catalog in <paramref name="requestUris"/> over <paramref name="httpClient"/> and layers it
-    /// into the ambient store, skipping any that is missing or malformed. The client-side counterpart to the
-    /// directory source, for a host with no readable file system such as Blazor WebAssembly.
-    /// </summary>
-    /// <param name="httpClient">The client used to fetch the catalogs; its base address resolves a relative URI.</param>
-    /// <param name="requestUris">The catalog URIs to fetch, each relative to the client's base address, or absolute.</param>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>The number of catalogs successfully loaded.</returns>
-    /// <exception cref="ArgumentNullException">A required argument is <see langword="null"/>.</exception>
-    public static Task<int> AddCatalogsFromHttpAsync(
-        HttpClient httpClient,
-        IEnumerable<string> requestUris,
-        CancellationToken cancellationToken = default) =>
-        Ambient.AddCatalogsFromHttpAsync(httpClient, requestUris, cancellationToken);
+    /// <summary>Raised after any commit that changed the ambient store's merged snapshot — a background
+    /// asynchronous load landing, a watched catalog reloading. A UI layer subscribes to re-render.</summary>
+    public static event Action? CatalogsChanged
+    {
+        add => Ambient.CatalogsChanged += value;
+        remove => Ambient.CatalogsChanged -= value;
+    }
+
+    /// <summary>The source language the ambient catalogs are written in (the configured
+    /// <see cref="LocalizerOptions.SourceCulture"/>, defaulting to <c>en</c>) — the language whose strings appear
+    /// in code as defaults. A host registering a culture-scoped catalog provider reads it so the fetch still pulls
+    /// the source-language overrides.</summary>
+    public static string SourceCultureName => Ambient.SourceCultureName;
+
+    /// <summary>Registers a catalog provider with the ambient store at runtime (kept across a reconfigure). A
+    /// host with no readable file system (Blazor WebAssembly) adds an HTTP <see cref="ManifestCatalogProvider"/>
+    /// — created through <see cref="ManifestCatalogProvider.CreateAsync"/> — this way.</summary>
+    /// <param name="provider">The catalog provider to register.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="provider"/> is <see langword="null"/>.</exception>
+    public static void AddProvider(ICatalogProvider provider) => Ambient.AddProvider(provider);
 
     /// <summary>
-    /// Fetches the catalog manifest at <paramref name="manifestUri"/> over <paramref name="httpClient"/>, then
-    /// fetches and layers in every catalog it lists, into the ambient store. The discovery-based counterpart to
-    /// <see cref="AddCatalogsFromHttpAsync"/>: the build maintains the manifest, so no file list is hand-written.
+    /// Loads the catalogs for <paramref name="culture"/> from every registered provider — awaiting the
+    /// asynchronous ones (an HTTP manifest) the synchronous on-demand path can only queue. Await it before the UI
+    /// renders the culture; the subsequent synchronous lookups then resolve an already-loaded snapshot. Loads
+    /// catalogs only — the active culture is the caller's concern.
     /// </summary>
-    /// <param name="httpClient">The client used to fetch the manifest and catalogs; its base address resolves a relative URI.</param>
-    /// <param name="manifestUri">The manifest URI, relative to the client's base address, or absolute.</param>
+    /// <param name="culture">The culture whose catalogs to load.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>The number of catalogs successfully loaded.</returns>
-    /// <exception cref="ArgumentNullException">A required argument is <see langword="null"/>.</exception>
-    public static Task<int> AddCatalogsFromManifestAsync(
-        HttpClient httpClient,
-        string manifestUri = HttpCatalogLoaderExtensions.DefaultManifestPath,
-        CancellationToken cancellationToken = default) =>
-        Ambient.AddCatalogsFromManifestAsync(httpClient, manifestUri, cancellationToken);
+    /// <returns>A task that completes when the culture's catalogs are loaded and committed.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="culture"/> is <see langword="null"/>.</exception>
+    public static Task LoadCultureAsync(CultureInfo culture, CancellationToken cancellationToken = default) =>
+        Ambient.LoadCultureAsync(culture, cancellationToken);
+
+    /// <summary>Loads every known culture's catalogs from every registered provider — the awaited "load
+    /// everything" for an asynchronous context (server startup).</summary>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task that completes when all known cultures' catalogs are loaded and committed.</returns>
+    public static Task PreloadAllAsync(CancellationToken cancellationToken = default) =>
+        Ambient.PreloadAllAsync(cancellationToken);
 
     /// <summary>Applies the configuration to the ambient store in one rebuild.</summary>
     /// <param name="options">The configuration to apply.</param>

@@ -32,7 +32,7 @@ public sealed class PoTranslationFormat : ITranslationFormat
         | FormatCapabilities.PreviousSource;
 
     /// <inheritdoc />
-    public async Task<Catalog> ReadAsync(Stream input, CancellationToken cancellationToken)
+    public Catalog Read(Stream input)
     {
         if (input is null)
         {
@@ -40,7 +40,7 @@ public sealed class PoTranslationFormat : ITranslationFormat
         }
 
         using var reader = new StreamReader(input, _utf8NoBom);
-        var text = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+        var text = reader.ReadToEnd();
         return Parse(text);
     }
 

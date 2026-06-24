@@ -48,7 +48,7 @@ public sealed class GoldenPathTests : IDisposable
 
         // 2. The build runs the generator, which extracts the source strings into a template (here decoded
         //    from the assembly attribute the generator bakes — exactly what the tool reads at sync time).
-        Catalog template = await ReadArbAsync(GeneratorPipeline.ExtractTemplateArb(DeveloperCode));
+        Catalog template = ReadArb(GeneratorPipeline.ExtractTemplateArb(DeveloperCode));
         CatalogEntry source = Assert.Single(template.Entries);
         Assert.Equal("home.title", source.Key);
         Assert.Equal("Home", source.SourceMessage);
@@ -106,7 +106,7 @@ public sealed class GoldenPathTests : IDisposable
             }
             """;
 
-        Catalog template = await ReadArbAsync(GeneratorPipeline.ExtractTemplateArb(DeveloperCode));
+        Catalog template = ReadArb(GeneratorPipeline.ExtractTemplateArb(DeveloperCode));
 
         Catalog handedBack = new()
         {
@@ -137,11 +137,11 @@ public sealed class GoldenPathTests : IDisposable
         Directory.Delete(_translationsDirectory, recursive: true);
     }
 
-    private static async Task<Catalog> ReadArbAsync(string arb)
+    private static Catalog ReadArb(string arb)
     {
         var format = new ArbTranslationFormat();
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(arb));
-        return await format.ReadAsync(stream, CancellationToken.None);
+        return format.Read(stream);
     }
 
     private static async Task WriteArbAsync(string path, Catalog catalog)

@@ -38,7 +38,7 @@ public sealed class ToolApplicationTests : IDisposable
         var targetPath = Path.Combine(_directory, "de.arb");
         Assert.True(File.Exists(targetPath));
 
-        Catalog target = await ReadAsync(targetPath);
+        Catalog target = Read(targetPath);
         Assert.Equal("de", target.Culture);
         Assert.All(target.Entries, entry => Assert.Equal(TranslationState.NeedsTranslation, entry.State));
     }
@@ -85,9 +85,9 @@ public sealed class ToolApplicationTests : IDisposable
         Assert.True(File.Exists(Path.Combine(output, "fr.arb")));
         Assert.True(File.Exists(Path.Combine(output, "en.arb"))); // source overrides are bundled too
 
-        Catalog de = await ReadAsync(Path.Combine(output, "de.arb"));
+        Catalog de = Read(Path.Combine(output, "de.arb"));
         Assert.Equal(2, de.Entries.Count); // both libraries' de entries merged into one bundle
-        Catalog en = await ReadAsync(Path.Combine(output, "en.arb"));
+        Catalog en = Read(Path.Combine(output, "en.arb"));
         Assert.Equal("Save", Assert.Single(en.Entries).TranslatedMessage);
 
         // The published bundle is minified: one compact line, no translator/tooling annotations.
@@ -143,7 +143,7 @@ public sealed class ToolApplicationTests : IDisposable
 
         // Drop an entry so the target diverges from a fresh reconcile (which would re-add it); --check must
         // report this drift as 1, distinct from the error code 2.
-        Catalog target = await ReadAsync(targetPath);
+        Catalog target = Read(targetPath);
         await WriteCatalogRawAsync(targetPath, target with { Entries = [target.Entries[0]] });
 
         var drift = await ToolApplication.RunAsync(["sync", "--template", _template, "--target", targetPath, "--check"]);
@@ -255,7 +255,7 @@ public sealed class ToolApplicationTests : IDisposable
         var imported = Path.Combine(_directory, "imported");
         Assert.Equal(0, await ToolApplication.RunAsync(["import", "--input", kit, "--output", imported]));
 
-        Catalog libA = await ReadXliffAsync(Path.Combine(imported, "LibA.de.xliff"));
+        Catalog libA = ReadXliff(Path.Combine(imported, "LibA.de.xliff"));
         Assert.Equal("de", libA.Culture);
         Assert.Equal("Speichern", Assert.Single(libA.Entries).TranslatedMessage);
         Assert.True(File.Exists(Path.Combine(imported, "LibB.de.xliff")));
@@ -410,15 +410,15 @@ public sealed class ToolApplicationTests : IDisposable
         await _arb.WriteAsync(stream, catalog, CancellationToken.None);
     }
 
-    private static async Task<Catalog> ReadAsync(string path)
+    private static Catalog Read(string path)
     {
         using FileStream stream = File.OpenRead(path);
-        return await _arb.ReadAsync(stream, CancellationToken.None);
+        return _arb.Read(stream);
     }
 
-    private static async Task<Catalog> ReadXliffAsync(string path)
+    private static Catalog ReadXliff(string path)
     {
         using FileStream stream = File.OpenRead(path);
-        return await _xliff.ReadAsync(stream, CancellationToken.None);
+        return _xliff.Read(stream);
     }
 }

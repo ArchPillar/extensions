@@ -34,14 +34,14 @@ public sealed class XliffTranslationFormat : ITranslationFormat
         | FormatCapabilities.PreviousSource;
 
     /// <inheritdoc />
-    public async Task<Catalog> ReadAsync(Stream input, CancellationToken cancellationToken)
+    public Catalog Read(Stream input)
     {
         if (input is null)
         {
             throw new ArgumentNullException(nameof(input));
         }
 
-        XDocument document = await Task.Run(() => XDocument.Load(input), cancellationToken).ConfigureAwait(false);
+        var document = XDocument.Load(input);
         return Parse(document);
     }
 

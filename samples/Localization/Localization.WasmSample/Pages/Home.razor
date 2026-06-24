@@ -1,4 +1,5 @@
 @page "/"
+@using Ambient = ArchPillar.Extensions.Localization.Localizer
 @inject ILocalizer Localizer
 @inject IStringLocalizer<Home> Strings
 
@@ -34,11 +35,15 @@
 </nav>
 
 @code {
-    // WebAssembly is single-threaded, so setting the current culture in code takes effect on the next
-    // render — no page reload, no request middleware. The Localizer reads CurrentUICulture each call.
-    private static void SetCulture(string name)
+    // Only the active language was loaded at startup, so load the picked one on demand first — the manifest
+    // provider was registered by UseArchPillarLocalizationAsync, so the component needs no HttpClient and the
+    // fetch is instant from the PWA cache. Then set the culture (the app's concern, not the library's). This is a
+    // click handler, so Blazor re-renders the page when it returns — and the awaited preload means the catalogs
+    // are already in place for that render, no reactive refresh needed.
+    private async Task SetCulture(string name)
     {
         CultureInfo culture = CultureInfo.GetCultureInfo(name);
+        await Ambient.LoadCultureAsync(culture);
         CultureInfo.CurrentUICulture = culture;
         CultureInfo.CurrentCulture = culture;
     }

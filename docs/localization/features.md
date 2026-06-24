@@ -182,10 +182,123 @@ to decide here:
 
 Satellite discovery hooks `AssemblyLoad`, so a catalog in a library that loads later is picked up
 automatically; there is no manifest to keep in sync. Whichever mechanism a given assembly uses, its
-catalogs merge into the same layered store and resolve identically.
+catalogs merge into the same layered store and resolve identically. Each of these delivery mechanisms is
+implemented as a [catalog provider](#catalog-providers) behind a single interface.
 
 > Trimming, single-file, and NativeAOT behave differently for embedded catalogs — see the matrix in
 > [recommendations.md](recommendations.md). The files path is safe everywhere.
+
+## Catalog providers
+
+A **catalog provider** is the seam between *where catalog bytes come from* and *how the store reads them*.
+Each delivery mechanism above is a provider implementing `ICatalogProvider`; the store owns the providers,
+asks them what catalogs exist, and parses the bytes itself with the matching container format. This is the
+public extension point for a custom catalog source — distinct from `ITranslationSource`, which resolves a
+single key at lookup time rather than supplying whole catalogs.
+
+**Discovery is split from load, and sealed into construction.** A provider is *born ready*: by the time you
+hold an instance, its descriptor inventory is known and exposed **synchronously** — a synchronous provider
+scans in its constructor (`new DirectoryCatalogProvider(dir)`), an asynchronous one does its async discovery
+up front in a `static CreateAsync` (`await ManifestCatalogProvider.CreateAsync(httpClient, manifestUri)`).
+The provider itself therefore has no asynchronous members:
+
+```csharp
+public interface ICatalogProvider
+{
+    IReadOnlyList<CatalogDescriptor> Catalogs { get; }
+    IReadOnlyList<CatalogDescriptor> CatalogsFor(CultureInfo culture);
+    IDisposable Watch(Action<CatalogDescriptor> onChanged);
+}
+```
+
+`Catalogs` is everything the provider can enumerate cheaply, so the store learns which cultures exist.
+`CatalogsFor` returns the catalogs for one exact culture and may surface descriptors `Catalogs` cannot —
+a culture satellite is found only by probing for it (the store walks the parent chain itself). `Watch`
+starts watching for change (a file edited under hot reload, an assembly loaded later) and invokes the
+callback with the `CatalogDescriptor` that changed or newly appeared; it returns a handle that stops
+watching when disposed, and a provider whose catalogs never change returns a no-op handle.
+
+A provider never returns parsed catalogs. It returns `CatalogDescriptor`s — a culture, a format hint, an
+optional name for diagnostics, and a `CatalogSource` opener — so listing what is available never reads any
+bytes; the store opens a descriptor only when it decides to load it. **`CatalogSource` is a closed union**
+that makes synchronous vs asynchronous loading a type-level distinction rather than a runtime guess:
+
+```csharp
+public abstract record CatalogSource
+{
+    public sealed record Synchronous(Func<Stream> Open) : CatalogSource;
+    public sealed record Asynchronous(Func<CancellationToken, ValueTask<Stream>> OpenAsync) : CatalogSource;
+}
+```
+
+Either arm hands the store a `Stream`; the parse (`ITranslationFormat.Read(Stream)`) is always synchronous.
+The store decides what to do by pattern-matching the union — a `Synchronous` descriptor loads inline and
+resolves immediately; an `Asynchronous` descriptor is never opened on the synchronous lookup path (that
+would deadlock a single-threaded WebAssembly render), so it is awaited up front or loaded in the background.
+
+Three providers ship in the box:
+
+| Provider | Source | Load | `Watch` |
+|----------|--------|------|---------|
+| `DirectoryCatalogProvider` | Translation files under a directory (`File.OpenRead`). | `Synchronous` | Debounced `FileSystemWatcher`. |
+| `ResourceCatalogProvider` | Main-assembly embedded `[LocalizationCatalog]` catalogs, plus culture satellites probed per culture. | `Synchronous` | `AppDomain.AssemblyLoad`. |
+| `ManifestCatalogProvider` | An HTTP-served catalog manifest, each catalog fetched over `HttpClient`. | `Asynchronous` | No-op. |
+
+The directory and resource providers' descriptors are `Synchronous`, which is what lets the store satisfy a
+[live culture switch](#eager-vs-on-demand-culture-loading) straight from its synchronous lookup path, with
+no blocking. The manifest provider's descriptors are `Asynchronous`: it genuinely awaits the network, so it
+is loaded ahead of render (through `LoadCultureAsync` / `PreloadAllAsync`, or in the background on a
+synchronous miss) rather than driving a synchronous switch — see the Blazor WebAssembly pattern in
+[recommendations.md](recommendations.md).
+
+### Choosing the providers
+
+The store is **provider-agnostic**: it loads from an ordered list of providers, lowest-precedence-first (a
+later provider wins on overlap), and never knows where the bytes come from. It auto-wires its synchronous
+defaults, and a host adds further providers explicitly with `AddProvider`:
+
+| Store | Auto-default providers |
+|-------|------------------------|
+| Process-wide ambient (`Localizer` / `AddArchPillarLocalization`) | `[resource, directory]` — embedded and satellite catalogs beneath the directory, so app files win on overlap. |
+| Explicit (`new CatalogStore(options)`, a DI `LocalizationContext`) | `[directory]` — the directory provider alone, with no assembly discovery. |
+
+There is **one way to add a provider** — `AddProvider` — not an options list. A synchronous provider is
+`new`'d inline; an asynchronous one is `await CreateAsync`'d (the `await` is visible at the call site,
+because async loading is a real cost the reader should see), then added. Added providers are appended after
+the auto-defaults and **kept across a reconfigure**, so they augment the defaults rather than replacing
+them:
+
+```csharp
+// Synchronous custom source (a database, an in-memory provider in tests).
+context.AddProvider(new MyDatabaseCatalogProvider(connectionString));
+
+// Asynchronous source — discover up front, then add.
+var manifest = await ManifestCatalogProvider.CreateAsync(httpClient, "_content/app/translations.manifest.json");
+context.AddProvider(manifest);
+await context.LoadCultureAsync(CultureInfo.CurrentUICulture);   // awaited, no flash
+```
+
+> **The auto-default directory follows the configuration; added providers are yours.** The directory a
+> `DirectoryCatalogProvider` reads is set when the provider is built, but `Configure` (and so
+> `Localizer.Initialize`) rebuilds the auto-default directory provider when `TranslationsDirectory` changes,
+> reloading from the new location. Providers you added through `AddProvider` survive the reconfigure
+> untouched — they are yours to manage.
+
+### Loading an asynchronous provider — `LoadCultureAsync`, `PreloadAllAsync`, `CatalogsChanged`
+
+A synchronous lookup can only resolve what is already in memory, so an `Asynchronous` catalog is never
+fetched on the lookup path. Three context/`Localizer` members drive asynchronous loading instead:
+
+- **`LoadCultureAsync(culture)`** — awaits every provider's catalogs for the culture (and its parent chain),
+  the asynchronous ones included. Await it before the UI renders the culture and the subsequent synchronous
+  lookups resolve an already-loaded snapshot, with **no flash**. It loads catalogs only; setting the active
+  culture is the caller's concern.
+- **`PreloadAllAsync()`** — the awaited "load everything" for an asynchronous context (server startup):
+  every known culture from every provider, both arms awaited.
+- **`CatalogsChanged`** — raised after any commit that changed the snapshot. A synchronous miss on an
+  asynchronous culture returns the in-code default now and queues a coalesced background load; when it lands,
+  `CatalogsChanged` fires and the UI layer re-renders (stale-while-revalidate). An inline synchronous load
+  resolves directly and needs no event.
 
 ## Eager vs on-demand culture loading
 

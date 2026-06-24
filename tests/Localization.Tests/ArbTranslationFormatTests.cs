@@ -72,13 +72,13 @@ public sealed class ArbTranslationFormatTests
     public async Task Write_IsByteStableAcrossReadWriteCyclesAsync()
     {
         var first = await WriteAsync(SingleEntry("greeting", "Hallo"));
-        var second = await WriteAsync(await ReadAsync(first));
+        var second = await WriteAsync(Read(first));
 
         Assert.Equal(first, second);
     }
 
     [Fact]
-    public async Task Read_ParsesFlutterStyleArbAsync()
+    public void Read_ParsesFlutterStyleArb()
     {
         const string Arb = """
             {
@@ -91,7 +91,7 @@ public sealed class ArbTranslationFormatTests
             }
             """;
 
-        Catalog catalog = await ReadAsync(Encoding.UTF8.GetBytes(Arb));
+        Catalog catalog = Read(Encoding.UTF8.GetBytes(Arb));
 
         CatalogEntry entry = Assert.Single(catalog.Entries);
         Assert.Equal("en", catalog.Culture);
@@ -111,7 +111,7 @@ public sealed class ArbTranslationFormatTests
     }
 
     [Fact]
-    public async Task Read_AppliesTopLevelCategoryAsDefaultAsync()
+    public void Read_AppliesTopLevelCategoryAsDefault()
     {
         const string Arb = """
             {
@@ -122,7 +122,7 @@ public sealed class ArbTranslationFormatTests
             }
             """;
 
-        Catalog catalog = await ReadAsync(Encoding.UTF8.GetBytes(Arb));
+        Catalog catalog = Read(Encoding.UTF8.GetBytes(Arb));
 
         Assert.Equal("Acme.Todo.TodoStrings", Assert.Single(catalog.Entries).Category);
     }
@@ -153,7 +153,7 @@ public sealed class ArbTranslationFormatTests
     }
 
     [Fact]
-    public async Task Read_NonStringValue_SkipsItButKeepsTheRestAsync()
+    public void Read_NonStringValue_SkipsItButKeepsTheRest()
     {
         // A non-string message value must not drop the whole file.
         const string Arb = """
@@ -164,7 +164,7 @@ public sealed class ArbTranslationFormatTests
             }
             """;
 
-        Catalog catalog = await ReadAsync(Encoding.UTF8.GetBytes(Arb));
+        Catalog catalog = Read(Encoding.UTF8.GetBytes(Arb));
 
         CatalogEntry entry = Assert.Single(catalog.Entries);
         Assert.Equal("greeting", entry.Key);
@@ -209,7 +209,7 @@ public sealed class ArbTranslationFormatTests
     }
 
     [Fact]
-    public async Task Read_UntranslatedEntry_HasNoTranslationSoItPicksUpNewSourceAsync()
+    public void Read_UntranslatedEntry_HasNoTranslationSoItPicksUpNewSource()
     {
         const string Arb = """
             {
@@ -219,7 +219,7 @@ public sealed class ArbTranslationFormatTests
             }
             """;
 
-        Catalog catalog = await ReadAsync(Encoding.UTF8.GetBytes(Arb));
+        Catalog catalog = Read(Encoding.UTF8.GetBytes(Arb));
 
         CatalogEntry entry = Assert.Single(catalog.Entries);
         Assert.Equal("home", entry.Key);
@@ -282,7 +282,7 @@ public sealed class ArbTranslationFormatTests
             ]
         };
 
-        Catalog roundTripped = await ReadAsync(await WriteAsync(catalog, new CatalogWriteOptions { Minify = true }));
+        Catalog roundTripped = Read(await WriteAsync(catalog, new CatalogWriteOptions { Minify = true }));
 
         CatalogEntry entry = Assert.Single(roundTripped.Entries);
         Assert.Equal("save", entry.Key);
@@ -294,9 +294,9 @@ public sealed class ArbTranslationFormatTests
     }
 
     [Fact]
-    public async Task Read_AbsentState_IsTreatedAsTranslatedAsync()
+    public void Read_AbsentState_IsTreatedAsTranslated()
     {
-        Catalog catalog = await ReadAsync(Encoding.UTF8.GetBytes("""{ "@@locale": "de", "k": "v" }"""));
+        Catalog catalog = Read(Encoding.UTF8.GetBytes("""{ "@@locale": "de", "k": "v" }"""));
 
         CatalogEntry entry = Assert.Single(catalog.Entries);
         Assert.Equal("v", entry.TranslatedMessage);
@@ -390,7 +390,7 @@ public sealed class ArbTranslationFormatTests
     };
 
     private static async Task<Catalog> RoundTripAsync(Catalog catalog) =>
-        await ReadAsync(await WriteAsync(catalog));
+        Read(await WriteAsync(catalog));
 
     private static async Task<byte[]> WriteAsync(Catalog catalog) => await WriteAsync(catalog, CatalogWriteOptions.Default);
 
@@ -401,9 +401,9 @@ public sealed class ArbTranslationFormatTests
         return stream.ToArray();
     }
 
-    private static async Task<Catalog> ReadAsync(byte[] bytes)
+    private static Catalog Read(byte[] bytes)
     {
         using var stream = new MemoryStream(bytes);
-        return await _format.ReadAsync(stream, CancellationToken.None);
+        return _format.Read(stream);
     }
 }

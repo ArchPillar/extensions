@@ -17,12 +17,12 @@ public interface ITranslationFormat
     public FormatCapabilities Capabilities { get; }
 
     /// <summary>
-    /// Reads a <see cref="Catalog"/> from <paramref name="input"/>.
+    /// Reads a <see cref="Catalog"/> from <paramref name="input"/>. Parsing is CPU work over an in-hand stream,
+    /// so it is synchronous — the bytes are obtained (synchronously or asynchronously) before this is called.
     /// </summary>
     /// <param name="input">The stream to read from.</param>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>The parsed catalog.</returns>
-    public Task<Catalog> ReadAsync(Stream input, CancellationToken cancellationToken);
+    public Catalog Read(Stream input);
 
     /// <summary>
     /// Writes <paramref name="catalog"/> to <paramref name="output"/>.

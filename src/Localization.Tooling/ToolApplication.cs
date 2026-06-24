@@ -119,7 +119,7 @@ internal static class ToolApplication
         foreach (var path in TargetCatalogsFor(catalogDirectory, assemblyName, sourceLanguage, registry))
         {
             (_, var culture) = SplitCatalogName(Path.GetFileNameWithoutExtension(path));
-            Catalog catalog = await ReadFileAsync(ProviderFor(registry, path), path).ConfigureAwait(false);
+            Catalog catalog = ReadFile(ProviderFor(registry, path), path);
             var translated = catalog.Entries.Count(entry => entry.State == TranslationState.Translated);
             Console.Out.WriteLine($"    {culture}: {translated}/{keyCount} translated");
         }
@@ -148,7 +148,7 @@ internal static class ToolApplication
             // artifact whose hand-edited source wording survives a re-extract (the default's echoes still track
             // code). A first extract has no file yet, so it merges into an empty source catalog (a clean seed).
             Catalog existing = File.Exists(sourcePath)
-                ? await ReadFileAsync(provider, sourcePath).ConfigureAwait(false)
+                ? ReadFile(provider, sourcePath)
                 : new Catalog { Culture = sourceLanguage, Entries = [] };
             // The source catalog is self-describing: every entry carries source_text (the in-code default),
             // even un-edited echoes, so a copywriter who edits the value in place still has the original.
@@ -186,7 +186,7 @@ internal static class ToolApplication
             var templatePath = Require(options, "--template");
             var output = options.TryGetValue("--output", out var dir) ? dir : Path.GetDirectoryName(templatePath)!;
             ITranslationFormat provider = ProviderFor(registry, templatePath);
-            Catalog template = await ReadFileAsync(provider, templatePath).ConfigureAwait(false);
+            Catalog template = ReadFile(provider, templatePath);
             (var name, _) = SplitCatalogName(Path.GetFileNameWithoutExtension(templatePath));
             var target = Path.Combine(output, CatalogFileName(name, language, provider));
             if (File.Exists(target) && !force)
@@ -246,9 +246,9 @@ internal static class ToolApplication
         {
             var templatePath = Require(options, "--template");
             var targetPath = Require(options, "--target");
-            Catalog template = await ReadFileAsync(ProviderFor(registry, templatePath), templatePath).ConfigureAwait(false);
+            Catalog template = ReadFile(ProviderFor(registry, templatePath), templatePath);
             ITranslationFormat targetProvider = ProviderFor(registry, targetPath);
-            Catalog reconciled = Reconciler.Reconcile(template, await ReadFileAsync(targetProvider, targetPath).ConfigureAwait(false));
+            Catalog reconciled = Reconciler.Reconcile(template, ReadFile(targetProvider, targetPath));
             var targetName = SplitCatalogName(Path.GetFileNameWithoutExtension(targetPath)).Name;
             var updated = await SerializeAsync(targetProvider, reconciled, new CatalogWriteOptions { SourceName = targetName.Length == 0 ? null : targetName }).ConfigureAwait(false);
             if (check)
@@ -281,7 +281,7 @@ internal static class ToolApplication
             foreach (var targetPath in TargetCatalogsFor(outputDir, name, sourceLanguage, registry))
             {
                 ITranslationFormat targetProvider = ProviderFor(registry, targetPath);
-                Catalog reconciled = Reconciler.Reconcile(template, await ReadFileAsync(targetProvider, targetPath).ConfigureAwait(false));
+                Catalog reconciled = Reconciler.Reconcile(template, ReadFile(targetProvider, targetPath));
                 var updated = await SerializeAsync(targetProvider, reconciled, new CatalogWriteOptions { SourceName = name }).ConfigureAwait(false);
                 if (check)
                 {
@@ -329,7 +329,7 @@ internal static class ToolApplication
 
         ITranslationFormat source = ProviderFor(registry, from);
         ITranslationFormat target = registry.ResolveById(toFormat) ?? throw new ArgumentException($"Unknown format '{toFormat}'.");
-        Catalog catalog = await ReadFileAsync(source, from).ConfigureAwait(false);
+        Catalog catalog = ReadFile(source, from);
         WarnOnLostCapabilities(source, target, catalog);
         await WriteFileAsync(target, output, catalog).ConfigureAwait(false);
         Success($"Converted {from} to {output}");
@@ -409,7 +409,7 @@ internal static class ToolApplication
                 continue;
             }
 
-            Catalog catalog = await ReadFileAsync(ProviderFor(registry, file), file).ConfigureAwait(false);
+            Catalog catalog = ReadFile(ProviderFor(registry, file), file);
             var bytes = await SerializeAsync(target, catalog, new CatalogWriteOptions { SourceName = name }).ConfigureAwait(false);
             ZipArchiveEntry entry = zip.CreateEntry(entryName, CompressionLevel.Optimal);
             using Stream stream = entry.Open();
@@ -445,7 +445,7 @@ internal static class ToolApplication
             {
                 await entryStream.CopyToAsync(buffer).ConfigureAwait(false);
                 buffer.Position = 0;
-                catalog = await source.ReadAsync(buffer, CancellationToken.None).ConfigureAwait(false);
+                catalog = source.Read(buffer);
             }
 
             // Route the returned translation back to its origin and the dev format: the entry name carries the
@@ -523,7 +523,7 @@ internal static class ToolApplication
         var catalogs = new List<Catalog>();
         foreach (var file in inputDirectories.SelectMany(directory => EnumerateCatalogFiles(directory, registry)))
         {
-            catalogs.Add(await ReadFileAsync(ProviderFor(registry, file), file).ConfigureAwait(false));
+            catalogs.Add(ReadFile(ProviderFor(registry, file), file));
         }
 
         // Reuse the runtime's load (precedence, skip untranslated, source loaded as overrides), then dump one
@@ -556,7 +556,7 @@ internal static class ToolApplication
 
         var output = options.TryGetValue("--output", out var o) && o.Length > 0
             ? o
-            : Path.Combine(inputDirectories[0], HttpCatalogLoaderExtensions.DefaultManifestFileName);
+            : Path.Combine(inputDirectories[0], ManifestCatalogProvider.DefaultManifestFileName);
         TranslationFormatRegistry registry = BuildRegistry();
 
         var entries = new List<(string Culture, string File)>();
@@ -750,12 +750,12 @@ internal static class ToolApplication
             Path.TrimEndingDirectorySeparator(Path.GetFullPath(right)),
             StringComparison.Ordinal);
 
-    private static async Task<Catalog> ReadFileAsync(ITranslationFormat provider, string path)
+    private static Catalog ReadFile(ITranslationFormat provider, string path)
     {
         using FileStream stream = File.OpenRead(path);
         try
         {
-            return await provider.ReadAsync(stream, CancellationToken.None).ConfigureAwait(false);
+            return provider.Read(stream);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {

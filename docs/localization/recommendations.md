@@ -149,33 +149,43 @@ hand (e.g. from `Directory.Build.props`) — add a direct `<PackageReference>`, 
 ## Load catalogs over HTTP in Blazor WebAssembly — there is no file system
 
 A browser has no readable file system, so the directory source finds nothing: a WebAssembly client must fetch
-its catalogs over HTTP from the app's static web assets. Use `AddCatalogsFromManifestAsync`. When the package
-is referenced in a Blazor WebAssembly app, the build generates `apl-catalogs.json` and registers it as a static
-web asset through the Razor pipeline — gathering the app's own catalogs *and every referenced localized
-library's* (merged into one bundle per culture on publish) — so the loader discovers what to fetch with no
-hand-kept file list and nothing committed to the source tree. Call it before `RunAsync` so the first render is
-already localized.
+its catalogs over HTTP from the app's static web assets. Reference the `…Localization.WebAssembly` package and
+call `host.UseArchPillarLocalizationAsync()` on the built host — it registers the build-emitted manifest as the
+catalog provider and preloads the active language now, so the first render is localized:
 
 ```csharp
-using var http = new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) };
-await Localizer.AddCatalogsFromManifestAsync(http);
+WebAssemblyHost host = builder.Build();
+await host.UseArchPillarLocalizationAsync();
 
-await builder.Build().RunAsync();
+await host.RunAsync();
 ```
+
+When the package is referenced in a Blazor WebAssembly app, the build generates `apl-catalogs.json` and registers
+it as a static web asset through the Razor pipeline — gathering the app's own catalogs *and every referenced
+localized library's* (merged into one bundle per culture on publish) — so the loader discovers what to fetch with
+no hand-kept file list and nothing committed to the source tree.
+
+Because the manifest is *registered* (not loaded once and forgotten), the app loads any other language on demand
+when it selects one — instant from the PWA cache, no `HttpClient` to thread through your components. Loading
+catalogs is all this does; the active culture stays the app's concern:
+
+```csharp
+await Localizer.LoadCultureAsync(culture);   // load the picked language
+CultureInfo.CurrentUICulture = culture;      // the app sets the active culture
+```
+
+Because this runs inside the switch event handler, Blazor re-renders that component tree when it returns — the
+awaited load means the translations are already in place, so the live switch needs no reactive refresh. For the
+rarer *background* fill (a synchronous lookup of a culture nobody preloaded), the store raises
+`Localizer.CatalogsChanged`; Blazor has no global re-render hook, so subscribe at the app root and marshal with
+`InvokeAsync(StateHasChanged)` (the event fires off the background-load thread). Do not push this onto leaf
+components — it is an app-level refresh, not a per-component one.
 
 A missing manifest, a missing catalog, or a malformed one is skipped, so a partial deployment degrades to the
-in-code defaults rather than throwing. When you would rather name the catalogs than discover them, the
-primitive `AddCatalogsFromHttpAsync(http, ["Translations/App.de.arb"])` fetches exactly the URIs you pass.
-
-To download only the active language instead of every catalog, pass the culture — it fetches that culture, its
-parent chain, and the source language, and nothing else:
-
-```csharp
-await Localizer.AddCatalogsFromManifestAsync(http, CultureInfo.CurrentUICulture);
-```
-
-Call it again on a culture switch to pull the newly selected language in; an already-fetched one is simply
-re-layered, harmlessly.
+in-code defaults rather than throwing. To wire it yourself instead of using the host extension, create the
+provider with `ManifestCatalogProvider.CreateAsync(http)`, register it with `Localizer.AddProvider(provider)`, and
+load the active language with `Localizer.LoadCultureAsync`. To parse every culture the manifest lists up front — a
+host that shows several at once — call `Localizer.PreloadAllAsync()` after registering the provider.
 
 ## Load cultures on demand in a single-user client
 
@@ -188,9 +198,11 @@ services.AddArchPillarLocalization(new LocalizerOptions { CultureLoading = Cultu
 ```
 
 A language switch loads the new culture on the fly and resolves it on the next lookup — **no restart** — and a
-culture loaded once is never re-read. Leave the default (`CultureLoading.Eager`) for servers, which cannot
-predict which culture a given request needs. (For a WebAssembly client there is no directory; achieve the same
-narrow download with the culture-scoped `AddCatalogsFromManifestAsync` above.)
+culture loaded once is never re-read. `CultureLoading` defaults by platform: on-demand in the browser (Blazor
+WebAssembly), eager elsewhere — so a server, which cannot predict which culture a given request needs, loads
+everything up front, and a client loads only the active language. Set it explicitly to override. (For a
+WebAssembly client there is no directory; the same narrow download is achieved with `LoadCultureAsync` per the
+HTTP section above.)
 
 ## Serve `.arb` catalogs from ASP.NET Core — register the content type
 

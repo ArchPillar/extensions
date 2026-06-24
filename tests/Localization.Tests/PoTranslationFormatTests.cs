@@ -100,13 +100,13 @@ public sealed class PoTranslationFormatTests
     public async Task Write_IsByteStableAcrossReadWriteCyclesAsync()
     {
         var first = await WriteAsync(SingleEntry("greeting", "Hallo"));
-        var second = await WriteAsync(await ReadAsync(first));
+        var second = await WriteAsync(Read(first));
 
         Assert.Equal(first, second);
     }
 
     [Fact]
-    public async Task Read_ParsesPoeditStylePoAsync()
+    public void Read_ParsesPoeditStylePo()
     {
         const string Po = """
             msgid ""
@@ -119,7 +119,7 @@ public sealed class PoTranslationFormatTests
             msgstr "Hallo"
             """;
 
-        Catalog catalog = await ReadAsync(Encoding.UTF8.GetBytes(Po));
+        Catalog catalog = Read(Encoding.UTF8.GetBytes(Po));
 
         Assert.Equal("de", catalog.Culture);
         CatalogEntry entry = Assert.Single(catalog.Entries);
@@ -143,7 +143,7 @@ public sealed class PoTranslationFormatTests
     }
 
     [Fact]
-    public async Task Read_GappedMsgstrIndices_DoesNotCrashAndLoadsTheEntryAsync()
+    public void Read_GappedMsgstrIndices_DoesNotCrashAndLoadsTheEntry()
     {
         // msgstr[0] and msgstr[2] with no [1]: the array must size by the highest index, not the count.
         const string Po = """
@@ -158,7 +158,7 @@ public sealed class PoTranslationFormatTests
             msgstr[2] "plikow"
             """;
 
-        Catalog catalog = await ReadAsync(Encoding.UTF8.GetBytes(Po));
+        Catalog catalog = Read(Encoding.UTF8.GetBytes(Po));
 
         CatalogEntry entry = Assert.Single(catalog.Entries);
         Assert.Equal("files", entry.Key);
@@ -166,7 +166,7 @@ public sealed class PoTranslationFormatTests
     }
 
     [Fact]
-    public async Task Read_UnescapesGettextControlEscapes_Async()
+    public void Read_UnescapesGettextControlEscapes()
     {
         const string Po = """
             msgctxt "k"
@@ -174,13 +174,13 @@ public sealed class PoTranslationFormatTests
             msgstr "a\bc\fd"
             """;
 
-        Catalog catalog = await ReadAsync(Encoding.UTF8.GetBytes(Po));
+        Catalog catalog = Read(Encoding.UTF8.GetBytes(Po));
 
         Assert.Equal("a\bc\fd", Assert.Single(catalog.Entries).TranslatedMessage);
     }
 
     [Fact]
-    public async Task Read_TranslatorComment_IsCapturedAndKeptDistinctFromExtractedAsync()
+    public void Read_TranslatorComment_IsCapturedAndKeptDistinctFromExtracted()
     {
         const string Po = """
             # please keep this formal
@@ -190,7 +190,7 @@ public sealed class PoTranslationFormatTests
             msgstr "t"
             """;
 
-        Catalog catalog = await ReadAsync(Encoding.UTF8.GetBytes(Po));
+        Catalog catalog = Read(Encoding.UTF8.GetBytes(Po));
 
         CatalogEntry entry = Assert.Single(catalog.Entries);
         Assert.Equal("please keep this formal", entry.TranslatorComment);
@@ -213,7 +213,7 @@ public sealed class PoTranslationFormatTests
     }
 
     [Fact]
-    public async Task Read_MultipleReferencesOnOneLine_ParsesEachAsync()
+    public void Read_MultipleReferencesOnOneLine_ParsesEach()
     {
         const string Po = """
             #: Home.cs:12:5 Other.cs:7:3
@@ -222,7 +222,7 @@ public sealed class PoTranslationFormatTests
             msgstr "t"
             """;
 
-        Catalog catalog = await ReadAsync(Encoding.UTF8.GetBytes(Po));
+        Catalog catalog = Read(Encoding.UTF8.GetBytes(Po));
 
         CatalogEntry entry = Assert.Single(catalog.Entries);
         Assert.Equal(2, entry.References.Count);
@@ -247,7 +247,7 @@ public sealed class PoTranslationFormatTests
     };
 
     private static async Task<Catalog> RoundTripAsync(Catalog catalog) =>
-        await ReadAsync(await WriteAsync(catalog));
+        Read(await WriteAsync(catalog));
 
     private static async Task<byte[]> WriteAsync(Catalog catalog)
     {
@@ -256,9 +256,9 @@ public sealed class PoTranslationFormatTests
         return stream.ToArray();
     }
 
-    private static async Task<Catalog> ReadAsync(byte[] bytes)
+    private static Catalog Read(byte[] bytes)
     {
         using var stream = new MemoryStream(bytes);
-        return await _format.ReadAsync(stream, CancellationToken.None);
+        return _format.Read(stream);
     }
 }

@@ -34,6 +34,14 @@ public sealed class LocalizationContext : IDisposable
     /// catalogs as assemblies load, and reads its directory lazily on first use).</summary>
     internal static LocalizationContext CreateAmbient() => new(new LocalizerOptions(), ambient: true);
 
+    /// <summary>Raised after any commit that changed the merged snapshot — a background asynchronous load
+    /// landing, a watched catalog reloading. Forwarded from the store; a UI layer subscribes to re-render.</summary>
+    public event Action? CatalogsChanged
+    {
+        add => _store.CatalogsChanged += value;
+        remove => _store.CatalogsChanged -= value;
+    }
+
     /// <summary>The global-namespace localizer (the uncategorized bucket) over this context.</summary>
     public ILocalizer Default { get; }
 
@@ -110,7 +118,8 @@ public sealed class LocalizationContext : IDisposable
         _store.AddSource(source);
     }
 
-    /// <summary>Applies the source culture, missing-argument policy, directory, and sources in one rebuild.</summary>
+    /// <summary>Applies the configuration — source culture, missing-argument policy, translations directory, format
+    /// precedence, culture loading, hot reload, the culture allow-list, and dynamic sources — in one rebuild.</summary>
     /// <param name="options">The configuration to apply.</param>
     /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
     public void Configure(LocalizerOptions options)
@@ -124,7 +133,55 @@ public sealed class LocalizationContext : IDisposable
     }
 
     /// <summary>Eagerly loads the catalogs now (otherwise the ambient store loads them lazily on first use).</summary>
-    public void Load() => _store.EnsureLoaded();
+    public void Load() => _store.EnsureStarted();
+
+    /// <summary>
+    /// Registers a catalog provider with the store at runtime, appended after the configured providers and kept
+    /// across a reconfigure. A host with no readable file system (Blazor WebAssembly) registers an HTTP-backed
+    /// provider this way; an asynchronous provider's catalogs are loaded through <see cref="LoadCultureAsync"/> or
+    /// <see cref="PreloadAllAsync"/>.
+    /// </summary>
+    /// <param name="provider">The catalog provider to register.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="provider"/> is <see langword="null"/>.</exception>
+    public void AddProvider(ICatalogProvider provider)
+    {
+        if (provider is null)
+        {
+            throw new ArgumentNullException(nameof(provider));
+        }
+
+        _store.AddProvider(provider);
+    }
+
+    /// <summary>
+    /// Loads the catalogs for <paramref name="culture"/> from every registered provider — awaiting the
+    /// asynchronous ones (an HTTP manifest, say) that the synchronous on-demand path can only queue. Await it
+    /// before the UI renders the culture, so the subsequent synchronous lookups resolve an already-loaded snapshot
+    /// with no flash. This loads catalogs only; the active culture is the caller's concern, untouched here.
+    /// </summary>
+    /// <param name="culture">The culture whose catalogs to load (its parent chain comes too).</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task that completes when the culture's catalogs are loaded and committed.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="culture"/> is <see langword="null"/>.</exception>
+    public Task LoadCultureAsync(CultureInfo culture, CancellationToken cancellationToken = default)
+    {
+        if (culture is null)
+        {
+            throw new ArgumentNullException(nameof(culture));
+        }
+
+        return _store.LoadCultureAsync(culture, cancellationToken);
+    }
+
+    /// <summary>
+    /// Loads every known culture's catalogs from every registered provider — the awaited "load everything" for an
+    /// asynchronous context (server startup). Awaits the asynchronous providers and runs the synchronous ones, then
+    /// commits once.
+    /// </summary>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A task that completes when all known cultures' catalogs are loaded and committed.</returns>
+    public Task PreloadAllAsync(CancellationToken cancellationToken = default) =>
+        _store.PreloadAllAsync(cancellationToken);
 
     /// <summary>Clears all layered catalogs, sources, and discovery state, returning the context to empty.</summary>
     public void Reset() => _store.Reset();
@@ -137,9 +194,11 @@ public sealed class LocalizationContext : IDisposable
 
     internal void EnsureCulture(CultureInfo culture) => _store.EnsureCulture(culture);
 
-    // The source language these catalogs are written in — the HTTP loader uses it so a culture-scoped fetch
-    // still pulls the source-language overrides.
-    internal string SourceCultureName => _store.Context.SourceCultureName;
+    /// <summary>The source language these catalogs are written in (the configured
+    /// <see cref="LocalizerOptions.SourceCulture"/>, defaulting to <c>en</c>) — the language whose strings appear
+    /// in code as defaults. A host registering a culture-scoped catalog provider reads it so the fetch still pulls
+    /// the source-language overrides.</summary>
+    public string SourceCultureName => _store.SourceCultureName;
 
     // The found-aware ambient lookup the IStringLocalizer adapter composes over.
     internal string TranslateInCategory(

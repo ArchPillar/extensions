@@ -28,12 +28,14 @@ public sealed class LocalizerOptions
     public IReadOnlyList<string>? Cultures { get; init; }
 
     /// <summary>
-    /// Whether to read every culture's files up front (<see cref="CultureLoading.Eager"/>, the default) or to
-    /// load each culture only the first time it is requested (<see cref="CultureLoading.OnDemand"/>). On-demand
-    /// keeps a single-user client (CLI, desktop, Blazor) to just the active language and pulls another in — live,
-    /// without a restart — only on a switch to it. Eager suits a server that handles many cultures at once.
+    /// Whether to load every catalog up front (<see cref="CultureLoading.Eager"/>) or each culture on first use
+    /// (<see cref="CultureLoading.OnDemand"/>). On-demand keeps a single-user client (CLI, desktop, Blazor) to just
+    /// the active language and pulls another in — live, without a restart — only on a switch to it; eager suits a
+    /// server that handles many cultures at once. Defaults by platform: on-demand in the browser (Blazor
+    /// WebAssembly), eager elsewhere. Override to force either.
     /// </summary>
-    public CultureLoading CultureLoading { get; init; } = CultureLoading.Eager;
+    public CultureLoading CultureLoading { get; init; } =
+        OperatingSystem.IsBrowser() ? CultureLoading.OnDemand : CultureLoading.Eager;
 
     /// <summary>
     /// The format preference when the same culture and key appear in more than one file. Earlier entries

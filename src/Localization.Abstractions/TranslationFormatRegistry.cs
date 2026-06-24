@@ -53,6 +53,15 @@ public sealed class TranslationFormatRegistry
             : null;
 
     /// <summary>
+    /// Resolves the provider for <paramref name="formatOrExtension"/>, trying the registered format ids first
+    /// and falling back to file extensions — for a hint that may be either (<c>xliff</c> or <c>.xliff</c>).
+    /// </summary>
+    /// <param name="formatOrExtension">A format id or a file extension.</param>
+    /// <returns>The provider, or <see langword="null"/> when neither matches.</returns>
+    public ITranslationFormat? Resolve(string formatOrExtension) =>
+        ResolveById(formatOrExtension) ?? ResolveByExtension(formatOrExtension);
+
+    /// <summary>
     /// Gets the registered providers.
     /// </summary>
     public IReadOnlyCollection<ITranslationFormat> Formats => _byId.Values;
