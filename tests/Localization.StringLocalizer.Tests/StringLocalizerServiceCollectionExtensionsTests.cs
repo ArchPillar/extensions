@@ -236,20 +236,20 @@ public sealed class StringLocalizerServiceCollectionExtensionsTests : IDisposabl
 
     // A minimal in-memory provider serving one culture's ARB bytes, so the catalog lands in the merged snapshot
     // (enumerable through GetAllStrings) rather than being consulted only per key like a translation source.
-    private sealed class ArbCatalogProvider(string culture, string arb) : ICatalogProvider
+    private sealed class ArbCatalogProvider(string cultureName, string arb) : ICatalogProvider
     {
         private readonly CatalogDescriptor _descriptor = new()
         {
-            Culture = culture,
+            Culture = cultureName,
             Format = "arb",
-            Name = culture + ".arb",
+            Name = cultureName + ".arb",
             Source = new CatalogSource.Synchronous(() => new MemoryStream(Encoding.UTF8.GetBytes(arb)))
         };
 
         public IReadOnlyList<CatalogDescriptor> Catalogs => [_descriptor];
 
-        public IReadOnlyList<CatalogDescriptor> CatalogsFor(CultureInfo requested) =>
-            string.Equals(requested.Name, culture, StringComparison.OrdinalIgnoreCase) ? [_descriptor] : [];
+        public IReadOnlyList<CatalogDescriptor> CatalogsFor(CultureInfo culture) =>
+            string.Equals(culture.Name, cultureName, StringComparison.OrdinalIgnoreCase) ? [_descriptor] : [];
 
         public IDisposable Watch(Action<CatalogDescriptor> onChanged) => NoOpWatch.Instance;
 
