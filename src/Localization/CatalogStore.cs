@@ -344,18 +344,12 @@ internal sealed class CatalogStore : IDisposable
         }
     }
 
-    // A provider signalled one catalog changed (a hot-reload edit, an assembly load): clear its identity and reload
-    // it. Not batched, so a synchronous reload publishes immediately. Runs outside _gate (may fire under the loader lock).
-    private void OnCatalogChanged(ProviderState state, CatalogDescriptor descriptor)
+    // The auto-default provider list: a directory provider, with the resource provider beneath it for the ambient
+    // store (resource first so app files win on overlap).
+    private static IReadOnlyList<ICatalogProvider> DefaultProviders(string directory, TimeSpan debounce, bool discover)
     {
-        (string, string) identity = descriptor.Identity;
-        lock (_gate)
-        {
-            state.Catalogs.Remove(identity);
-            state.Failed.Remove(identity);
-        }
-
-        Load(state, [descriptor]);
+        var directoryProvider = new DirectoryCatalogProvider(directory, debounce);
+        return discover ? [new ResourceCatalogProvider(), directoryProvider] : [directoryProvider];
     }
 
     // Marks the culture and its parent chain in-use (TryAdd gates each load to one caller) and probes every provider
@@ -419,6 +413,29 @@ internal sealed class CatalogStore : IDisposable
         CommitLoaded(state, loaded, failures);
     }
 
+    // Whether an identity is already committed or marked failed, so it is not re-loaded.
+    private bool AlreadyHandled(ProviderState state, (string, string) identity)
+    {
+        lock (_gate)
+        {
+            return state.Catalogs.ContainsKey(identity) || state.Failed.Contains(identity);
+        }
+    }
+
+    // Parses an open stream into a Catalog using the descriptor's format, staging it into loaded or — when no format
+    // matches — its identity into failures. A parse that throws a known load failure is caught by the caller's try.
+    private void ReadInto(CatalogDescriptor descriptor, Stream stream, List<(CatalogDescriptor Descriptor, Catalog Catalog)> loaded, List<(string, string)> failures)
+    {
+        ITranslationFormat? format = _registry.Resolve(descriptor.Format);
+        if (format is null)
+        {
+            failures.Add(descriptor.Identity);
+            return;
+        }
+
+        loaded.Add((descriptor, format.Read(stream)));
+    }
+
     // Coalesces a background load by identity: GetOrAdd starts it once; concurrent misses join the running task.
     private Task EnqueueAsync(ProviderState state, CatalogDescriptor descriptor) =>
         _backgroundLoads.GetOrAdd(descriptor.Identity, _ => RunBackgroundLoadAsync(state, descriptor));
@@ -455,20 +472,6 @@ internal sealed class CatalogStore : IDisposable
         {
             _backgroundLoads.TryRemove(descriptor.Identity, out _);
         }
-    }
-
-    // Parses an open stream into a Catalog using the descriptor's format, staging it into loaded or — when no format
-    // matches — its identity into failures. A parse that throws a known load failure is caught by the caller's try.
-    private void ReadInto(CatalogDescriptor descriptor, Stream stream, List<(CatalogDescriptor Descriptor, Catalog Catalog)> loaded, List<(string, string)> failures)
-    {
-        ITranslationFormat? format = _registry.Resolve(descriptor.Format);
-        if (format is null)
-        {
-            failures.Add(descriptor.Identity);
-            return;
-        }
-
-        loaded.Add((descriptor, format.Read(stream)));
     }
 
     // Awaits the enqueued background tasks; each publishes as it lands. The token cancels only the wait.
@@ -582,15 +585,6 @@ internal sealed class CatalogStore : IDisposable
         }
     }
 
-    // Whether an identity is already committed or marked failed, so it is not re-loaded.
-    private bool AlreadyHandled(ProviderState state, (string, string) identity)
-    {
-        lock (_gate)
-        {
-            return state.Catalogs.ContainsKey(identity) || state.Failed.Contains(identity);
-        }
-    }
-
     // One provider's catalogs ordered lowest-precedence-format first, ties broken by ordinal name, so the last-wins
     // merge is deterministic regardless of dictionary (file-system) enumeration order.
     private List<Catalog> OrderedCatalogs(ProviderState state)
@@ -611,14 +605,6 @@ internal sealed class CatalogStore : IDisposable
         return catalogs;
     }
 
-    // The auto-default provider list: a directory provider, with the resource provider beneath it for the ambient
-    // store (resource first so app files win on overlap).
-    private static IReadOnlyList<ICatalogProvider> DefaultProviders(string directory, TimeSpan debounce, bool discover)
-    {
-        var directoryProvider = new DirectoryCatalogProvider(directory, debounce);
-        return discover ? [new ResourceCatalogProvider(), directoryProvider] : [directoryProvider];
-    }
-
     // A format's precedence rank (lower wins once OrderedCatalogs places it later); unranked sorts last.
     private int Rank(string format)
     {
@@ -637,6 +623,20 @@ internal sealed class CatalogStore : IDisposable
         }
 
         return int.MaxValue;
+    }
+
+    // A provider signalled one catalog changed (a hot-reload edit, an assembly load): clear its identity and reload
+    // it. Not batched, so a synchronous reload publishes immediately. Runs outside _gate (may fire under the loader lock).
+    private void OnCatalogChanged(ProviderState state, CatalogDescriptor descriptor)
+    {
+        (string, string) identity = descriptor.Identity;
+        lock (_gate)
+        {
+            state.Catalogs.Remove(identity);
+            state.Failed.Remove(identity);
+        }
+
+        Load(state, [descriptor]);
     }
 
     // Whether an exception is an expected catalog-load failure (missing/malformed) rather than an unrelated or fatal
