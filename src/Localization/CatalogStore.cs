@@ -32,16 +32,16 @@ internal sealed class CatalogStore : IDisposable
     // Ambient-store flag: when set, DefaultProviders adds a ResourceCatalogProvider beneath the directory one.
     private readonly bool _discover;
     // One entry per provider, swapped wholesale on reconfigure; a state's dictionaries mutate only under _gate.
-    private List<ProviderState> _states = [];
+    private volatile List<ProviderState> _states = [];
     // In-flight async loads, keyed by descriptor identity so a load is enqueued once and concurrent misses coalesce.
     private readonly ConcurrentDictionary<(string Culture, string Name), Task> _backgroundLoads = new();
     // In-use cultures, used as a set: the hot-path lookup is lock-free and TryAdd gates each culture's load to one
     // caller, so registering a culture needs no lock or copy.
     private readonly ConcurrentDictionary<string, byte> _loadedCultures = new(StringComparer.OrdinalIgnoreCase);
 
-    private RenderingContext _context = RenderingContext.Default;
+    private volatile RenderingContext _context = RenderingContext.Default;
     private bool _watching;
-    private bool _started;
+    private volatile bool _started;
     // Whether a snapshot has been built; a rebuild also fires when this is false, so startup/reconfigure establish
     // the baseline even when nothing loads.
     private bool _snapshotBuilt;
@@ -49,8 +49,8 @@ internal sealed class CatalogStore : IDisposable
     private bool _dirty;
     // Open-batch count; while positive, rebuilds defer. Read/written only under _gate.
     private int _batchDepth;
-    private TranslationSnapshot _snapshot = TranslationSnapshot.Empty;
-    private IReadOnlyList<ITranslationSource> _layers = [];
+    private volatile TranslationSnapshot _snapshot = TranslationSnapshot.Empty;
+    private volatile IReadOnlyList<ITranslationSource> _layers = [];
 
     /// <summary>Raised after a rebuild that changed the merged snapshot. Raised once per operation and outside
     /// <c>_gate</c>, so a subscriber may re-enter the store.</summary>
@@ -62,7 +62,7 @@ internal sealed class CatalogStore : IDisposable
 
     /// <summary>The shared rendering context, read live so a configuration change is seen without rebuilding the
     /// localizer.</summary>
-    public RenderingContext Context => Volatile.Read(ref _context);
+    public RenderingContext Context => _context;
 
     /// <summary>The source language these catalogs are written in.</summary>
     public string SourceCultureName => Context.SourceCultureName;
@@ -73,7 +73,7 @@ internal sealed class CatalogStore : IDisposable
         get
         {
             EnsureStarted();
-            return Volatile.Read(ref _snapshot);
+            return _snapshot;
         }
     }
 
@@ -84,7 +84,7 @@ internal sealed class CatalogStore : IDisposable
         get
         {
             EnsureStarted();
-            return Volatile.Read(ref _layers);
+            return _layers;
         }
     }
 
@@ -144,19 +144,19 @@ internal sealed class CatalogStore : IDisposable
     // nothing loads, establishing the baseline. Idempotent.
     public void EnsureStarted()
     {
-        if (Volatile.Read(ref _started))
+        if (_started)
         {
             return;
         }
 
         lock (_startupGate)
         {
-            if (Volatile.Read(ref _started))
+            if (_started)
             {
                 return;
             }
 
-            IReadOnlyList<ProviderState> states = Volatile.Read(ref _states);
+            IReadOnlyList<ProviderState> states = _states;
 
             if (_enableHotReload && !_watching)
             {
@@ -194,7 +194,7 @@ internal sealed class CatalogStore : IDisposable
                 EndBatch();
             }
 
-            Volatile.Write(ref _started, true);
+            _started = true;
         }
     }
 
@@ -247,7 +247,7 @@ internal sealed class CatalogStore : IDisposable
     {
         EnsureStarted();
 
-        IReadOnlyList<ProviderState> states = Volatile.Read(ref _states);
+        IReadOnlyList<ProviderState> states = _states;
         var pending = new List<Task>();
         BeginBatch();
         try
@@ -278,7 +278,7 @@ internal sealed class CatalogStore : IDisposable
 
             _sources.Clear();
             _loadedCultures.Clear();
-            Volatile.Write(ref _context, RenderingContext.Default);
+            _context = RenderingContext.Default;
             _started = false;
             // Clear _dirty/_snapshotBuilt so the rebuild below is a silent baseline build; the next EnsureStarted
             // re-publishes whatever the reloaded providers carry.
@@ -294,7 +294,7 @@ internal sealed class CatalogStore : IDisposable
     {
         // Stop the watches so no further change is signalled; an async load already in flight may still land. Each
         // handle owns its watcher.
-        foreach (ProviderState state in Volatile.Read(ref _states))
+        foreach (ProviderState state in _states)
         {
             state.Watch?.Dispose();
         }
@@ -315,7 +315,7 @@ internal sealed class CatalogStore : IDisposable
         IReadOnlyList<ICatalogProvider> configured = DefaultProviders(options.TranslationsDirectory, options.HotReloadDebounce, _discover);
         IReadOnlyList<ICatalogProvider> providers = [.. configured, .. options.Providers];
 
-        foreach (ProviderState state in Volatile.Read(ref _states))
+        foreach (ProviderState state in _states)
         {
             state.Watch?.Dispose();
         }
@@ -328,7 +328,7 @@ internal sealed class CatalogStore : IDisposable
 
         lock (_gate)
         {
-            Volatile.Write(ref _context, context);
+            _context = context;
             _formatPrecedence = options.FormatPrecedence;
             _cultures = options.Cultures;
             _eager = options.CultureLoading == CultureLoading.Eager;
@@ -357,7 +357,7 @@ internal sealed class CatalogStore : IDisposable
     // the asynchronous loads publish individually as they land.
     private void LoadChain(CultureInfo culture, List<Task>? pending)
     {
-        IReadOnlyList<ProviderState> states = Volatile.Read(ref _states);
+        IReadOnlyList<ProviderState> states = _states;
         for (CultureInfo? current = culture; current is not null && !string.IsNullOrEmpty(current.Name); current = current.Parent)
         {
             _loadedCultures.TryAdd(current.Name, 0);
@@ -486,19 +486,13 @@ internal sealed class CatalogStore : IDisposable
     // Opens a batch; rebuilds defer until the matching EndBatch. Nestable. Pair with EndBatch in a finally.
     private void BeginBatch()
     {
-        lock (_gate)
-        {
-            _batchDepth++;
-        }
+        Interlocked.Increment(ref _batchDepth);
     }
 
     // Closes a batch, then rebuilds — publishes now if this was the outermost batch, else defers again.
     private void EndBatch()
     {
-        lock (_gate)
-        {
-            _batchDepth--;
-        }
+        Interlocked.Decrement(ref _batchDepth);
 
         Rebuild();
     }
@@ -565,7 +559,7 @@ internal sealed class CatalogStore : IDisposable
             }
 
             TranslationSnapshot snapshot = CatalogLoader.BuildSnapshot(all, SnapshotOptions);
-            Volatile.Write(ref _snapshot, snapshot);
+            _snapshot = snapshot;
 
             // Custom sources first (newest wins), the snapshot last.
             var layers = new List<ITranslationSource>(_sources.Count + 1);
@@ -575,7 +569,7 @@ internal sealed class CatalogStore : IDisposable
             }
 
             layers.Add(new SnapshotTranslationSource(snapshot));
-            Volatile.Write(ref _layers, layers);
+            _layers = layers;
             _snapshotBuilt = true;
         }
 
