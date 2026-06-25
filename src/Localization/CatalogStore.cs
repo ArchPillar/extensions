@@ -23,12 +23,10 @@ internal sealed class CatalogStore : IDisposable
     // deadlock.
     private readonly object _gate = new();
     private readonly object _startupGate = new();
-    private readonly List<ITranslationSource> _sources = [];
     private readonly TranslationFormatRegistry _registry = BuiltInTranslationFormats.CreateRegistry();
-    private bool _enableHotReload;
-    private IReadOnlyList<string> _formatPrecedence = [];
-    private IReadOnlyList<string>? _cultures;
-    private bool _eager;
+    // The active configuration, swapped wholesale on construct/Configure; read live for format precedence, the
+    // Cultures allow-list, eager/on-demand, hot reload, and the custom sources.
+    private volatile LocalizerOptions _options = new();
     // Ambient-store flag: when set, DefaultProviders adds a ResourceCatalogProvider beneath the directory one.
     private readonly bool _discover;
     // One entry per provider, swapped wholesale on reconfigure; a state's dictionaries mutate only under _gate.
@@ -93,7 +91,7 @@ internal sealed class CatalogStore : IDisposable
     private LocalizerOptions SnapshotOptions => new()
     {
         SourceCulture = Context.SourceCultureName,
-        Cultures = _cultures
+        Cultures = _options.Cultures
     };
 
     #endregion
@@ -158,7 +156,7 @@ internal sealed class CatalogStore : IDisposable
 
             IReadOnlyList<ProviderState> states = _states;
 
-            if (_enableHotReload && !_watching)
+            if (_options.EnableHotReload && !_watching)
             {
                 _watching = true;
                 foreach (ProviderState state in states)
@@ -167,12 +165,13 @@ internal sealed class CatalogStore : IDisposable
                 }
             }
 
+            var eager = _options.CultureLoading == CultureLoading.Eager;
             BeginBatch();
             try
             {
                 foreach (ProviderState state in states)
                 {
-                    if (_eager)
+                    if (eager)
                     {
                         // The provider's full inventory is the complete set, so load it whole; CatalogsFor only ever
                         // returns a subset of it, so per-culture probing would re-cover what this loads.
@@ -276,7 +275,7 @@ internal sealed class CatalogStore : IDisposable
                 state.Failed.Clear();
             }
 
-            _sources.Clear();
+            _options = _options with { Sources = [] };
             _loadedCultures.Clear();
             _context = RenderingContext.Default;
             _started = false;
@@ -328,13 +327,8 @@ internal sealed class CatalogStore : IDisposable
 
         lock (_gate)
         {
+            _options = options;
             _context = context;
-            _formatPrecedence = options.FormatPrecedence;
-            _cultures = options.Cultures;
-            _eager = options.CultureLoading == CultureLoading.Eager;
-            _enableHotReload = options.EnableHotReload;
-            _sources.Clear();
-            _sources.AddRange(options.Sources);
 
             _states = states;
             _started = false;
@@ -562,10 +556,11 @@ internal sealed class CatalogStore : IDisposable
             _snapshot = snapshot;
 
             // Custom sources first (newest wins), the snapshot last.
-            var layers = new List<ITranslationSource>(_sources.Count + 1);
-            for (var index = _sources.Count - 1; index >= 0; index--)
+            IReadOnlyList<ITranslationSource> sources = _options.Sources;
+            var layers = new List<ITranslationSource>(sources.Count + 1);
+            for (var index = sources.Count - 1; index >= 0; index--)
             {
-                layers.Add(_sources[index]);
+                layers.Add(sources[index]);
             }
 
             layers.Add(new SnapshotTranslationSource(snapshot));
@@ -608,9 +603,10 @@ internal sealed class CatalogStore : IDisposable
             return int.MaxValue;
         }
 
-        for (var index = 0; index < _formatPrecedence.Count; index++)
+        IReadOnlyList<string> precedence = _options.FormatPrecedence;
+        for (var index = 0; index < precedence.Count; index++)
         {
-            if (string.Equals(_formatPrecedence[index], resolved.FormatId, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(precedence[index], resolved.FormatId, StringComparison.OrdinalIgnoreCase))
             {
                 return index;
             }
