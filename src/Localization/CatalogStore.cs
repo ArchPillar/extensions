@@ -480,13 +480,19 @@ internal sealed class CatalogStore : IDisposable
     // Opens a batch; rebuilds defer until the matching EndBatch. Nestable. Pair with EndBatch in a finally.
     private void BeginBatch()
     {
-        Interlocked.Increment(ref _batchDepth);
+        lock (_gate)
+        {
+            _batchDepth++;
+        }
     }
 
     // Closes a batch, then rebuilds — publishes now if this was the outermost batch, else defers again.
     private void EndBatch()
     {
-        Interlocked.Decrement(ref _batchDepth);
+        lock (_gate)
+        {
+            _batchDepth--;
+        }
 
         Rebuild();
     }
