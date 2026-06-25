@@ -24,6 +24,7 @@ internal sealed class CatalogStore : IDisposable
     private readonly object _gate = new();
     private readonly object _startupGate = new();
     private readonly TranslationFormatRegistry _registry = BuiltInTranslationFormats.CreateRegistry();
+    private readonly SnapshotBuilder _snapshotBuilder;
     // The active configuration, swapped wholesale on construct/Configure; read live for format precedence, the
     // Cultures allow-list, eager/on-demand, hot reload, and the custom sources.
     private volatile LocalizerOptions _options = new();
@@ -86,14 +87,6 @@ internal sealed class CatalogStore : IDisposable
         }
     }
 
-    // The minimal options BuildSnapshot needs: source culture (an override, exempt from the allow-list) and the
-    // Cultures allow-list.
-    private LocalizerOptions SnapshotOptions => new()
-    {
-        SourceCulture = Context.SourceCultureName,
-        Cultures = _options.Cultures
-    };
-
     #endregion
 
     #region Construction
@@ -113,6 +106,7 @@ internal sealed class CatalogStore : IDisposable
     private CatalogStore(LocalizerOptions options, bool discover)
     {
         _discover = discover;
+        _snapshotBuilder = new(_registry);
         ApplyOptions(options);
     }
 
@@ -530,9 +524,9 @@ internal sealed class CatalogStore : IDisposable
     }
 
     // The single rebuild-and-publish point; takes _gate itself so no caller holds it across the notify. In a batch it
-    // defers (marks dirty). Otherwise it rebuilds the snapshot and layers, swaps them atomically, and raises
-    // CatalogsChanged outside _gate — but only for a real change; a baseline-only build is silent. Merge is by
-    // provider order then format precedence within a provider (xliff > arb > po).
+    // defers (marks dirty). Otherwise it asks the snapshot builder for the merged snapshot and layers, swaps them
+    // atomically, and raises CatalogsChanged outside _gate — but only for a real change; a baseline-only build is
+    // silent.
     private void Rebuild()
     {
         var publish = false;
@@ -552,24 +546,9 @@ internal sealed class CatalogStore : IDisposable
             publish = _dirty;
             _dirty = false;
 
-            var all = new List<Catalog>();
-            foreach (ProviderState state in _states)
-            {
-                all.AddRange(OrderedCatalogs(state));
-            }
-
-            TranslationSnapshot snapshot = CatalogLoader.BuildSnapshot(all, SnapshotOptions);
+            (TranslationSnapshot snapshot, IReadOnlyList<ITranslationSource> layers) =
+                _snapshotBuilder.Build(_states, _options, Context.SourceCultureName);
             _snapshot = snapshot;
-
-            // Custom sources first (newest wins), the snapshot last.
-            IReadOnlyList<ITranslationSource> sources = _options.Sources;
-            var layers = new List<ITranslationSource>(sources.Count + 1);
-            for (var index = sources.Count - 1; index >= 0; index--)
-            {
-                layers.Add(sources[index]);
-            }
-
-            layers.Add(new SnapshotTranslationSource(snapshot));
             _layers = layers;
             _snapshotBuilt = true;
         }
@@ -578,47 +557,6 @@ internal sealed class CatalogStore : IDisposable
         {
             CatalogsChanged?.Invoke();
         }
-    }
-
-    // One provider's catalogs ordered lowest-precedence-format first, ties broken by ordinal name, so the last-wins
-    // merge is deterministic regardless of dictionary (file-system) enumeration order.
-    private List<Catalog> OrderedCatalogs(ProviderState state)
-    {
-        var entries = new List<KeyValuePair<(string Culture, string Name), LoadedCatalog>>(state.Catalogs);
-        entries.Sort((left, right) =>
-        {
-            var byRank = Rank(right.Value.Format).CompareTo(Rank(left.Value.Format));
-            return byRank != 0 ? byRank : string.CompareOrdinal(left.Key.Name, right.Key.Name);
-        });
-
-        var catalogs = new List<Catalog>(entries.Count);
-        foreach (KeyValuePair<(string Culture, string Name), LoadedCatalog> entry in entries)
-        {
-            catalogs.Add(entry.Value.Catalog);
-        }
-
-        return catalogs;
-    }
-
-    // A format's precedence rank (lower wins once OrderedCatalogs places it later); unranked sorts last.
-    private int Rank(string format)
-    {
-        ITranslationFormat? resolved = _registry.Resolve(format);
-        if (resolved is null)
-        {
-            return int.MaxValue;
-        }
-
-        IReadOnlyList<string> precedence = _options.FormatPrecedence;
-        for (var index = 0; index < precedence.Count; index++)
-        {
-            if (string.Equals(precedence[index], resolved.FormatId, StringComparison.OrdinalIgnoreCase))
-            {
-                return index;
-            }
-        }
-
-        return int.MaxValue;
     }
 
     // A provider signalled one catalog changed (a hot-reload edit, an assembly load): clear its identity and reload
@@ -645,26 +583,6 @@ internal sealed class CatalogStore : IDisposable
             or XmlException
             or FormatException
             or NotSupportedException;
-
-    #endregion
-
-    #region Nested types
-
-    // A committed catalog with the format it was parsed from, so Rebuild can order by precedence.
-    private sealed record LoadedCatalog(Catalog Catalog, string Format);
-
-    // One provider's bookkeeping: committed catalogs (deduped by identity), failed identities (dropped, not
-    // retried), and the watch handle. Mutated only under _gate.
-    private sealed class ProviderState(ICatalogProvider provider)
-    {
-        public ICatalogProvider Provider { get; } = provider;
-
-        public Dictionary<(string Culture, string Name), LoadedCatalog> Catalogs { get; } = [];
-
-        public HashSet<(string Culture, string Name)> Failed { get; } = [];
-
-        public IDisposable? Watch { get; set; }
-    }
 
     #endregion
 }
