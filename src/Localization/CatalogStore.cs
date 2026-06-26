@@ -117,8 +117,8 @@ internal sealed class CatalogStore : IDisposable
     #region Public API
 
     /// <summary>Re-applies <paramref name="options"/> in one rebuild: re-derives the context and rebuilds the
-    /// provider list from scratch, fully replacing the loaded catalogs. Runtime additions (providers, host
-    /// catalogs, sources) and the in-use culture set survive, so the same cultures reload against the new config.</summary>
+    /// provider list and layered sources from the new options, fully replacing the loaded catalogs. The in-use
+    /// culture set survives, so the same cultures reload against the new config.</summary>
     public void Configure(LocalizerOptions options)
     {
         lock (_startupGate)
