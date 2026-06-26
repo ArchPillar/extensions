@@ -14,10 +14,7 @@ internal static class SnapshotBuilder
         var all = new List<Catalog>();
         foreach (ProviderState provider in providers)
         {
-            foreach (LoadedCatalog loaded in provider.Catalogs.Values)
-            {
-                all.Add(loaded.Catalog);
-            }
+            all.AddRange(provider.Catalogs.Values);
         }
 
         var snapshotOptions = new LocalizerOptions

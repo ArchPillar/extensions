@@ -504,7 +504,7 @@ internal sealed class CatalogStore : IDisposable
             {
                 if (!state.Catalogs.ContainsKey(descriptor.Identity))
                 {
-                    state.Catalogs[descriptor.Identity] = new LoadedCatalog(catalog, descriptor.Format);
+                    state.Catalogs[descriptor.Identity] = catalog;
                     _dirty = true;
                 }
             }
