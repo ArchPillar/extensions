@@ -17,11 +17,13 @@ namespace ArchPillar.Extensions.Localization;
 /// </summary>
 public sealed class ResourceCatalogProvider : ICatalogProvider
 {
-    private readonly TranslationFormatRegistry _registry = BuiltInTranslationFormats.CreateRegistry();
+    private readonly TranslationFormatRegistry _registry;
 
     /// <summary>Initializes a new <see cref="ResourceCatalogProvider"/>, scanning the loaded assemblies now.</summary>
-    public ResourceCatalogProvider()
+    /// <param name="formats">The formats to parse catalogs with; defaults to the built-in set (XLIFF, ARB, PO).</param>
+    public ResourceCatalogProvider(TranslationFormatRegistry? formats = null)
     {
+        _registry = formats ?? BuiltInTranslationFormats.CreateRegistry();
         var descriptors = new List<CatalogDescriptor>();
         foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
         {
@@ -81,19 +83,21 @@ public sealed class ResourceCatalogProvider : ICatalogProvider
         var descriptors = new List<CatalogDescriptor>();
         foreach (LocalizationCatalogAttribute attribute in SafeAttributes(assembly))
         {
-            if (_registry.ResolveById(attribute.Format) is null)
+            ITranslationFormat? resolved = _registry.ResolveById(attribute.Format);
+            if (resolved is null)
             {
                 continue;
             }
 
             var resourceName = attribute.ResourceName;
             Assembly owner = assembly;
+            ITranslationFormat format = resolved;
             descriptors.Add(new CatalogDescriptor
             {
                 Culture = CultureFromName(resourceName),
                 Format = attribute.Format,
                 Name = resourceName,
-                Source = new CatalogSource.Synchronous(() => OpenResource(owner, resourceName))
+                Source = new CatalogSource.Synchronous(() => Read(format, owner, resourceName))
             });
         }
 
@@ -130,23 +134,33 @@ public sealed class ResourceCatalogProvider : ICatalogProvider
         var descriptors = new List<CatalogDescriptor>();
         foreach (var name in names)
         {
-            if (_registry.ResolveByExtension(Path.GetExtension(name)) is null)
+            ITranslationFormat? resolved = _registry.ResolveByExtension(Path.GetExtension(name));
+            if (resolved is null)
             {
                 continue;
             }
 
             var resourceName = name;
             Assembly owner = satellite;
+            ITranslationFormat format = resolved;
             descriptors.Add(new CatalogDescriptor
             {
                 Culture = culture.Name,
                 Format = Path.GetExtension(name),
                 Name = resourceName,
-                Source = new CatalogSource.Synchronous(() => OpenResource(owner, resourceName))
+                Source = new CatalogSource.Synchronous(() => Read(format, owner, resourceName))
             });
         }
 
         return descriptors;
+    }
+
+    // Opens an embedded catalog resource and parses it with its resolved format. The provider owns the parse, so the
+    // store receives a ready catalog; the stream is disposed before it returns.
+    private static Catalog Read(ITranslationFormat format, Assembly assembly, string resourceName)
+    {
+        using Stream stream = OpenResource(assembly, resourceName);
+        return format.Read(stream);
     }
 
     private static Stream OpenResource(Assembly assembly, string resourceName)

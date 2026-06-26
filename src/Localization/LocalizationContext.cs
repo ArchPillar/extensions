@@ -140,7 +140,7 @@ public sealed class LocalizationContext : IDisposable
     public Task PreloadAllAsync(CancellationToken cancellationToken = default) =>
         _store.PreloadAllAsync(cancellationToken);
 
-    /// <summary>Clears all layered catalogs, sources, and discovery state, returning the context to empty.</summary>
+    /// <summary>Clears the configured providers and loaded catalogs, returning the context to its default empty state.</summary>
     public void Reset() => _store.Reset();
 
     /// <inheritdoc />

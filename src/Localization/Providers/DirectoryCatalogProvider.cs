@@ -19,7 +19,7 @@ public sealed class DirectoryCatalogProvider : ICatalogProvider
     private static readonly IReadOnlyList<string> _formatPrecedence = ["xliff", "arb", "po"];
     private readonly string _directory;
     private readonly TimeSpan _debounce;
-    private readonly TranslationFormatRegistry _registry = BuiltInTranslationFormats.CreateRegistry();
+    private readonly TranslationFormatRegistry _registry;
 
     /// <summary>
     /// Initializes a new <see cref="DirectoryCatalogProvider"/> over <paramref name="directory"/>, scanning it now.
@@ -28,12 +28,14 @@ public sealed class DirectoryCatalogProvider : ICatalogProvider
     /// <param name="hotReloadDebounce">
     /// How long to let directory changes settle before a watch callback fires; defaults to 250&#160;ms.
     /// </param>
+    /// <param name="formats">The formats to parse catalogs with; defaults to the built-in set (XLIFF, ARB, PO).</param>
     /// <exception cref="ArgumentNullException"><paramref name="directory"/> is <see langword="null"/>.</exception>
-    public DirectoryCatalogProvider(string directory, TimeSpan? hotReloadDebounce = null)
+    public DirectoryCatalogProvider(string directory, TimeSpan? hotReloadDebounce = null, TranslationFormatRegistry? formats = null)
     {
         _directory = directory ?? throw new ArgumentNullException(nameof(directory));
         _debounce = hotReloadDebounce ?? TimeSpan.FromMilliseconds(250);
-        Catalogs = Enumerate();
+        _registry = formats ?? BuiltInTranslationFormats.CreateRegistry();
+        Catalogs = Discover();
     }
 
     /// <inheritdoc />
@@ -72,7 +74,7 @@ public sealed class DirectoryCatalogProvider : ICatalogProvider
     // Scans the directory once, listing one descriptor per logical catalog (the file name without its format
     // extension): when a catalog exists in several formats, only the highest-precedence one is listed, so a losing
     // format is never opened. Files no registered format recognizes are skipped.
-    private List<CatalogDescriptor> Enumerate()
+    private List<CatalogDescriptor> Discover()
     {
         if (!Directory.Exists(_directory))
         {
@@ -80,7 +82,7 @@ public sealed class DirectoryCatalogProvider : ICatalogProvider
         }
 
         var winners = new Dictionary<string, CatalogDescriptor>(StringComparer.OrdinalIgnoreCase);
-        foreach (var file in Directory.EnumerateFiles(_directory))
+        foreach (var file in Directory.EnumerateFiles(_directory, "*", SearchOption.AllDirectories))
         {
             if (Describe(file) is not { } descriptor)
             {
@@ -102,19 +104,29 @@ public sealed class DirectoryCatalogProvider : ICatalogProvider
     private CatalogDescriptor? Describe(string path)
     {
         var extension = Path.GetExtension(path);
-        if (_registry.ResolveByExtension(extension) is null)
+        ITranslationFormat? resolved = _registry.ResolveByExtension(extension);
+        if (resolved is null)
         {
             return null;
         }
 
         var filePath = path;
+        ITranslationFormat format = resolved;
         return new CatalogDescriptor
         {
             Culture = CultureFromFileName(path),
             Format = extension,
             Name = Path.GetFileName(path),
-            Source = new CatalogSource.Synchronous(() => File.OpenRead(filePath))
+            Source = new CatalogSource.Synchronous(() => Read(format, filePath))
         };
+    }
+
+    // Opens and parses one catalog file with its resolved format. The provider owns the parse, so the store gets a
+    // ready catalog; the stream is disposed before it returns.
+    private static Catalog Read(ITranslationFormat format, string path)
+    {
+        using FileStream stream = File.OpenRead(path);
+        return format.Read(stream);
     }
 
     // The current winning descriptor for the logical catalog a changed file belongs to, re-evaluated against the

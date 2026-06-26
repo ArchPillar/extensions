@@ -1,10 +1,11 @@
+using ArchPillar.Extensions.Localization.Formats;
 using ArchPillar.Extensions.Localization.MessageFormat;
 
 namespace ArchPillar.Extensions.Localization;
 
 /// <summary>
 /// Configuration for a <see cref="DefaultLocalizer"/>: where to load catalogs from, the source language, the
-/// format precedence on overlap, and the missing-argument and hot-reload behaviour. Everything is configured here —
+/// translation formats, and the missing-argument and hot-reload behaviour. Everything is configured here —
 /// there is no runtime mutation surface; to add a provider or source, build new options (<c>with</c>) and reconfigure.
 /// </summary>
 public sealed record LocalizerOptions
@@ -48,19 +49,20 @@ public sealed record LocalizerOptions
     public MissingArgumentPolicy MissingArguments { get; init; } = MissingArgumentPolicy.PassThrough;
 
     /// <summary>
-    /// Custom translation sources, layered above the loaded catalogs (a later source wins) and resolved by the
-    /// very same path — a source is just a catalog a user implements (<see cref="ITranslationSource"/>), so the
-    /// merged catalog snapshot is itself the lowest such layer. Use for providers such as pseudo-localization
-    /// or a live translation service. Empty by default.
+    /// Catalog providers to load from, as factories over the resolved options — so a provider reads the configured
+    /// <see cref="Formats"/>, <see cref="TranslationsDirectory"/>, and the rest at the moment it is built. Layered
+    /// beneath the built-in directory provider (and, for the ambient store, the resource provider). An already-built
+    /// provider is a trivial factory, <c>_ => provider</c>; one that needs wiring reads it off the options,
+    /// <c>o =&gt; new MyProvider(o.Formats)</c>. Empty by default.
     /// </summary>
-    public IReadOnlyList<ITranslationSource> Sources { get; init; } = [];
+    public IReadOnlyList<Func<LocalizerOptions, ICatalogProvider>> Providers { get; init; } = [];
 
     /// <summary>
-    /// Catalog providers to load from, layered beneath the built-in directory provider (and, for the ambient store,
-    /// the resource provider). Use for a source the directory provider cannot reach — an HTTP
-    /// <see cref="ManifestCatalogProvider"/> for a Blazor WebAssembly client, say. Empty by default.
+    /// The translation formats the catalog providers parse with — the parser set a catalog's bytes are read against.
+    /// Defaults to the built-in formats (XLIFF, ARB, PO). Register an extra format on a copy to teach the providers a
+    /// custom one; a provider from <see cref="Providers"/> reads this when it is built.
     /// </summary>
-    public IReadOnlyList<ICatalogProvider> Providers { get; init; } = [];
+    public TranslationFormatRegistry Formats { get; init; } = BuiltInTranslationFormats.CreateRegistry();
 
     private static string DefaultDirectory() => Path.Combine(AppContext.BaseDirectory, "Translations");
 }

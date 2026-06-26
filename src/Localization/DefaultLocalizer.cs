@@ -6,16 +6,13 @@ namespace ArchPillar.Extensions.Localization;
 /// <summary>
 /// Renders translatable call sites at runtime: looks up the loaded override for the requested culture
 /// and key, falls back through parent cultures to the in-code default, and formats with the ICU engine. A
-/// pure resolution engine — it resolves against a snapshot it is given (a live <see cref="CatalogStore"/> or
-/// a fixed set of catalogs) and owns no I/O. Lookups are lock-free; designed to be a singleton and safe for
+/// pure resolution engine — it resolves against the layers and rendering context of a live
+/// <see cref="CatalogStore"/> and owns no I/O. Lookups are lock-free; designed to be a singleton and safe for
 /// concurrent use.
 /// </summary>
 public sealed class DefaultLocalizer : ILocalizer
 {
-    private readonly CatalogStore? _store;
-    private readonly RenderingContext? _context;
-    private readonly TranslationSnapshot _fixedSnapshot;
-    private readonly IReadOnlyList<ITranslationSource> _fixedLayers;
+    private readonly CatalogStore _store;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DefaultLocalizer"/> class over a <see cref="CatalogStore"/>,
@@ -28,66 +25,10 @@ public sealed class DefaultLocalizer : ILocalizer
     internal DefaultLocalizer(CatalogStore store)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
-        _context = null;
-        _fixedSnapshot = TranslationSnapshot.Empty;
-        _fixedLayers = [];
     }
 
-    /// <summary>
-    /// Initializes an isolated localizer over the given <paramref name="catalogs"/>, bypassing the
-    /// translations directory and the ambient store. Intended for tests and self-contained or multi-tenant
-    /// scenarios. Untranslated entries are skipped exactly as the directory loader does, and the source
-    /// language is loaded as an override layer above the in-code default (which stays the terminal fallback);
-    /// on per-culture overlap, later catalogs win. Hot reload does not apply.
-    /// </summary>
-    /// <param name="catalogs">The parsed catalogs to load as overrides.</param>
-    /// <param name="options">The localizer configuration, or <see langword="null"/> for the defaults.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="catalogs"/> is <see langword="null"/>.</exception>
-    public DefaultLocalizer(IEnumerable<Catalog> catalogs, LocalizerOptions? options = null)
-    {
-        if (catalogs is null)
-        {
-            throw new ArgumentNullException(nameof(catalogs));
-        }
-
-        LocalizerOptions resolved = options ?? new LocalizerOptions();
-        _store = null;
-        _context = RenderingContext.For(resolved.SourceCulture, resolved.MissingArguments);
-        _fixedSnapshot = CatalogLoader.BuildSnapshot([.. catalogs], resolved);
-        _fixedLayers = BuildLayers(resolved.Sources, _fixedSnapshot);
-    }
-
-    /// <summary>
-    /// Initializes an isolated localizer over a single <paramref name="catalog"/>, bypassing the
-    /// translations directory and the ambient store.
-    /// </summary>
-    /// <param name="catalog">The parsed catalog to load as overrides.</param>
-    /// <param name="options">The localizer configuration, or <see langword="null"/> for the defaults.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="catalog"/> is <see langword="null"/>.</exception>
-    public DefaultLocalizer(Catalog catalog, LocalizerOptions? options = null)
-        : this(Single(catalog), options)
-    {
-    }
-
-    /// <summary>
-    /// Creates a <see cref="DefaultLocalizer"/> from catalogs the caller has already loaded — for hosts without a
-    /// readable file system (such as Blazor WebAssembly), where the catalogs are fetched over HTTP and
-    /// parsed with an <see cref="ITranslationFormat"/> before being handed in here. Equivalent to the
-    /// <see cref="DefaultLocalizer(IEnumerable{Catalog}, LocalizerOptions?)"/> constructor.
-    /// </summary>
-    /// <param name="catalogs">The parsed catalogs to load as overrides.</param>
-    /// <param name="options">The localizer configuration, or <see langword="null"/> for the defaults.</param>
-    /// <returns>A localizer backed by the supplied catalogs.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="catalogs"/> is <see langword="null"/>.</exception>
-    public static DefaultLocalizer FromCatalogs(IEnumerable<Catalog> catalogs, LocalizerOptions? options = null) =>
-        new(catalogs ?? throw new ArgumentNullException(nameof(catalogs)), options);
-
-    private static IEnumerable<Catalog> Single(Catalog catalog) =>
-        catalog is null ? throw new ArgumentNullException(nameof(catalog)) : [catalog];
-
-    // The snapshot to resolve against: a directory-backed localizer reads the store's current snapshot (so a
-    // reload is observed immediately); an in-memory one resolves against its fixed snapshot.
-    private TranslationSnapshot CurrentSnapshot() => _store is not null ? _store.Snapshot : _fixedSnapshot;
+    // The snapshot to resolve against: the store's current snapshot, read live so a reload is observed immediately.
+    private TranslationSnapshot CurrentSnapshot() => _store.Snapshot;
 
     /// <summary>
     /// Translates <paramref name="key"/> for the current UI culture, falling back to
@@ -164,7 +105,7 @@ public sealed class DefaultLocalizer : ILocalizer
         }
 
         var composite = TranslationKey.Compose(key, context);
-        var message = ResolveOverride(culture, category: string.Empty, composite, defaultMessage);
+        var message = ResolveOverride(culture, category: string.Empty, composite);
         overrideFound = message is not null;
 
         // An override was authored for the requested culture, so render it with that culture's rules.
@@ -201,7 +142,7 @@ public sealed class DefaultLocalizer : ILocalizer
     {
         CultureInfo culture = CultureInfo.CurrentUICulture;
         var composite = TranslationKey.Compose(key, context);
-        var message = ResolveOverride(culture, category, composite, defaultMessage);
+        var message = ResolveOverride(culture, category, composite);
         overrideFound = message is not null;
         RenderingContext rendering = CurrentContext();
         return message is not null
@@ -221,7 +162,7 @@ public sealed class DefaultLocalizer : ILocalizer
     {
         CultureInfo culture = CultureInfo.CurrentUICulture;
         var composite = TranslationKey.Compose(key, context);
-        var message = ResolveOverride(culture, category, composite, defaultMessage: key);
+        var message = ResolveOverride(culture, category, composite);
         return message is null ? null : CurrentContext().Formatter.Format(message, culture, arguments);
     }
 
@@ -258,18 +199,19 @@ public sealed class DefaultLocalizer : ILocalizer
         return [.. result];
     }
 
-    // Walks the ordered resolution layers — custom sources and the catalog snapshot alike, no special path —
-    // and returns the first override, or null for none. Reading the layers by index and the snapshot layer's
-    // own lookup keep the literal path allocation-free.
-    private string? ResolveOverride(CultureInfo culture, string category, string compositeKey, string defaultMessage)
+    // Looks the composite key up under the category in the merged snapshot, falling back through parent cultures —
+    // a sequence of allocation-free dictionary reads against the immutable snapshot. Returns the override, or null
+    // when there is none (the in-code default is the engine's terminal fallback, applied by the caller).
+    private string? ResolveOverride(CultureInfo culture, string category, string compositeKey)
     {
-        IReadOnlyList<ITranslationSource> layers = _store is not null ? _store.Layers : _fixedLayers;
-        for (var index = 0; index < layers.Count; index++)
+        TranslationSnapshot snapshot = _store.Snapshot;
+        for (CultureInfo? current = culture; current is not null && !string.IsNullOrEmpty(current.Name); current = current.Parent)
         {
-            var fromLayer = layers[index].Resolve(culture, category, compositeKey, defaultMessage);
-            if (fromLayer is not null)
+            if (snapshot.ByCulture.TryGetValue(current.Name, out IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>? byCategory)
+                && byCategory.TryGetValue(category, out IReadOnlyDictionary<string, string>? map)
+                && map.TryGetValue(compositeKey, out var message))
             {
-                return fromLayer;
+                return message;
             }
         }
 
@@ -286,22 +228,7 @@ public sealed class DefaultLocalizer : ILocalizer
         (string Name, object? Value)[] arguments) =>
         Translate(culture, key, defaultMessage, context, out _, arguments);
 
-    // The resolution layers for an isolated localizer: custom sources first (a later-added source wins), then
-    // the snapshot as the lowest layer — the same shape the store builds, so resolution treats them alike.
-    private static IReadOnlyList<ITranslationSource> BuildLayers(IReadOnlyList<ITranslationSource>? sources, TranslationSnapshot snapshot)
-    {
-        IReadOnlyList<ITranslationSource> custom = sources ?? [];
-        var layers = new List<ITranslationSource>(custom.Count + 1);
-        for (var index = custom.Count - 1; index >= 0; index--)
-        {
-            layers.Add(custom[index]);
-        }
-
-        layers.Add(new SnapshotTranslationSource(snapshot));
-        return layers;
-    }
-
-    // The rendering context: a store-backed localizer reads the store's live context (so a configuration
-    // change is observed immediately and the formatter instance is shared); an isolated one uses its own.
-    private RenderingContext CurrentContext() => _store is not null ? _store.Context : _context!;
+    // The rendering context: the store's live context, so a configuration change is observed immediately and the
+    // formatter instance is shared.
+    private RenderingContext CurrentContext() => _store.Context;
 }

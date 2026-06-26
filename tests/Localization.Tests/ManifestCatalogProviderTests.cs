@@ -53,8 +53,7 @@ public sealed class ManifestCatalogProviderTests : IDisposable
         CatalogDescriptor descriptor = Assert.Single(provider.Catalogs);
         CatalogSource.Asynchronous asynchronous = Assert.IsType<CatalogSource.Asynchronous>(descriptor.Source);
 
-        await using Stream stream = await asynchronous.OpenAsync(CancellationToken.None);
-        Catalog catalog = new ArbTranslationFormat().Read(stream);
+        Catalog catalog = await asynchronous.OpenAsync(CancellationToken.None);
 
         Assert.Contains(catalog.Entries, entry => entry.TranslatedMessage == "Hallo");
     }

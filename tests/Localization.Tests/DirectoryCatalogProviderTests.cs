@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text;
-using ArchPillar.Extensions.Localization.Formats;
 
 namespace ArchPillar.Extensions.Localization.Tests;
 
@@ -90,7 +89,7 @@ public sealed class DirectoryCatalogProviderTests
     }
 
     [Fact]
-    public void SynchronousSource_OpensTheCatalogBytes()
+    public void SynchronousSource_YieldsTheParsedCatalog()
     {
         var directory = NewDirectory();
         try
@@ -101,8 +100,7 @@ public sealed class DirectoryCatalogProviderTests
             CatalogDescriptor descriptor = Assert.Single(provider.Catalogs);
             CatalogSource.Synchronous sync = Assert.IsType<CatalogSource.Synchronous>(descriptor.Source);
 
-            using Stream stream = sync.Open();
-            Catalog catalog = new ArbTranslationFormat().Read(stream);
+            Catalog catalog = sync.Open();
 
             Assert.Equal("de", catalog.Culture);
             Assert.Contains(catalog.Entries, entry => entry.TranslatedMessage == "Hallo");

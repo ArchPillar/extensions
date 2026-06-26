@@ -1,5 +1,4 @@
 using System.Globalization;
-using ArchPillar.Extensions.Localization.Formats;
 
 namespace ArchPillar.Extensions.Localization.Tests;
 
@@ -39,14 +38,13 @@ public sealed class ResourceCatalogProviderTests
     }
 
     [Fact]
-    public void SynchronousSource_OpensTheEmbeddedResourceBytes()
+    public void SynchronousSource_YieldsTheEmbeddedCatalog()
     {
         var provider = new ResourceCatalogProvider();
         CatalogDescriptor embedded = Assert.Single(provider.Catalogs, descriptor => descriptor.Name == "embedded.de.arb");
         CatalogSource.Synchronous sync = Assert.IsType<CatalogSource.Synchronous>(embedded.Source);
 
-        using Stream stream = sync.Open();
-        Catalog catalog = new ArbTranslationFormat().Read(stream);
+        Catalog catalog = sync.Open();
 
         Assert.Contains(catalog.Entries, entry => entry.TranslatedMessage == "Eingebettet");
     }
@@ -63,8 +61,7 @@ public sealed class ResourceCatalogProviderTests
         CatalogDescriptor satellite = Assert.Single(german, descriptor => descriptor.Culture == "de" && descriptor.Name != "embedded.de.arb");
         CatalogSource.Synchronous sync = Assert.IsType<CatalogSource.Synchronous>(satellite.Source);
 
-        using Stream stream = sync.Open();
-        Catalog catalog = new ArbTranslationFormat().Read(stream);
+        Catalog catalog = sync.Open();
         Assert.Contains(catalog.Entries, entry => entry.TranslatedMessage == "Aus dem Satelliten");
     }
 

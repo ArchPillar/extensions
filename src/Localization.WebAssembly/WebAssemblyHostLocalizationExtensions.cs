@@ -42,10 +42,10 @@ public static class WebAssemblyHostLocalizationExtensions
         LocalizerOptions resolved = options ?? new LocalizerOptions();
         HttpClient httpClient = host.Services.GetRequiredService<HttpClient>();
         ManifestCatalogProvider provider = await ManifestCatalogProvider
-            .CreateAsync(httpClient, manifestUri, resolved.SourceCulture, cancellationToken)
+            .CreateAsync(httpClient, manifestUri, resolved.SourceCulture, resolved.Formats, cancellationToken)
             .ConfigureAwait(false);
 
-        Localizer.Configure(resolved with { Providers = [.. resolved.Providers, provider] });
+        Localizer.Configure(resolved with { Providers = [.. resolved.Providers, _ => provider] });
         await Localizer.LoadCultureAsync(CultureInfo.CurrentUICulture, cancellationToken).ConfigureAwait(false);
     }
 }

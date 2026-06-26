@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text.Json;
 using System.Xml;
-using ArchPillar.Extensions.Localization.Formats;
 using ArchPillar.Extensions.Localization.Internal;
 
 namespace ArchPillar.Extensions.Localization;
@@ -10,7 +9,7 @@ namespace ArchPillar.Extensions.Localization;
 /// <summary>
 /// Owns the layered set of translation catalogs and keeps the merged snapshot current. Provider-agnostic: it loads
 /// from an ordered list of <see cref="ICatalogProvider"/>s (lowest precedence first) and exposes the merged
-/// snapshot and resolution layers for a <see cref="DefaultLocalizer"/>. <c>new CatalogStore(options)</c> is
+/// snapshot for a <see cref="DefaultLocalizer"/>. <c>new CatalogStore(options)</c> is
 /// directory-backed; the ambient store (<see cref="Localizer"/>) also discovers embedded and satellite catalogs.
 /// </summary>
 internal sealed class CatalogStore : IDisposable
@@ -23,9 +22,8 @@ internal sealed class CatalogStore : IDisposable
     // deadlock.
     private readonly object _gate = new();
     private readonly object _startupGate = new();
-    private readonly TranslationFormatRegistry _registry = BuiltInTranslationFormats.CreateRegistry();
     // The active configuration, swapped wholesale on construct/Configure; read live for the Cultures allow-list,
-    // eager/on-demand, hot reload, and the custom sources.
+    // eager/on-demand, and hot reload.
     private volatile LocalizerOptions _options = new();
     // Ambient-store flag: when set, DefaultProviders adds a ResourceCatalogProvider beneath the directory one.
     private readonly bool _discover;
@@ -48,7 +46,6 @@ internal sealed class CatalogStore : IDisposable
     // Open-batch count; while positive, rebuilds defer. Read/written only under _gate.
     private int _batchDepth;
     private volatile TranslationSnapshot _snapshot = TranslationSnapshot.Empty;
-    private volatile IReadOnlyList<ITranslationSource> _layers = [];
 
     /// <summary>Raised after a rebuild that changed the merged snapshot. Raised once per operation and outside
     /// <c>_gate</c>, so a subscriber may re-enter the store.</summary>
@@ -72,17 +69,6 @@ internal sealed class CatalogStore : IDisposable
         {
             EnsureStarted();
             return _snapshot;
-        }
-    }
-
-    /// <summary>The resolution layers — custom sources (newest wins) above the merged snapshot — so a localizer
-    /// treats every layer alike.</summary>
-    public IReadOnlyList<ITranslationSource> Layers
-    {
-        get
-        {
-            EnsureStarted();
-            return _layers;
         }
     }
 
@@ -256,27 +242,14 @@ internal sealed class CatalogStore : IDisposable
         }
     }
 
-    /// <summary>Clears all layered catalogs, sources, and loaded state, returning the store to empty.</summary>
+    /// <summary>Clears the configured providers and all loaded catalogs, returning the store to its default empty state.</summary>
     public void Reset()
     {
-        lock (_gate)
-        {
-            foreach (ProviderState state in _states)
-            {
-                state.Catalogs.Clear();
-                state.Failed.Clear();
-            }
-
-            _options = _options with { Sources = [] };
-            _loadedCultures.Clear();
-            _context = RenderingContext.Default;
-            _started = false;
-            // Clear _dirty/_snapshotBuilt so the rebuild below is a silent baseline build; the next EnsureStarted
-            // re-publishes whatever the reloaded providers carry.
-            _dirty = false;
-            _snapshotBuilt = false;
-        }
-
+        // Return to the default empty state: drop the configured providers (and their loaded catalogs) and the
+        // in-use culture set, re-deriving the default context. The ambient store re-discovers its embedded and
+        // satellite catalogs on the next use; a directory-backed store falls back to the default directory.
+        ApplyOptions(new LocalizerOptions());
+        _loadedCultures.Clear();
         Rebuild();
     }
 
@@ -297,14 +270,14 @@ internal sealed class CatalogStore : IDisposable
 
     // The single options path, shared by construction and Configure. Re-derives the context and rebuilds the
     // provider list (the built-in directory/resource providers plus options.Providers) and per-provider state from
-    // scratch; the layered sources are likewise replaced from options.Sources. The in-use culture set survives.
+    // scratch. The in-use culture set survives.
     // Provider construction and old-watch teardown run outside _gate (loader lock); only the field swap is under it.
     // Resetting _started/_watching/_snapshotBuilt makes the next EnsureStarted re-enumerate and rebuild the baseline.
     private void ApplyOptions(LocalizerOptions options)
     {
         var context = RenderingContext.For(options.SourceCulture, options.MissingArguments);
-        IReadOnlyList<ICatalogProvider> configured = DefaultProviders(options.TranslationsDirectory, options.HotReloadDebounce, _discover);
-        IReadOnlyList<ICatalogProvider> providers = [.. configured, .. options.Providers];
+        IReadOnlyList<ICatalogProvider> configured = DefaultProviders(options, _discover);
+        IReadOnlyList<ICatalogProvider> providers = [.. configured, .. options.Providers.Select(factory => factory(options))];
 
         foreach (ProviderState state in _states)
         {
@@ -332,10 +305,10 @@ internal sealed class CatalogStore : IDisposable
 
     // The auto-default provider list: a directory provider, with the resource provider beneath it for the ambient
     // store (resource first so app files win on overlap).
-    private static IReadOnlyList<ICatalogProvider> DefaultProviders(string directory, TimeSpan debounce, bool discover)
+    private static IReadOnlyList<ICatalogProvider> DefaultProviders(LocalizerOptions options, bool discover)
     {
-        var directoryProvider = new DirectoryCatalogProvider(directory, debounce);
-        return discover ? [new ResourceCatalogProvider(), directoryProvider] : [directoryProvider];
+        var directoryProvider = new DirectoryCatalogProvider(options.TranslationsDirectory, options.HotReloadDebounce, options.Formats);
+        return discover ? [new ResourceCatalogProvider(options.Formats), directoryProvider] : [directoryProvider];
     }
 
     // Marks the culture and its parent chain in-use (TryAdd gates each load to one caller) and probes every provider
@@ -377,8 +350,7 @@ internal sealed class CatalogStore : IDisposable
                 case CatalogSource.Synchronous synchronous:
                     try
                     {
-                        using Stream stream = synchronous.Open();
-                        ReadInto(descriptor, stream, loaded, failures);
+                        loaded.Add((descriptor, synchronous.Open()));
                     }
                     catch (Exception exception) when (IsCatalogLoadFailure(exception))
                     {
@@ -408,20 +380,6 @@ internal sealed class CatalogStore : IDisposable
         }
     }
 
-    // Parses an open stream into a Catalog using the descriptor's format, staging it into loaded or — when no format
-    // matches — its identity into failures. A parse that throws a known load failure is caught by the caller's try.
-    private void ReadInto(CatalogDescriptor descriptor, Stream stream, List<(CatalogDescriptor Descriptor, Catalog Catalog)> loaded, List<(string, string)> failures)
-    {
-        ITranslationFormat? format = _registry.Resolve(descriptor.Format);
-        if (format is null)
-        {
-            failures.Add(descriptor.Identity);
-            return;
-        }
-
-        loaded.Add((descriptor, format.Read(stream)));
-    }
-
     // Coalesces a background load by identity: GetOrAdd starts it once; concurrent misses join the running task.
     private Task EnqueueAsync(ProviderState state, CatalogDescriptor descriptor) =>
         _backgroundLoads.GetOrAdd(descriptor.Identity, _ => RunBackgroundLoadAsync(state, descriptor));
@@ -441,11 +399,8 @@ internal sealed class CatalogStore : IDisposable
             var failures = new List<(string, string)>();
             try
             {
-                Stream stream = await asynchronous.OpenAsync(CancellationToken.None).ConfigureAwait(false);
-                await using (stream.ConfigureAwait(false))
-                {
-                    ReadInto(descriptor, stream, loaded, failures);
-                }
+                Catalog catalog = await asynchronous.OpenAsync(CancellationToken.None).ConfigureAwait(false);
+                loaded.Add((descriptor, catalog));
             }
             catch (Exception exception) when (IsCatalogLoadFailure(exception))
             {
@@ -522,8 +477,8 @@ internal sealed class CatalogStore : IDisposable
     }
 
     // The single rebuild-and-publish point; takes _gate itself so no caller holds it across the notify. In a batch it
-    // defers (marks dirty). Otherwise it asks the snapshot builder for the merged snapshot and layers, swaps them
-    // atomically, and raises CatalogsChanged outside _gate — but only for a real change; a baseline-only build is
+    // defers (marks dirty). Otherwise it asks the snapshot builder for the merged snapshot, swaps it atomically,
+    // and raises CatalogsChanged outside _gate — but only for a real change; a baseline-only build is
     // silent.
     private void Rebuild()
     {
@@ -544,10 +499,7 @@ internal sealed class CatalogStore : IDisposable
             publish = _dirty;
             _dirty = false;
 
-            (TranslationSnapshot snapshot, IReadOnlyList<ITranslationSource> layers) =
-                SnapshotBuilder.Build(_states, _options, Context.SourceCultureName);
-            _snapshot = snapshot;
-            _layers = layers;
+            _snapshot = SnapshotBuilder.Build(_states, _options, Context.SourceCultureName);
             _snapshotBuilt = true;
         }
 

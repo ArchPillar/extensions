@@ -1,6 +1,6 @@
 using System.Globalization;
 using System.Text;
-using ArchPillar.Extensions.Localization.Internal;
+using ArchPillar.Extensions.Localization.Formats;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
 using Ambient = ArchPillar.Extensions.Localization.Localizer;
@@ -86,7 +86,7 @@ public sealed class StringLocalizerServiceCollectionExtensionsTests : IDisposabl
 
         var services = new ServiceCollection();
         services.AddSingleton<IStringLocalizerFactory>(new FakeFactory());
-        services.AddArchPillarStringLocalizer(new LocalizerOptions { SourceCulture = "en", Sources = [Layer(catalog)] });
+        services.AddArchPillarStringLocalizer(new LocalizerOptions { SourceCulture = "en", Providers = [Layer(catalog)] });
         using ServiceProvider provider = services.BuildServiceProvider();
 
         IStringLocalizer localizer = provider.GetRequiredService<IStringLocalizerFactory>().Create(typeof(Buttons));
@@ -113,8 +113,8 @@ public sealed class StringLocalizerServiceCollectionExtensionsTests : IDisposabl
     {
         Ambient.Reset();
 
-        // GetAllStrings enumerates the loaded catalog snapshot (not the per-key sources), so the ambient entry must
-        // be a loaded catalog — configured here through a provider that serves it as ARB.
+        // GetAllStrings enumerates the loaded catalog snapshot, so the ambient entry must be a loaded catalog —
+        // configured here through an InMemoryCatalogProvider over a parsed ARB catalog.
         var arb = $$"""
             {
               "@@locale": "de",
@@ -125,7 +125,7 @@ public sealed class StringLocalizerServiceCollectionExtensionsTests : IDisposabl
             """;
 
         var services = new ServiceCollection();
-        services.AddArchPillarStringLocalizer(new LocalizerOptions { SourceCulture = "en", Providers = [new ArbCatalogProvider("de", arb)] });
+        services.AddArchPillarStringLocalizer(new LocalizerOptions { SourceCulture = "en", Providers = [Layer(ParseArb(arb))] });
         using ServiceProvider provider = services.BuildServiceProvider();
         IStringLocalizer localizer = provider.GetRequiredService<IStringLocalizerFactory>().Create(typeof(Buttons));
 
@@ -231,36 +231,13 @@ public sealed class StringLocalizerServiceCollectionExtensionsTests : IDisposabl
         }
     }
 
-    private static ITranslationSource Layer(Catalog catalog) =>
-        new SnapshotTranslationSource(CatalogLoader.BuildSnapshot([catalog], new LocalizerOptions()));
+    private static Func<LocalizerOptions, ICatalogProvider> Layer(Catalog catalog) =>
+        _ => new InMemoryCatalogProvider([catalog]);
 
-    // A minimal in-memory provider serving one culture's ARB bytes, so the catalog lands in the merged snapshot
-    // (enumerable through GetAllStrings) rather than being consulted only per key like a translation source.
-    private sealed class ArbCatalogProvider(string cultureName, string arb) : ICatalogProvider
+    private static Catalog ParseArb(string arb)
     {
-        private readonly CatalogDescriptor _descriptor = new()
-        {
-            Culture = cultureName,
-            Format = "arb",
-            Name = cultureName + ".arb",
-            Source = new CatalogSource.Synchronous(() => new MemoryStream(Encoding.UTF8.GetBytes(arb)))
-        };
-
-        public IReadOnlyList<CatalogDescriptor> Catalogs => [_descriptor];
-
-        public IReadOnlyList<CatalogDescriptor> CatalogsFor(CultureInfo culture) =>
-            string.Equals(culture.Name, cultureName, StringComparison.OrdinalIgnoreCase) ? [_descriptor] : [];
-
-        public IDisposable Watch(Action<CatalogDescriptor> onChanged) => NoOpWatch.Instance;
-
-        private sealed class NoOpWatch : IDisposable
-        {
-            public static readonly NoOpWatch Instance = new();
-
-            public void Dispose()
-            {
-            }
-        }
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(arb));
+        return new ArbTranslationFormat().Read(stream);
     }
 
     private sealed class Buttons;

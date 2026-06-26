@@ -172,18 +172,18 @@ public sealed class LocalizerTests : IDisposable
     }
 
     [Fact]
-    public void FromCatalogs_UsesSuppliedOverride_WithoutTouchingDisk()
+    public void InMemoryCatalogs_ResolveAsOverride()
     {
-        var localizer = DefaultLocalizer.FromCatalogs(
-            [DeCatalog("greeting", "Hallo")],
-            new LocalizerOptions { SourceCulture = "en" });
+        DefaultLocalizer localizer = OverCatalogs(
+            new LocalizerOptions { SourceCulture = "en" },
+            DeCatalog("greeting", "Hallo"));
 
         Assert.Equal("Hallo", localizer.Translate(_de, "greeting", "Hello", null));
         Assert.Equal("Hello", localizer.Translate(_fr, "greeting", "Hello", null));
     }
 
     [Fact]
-    public void FromCatalogs_LoadsSourceCultureOverride()
+    public void InMemoryCatalogs_LoadTheSourceCultureOverride()
     {
         var enCatalog = new Catalog
         {
@@ -201,16 +201,12 @@ public sealed class LocalizerTests : IDisposable
             ]
         };
 
-        var localizer = DefaultLocalizer.FromCatalogs([enCatalog], new LocalizerOptions { SourceCulture = "en" });
+        DefaultLocalizer localizer = OverCatalogs(new LocalizerOptions { SourceCulture = "en" }, enCatalog);
 
         // The source override is loaded above the in-code default; a key without one still falls back.
         Assert.Equal("FROM CATALOG", localizer.Translate(_en, "greeting", "Hello", null));
         Assert.Equal("Hello", localizer.Translate(_en, "missing", "Hello", null));
     }
-
-    [Fact]
-    public void FromCatalogs_Null_Throws() =>
-        Assert.Throws<ArgumentNullException>(() => DefaultLocalizer.FromCatalogs(null!));
 
     public void Dispose()
     {
@@ -258,6 +254,14 @@ public sealed class LocalizerTests : IDisposable
         _stores.Add(store);
         return new DefaultLocalizer(store);
     }
+
+    // Builds a localizer over the given in-memory catalogs via an InMemoryCatalogProvider (no files on disk).
+    private DefaultLocalizer OverCatalogs(LocalizerOptions options, params Catalog[] catalogs) =>
+        Over(options with
+        {
+            TranslationsDirectory = Path.Combine(Path.GetTempPath(), "apl-empty-" + Guid.NewGuid().ToString("N")),
+            Providers = [.. options.Providers, _ => new InMemoryCatalogProvider(catalogs)]
+        });
 
     private string NewDirectory()
     {

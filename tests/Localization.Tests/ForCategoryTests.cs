@@ -1,5 +1,4 @@
 using System.Globalization;
-using ArchPillar.Extensions.Localization.Internal;
 
 namespace ArchPillar.Extensions.Localization.Tests;
 
@@ -16,7 +15,7 @@ public sealed class ForCategoryTests
         using var context = new LocalizationContext(new LocalizerOptions
         {
             SourceCulture = "en",
-            Sources =
+            Providers =
             [
                 Layer(new Catalog
                 {
@@ -63,6 +62,6 @@ public sealed class ForCategoryTests
         Assert.Throws<ArgumentNullException>(() => context.ForCategory(null!));
     }
 
-    private static ITranslationSource Layer(Catalog catalog) =>
-        new SnapshotTranslationSource(CatalogLoader.BuildSnapshot([catalog], new LocalizerOptions()));
+    private static Func<LocalizerOptions, ICatalogProvider> Layer(Catalog catalog) =>
+        _ => new InMemoryCatalogProvider([catalog]);
 }

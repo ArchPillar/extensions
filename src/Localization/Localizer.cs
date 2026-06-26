@@ -137,8 +137,8 @@ public static class Localizer
     public static void Configure(LocalizerOptions options) => Ambient.Configure(options);
 
     /// <summary>
-    /// Clears all layered catalogs, sources, and discovery state from the ambient store. Intended for test
-    /// isolation against the shared ambient state.
+    /// Clears the configured providers and loaded catalogs from the ambient store, returning it to its default
+    /// state. Intended for test isolation against the shared ambient state.
     /// </summary>
     public static void Reset() => Ambient.Reset();
 

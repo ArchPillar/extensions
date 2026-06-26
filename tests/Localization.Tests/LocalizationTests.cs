@@ -1,5 +1,4 @@
 using System.Globalization;
-using ArchPillar.Extensions.Localization.Internal;
 
 [assembly: ArchPillar.Extensions.Localization.LocalizationCatalog("embedded.de.arb", "arb")]
 [assembly: ArchPillar.Extensions.Localization.LocalizationSatelliteCatalogs]
@@ -19,13 +18,12 @@ internal sealed class Greeting;
 public sealed class LocalizationTests
 {
     private static readonly CultureInfo _german = CultureInfo.GetCultureInfo("de");
-    private static readonly CultureInfo _pseudo = CultureInfo.GetCultureInfo("qps-ploc");
 
     [Fact]
-    public void ConfiguredSource_ResolvesThroughAmbientTypedLocalizer()
+    public void ConfiguredCatalog_ResolvesThroughAmbientTypedLocalizer()
     {
         Localizer.Reset();
-        Localizer.Configure(new LocalizerOptions { Sources = [Layer(DeCatalog(typeof(Greeting).FullName!, "hello", "Hallo"))] });
+        Localizer.Configure(new LocalizerOptions { Providers = [Layer(DeCatalog(typeof(Greeting).FullName!, "hello", "Hallo"))] });
 
         WithCulture(_german, () => Assert.Equal("Hallo", Localizer.For<Greeting>().Translate("hello", "Hello")));
     }
@@ -39,17 +37,8 @@ public sealed class LocalizationTests
         Assert.Equal("Hello Ada", Localizer.Translate("greeting", "Hello {name}", ("name", "Ada")));
 
         // A global-category (empty category) override is what the receiver-less Translate resolves against.
-        Localizer.Configure(new LocalizerOptions { Sources = [Layer(DeCatalog(string.Empty, "greeting", "Hallo {name}"))] });
+        Localizer.Configure(new LocalizerOptions { Providers = [Layer(DeCatalog(string.Empty, "greeting", "Hallo {name}"))] });
         WithCulture(_german, () => Assert.Equal("Hallo Ada", Localizer.Translate("greeting", "Hello {name}", ("name", "Ada"))));
-    }
-
-    [Fact]
-    public void ConfiguredSource_LayersOverTheStore()
-    {
-        Localizer.Reset();
-        Localizer.Configure(new LocalizerOptions { Sources = [new PseudoLocalizationSource("qps-ploc")] });
-
-        WithCulture(_pseudo, () => Assert.Equal("XXXXX", Localizer.For<Greeting>().Translate("hello", "Hello")));
     }
 
     [Fact]
@@ -96,19 +85,19 @@ public sealed class LocalizationTests
     }
 
     [Fact]
-    public void Reset_DropsConfiguredSources()
+    public void Reset_DropsConfiguredCatalogs()
     {
         Localizer.Reset();
-        Localizer.Configure(new LocalizerOptions { Sources = [Layer(DeCatalog(typeof(Greeting).FullName!, "hello", "Hallo"))] });
+        Localizer.Configure(new LocalizerOptions { Providers = [Layer(DeCatalog(typeof(Greeting).FullName!, "hello", "Hallo"))] });
         Localizer.Reset();
 
         WithCulture(_german, () => Assert.Equal("Hello", Localizer.For<Greeting>().Translate("hello", "Hello")));
     }
 
-    // Wraps a fixed catalog as a translation source, so a test can layer it through LocalizerOptions.Sources the
-    // way a host layers any custom source — the merged snapshot of the one catalog resolved as a source.
-    private static ITranslationSource Layer(Catalog catalog) =>
-        new SnapshotTranslationSource(CatalogLoader.BuildSnapshot([catalog], new LocalizerOptions()));
+    // Serves a fixed catalog through an InMemoryCatalogProvider, so a test can layer it through
+    // LocalizerOptions.Providers the way a host configures any catalog provider.
+    private static Func<LocalizerOptions, ICatalogProvider> Layer(Catalog catalog) =>
+        _ => new InMemoryCatalogProvider([catalog]);
 
     private static Catalog DeCatalog(string category, string key, string message) => new()
     {

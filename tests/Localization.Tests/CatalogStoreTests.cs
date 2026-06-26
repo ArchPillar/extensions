@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using ArchPillar.Extensions.Localization.Formats;
 
 namespace ArchPillar.Extensions.Localization.Tests;
 
@@ -130,7 +131,7 @@ public sealed class CatalogStoreTests
             SourceCulture = "en",
             CultureLoading = CultureLoading.Eager,
             EnableHotReload = true,
-            Providers = [watchable]
+            Providers = [_ => watchable]
         });
         Assert.Equal("Hallo", Resolve(store, _german));
 
@@ -155,7 +156,7 @@ public sealed class CatalogStoreTests
             TranslationsDirectory = Path.Combine(Path.GetTempPath(), "apl-empty-" + Guid.NewGuid().ToString("N")),
             SourceCulture = "en",
             CultureLoading = CultureLoading.OnDemand,
-            Providers = [new StubProvider(Synchronous("de", "Hallo"))]
+            Providers = [_ => new StubProvider(Synchronous("de", "Hallo"))]
         };
         using var store = new CatalogStore(options);
         store.EnsureCulture(_german);
@@ -176,7 +177,7 @@ public sealed class CatalogStoreTests
             TranslationsDirectory = Path.Combine(Path.GetTempPath(), "apl-empty-" + Guid.NewGuid().ToString("N")),
             SourceCulture = "en",
             CultureLoading = loading,
-            Providers = providers
+            Providers = [.. providers.Select(Factory)]
         });
 
     private static string? Resolve(CatalogStore store, CultureInfo culture)
@@ -199,8 +200,16 @@ public sealed class CatalogStoreTests
         }
         """);
 
+    private static Catalog ParseArb(byte[] bytes)
+    {
+        using var stream = new MemoryStream(bytes);
+        return new ArbTranslationFormat().Read(stream);
+    }
+
+    private static Func<LocalizerOptions, ICatalogProvider> Factory(ICatalogProvider provider) => _ => provider;
+
     private static CatalogSpec Synchronous(string culture, string message) =>
-        new(culture, () => new CatalogSource.Synchronous(() => new MemoryStream(ArbBytes(culture, message))));
+        new(culture, () => new CatalogSource.Synchronous(() => ParseArb(ArbBytes(culture, message))));
 
     private static CatalogSpec Asynchronous(string culture, string message) =>
         new(culture, () => new CatalogSource.Asynchronous(async _ =>
@@ -208,7 +217,7 @@ public sealed class CatalogStoreTests
             // Yield so the load genuinely completes asynchronously, like a real network fetch — the store's
             // synchronous lookup path must skip it rather than blocking.
             await Task.Yield();
-            return new MemoryStream(ArbBytes(culture, message));
+            return ParseArb(ArbBytes(culture, message));
         }));
 
     // An asynchronous load held at a caller-controlled gate, so a test can assert the pre-load state before the
@@ -217,11 +226,11 @@ public sealed class CatalogStoreTests
         new(culture, () => new CatalogSource.Asynchronous(async _ =>
         {
             await gate.ConfigureAwait(false);
-            return new MemoryStream(ArbBytes(culture, message));
+            return ParseArb(ArbBytes(culture, message));
         }));
 
     private static CatalogSpec Malformed(string culture) =>
-        new(culture, () => new CatalogSource.Synchronous(() => new MemoryStream(Encoding.UTF8.GetBytes("{ not valid arb"))));
+        new(culture, () => new CatalogSource.Synchronous(() => ParseArb(Encoding.UTF8.GetBytes("{ not valid arb"))));
 
     // A descriptor recipe: the culture and a factory for its load, plus an open counter so a test can assert how
     // many times the bytes were opened (fail-no-retry).

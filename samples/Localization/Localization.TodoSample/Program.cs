@@ -9,21 +9,18 @@ using Localization.TodoSample;
 //   - A self-scoped Localized<T> string bundle (member name is the key, type is the category)
 //   - In-code English overridden by German and French .xliff catalogs beside the binary
 //   - ICU plurals ({count, plural, ...}) resolved per culture
-//   - A pseudo-localization QA pass (qps-ploc) that X's translatable strings to catch hardcoded text
 //
 // The string bundle lives in TodoStrings.cs; the catalogs are Translations/de.xliff and fr.xliff.
 // ---------------------------------------------------------------------------
 using var context = new LocalizationContext(new LocalizerOptions
 {
     TranslationsDirectory = Path.Combine(AppContext.BaseDirectory, "Translations"),
-    SourceCulture = "en",
-    Sources = [new PseudoLocalizationSource("qps-ploc")]
+    SourceCulture = "en"
 });
 
 var strings = new TodoStrings(context.For<TodoStrings>());
 
-// A fixed to-do list. The task titles and the checkbox glyph are deliberately hardcoded (not
-// translatable), so the pseudo run shows them unchanged — that is the point of the smoke test.
+// A fixed to-do list. The task titles and the checkbox glyph are deliberately hardcoded (not translatable).
 (string Title, bool Done)[] items =
 [
     ("Buy milk", true),
@@ -31,7 +28,7 @@ var strings = new TodoStrings(context.For<TodoStrings>());
     ("Call Ada", false)
 ];
 
-foreach (var culture in new[] { "en", "de", "fr", "qps-ploc" })
+foreach (var culture in new[] { "en", "de", "fr" })
 {
     CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(culture);
     Console.WriteLine();

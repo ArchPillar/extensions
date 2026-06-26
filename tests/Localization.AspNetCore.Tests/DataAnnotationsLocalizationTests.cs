@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
-using ArchPillar.Extensions.Localization.Internal;
 using Microsoft.AspNetCore.Mvc.DataAnnotations;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -98,7 +97,7 @@ public sealed class DataAnnotationsLocalizationTests
         new(new LocalizerOptions
         {
             SourceCulture = "en",
-            Sources =
+            Providers =
             [
                 Layer(new Catalog
                 {
@@ -119,8 +118,8 @@ public sealed class DataAnnotationsLocalizationTests
             ],
         });
 
-    private static ITranslationSource Layer(Catalog catalog) =>
-        new SnapshotTranslationSource(CatalogLoader.BuildSnapshot([catalog], new LocalizerOptions()));
+    private static Func<LocalizerOptions, ICatalogProvider> Layer(Catalog catalog) =>
+        _ => new InMemoryCatalogProvider([catalog]);
 
     private static string InCulture(string culture, Func<string> action)
     {

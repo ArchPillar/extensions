@@ -1,12 +1,11 @@
 namespace ArchPillar.Extensions.Localization.Internal;
 
-// Builds the merged translation snapshot and the resolution layers from the loaded catalogs. Providers merge in
-// order (lowest precedence first); within a provider the catalogs are already format-selected at discovery, so
-// there is nothing to sort. Custom sources layer newest-wins above the snapshot (itself the lowest layer); the
+// Merges the loaded catalogs into the immutable translation snapshot. Providers merge in order (lowest precedence
+// first); within a provider the catalogs are already format-selected at discovery, so there is nothing to sort. The
 // source culture is the resolved one — an override exempt from the Cultures allow-list.
 internal static class SnapshotBuilder
 {
-    public static (TranslationSnapshot Snapshot, IReadOnlyList<ITranslationSource> Layers) Build(
+    public static TranslationSnapshot Build(
         IReadOnlyList<ProviderState> providers,
         LocalizerOptions options,
         string sourceCulture)
@@ -22,16 +21,6 @@ internal static class SnapshotBuilder
             SourceCulture = sourceCulture,
             Cultures = options.Cultures
         };
-        TranslationSnapshot snapshot = CatalogLoader.BuildSnapshot(all, snapshotOptions);
-
-        IReadOnlyList<ITranslationSource> sources = options.Sources;
-        var layers = new List<ITranslationSource>(sources.Count + 1);
-        for (var index = sources.Count - 1; index >= 0; index--)
-        {
-            layers.Add(sources[index]);
-        }
-
-        layers.Add(new SnapshotTranslationSource(snapshot));
-        return (snapshot, layers);
+        return CatalogLoader.BuildSnapshot(all, snapshotOptions);
     }
 }

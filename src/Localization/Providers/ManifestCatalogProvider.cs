@@ -48,6 +48,7 @@ public sealed class ManifestCatalogProvider : ICatalogProvider
     /// its genuine overrides are available; <see langword="null"/> to scope a per-culture listing to the
     /// requested culture and its parents only.
     /// </param>
+    /// <param name="formats">The formats to parse catalogs with; defaults to the built-in set (XLIFF, ARB, PO).</param>
     /// <param name="cancellationToken">A token to cancel the fetch.</param>
     /// <returns>A born-ready provider listing the manifest's catalogs.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="httpClient"/> or <paramref name="manifestUri"/> is <see langword="null"/>.</exception>
@@ -55,6 +56,7 @@ public sealed class ManifestCatalogProvider : ICatalogProvider
         HttpClient httpClient,
         string manifestUri = DefaultManifestPath,
         string? sourceCulture = null,
+        TranslationFormatRegistry? formats = null,
         CancellationToken cancellationToken = default)
     {
         if (httpClient is null)
@@ -67,7 +69,7 @@ public sealed class ManifestCatalogProvider : ICatalogProvider
             throw new ArgumentNullException(nameof(manifestUri));
         }
 
-        TranslationFormatRegistry registry = BuiltInTranslationFormats.CreateRegistry();
+        TranslationFormatRegistry registry = formats ?? BuiltInTranslationFormats.CreateRegistry();
         IReadOnlyList<string> uris = await ReadManifestAsync(httpClient, manifestUri, cancellationToken).ConfigureAwait(false);
         IReadOnlyList<CatalogDescriptor> catalogs = Describe(httpClient, registry, uris);
         return new ManifestCatalogProvider(catalogs, sourceCulture);
@@ -110,33 +112,35 @@ public sealed class ManifestCatalogProvider : ICatalogProvider
         foreach (var uri in uris)
         {
             var extension = ExtensionOf(uri);
-            if (registry.ResolveByExtension(extension) is null)
+            ITranslationFormat? resolved = registry.ResolveByExtension(extension);
+            if (resolved is null)
             {
                 continue;
             }
 
             var requestUri = uri;
+            ITranslationFormat format = resolved;
             descriptors.Add(new CatalogDescriptor
             {
                 Culture = CultureFromUri(uri),
                 Format = extension,
                 Name = uri,
-                Source = new CatalogSource.Asynchronous(token => FetchAsync(httpClient, requestUri, token))
+                Source = new CatalogSource.Asynchronous(token => FetchAndReadAsync(httpClient, requestUri, format, token))
             });
         }
 
         return descriptors;
     }
 
-    private static async ValueTask<Stream> FetchAsync(HttpClient httpClient, string requestUri, CancellationToken cancellationToken)
+    private static async ValueTask<Catalog> FetchAndReadAsync(HttpClient httpClient, string requestUri, ITranslationFormat format, CancellationToken cancellationToken)
     {
-        // Dispose the response on every path. The bytes are buffered into a caller-owned MemoryStream rather than
-        // handing back the live response stream, so the HttpResponseMessage is not leaked while the caller reads —
-        // a catalog is small, so buffering it is cheap.
+        // Buffer the bytes asynchronously, then parse from memory — the provider owns the parse, so the store gets a
+        // ready catalog. The response is disposed on every path; a catalog is small, so buffering it is cheap.
         using HttpResponseMessage response = await httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
         var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken).ConfigureAwait(false);
-        return new MemoryStream(bytes);
+        using var stream = new MemoryStream(bytes);
+        return format.Read(stream);
     }
 
     private static async ValueTask<IReadOnlyList<string>> ReadManifestAsync(HttpClient httpClient, string manifestUri, CancellationToken cancellationToken)
