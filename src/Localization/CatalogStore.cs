@@ -24,9 +24,8 @@ internal sealed class CatalogStore : IDisposable
     private readonly object _gate = new();
     private readonly object _startupGate = new();
     private readonly TranslationFormatRegistry _registry = BuiltInTranslationFormats.CreateRegistry();
-    private readonly SnapshotBuilder _snapshotBuilder;
-    // The active configuration, swapped wholesale on construct/Configure; read live for format precedence, the
-    // Cultures allow-list, eager/on-demand, hot reload, and the custom sources.
+    // The active configuration, swapped wholesale on construct/Configure; read live for the Cultures allow-list,
+    // eager/on-demand, hot reload, and the custom sources.
     private volatile LocalizerOptions _options = new();
     // Ambient-store flag: when set, DefaultProviders adds a ResourceCatalogProvider beneath the directory one.
     private readonly bool _discover;
@@ -106,7 +105,6 @@ internal sealed class CatalogStore : IDisposable
     private CatalogStore(LocalizerOptions options, bool discover)
     {
         _discover = discover;
-        _snapshotBuilder = new(_registry);
         ApplyOptions(options);
     }
 
@@ -547,7 +545,7 @@ internal sealed class CatalogStore : IDisposable
             _dirty = false;
 
             (TranslationSnapshot snapshot, IReadOnlyList<ITranslationSource> layers) =
-                _snapshotBuilder.Build(_states, _options, Context.SourceCultureName);
+                SnapshotBuilder.Build(_states, _options, Context.SourceCultureName);
             _snapshot = snapshot;
             _layers = layers;
             _snapshotBuilt = true;

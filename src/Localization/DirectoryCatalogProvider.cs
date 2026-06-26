@@ -14,6 +14,9 @@ namespace ArchPillar.Extensions.Localization;
 /// </summary>
 public sealed class DirectoryCatalogProvider : ICatalogProvider
 {
+    // The fixed format tie-breaker (most-preferred first): when one catalog exists in several formats, the
+    // higher-fidelity file wins and the loser is never opened. A precedence, not a configuration knob.
+    private static readonly IReadOnlyList<string> _formatPrecedence = ["xliff", "arb", "po"];
     private readonly string _directory;
     private readonly TimeSpan _debounce;
     private readonly TranslationFormatRegistry _registry = BuiltInTranslationFormats.CreateRegistry();
@@ -63,26 +66,35 @@ public sealed class DirectoryCatalogProvider : ICatalogProvider
             return NoOpWatch.Instance;
         }
 
-        return new DirectoryWatch(_directory, _debounce, Describe, onChanged);
+        return new DirectoryWatch(_directory, _debounce, DescribeWinner, onChanged);
     }
 
+    // Scans the directory once, listing one descriptor per logical catalog (the file name without its format
+    // extension): when a catalog exists in several formats, only the highest-precedence one is listed, so a losing
+    // format is never opened. Files no registered format recognizes are skipped.
     private List<CatalogDescriptor> Enumerate()
     {
-        var descriptors = new List<CatalogDescriptor>();
         if (!Directory.Exists(_directory))
         {
-            return descriptors;
+            return [];
         }
 
+        var winners = new Dictionary<string, CatalogDescriptor>(StringComparer.OrdinalIgnoreCase);
         foreach (var file in Directory.EnumerateFiles(_directory))
         {
-            if (Describe(file) is { } descriptor)
+            if (Describe(file) is not { } descriptor)
             {
-                descriptors.Add(descriptor);
+                continue;
+            }
+
+            var key = Path.GetFileNameWithoutExtension(file);
+            if (!winners.TryGetValue(key, out CatalogDescriptor? existing) || Rank(descriptor.Format) < Rank(existing.Format))
+            {
+                winners[key] = descriptor;
             }
         }
 
-        return descriptors;
+        return [.. winners.Values];
     }
 
     // Builds the descriptor for one file, or null when no registered format recognizes its extension. Shared by
@@ -103,6 +115,58 @@ public sealed class DirectoryCatalogProvider : ICatalogProvider
             Name = Path.GetFileName(path),
             Source = new CatalogSource.Synchronous(() => File.OpenRead(filePath))
         };
+    }
+
+    // The current winning descriptor for the logical catalog a changed file belongs to, re-evaluated against the
+    // directory so a change to a shadowed (lower-precedence) file resolves to the winner, not the changed file.
+    // Falls back to the changed path when its group is now empty, so the store drops a catalog whose files are gone.
+    private CatalogDescriptor? DescribeWinner(string path)
+    {
+        if (_registry.ResolveByExtension(Path.GetExtension(path)) is null)
+        {
+            return null;
+        }
+
+        var key = Path.GetFileNameWithoutExtension(path);
+        CatalogDescriptor? winner = null;
+        if (Directory.Exists(_directory))
+        {
+            foreach (var file in Directory.EnumerateFiles(_directory))
+            {
+                if (!string.Equals(Path.GetFileNameWithoutExtension(file), key, StringComparison.OrdinalIgnoreCase) || Describe(file) is not { } descriptor)
+                {
+                    continue;
+                }
+
+                if (winner is null || Rank(descriptor.Format) < Rank(winner.Format))
+                {
+                    winner = descriptor;
+                }
+            }
+        }
+
+        return winner ?? Describe(path);
+    }
+
+    // A format's precedence rank by its registered id (lower wins); an unrecognized or unranked format sorts last,
+    // so it loses to any ranked format present for the same catalog.
+    private int Rank(string format)
+    {
+        ITranslationFormat? resolved = _registry.ResolveByExtension(format);
+        if (resolved is null)
+        {
+            return int.MaxValue;
+        }
+
+        for (var index = 0; index < _formatPrecedence.Count; index++)
+        {
+            if (string.Equals(_formatPrecedence[index], resolved.FormatId, StringComparison.OrdinalIgnoreCase))
+            {
+                return index;
+            }
+        }
+
+        return int.MaxValue;
     }
 
     // The culture tag a catalog file name ends with: App.Web.de.xliff -> "de", de.arb -> "de". The same rule

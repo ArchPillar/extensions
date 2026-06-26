@@ -172,22 +172,6 @@ public sealed class LocalizerTests : IDisposable
     }
 
     [Fact]
-    public void Translate_FormatPrecedence_IsConfigurable()
-    {
-        var directory = NewDirectory();
-        WriteArb(directory, "de", Entry("greeting", "from arb"));
-        WriteCatalog(new XliffTranslationFormat(), directory, "de.xliff", DeCatalog("greeting", "from xliff"));
-        DefaultLocalizer localizer = Over(new LocalizerOptions
-        {
-            TranslationsDirectory = directory,
-            SourceCulture = "en",
-            FormatPrecedence = ["arb", "xliff", "po"]
-        });
-
-        Assert.Equal("from arb", localizer.Translate(_de, "greeting", "Hello", null));
-    }
-
-    [Fact]
     public void FromCatalogs_UsesSuppliedOverride_WithoutTouchingDisk()
     {
         var localizer = DefaultLocalizer.FromCatalogs(

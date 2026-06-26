@@ -41,6 +41,28 @@ public sealed class DirectoryCatalogProviderTests
     }
 
     [Fact]
+    public void Catalogs_SameCatalogInTwoFormats_ListsOnlyTheHigherPrecedenceFile()
+    {
+        var directory = NewDirectory();
+        try
+        {
+            WriteArb(directory, "de", "Hallo");
+            File.WriteAllText(Path.Combine(directory, "App.de.xliff"), "<xliff/>");
+
+            var provider = new DirectoryCatalogProvider(directory);
+
+            // Both files name the same catalog (App.de); only the higher-precedence xliff is listed, so the losing
+            // arb is never opened.
+            CatalogDescriptor descriptor = Assert.Single(provider.Catalogs);
+            Assert.Equal(".xliff", descriptor.Format);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public void Catalogs_DescriptorsCarryASynchronousLoad()
     {
         var directory = NewDirectory();

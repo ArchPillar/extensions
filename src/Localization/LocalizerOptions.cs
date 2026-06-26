@@ -38,12 +38,6 @@ public sealed record LocalizerOptions
     public CultureLoading CultureLoading { get; init; } =
         OperatingSystem.IsBrowser() ? CultureLoading.OnDemand : CultureLoading.Eager;
 
-    /// <summary>
-    /// The format preference when the same culture and key appear in more than one file. Earlier entries
-    /// win; the default prefers the ICU-native formats over Portable Object.
-    /// </summary>
-    public IReadOnlyList<string> FormatPrecedence { get; init; } = ["xliff", "arb", "po"];
-
     /// <summary>Whether to watch the directory and reload on change. Off by default.</summary>
     public bool EnableHotReload { get; init; }
 
