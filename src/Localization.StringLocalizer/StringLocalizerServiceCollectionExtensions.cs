@@ -25,10 +25,7 @@ public static class StringLocalizerServiceCollectionExtensions
     /// <exception cref="ArgumentNullException"><paramref name="services"/> is <see langword="null"/>.</exception>
     public static IServiceCollection AddArchPillarStringLocalizer(this IServiceCollection services, LocalizerOptions? options = null)
     {
-        if (services is null)
-        {
-            throw new ArgumentNullException(nameof(services));
-        }
+        ArgumentNullException.ThrowIfNull(services);
 
         // The native registration (ambient configuration + ILocalizer views) underpins the adapters; it is
         // idempotent, so it is safe whether or not the host already called AddArchPillarLocalization.

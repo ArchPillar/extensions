@@ -40,10 +40,7 @@ public sealed class ResourceCatalogProvider : ICatalogProvider
     /// <inheritdoc />
     public IReadOnlyList<CatalogDescriptor> CatalogsFor(CultureInfo culture)
     {
-        if (culture is null)
-        {
-            throw new ArgumentNullException(nameof(culture));
-        }
+        ArgumentNullException.ThrowIfNull(culture);
 
         var descriptors = new List<CatalogDescriptor>();
         foreach (CatalogDescriptor descriptor in Catalogs)
@@ -68,10 +65,7 @@ public sealed class ResourceCatalogProvider : ICatalogProvider
     /// <inheritdoc />
     public IDisposable Watch(Action<CatalogDescriptor> onChanged)
     {
-        if (onChanged is null)
-        {
-            throw new ArgumentNullException(nameof(onChanged));
-        }
+        ArgumentNullException.ThrowIfNull(onChanged);
 
         return new AssemblyLoadWatch(this, onChanged);
     }

@@ -75,7 +75,7 @@ public sealed class CatalogStoreProviderTests
                 CultureLoading = CultureLoading.OnDemand
             });
 
-            Assert.Empty(store.Snapshot.ByCulture);
+            Assert.Empty(store.LoadedCultures);
 
             store.EnsureCulture(_german);
             Assert.Equal("Hallo", Resolve(store, _german));
@@ -116,16 +116,8 @@ public sealed class CatalogStoreProviderTests
         }
     }
 
-    private static string? Resolve(CatalogStore store, CultureInfo culture)
-    {
-        store.Snapshot.ByCulture.TryGetValue(culture.Name, out IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>? byCategory);
-        if (byCategory is null || !byCategory.TryGetValue(_category, out IReadOnlyDictionary<string, string>? map))
-        {
-            return null;
-        }
-
-        return map.TryGetValue("hello", out var value) ? value : null;
-    }
+    private static string? Resolve(CatalogStore store, CultureInfo culture) =>
+        store.Lookup(culture, _category, "hello");
 
     private static async Task<bool> EventuallyAsync(Func<bool> condition)
     {

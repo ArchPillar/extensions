@@ -35,10 +35,7 @@ public static class WebAssemblyHostLocalizationExtensions
         string manifestUri = ManifestCatalogProvider.DefaultManifestPath,
         CancellationToken cancellationToken = default)
     {
-        if (host is null)
-        {
-            throw new ArgumentNullException(nameof(host));
-        }
+        ArgumentNullException.ThrowIfNull(host);
 
         LocalizerOptions resolved = options ?? new LocalizerOptions();
         HttpClient httpClient = host.Services.GetRequiredService<HttpClient>();

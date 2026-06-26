@@ -109,7 +109,7 @@ public sealed class CatalogStoreTests
         using CatalogStore store = StoreWith(CultureLoading.OnDemand, new StubProvider(Synchronous("de", "Hallo")));
 
         // On-demand ingests nothing up front.
-        Assert.Empty(store.Snapshot.ByCulture);
+        Assert.Empty(store.LoadedCultures);
 
         store.EnsureCulture(_german);
         Assert.Equal("Hallo", Resolve(store, _german));
@@ -182,16 +182,8 @@ public sealed class CatalogStoreTests
             Providers = [.. providers.Select(Factory)]
         });
 
-    private static string? Resolve(CatalogStore store, CultureInfo culture)
-    {
-        store.Snapshot.ByCulture.TryGetValue(culture.Name, out IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>? byCategory);
-        if (byCategory is null || !byCategory.TryGetValue(Category, out IReadOnlyDictionary<string, string>? map))
-        {
-            return null;
-        }
-
-        return map.TryGetValue("hello", out var value) ? value : null;
-    }
+    private static string? Resolve(CatalogStore store, CultureInfo culture) =>
+        store.Lookup(culture, Category, "hello");
 
     private static byte[] ArbBytes(string culture, string message) => Encoding.UTF8.GetBytes($$"""
         {

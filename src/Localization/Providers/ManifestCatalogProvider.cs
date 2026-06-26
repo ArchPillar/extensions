@@ -60,15 +60,8 @@ public sealed class ManifestCatalogProvider : ICatalogProvider
         TranslationFormatRegistry? formats = null,
         CancellationToken cancellationToken = default)
     {
-        if (httpClient is null)
-        {
-            throw new ArgumentNullException(nameof(httpClient));
-        }
-
-        if (manifestUri is null)
-        {
-            throw new ArgumentNullException(nameof(manifestUri));
-        }
+        ArgumentNullException.ThrowIfNull(httpClient);
+        ArgumentNullException.ThrowIfNull(manifestUri);
 
         TranslationFormatRegistry registry = formats ?? BuiltInTranslationFormats.CreateRegistry();
         IReadOnlyList<string> uris = await ReadManifestAsync(httpClient, manifestUri, cancellationToken).ConfigureAwait(false);
@@ -82,10 +75,7 @@ public sealed class ManifestCatalogProvider : ICatalogProvider
     /// <inheritdoc />
     public IReadOnlyList<CatalogDescriptor> CatalogsFor(CultureInfo culture)
     {
-        if (culture is null)
-        {
-            throw new ArgumentNullException(nameof(culture));
-        }
+        ArgumentNullException.ThrowIfNull(culture);
 
         HashSet<string> wanted = CultureChain(culture);
         if (!string.IsNullOrEmpty(_sourceCulture))
@@ -99,10 +89,7 @@ public sealed class ManifestCatalogProvider : ICatalogProvider
     /// <inheritdoc />
     public IDisposable Watch(Action<CatalogDescriptor> onChanged)
     {
-        if (onChanged is null)
-        {
-            throw new ArgumentNullException(nameof(onChanged));
-        }
+        ArgumentNullException.ThrowIfNull(onChanged);
 
         return NoOpWatch.Instance;
     }

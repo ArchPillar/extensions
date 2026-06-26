@@ -59,10 +59,7 @@ public sealed class LocalizationContext : IDisposable
     /// <exception cref="ArgumentNullException"><paramref name="category"/> is <see langword="null"/>.</exception>
     public ILocalizer ForCategory(string category)
     {
-        if (category is null)
-        {
-            throw new ArgumentNullException(nameof(category));
-        }
+        ArgumentNullException.ThrowIfNull(category);
 
         return new Internal.AmbientCategoryLocalizer(this, category);
     }
@@ -100,10 +97,7 @@ public sealed class LocalizationContext : IDisposable
     /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
     public void Configure(LocalizerOptions options)
     {
-        if (options is null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
+        ArgumentNullException.ThrowIfNull(options);
 
         _store.Configure(options);
     }
@@ -123,10 +117,7 @@ public sealed class LocalizationContext : IDisposable
     /// <exception cref="ArgumentNullException"><paramref name="culture"/> is <see langword="null"/>.</exception>
     public Task LoadCultureAsync(CultureInfo culture, CancellationToken cancellationToken = default)
     {
-        if (culture is null)
-        {
-            throw new ArgumentNullException(nameof(culture));
-        }
+        ArgumentNullException.ThrowIfNull(culture);
 
         return _store.LoadCultureAsync(culture, cancellationToken);
     }

@@ -34,10 +34,7 @@ public sealed class PoTranslationFormat : ITranslationFormat
     /// <inheritdoc />
     public Catalog Read(Stream input)
     {
-        if (input is null)
-        {
-            throw new ArgumentNullException(nameof(input));
-        }
+        ArgumentNullException.ThrowIfNull(input);
 
         using var reader = new StreamReader(input, _utf8NoBom);
         var text = reader.ReadToEnd();
@@ -47,15 +44,8 @@ public sealed class PoTranslationFormat : ITranslationFormat
     /// <inheritdoc />
     public async Task WriteAsync(Stream output, Catalog catalog, CancellationToken cancellationToken, CatalogWriteOptions? options = null)
     {
-        if (output is null)
-        {
-            throw new ArgumentNullException(nameof(output));
-        }
-
-        if (catalog is null)
-        {
-            throw new ArgumentNullException(nameof(catalog));
-        }
+        ArgumentNullException.ThrowIfNull(output);
+        ArgumentNullException.ThrowIfNull(catalog);
 
         // Portable Object is line-oriented and already compact, and carries the source (msgid) and translation
         // (msgstr) natively, so there is no whitespace or redundant metadata to strip for a bundle. The options

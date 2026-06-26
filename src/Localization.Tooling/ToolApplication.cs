@@ -517,7 +517,6 @@ internal static class ToolApplication
         }
 
         var formatId = options.TryGetValue("--format", out var f) && f.Length > 0 ? f : "arb";
-        var sourceCulture = options.TryGetValue("--source", out var s) && s.Length > 0 ? s : "en";
         TranslationFormatRegistry registry = BuildRegistry();
         ITranslationFormat outputProvider = registry.ResolveById(formatId) ?? throw new ArgumentException($"Unknown format '{formatId}'.");
 
@@ -529,7 +528,7 @@ internal static class ToolApplication
 
         // Reuse the runtime's load (precedence, skip untranslated, source loaded as overrides), then dump one
         // bundle per culture. An un-customized source language contributes no entries, so it yields no bundle.
-        IReadOnlyList<Catalog> merged = CatalogLoader.Flatten(catalogs, new LocalizerOptions { SourceCulture = sourceCulture });
+        IReadOnlyList<Catalog> merged = CatalogLoader.Flatten(catalogs);
         foreach (Catalog catalog in merged)
         {
             // The published bundle is a runtime artifact, not a translator's working file: minify it (drop

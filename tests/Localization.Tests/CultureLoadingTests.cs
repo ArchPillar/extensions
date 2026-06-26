@@ -25,8 +25,8 @@ public sealed class CultureLoadingTests
             using var store = new CatalogStore(new LocalizerOptions { TranslationsDirectory = directory });
 
             // The default eager mode reads both cultures without anyone requesting them.
-            Assert.Contains("de", store.Snapshot.ByCulture.Keys);
-            Assert.Contains("fr", store.Snapshot.ByCulture.Keys);
+            Assert.Contains("de", store.LoadedCultures);
+            Assert.Contains("fr", store.LoadedCultures);
         }
         finally
         {
@@ -50,14 +50,14 @@ public sealed class CultureLoadingTests
             });
 
             // Nothing loaded up front.
-            Assert.Empty(store.Snapshot.ByCulture);
+            Assert.Empty(store.LoadedCultures);
 
             store.EnsureCulture(_german);
-            Assert.Contains("de", store.Snapshot.ByCulture.Keys);
-            Assert.DoesNotContain("fr", store.Snapshot.ByCulture.Keys); // not read until requested
+            Assert.Contains("de", store.LoadedCultures);
+            Assert.DoesNotContain("fr", store.LoadedCultures); // not read until requested
 
             store.EnsureCulture(_french);
-            Assert.Contains("fr", store.Snapshot.ByCulture.Keys);
+            Assert.Contains("fr", store.LoadedCultures);
         }
         finally
         {

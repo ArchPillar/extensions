@@ -1,13 +1,12 @@
 using System.Globalization;
 using ArchPillar.Extensions.Localization.Catalogs;
-using ArchPillar.Extensions.Localization.Snapshots;
 
 namespace ArchPillar.Extensions.Localization;
 
 /// <summary>
 /// Renders translatable call sites at runtime: looks up the loaded override for the requested culture
 /// and key, falls back through parent cultures to the in-code default, and formats with the ICU engine. A
-/// pure resolution engine — it resolves against the layers and rendering context of a live
+/// pure resolution engine — it resolves against the snapshot and rendering context of a live
 /// <see cref="CatalogStore"/> and owns no I/O. Lookups are lock-free; designed to be a singleton and safe for
 /// concurrent use.
 /// </summary>
@@ -17,7 +16,7 @@ public sealed class DefaultLocalizer : ILocalizer
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DefaultLocalizer"/> class over a <see cref="CatalogStore"/>,
-    /// resolving against the store's current layers and rendering through its <see cref="CatalogStore.Context"/>,
+    /// resolving against the store's current snapshot and rendering through its <see cref="CatalogStore.Context"/>,
     /// both read live so a reload or configuration change is observed on the next lookup. The store is owned by
     /// the caller; the localizer only reads it.
     /// </summary>
@@ -27,9 +26,6 @@ public sealed class DefaultLocalizer : ILocalizer
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
     }
-
-    // The snapshot to resolve against: the store's current snapshot, read live so a reload is observed immediately.
-    private TranslationSnapshot CurrentSnapshot() => _store.Snapshot;
 
     /// <summary>
     /// Translates <paramref name="key"/> for the current UI culture, falling back to
@@ -100,13 +96,10 @@ public sealed class DefaultLocalizer : ILocalizer
         out bool overrideFound,
         params (string Name, object? Value)[] arguments)
     {
-        if (culture is null)
-        {
-            throw new ArgumentNullException(nameof(culture));
-        }
+        ArgumentNullException.ThrowIfNull(culture);
 
         var composite = TranslationKey.Compose(key, context);
-        var message = ResolveOverride(culture, category: string.Empty, composite);
+        var message = _store.Lookup(culture, category: string.Empty, composite);
         overrideFound = message is not null;
 
         // An override was authored for the requested culture, so render it with that culture's rules.
@@ -143,7 +136,7 @@ public sealed class DefaultLocalizer : ILocalizer
     {
         CultureInfo culture = CultureInfo.CurrentUICulture;
         var composite = TranslationKey.Compose(key, context);
-        var message = ResolveOverride(culture, category, composite);
+        var message = _store.Lookup(culture, category, composite);
         overrideFound = message is not null;
         RenderingContext rendering = CurrentContext();
         return message is not null
@@ -163,61 +156,15 @@ public sealed class DefaultLocalizer : ILocalizer
     {
         CultureInfo culture = CultureInfo.CurrentUICulture;
         var composite = TranslationKey.Compose(key, context);
-        var message = ResolveOverride(culture, category, composite);
+        var message = _store.Lookup(culture, category, composite);
         return message is null ? null : CurrentContext().Formatter.Format(message, culture, arguments);
     }
 
-    // Enumerates the loaded overrides for a category in the given culture as (compositeKey, message) pairs —
-    // the IStringLocalizer adapter's GetAllStrings reads this so ambient entries are listed, not just the
-    // inner factory's. Dynamic sources are not enumerable, so only the catalog snapshot is included. When
-    // parents are included, a more specific culture's entry wins on overlap.
-    internal IReadOnlyList<KeyValuePair<string, string>> EnumerateCategory(CultureInfo culture, string category, bool includeParentCultures)
-    {
-        TranslationSnapshot snapshot = CurrentSnapshot();
-        var chain = new List<string>();
-        for (CultureInfo? current = culture; current is not null && !string.IsNullOrEmpty(current.Name); current = current.Parent)
-        {
-            chain.Add(current.Name);
-            if (!includeParentCultures)
-            {
-                break;
-            }
-        }
-
-        var result = new Dictionary<string, string>(StringComparer.Ordinal);
-        for (var index = chain.Count - 1; index >= 0; index--)
-        {
-            if (snapshot.ByCulture.TryGetValue(chain[index], out IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>? byCategory)
-                && byCategory.TryGetValue(category, out IReadOnlyDictionary<string, string>? map))
-            {
-                foreach (KeyValuePair<string, string> pair in map)
-                {
-                    result[pair.Key] = pair.Value;
-                }
-            }
-        }
-
-        return [.. result];
-    }
-
-    // Looks the composite key up under the category in the merged snapshot, falling back through parent cultures —
-    // a sequence of allocation-free dictionary reads against the immutable snapshot. Returns the override, or null
-    // when there is none (the in-code default is the engine's terminal fallback, applied by the caller).
-    private string? ResolveOverride(CultureInfo culture, string category, string compositeKey)
-    {
-        TranslationSnapshot snapshot = _store.Snapshot;
-        for (CultureInfo? current = culture; current is not null && !string.IsNullOrEmpty(current.Name); current = current.Parent)
-        {
-            if (snapshot.ByCulture.TryGetValue(current.Name, out IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>? byCategory)
-                && byCategory.TryGetValue(category, out IReadOnlyDictionary<string, string>? map)
-                && map.TryGetValue(compositeKey, out var message))
-            {
-                return message;
-            }
-        }
-
-        return null;
-    }
+    // Enumerates the loaded overrides for a category in the given culture as (compositeKey, message) pairs — the
+    // IStringLocalizer adapter's GetAllStrings reads this so ambient entries are listed, not just the inner factory's.
+    // Delegates to the store, which owns the snapshot; parents merge most-specific-wins when included.
+    internal IReadOnlyList<KeyValuePair<string, string>> EnumerateCategory(CultureInfo culture, string category, bool includeParentCultures) =>
+        _store.EnumerateCategory(culture, category, includeParentCultures);
 
     // The non-attributed core. The public overloads carry the attributes so the extractor finds every
     // call site; they delegate here so the library's own forwarding never looks like a translation site.

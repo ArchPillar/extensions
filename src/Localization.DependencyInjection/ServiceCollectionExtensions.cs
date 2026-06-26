@@ -22,10 +22,7 @@ public static class ServiceCollectionExtensions
     /// <exception cref="ArgumentNullException"><paramref name="services"/> is <see langword="null"/>.</exception>
     public static IServiceCollection AddArchPillarLocalization(this IServiceCollection services, LocalizerOptions? options = null)
     {
-        if (services is null)
-        {
-            throw new ArgumentNullException(nameof(services));
-        }
+        ArgumentNullException.ThrowIfNull(services);
 
         // Idempotent per collection: a second call (a common double-registration footgun) is a no-op rather
         // than stacking duplicate registrations. The first registration's options win.

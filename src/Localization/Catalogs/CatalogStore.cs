@@ -63,14 +63,36 @@ internal sealed class CatalogStore : IDisposable
     /// <summary>The source language these catalogs are written in.</summary>
     public string SourceCultureName => Context.SourceCultureName;
 
-    /// <summary>The current merged snapshot, swapped atomically on every change.</summary>
-    public TranslationSnapshot Snapshot
+    /// <summary>The cultures present in the current merged snapshot — those that contributed a loaded override.</summary>
+    public IReadOnlyCollection<string> LoadedCultures
     {
         get
         {
             EnsureStarted();
-            return _snapshot;
+            return _snapshot.Cultures.Keys;
         }
+    }
+
+    #endregion
+
+    #region Queries
+
+    /// <summary>Resolves the loaded override for <paramref name="compositeKey"/> under <paramref name="category"/>,
+    /// walking from <paramref name="culture"/> up through its parent cultures, or <see langword="null"/> when none is
+    /// loaded. The in-code default is the caller's terminal fallback.</summary>
+    public string? Lookup(CultureInfo culture, string category, string compositeKey)
+    {
+        EnsureStarted();
+        return _snapshot.Lookup(culture, category, compositeKey);
+    }
+
+    /// <summary>Enumerates the loaded overrides for <paramref name="category"/> in <paramref name="culture"/> as
+    /// (composite-key, message) pairs, including parent cultures when requested — a more specific culture wins on
+    /// overlap.</summary>
+    public IReadOnlyList<KeyValuePair<string, string>> EnumerateCategory(CultureInfo culture, string category, bool includeParentCultures)
+    {
+        EnsureStarted();
+        return _snapshot.EnumerateCategory(culture, category, includeParentCultures);
     }
 
     #endregion
@@ -308,7 +330,7 @@ internal sealed class CatalogStore : IDisposable
     // store (resource first so app files win on overlap).
     private static IReadOnlyList<ICatalogProvider> DefaultProviders(LocalizerOptions options, bool discover)
     {
-        var directoryProvider = new DirectoryCatalogProvider(options.TranslationsDirectory, options.HotReloadDebounce, options.Formats);
+        var directoryProvider = new DirectoryCatalogProvider(options);
         return discover ? [new ResourceCatalogProvider(options.Formats), directoryProvider] : [directoryProvider];
     }
 

@@ -17,17 +17,17 @@ internal static class CatalogLoader
     /// skipped, the source language included as an override layer (only its genuine overrides survive) — and
     /// dumps the merged result as one flattened <see cref="Catalog"/> per culture (the publish bundle). A
     /// culture with no surviving entries produces no bundle, so an un-customized source language ships nothing.
-    /// Because it reuses <see cref="TranslationSnapshot.Build"/>, the bundle resolves identically to loading the many files.
+    /// Because it reuses <see cref="TranslationSnapshot"/>, the bundle resolves identically to loading the many files.
     /// Translator-only metadata is dropped; a runtime bundle needs only the translations.
     /// </summary>
     public static IReadOnlyList<Catalog> Flatten(IEnumerable<Catalog> catalogs)
     {
         var snapshot = TranslationSnapshot.Build(catalogs);
         var result = new List<Catalog>();
-        foreach (KeyValuePair<string, IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>> culture in snapshot.ByCulture)
+        foreach (KeyValuePair<string, CategoryMap> culture in snapshot.Cultures)
         {
             var entries = new List<CatalogEntry>();
-            foreach (KeyValuePair<string, IReadOnlyDictionary<string, string>> category in culture.Value)
+            foreach (KeyValuePair<string, TranslationMap> category in culture.Value)
             {
                 foreach (KeyValuePair<string, string> entry in category.Value)
                 {

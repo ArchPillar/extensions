@@ -1,6 +1,22 @@
+using System.Globalization;
 using ArchPillar.Extensions.Localization.Providers;
 
 namespace ArchPillar.Extensions.Localization.Snapshots;
+
+internal sealed class TranslationMap ()
+    : Dictionary<string, string>(StringComparer.Ordinal)
+{
+}
+
+internal sealed class CategoryMap ()
+    : Dictionary<string, TranslationMap>(StringComparer.Ordinal)
+{
+}
+
+internal sealed class CultureMap ()
+    : Dictionary<string, CategoryMap>(StringComparer.OrdinalIgnoreCase)
+{
+}
 
 /// <summary>
 /// An immutable, fully-built view of the loaded overrides. Reload builds a new snapshot in memory and
@@ -9,19 +25,62 @@ namespace ArchPillar.Extensions.Localization.Snapshots;
 /// namespace), then composite key, so a category-scoped lookup is a sequence of allocation-free dictionary
 /// reads.
 /// </summary>
-internal sealed class TranslationSnapshot
+internal sealed class TranslationSnapshot(
+    CultureMap cultureMap)
 {
-    public TranslationSnapshot(
-        IReadOnlyDictionary<string, IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>> byCulture)
+    /// <summary>Maps a culture (case-insensitive) to its category-to-(composite-key-to-message) overrides.</summary>
+    public CultureMap Cultures { get; } = cultureMap;
+
+    // Resolves the override for the composite key under the category, walking from the given culture up through its
+    // parent cultures — a sequence of allocation-free dictionary reads. Returns null when none is loaded; the in-code
+    // default is the engine's terminal fallback, applied by the caller.
+    public string? Lookup(CultureInfo culture, string category, string compositeKey)
     {
-        ByCulture = byCulture;
+        for (CultureInfo? current = culture; !string.IsNullOrEmpty(current?.Name); current = current.Parent)
+        {
+            if (Cultures.TryGetValue(current.Name, out CategoryMap? byCategory)
+                && byCategory.TryGetValue(category, out TranslationMap? map)
+                && map.TryGetValue(compositeKey, out var message))
+            {
+                return message;
+            }
+        }
+
+        return null;
     }
 
-    /// <summary>Maps a culture (case-insensitive) to its category-to-(composite-key-to-message) overrides.</summary>
-    public IReadOnlyDictionary<string, IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>> ByCulture { get; }
+    // Enumerates the loaded overrides for the category in the given culture as (compositeKey, message) pairs, walking
+    // from the culture up through its parent cultures when requested so a more specific culture's entry wins on
+    // overlap. The IStringLocalizer adapter's GetAllStrings reads this to list the ambient entries.
+    public IReadOnlyList<KeyValuePair<string, string>> EnumerateCategory(CultureInfo culture, string category, bool includeParentCultures)
+    {
+        var chain = new List<string>();
+        for (CultureInfo? current = culture; !string.IsNullOrEmpty(current?.Name); current = current.Parent)
+        {
+            chain.Add(current.Name);
+            if (!includeParentCultures)
+            {
+                break;
+            }
+        }
 
-    public static TranslationSnapshot Empty { get; } =
-        new(new Dictionary<string, IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>>(StringComparer.OrdinalIgnoreCase));
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        for (var index = chain.Count - 1; index >= 0; index--)
+        {
+            if (Cultures.TryGetValue(chain[index], out CategoryMap? byCategory)
+                && byCategory.TryGetValue(category, out TranslationMap? map))
+            {
+                foreach (KeyValuePair<string, string> pair in map)
+                {
+                    result[pair.Key] = pair.Value;
+                }
+            }
+        }
+
+        return [.. result];
+    }
+
+    public static TranslationSnapshot Empty { get; } = new([]);
 
     public static TranslationSnapshot Build(
         IEnumerable<ProviderState> providers)
@@ -32,24 +91,21 @@ internal sealed class TranslationSnapshot
     public static TranslationSnapshot Build(
         IEnumerable<Catalog> catalogs)
     {
-        Dictionary<string, Dictionary<string, Dictionary<string, string>>> cultureMap = NewCultureMap();
+        CultureMap cultureMap = [];
         foreach (Catalog catalog in catalogs)
         {
             MergeEntries(catalog, cultureMap);
         }
 
-        return ToSnapshot(cultureMap);
+        return new(cultureMap);
     }
 
-    private static Dictionary<string, Dictionary<string, Dictionary<string, string>>> NewCultureMap() =>
-        new(StringComparer.OrdinalIgnoreCase);
-
-    private static void MergeEntries(Catalog catalog, Dictionary<string, Dictionary<string, Dictionary<string, string>>> byCulture)
+    private static void MergeEntries(Catalog catalog, CultureMap byCulture)
     {
-        if (!byCulture.TryGetValue(catalog.Culture, out Dictionary<string, Dictionary<string, string>>? byCategory))
+        if (!byCulture.TryGetValue(catalog.Culture, out CategoryMap? categoryMap))
         {
-            byCategory = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);
-            byCulture[catalog.Culture] = byCategory;
+            categoryMap = new();
+            byCulture[catalog.Culture] = categoryMap;
         }
 
         foreach (CatalogEntry entry in catalog.Entries)
@@ -60,30 +116,12 @@ internal sealed class TranslationSnapshot
                 continue;
             }
 
-            if (!byCategory.TryGetValue(entry.Category, out Dictionary<string, string>? map))
+            if (!categoryMap.TryGetValue(entry.Category, out TranslationMap? map))
             {
-                map = new Dictionary<string, string>(StringComparer.Ordinal);
-                byCategory[entry.Category] = map;
+                categoryMap[entry.Category] = map = new();
             }
 
             map[TranslationKey.Compose(entry.Key, entry.Context)] = entry.TranslatedMessage!;
         }
-    }
-
-    private static TranslationSnapshot ToSnapshot(Dictionary<string, Dictionary<string, Dictionary<string, string>>> byCulture)
-    {
-        var result = new Dictionary<string, IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>>(StringComparer.OrdinalIgnoreCase);
-        foreach (KeyValuePair<string, Dictionary<string, Dictionary<string, string>>> culture in byCulture)
-        {
-            var byCategory = new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.Ordinal);
-            foreach (KeyValuePair<string, Dictionary<string, string>> category in culture.Value)
-            {
-                byCategory[category.Key] = category.Value;
-            }
-
-            result[culture.Key] = byCategory;
-        }
-
-        return new TranslationSnapshot(result);
     }
 }

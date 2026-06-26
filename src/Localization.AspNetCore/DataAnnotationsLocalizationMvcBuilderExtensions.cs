@@ -21,10 +21,7 @@ public static class DataAnnotationsLocalizationMvcBuilderExtensions
     /// <exception cref="ArgumentNullException"><paramref name="builder"/> is <see langword="null"/>.</exception>
     public static IMvcBuilder AddArchPillarDataAnnotationsLocalization(this IMvcBuilder builder)
     {
-        if (builder is null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
 
         // The MVC metadata provider invokes DataAnnotationLocalizerProvider only when an IStringLocalizerFactory
         // is also registered; AddLocalization registers it (we hand the provider our own localizer and ignore the

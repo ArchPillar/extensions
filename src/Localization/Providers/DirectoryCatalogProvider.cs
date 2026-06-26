@@ -1,6 +1,5 @@
 using System.Globalization;
 using ArchPillar.Extensions.Localization.Catalogs;
-using ArchPillar.Extensions.Localization.Formats;
 using ArchPillar.Extensions.Localization.Internal;
 
 namespace ArchPillar.Extensions.Localization.Providers;
@@ -23,19 +22,19 @@ public sealed class DirectoryCatalogProvider : ICatalogProvider
     private readonly TranslationFormatRegistry _registry;
 
     /// <summary>
-    /// Initializes a new <see cref="DirectoryCatalogProvider"/> over <paramref name="directory"/>, scanning it now.
+    /// Initializes a new <see cref="DirectoryCatalogProvider"/> from <paramref name="options"/>, scanning
+    /// <see cref="LocalizerOptions.TranslationsDirectory"/> now and parsing with its
+    /// <see cref="LocalizerOptions.Formats"/>.
     /// </summary>
-    /// <param name="directory">The directory containing the translation catalog files.</param>
-    /// <param name="hotReloadDebounce">
-    /// How long to let directory changes settle before a watch callback fires; defaults to 250&#160;ms.
-    /// </param>
-    /// <param name="formats">The formats to parse catalogs with; defaults to the built-in set (XLIFF, ARB, PO).</param>
-    /// <exception cref="ArgumentNullException"><paramref name="directory"/> is <see langword="null"/>.</exception>
-    public DirectoryCatalogProvider(string directory, TimeSpan? hotReloadDebounce = null, TranslationFormatRegistry? formats = null)
+    /// <param name="options">The resolved options supplying the directory, formats, and hot-reload debounce.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
+    public DirectoryCatalogProvider(LocalizerOptions options)
     {
-        _directory = directory ?? throw new ArgumentNullException(nameof(directory));
-        _debounce = hotReloadDebounce ?? TimeSpan.FromMilliseconds(250);
-        _registry = formats ?? BuiltInTranslationFormats.CreateRegistry();
+        ArgumentNullException.ThrowIfNull(options);
+
+        _directory = options.TranslationsDirectory;
+        _debounce = options.HotReloadDebounce;
+        _registry = options.Formats;
         Catalogs = Discover();
     }
 
@@ -45,10 +44,7 @@ public sealed class DirectoryCatalogProvider : ICatalogProvider
     /// <inheritdoc />
     public IReadOnlyList<CatalogDescriptor> CatalogsFor(CultureInfo culture)
     {
-        if (culture is null)
-        {
-            throw new ArgumentNullException(nameof(culture));
-        }
+        ArgumentNullException.ThrowIfNull(culture);
 
         return
         [
@@ -59,10 +55,7 @@ public sealed class DirectoryCatalogProvider : ICatalogProvider
     /// <inheritdoc />
     public IDisposable Watch(Action<CatalogDescriptor> onChanged)
     {
-        if (onChanged is null)
-        {
-            throw new ArgumentNullException(nameof(onChanged));
-        }
+        ArgumentNullException.ThrowIfNull(onChanged);
 
         if (!Directory.Exists(_directory))
         {

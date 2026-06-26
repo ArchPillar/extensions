@@ -36,10 +36,7 @@ public static class Localizer
     /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
     public static void Initialize(LocalizerOptions options, bool eager = false)
     {
-        if (options is null)
-        {
-            throw new ArgumentNullException(nameof(options));
-        }
+        ArgumentNullException.ThrowIfNull(options);
 
         Ambient.Configure(options);
         if (eager)

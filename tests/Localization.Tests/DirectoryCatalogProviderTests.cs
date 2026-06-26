@@ -27,7 +27,7 @@ public sealed class DirectoryCatalogProviderTests
             WriteArb(directory, "fr", "Bonjour");
             File.WriteAllText(Path.Combine(directory, "notes.txt"), "ignored");
 
-            var provider = new DirectoryCatalogProvider(directory);
+            DirectoryCatalogProvider provider = Provider(directory);
             IReadOnlyList<CatalogDescriptor> descriptors = provider.Catalogs;
 
             Assert.Equal(2, descriptors.Count);
@@ -50,7 +50,7 @@ public sealed class DirectoryCatalogProviderTests
             WriteArb(directory, "de", "Hallo");
             File.WriteAllText(Path.Combine(directory, "App.de.xliff"), "<xliff/>");
 
-            var provider = new DirectoryCatalogProvider(directory);
+            DirectoryCatalogProvider provider = Provider(directory);
 
             // Both files name the same catalog (App.de); only the higher-precedence xliff is listed, so the losing
             // arb is never opened.
@@ -71,7 +71,7 @@ public sealed class DirectoryCatalogProviderTests
         {
             WriteArb(directory, "de", "Hallo");
 
-            var provider = new DirectoryCatalogProvider(directory);
+            DirectoryCatalogProvider provider = Provider(directory);
             CatalogDescriptor descriptor = Assert.Single(provider.Catalogs);
 
             Assert.IsType<CatalogSource.Synchronous>(descriptor.Source);
@@ -85,7 +85,7 @@ public sealed class DirectoryCatalogProviderTests
     [Fact]
     public void Catalogs_MissingDirectoryReturnsEmpty()
     {
-        var provider = new DirectoryCatalogProvider(Path.Combine(Path.GetTempPath(), "apl-does-not-exist-" + Guid.NewGuid().ToString("N")));
+        DirectoryCatalogProvider provider = Provider(Path.Combine(Path.GetTempPath(), "apl-does-not-exist-" + Guid.NewGuid().ToString("N")));
 
         Assert.Empty(provider.Catalogs);
     }
@@ -98,7 +98,7 @@ public sealed class DirectoryCatalogProviderTests
         {
             WriteArb(directory, "de", "Hallo");
 
-            var provider = new DirectoryCatalogProvider(directory);
+            DirectoryCatalogProvider provider = Provider(directory);
             CatalogDescriptor descriptor = Assert.Single(provider.Catalogs);
             CatalogSource.Synchronous sync = Assert.IsType<CatalogSource.Synchronous>(descriptor.Source);
 
@@ -122,7 +122,7 @@ public sealed class DirectoryCatalogProviderTests
             WriteArb(directory, "de", "Hallo");
             WriteArb(directory, "fr", "Bonjour");
 
-            var provider = new DirectoryCatalogProvider(directory);
+            DirectoryCatalogProvider provider = Provider(directory);
             IReadOnlyList<CatalogDescriptor> german = provider.CatalogsFor(_german);
 
             CatalogDescriptor descriptor = Assert.Single(german);
@@ -142,7 +142,7 @@ public sealed class DirectoryCatalogProviderTests
         {
             WriteArb(directory, "de", "Hallo");
 
-            var provider = new DirectoryCatalogProvider(directory);
+            DirectoryCatalogProvider provider = Provider(directory);
             IReadOnlyList<CatalogDescriptor> result = provider.CatalogsFor(_french);
 
             Assert.Empty(result);
@@ -156,7 +156,7 @@ public sealed class DirectoryCatalogProviderTests
     [Fact]
     public void Watch_MissingDirectoryReturnsNoOpHandle()
     {
-        var provider = new DirectoryCatalogProvider(Path.Combine(Path.GetTempPath(), "apl-missing-" + Guid.NewGuid().ToString("N")));
+        DirectoryCatalogProvider provider = Provider(Path.Combine(Path.GetTempPath(), "apl-missing-" + Guid.NewGuid().ToString("N")));
 
         using IDisposable handle = provider.Watch(_ => { });
 
@@ -170,7 +170,7 @@ public sealed class DirectoryCatalogProviderTests
         try
         {
             WriteArb(directory, "de", "Hallo");
-            var provider = new DirectoryCatalogProvider(directory, TimeSpan.FromMilliseconds(20));
+            DirectoryCatalogProvider provider = Provider(directory, TimeSpan.FromMilliseconds(20));
             using var fired = new SemaphoreSlim(0);
             CatalogDescriptor? changed = null;
 
@@ -191,6 +191,13 @@ public sealed class DirectoryCatalogProviderTests
             Directory.Delete(directory, recursive: true);
         }
     }
+
+    private static DirectoryCatalogProvider Provider(string directory, TimeSpan? debounce = null) =>
+        new(new LocalizerOptions
+        {
+            TranslationsDirectory = directory,
+            HotReloadDebounce = debounce ?? TimeSpan.FromMilliseconds(250)
+        });
 
     private static string NewDirectory()
     {

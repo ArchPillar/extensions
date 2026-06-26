@@ -34,10 +34,7 @@ public static class EnumLocalizationExtensions
     /// <exception cref="ArgumentNullException"><paramref name="context"/> is <see langword="null"/>.</exception>
     public static string GetLocalizedDisplayName(this Enum value, LocalizationContext context)
     {
-        if (context is null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         return Resolve(value, context);
     }

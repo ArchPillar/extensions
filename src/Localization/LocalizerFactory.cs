@@ -30,10 +30,7 @@ public sealed class LocalizerFactory : ILocalizerFactory
     /// <inheritdoc />
     public ILocalizer Create(string category)
     {
-        if (category is null)
-        {
-            throw new ArgumentNullException(nameof(category));
-        }
+        ArgumentNullException.ThrowIfNull(category);
 
         return new CategoryLocalizer(_localizer, category);
     }

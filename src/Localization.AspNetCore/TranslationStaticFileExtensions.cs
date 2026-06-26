@@ -31,10 +31,7 @@ public static class TranslationStaticFileExtensions
     /// <exception cref="ArgumentNullException"><paramref name="provider"/> is <see langword="null"/>.</exception>
     public static FileExtensionContentTypeProvider AddArchPillarTranslationFormats(this FileExtensionContentTypeProvider provider)
     {
-        if (provider is null)
-        {
-            throw new ArgumentNullException(nameof(provider));
-        }
+        ArgumentNullException.ThrowIfNull(provider);
 
         foreach ((ITranslationFormat format, var contentType) in _formats)
         {
@@ -59,10 +56,7 @@ public static class TranslationStaticFileExtensions
     /// <exception cref="ArgumentNullException"><paramref name="app"/> is <see langword="null"/>.</exception>
     public static IApplicationBuilder UseArchPillarTranslationFiles(this IApplicationBuilder app, string? requestPath = null)
     {
-        if (app is null)
-        {
-            throw new ArgumentNullException(nameof(app));
-        }
+        ArgumentNullException.ThrowIfNull(app);
 
         var provider = new FileExtensionContentTypeProvider();
         provider.AddArchPillarTranslationFormats();
