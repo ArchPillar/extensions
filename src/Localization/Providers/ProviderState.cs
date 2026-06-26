@@ -1,4 +1,4 @@
-namespace ArchPillar.Extensions.Localization.Internal;
+namespace ArchPillar.Extensions.Localization.Providers;
 
 // One provider's bookkeeping: committed catalogs (deduped by identity), failed identities (dropped, not retried),
 // and the watch handle. Mutated only under the catalog store's gate.

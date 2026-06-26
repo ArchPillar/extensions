@@ -1,6 +1,7 @@
 using System.Globalization;
+using ArchPillar.Extensions.Localization.Catalogs;
 
-namespace ArchPillar.Extensions.Localization;
+namespace ArchPillar.Extensions.Localization.Providers;
 
 /// <summary>
 /// A source of translation catalogs, discovered once at construction. Finding what catalogs exist is inherently

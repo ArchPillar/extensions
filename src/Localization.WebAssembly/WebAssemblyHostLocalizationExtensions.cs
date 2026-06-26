@@ -1,4 +1,5 @@
 using System.Globalization;
+using ArchPillar.Extensions.Localization.Providers;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 

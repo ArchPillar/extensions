@@ -2,9 +2,10 @@ using System.Collections.Concurrent;
 using System.Globalization;
 using System.Text.Json;
 using System.Xml;
-using ArchPillar.Extensions.Localization.Internal;
+using ArchPillar.Extensions.Localization.Providers;
+using ArchPillar.Extensions.Localization.Snapshots;
 
-namespace ArchPillar.Extensions.Localization;
+namespace ArchPillar.Extensions.Localization.Catalogs;
 
 /// <summary>
 /// Owns the layered set of translation catalogs and keeps the merged snapshot current. Provider-agnostic: it loads
@@ -499,7 +500,7 @@ internal sealed class CatalogStore : IDisposable
             publish = _dirty;
             _dirty = false;
 
-            _snapshot = SnapshotBuilder.Build(_states, _options, Context.SourceCultureName);
+            _snapshot = TranslationSnapshot.Build(_states);
             _snapshotBuilt = true;
         }
 

@@ -1,4 +1,4 @@
-namespace ArchPillar.Extensions.Localization;
+namespace ArchPillar.Extensions.Localization.Catalogs;
 
 /// <summary>
 /// How a <see cref="CatalogDescriptor"/>'s <see cref="Catalog"/> is obtained — the place the

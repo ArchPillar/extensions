@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Text;
+using ArchPillar.Extensions.Localization.Catalogs;
 using ArchPillar.Extensions.Localization.Formats;
+using ArchPillar.Extensions.Localization.Providers;
 
 namespace ArchPillar.Extensions.Localization.Tests;
 

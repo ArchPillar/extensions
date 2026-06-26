@@ -1,4 +1,5 @@
 using System.Globalization;
+using ArchPillar.Extensions.Localization.Catalogs;
 using BenchmarkDotNet.Attributes;
 
 namespace ArchPillar.Extensions.Localization.Benchmarks;

@@ -1,5 +1,6 @@
 using ArchPillar.Extensions.Localization.Formats;
 using ArchPillar.Extensions.Localization.MessageFormat;
+using ArchPillar.Extensions.Localization.Providers;
 
 namespace ArchPillar.Extensions.Localization;
 

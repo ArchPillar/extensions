@@ -1,7 +1,8 @@
 using System.IO.Compression;
 using System.Text.Json;
+using ArchPillar.Extensions.Localization.Catalogs;
 using ArchPillar.Extensions.Localization.Formats;
-using ArchPillar.Extensions.Localization.Internal;
+using ArchPillar.Extensions.Localization.Providers;
 using ArchPillar.Extensions.Localization.Tooling.Internal;
 
 namespace ArchPillar.Extensions.Localization.Tooling;

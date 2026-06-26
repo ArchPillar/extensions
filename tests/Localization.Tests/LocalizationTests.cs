@@ -1,4 +1,5 @@
 using System.Globalization;
+using ArchPillar.Extensions.Localization.Providers;
 
 [assembly: ArchPillar.Extensions.Localization.LocalizationCatalog("embedded.de.arb", "arb")]
 [assembly: ArchPillar.Extensions.Localization.LocalizationSatelliteCatalogs]

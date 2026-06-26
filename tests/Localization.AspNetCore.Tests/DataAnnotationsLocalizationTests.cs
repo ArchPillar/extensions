@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
+using ArchPillar.Extensions.Localization.Providers;
 using Microsoft.AspNetCore.Mvc.DataAnnotations;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;

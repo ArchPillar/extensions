@@ -1,8 +1,9 @@
 using System.Globalization;
+using ArchPillar.Extensions.Localization.Catalogs;
 using ArchPillar.Extensions.Localization.Formats;
 using ArchPillar.Extensions.Localization.Internal;
 
-namespace ArchPillar.Extensions.Localization;
+namespace ArchPillar.Extensions.Localization.Providers;
 
 /// <summary>
 /// An <see cref="ICatalogProvider"/> over a file-system directory: it scans the directory at construction and

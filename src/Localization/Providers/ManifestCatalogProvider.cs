@@ -1,9 +1,10 @@
 using System.Globalization;
 using System.Text.Json;
+using ArchPillar.Extensions.Localization.Catalogs;
 using ArchPillar.Extensions.Localization.Formats;
 using ArchPillar.Extensions.Localization.Internal;
 
-namespace ArchPillar.Extensions.Localization;
+namespace ArchPillar.Extensions.Localization.Providers;
 
 /// <summary>
 /// An <see cref="ICatalogProvider"/> over an HTTP-served catalog manifest — the client-side counterpart to the

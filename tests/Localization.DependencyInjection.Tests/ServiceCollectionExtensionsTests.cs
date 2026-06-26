@@ -1,5 +1,6 @@
 using System.Globalization;
 using ArchPillar.Extensions.Localization.MessageFormat;
+using ArchPillar.Extensions.Localization.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Ambient = ArchPillar.Extensions.Localization.Localizer;
 

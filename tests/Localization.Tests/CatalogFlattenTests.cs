@@ -1,4 +1,4 @@
-using ArchPillar.Extensions.Localization.Internal;
+using ArchPillar.Extensions.Localization.Catalogs;
 
 namespace ArchPillar.Extensions.Localization.Tests;
 

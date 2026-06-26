@@ -1,4 +1,6 @@
-namespace ArchPillar.Extensions.Localization;
+using ArchPillar.Extensions.Localization.Providers;
+
+namespace ArchPillar.Extensions.Localization.Catalogs;
 
 /// <summary>
 /// One catalog an <see cref="ICatalogProvider"/> can supply: the culture it carries, its container format, and

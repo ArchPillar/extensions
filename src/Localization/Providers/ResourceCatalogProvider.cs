@@ -1,8 +1,9 @@
 using System.Globalization;
 using System.Reflection;
+using ArchPillar.Extensions.Localization.Catalogs;
 using ArchPillar.Extensions.Localization.Formats;
 
-namespace ArchPillar.Extensions.Localization;
+namespace ArchPillar.Extensions.Localization.Providers;
 
 /// <summary>
 /// An <see cref="ICatalogProvider"/> over the catalogs assemblies ship: those embedded as manifest resources

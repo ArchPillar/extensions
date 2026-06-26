@@ -1,4 +1,6 @@
 using System.Globalization;
+using ArchPillar.Extensions.Localization.Catalogs;
+using ArchPillar.Extensions.Localization.Providers;
 
 namespace ArchPillar.Extensions.Localization.Tests;
 

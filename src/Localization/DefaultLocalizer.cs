@@ -1,5 +1,6 @@
 using System.Globalization;
-using ArchPillar.Extensions.Localization.Internal;
+using ArchPillar.Extensions.Localization.Catalogs;
+using ArchPillar.Extensions.Localization.Snapshots;
 
 namespace ArchPillar.Extensions.Localization;
 

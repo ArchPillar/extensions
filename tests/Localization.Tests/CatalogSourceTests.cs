@@ -1,3 +1,5 @@
+using ArchPillar.Extensions.Localization.Catalogs;
+
 namespace ArchPillar.Extensions.Localization.Tests;
 
 /// <summary>
