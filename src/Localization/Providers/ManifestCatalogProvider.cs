@@ -77,7 +77,7 @@ public sealed class ManifestCatalogProvider : ICatalogProvider
     {
         ArgumentNullException.ThrowIfNull(culture);
 
-        HashSet<string> wanted = CultureChain(culture);
+        HashSet<string> wanted = CultureNames(culture);
         if (!string.IsNullOrEmpty(_sourceCulture))
         {
             wanted.Add(_sourceCulture);
@@ -99,7 +99,7 @@ public sealed class ManifestCatalogProvider : ICatalogProvider
         var descriptors = new List<CatalogDescriptor>();
         foreach (var uri in uris)
         {
-            var extension = ExtensionOf(uri);
+            var extension = CatalogFileName.ExtensionOf(uri);
             ITranslationFormat? resolved = registry.ResolveByExtension(extension);
             if (resolved is null)
             {
@@ -110,7 +110,7 @@ public sealed class ManifestCatalogProvider : ICatalogProvider
             ITranslationFormat format = resolved;
             descriptors.Add(new CatalogDescriptor
             {
-                Culture = CultureFromUri(uri),
+                Culture = CatalogFileName.CultureOf(uri),
                 Format = extension,
                 Name = uri,
                 Source = new CatalogSource.Asynchronous(token => FetchAndReadAsync(httpClient, requestUri, format, token))
@@ -195,25 +195,15 @@ public sealed class ManifestCatalogProvider : ICatalogProvider
     }
 
     // The culture and its parent chain (de-AT -> de), by name, for a culture-scoped listing.
-    private static HashSet<string> CultureChain(CultureInfo culture)
+    private static HashSet<string> CultureNames(CultureInfo culture)
     {
         var chain = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        for (CultureInfo? current = culture; current is not null && !string.IsNullOrEmpty(current.Name); current = current.Parent)
+        foreach (CultureInfo current in CultureChain.Of(culture))
         {
             chain.Add(current.Name);
         }
 
         return chain;
-    }
-
-    // The culture tag a catalog URI's file name ends with: Translations/App.de.xliff -> "de", de.arb -> "de".
-    private static string CultureFromUri(string requestUri)
-    {
-        var end = requestUri.IndexOfAny(['?', '#']);
-        var path = end >= 0 ? requestUri[..end] : requestUri;
-        var name = Path.GetFileNameWithoutExtension(path);
-        var lastDot = name.LastIndexOf('.');
-        return lastDot >= 0 ? name[(lastDot + 1)..] : name;
     }
 
     // The manifest lists bare file names; each resolves against the manifest's own directory so the catalogs are
@@ -226,11 +216,4 @@ public sealed class ManifestCatalogProvider : ICatalogProvider
 
     private static string Resolve(string baseUri, string file) =>
         file.StartsWith('/') || file.Contains("://", StringComparison.Ordinal) ? file : baseUri + file;
-
-    private static string ExtensionOf(string requestUri)
-    {
-        var end = requestUri.IndexOfAny(['?', '#']);
-        var path = end >= 0 ? requestUri[..end] : requestUri;
-        return Path.GetExtension(path);
-    }
 }

@@ -85,7 +85,7 @@ with no translation files still runs correctly.
 | `CatalogStore` | Owns the layered catalogs, the directory watcher, and assembly discovery; produces the snapshot the engine resolves against. |
 | `TranslatableAttribute` / `TranslationDefaultAttribute` / `TranslationContextAttribute` / `TranslationCommentAttribute` / `TranslationScopeAttribute` | Mark the parameters/type-parameters detection reads. |
 | `TranslationMarkers.L` | No-op extraction marker for off-localizer strings. |
-| `Catalog` / `CatalogEntry` / `ITranslationFormat` / `ITranslationSource` | The catalog model and extension points. |
+| `Catalog` / `CatalogEntry` / `ITranslationFormat` | The catalog model and the format extension point. |
 | `IStringLocalizer*` adapters (DI package) | Interop over the ambient store, composing over a prior factory. |
 
 Full signatures are in the numbered specs and the runtime spec ([`05-runtime.md`](05-runtime.md)).

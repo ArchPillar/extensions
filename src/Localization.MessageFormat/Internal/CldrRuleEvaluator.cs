@@ -36,7 +36,7 @@ internal static class CldrRuleEvaluator
         var negate = relation.Contains(" != ");
         var sides = relation.Split([negate ? " != " : " = "], 2, StringSplitOptions.None);
         Func<PluralOperands, decimal> expression = CompileExpression(sides[0].Trim());
-        (long Low, long High)[] ranges = ParseRanges(sides[1].Trim());
+        (long Low, long High)[] ranges = PluralRanges.Parse(sides[1].Trim());
         return operands => InSet(expression(operands), ranges) != negate;
     }
 
@@ -62,35 +62,9 @@ internal static class CldrRuleEvaluator
         'f' => operands.F,
         't' => operands.T,
         'e' => operands.E,
-        'c' => operands.C,
+        'c' => operands.E, // 'c' is a CLDR synonym of 'e'
         _ => operands.N
     };
-
-    private static (long Low, long High)[] ParseRanges(string list)
-    {
-        var items = list.Split(',');
-        var ranges = new (long Low, long High)[items.Length];
-        for (var index = 0; index < items.Length; index++)
-        {
-            ranges[index] = ParseRange(items[index].Trim());
-        }
-
-        return ranges;
-    }
-
-    private static (long Low, long High) ParseRange(string item)
-    {
-        if (!item.Contains(".."))
-        {
-            var single = long.Parse(item, CultureInfo.InvariantCulture);
-            return (single, single);
-        }
-
-        var bounds = item.Split([".."], 2, StringSplitOptions.None);
-        var low = long.Parse(bounds[0], CultureInfo.InvariantCulture);
-        var high = long.Parse(bounds[1], CultureInfo.InvariantCulture);
-        return (low, high);
-    }
 
     private static bool InSet(decimal value, (long Low, long High)[] ranges)
     {

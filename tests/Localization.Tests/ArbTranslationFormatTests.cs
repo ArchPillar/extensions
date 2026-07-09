@@ -397,7 +397,7 @@ public sealed class ArbTranslationFormatTests
     private static async Task<byte[]> WriteAsync(Catalog catalog, CatalogWriteOptions options)
     {
         using var stream = new MemoryStream();
-        await _format.WriteAsync(stream, catalog, CancellationToken.None, options);
+        await _format.WriteAsync(stream, catalog, options);
         return stream.ToArray();
     }
 

@@ -148,7 +148,7 @@ public sealed class GoldenPathTests : IDisposable
     {
         var format = new ArbTranslationFormat();
         using FileStream stream = File.Create(path);
-        await format.WriteAsync(stream, catalog, CancellationToken.None);
+        await format.WriteAsync(stream, catalog);
     }
 
     private static T WithCulture<T>(CultureInfo culture, Func<T> render)

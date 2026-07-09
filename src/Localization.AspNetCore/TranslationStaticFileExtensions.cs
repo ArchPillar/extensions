@@ -12,13 +12,14 @@ namespace Microsoft.AspNetCore.Builder;
 /// </summary>
 public static class TranslationStaticFileExtensions
 {
-    // The catalog formats this library bundles, each with the content type its files are served as. Extensions
-    // are taken from the format providers, so a format that adds an extension is covered without changes here.
-    private static readonly (ITranslationFormat Format, string ContentType)[] _formats =
+    // The content type each bundled catalog format is served as, by format id. The format set and its extensions
+    // are owned by BuiltInTranslationFormats (resolved by id below), so only the HTTP content type — which is this
+    // adapter's own concern — lives here.
+    private static readonly (string FormatId, string ContentType)[] _contentTypes =
     [
-        (new ArbTranslationFormat(), "application/json"),
-        (new XliffTranslationFormat(), "application/xml"),
-        (new PoTranslationFormat(), "text/plain"),
+        ("arb", "application/json"),
+        ("xliff", "application/xml"),
+        ("po", "text/plain"),
     ];
 
     /// <summary>
@@ -33,11 +34,15 @@ public static class TranslationStaticFileExtensions
     {
         ArgumentNullException.ThrowIfNull(provider);
 
-        foreach ((ITranslationFormat format, var contentType) in _formats)
+        TranslationFormatRegistry registry = BuiltInTranslationFormats.CreateRegistry();
+        foreach ((var formatId, var contentType) in _contentTypes)
         {
-            foreach (var extension in format.Extensions)
+            if (registry.ResolveById(formatId) is { } format)
             {
-                provider.Mappings[extension] = contentType;
+                foreach (var extension in format.Extensions)
+                {
+                    provider.Mappings[extension] = contentType;
+                }
             }
         }
 

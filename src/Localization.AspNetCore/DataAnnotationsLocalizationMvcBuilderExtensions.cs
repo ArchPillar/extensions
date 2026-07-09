@@ -29,11 +29,7 @@ public static class DataAnnotationsLocalizationMvcBuilderExtensions
         builder.Services.AddLocalization();
         builder.AddDataAnnotationsLocalization(options =>
             options.DataAnnotationLocalizerProvider = (type, _) =>
-                new ArchPillarDataAnnotationsLocalizer(Localizer.ForCategory(CategoryOf(type)), type));
+                new ArchPillarDataAnnotationsLocalizer(Localizer.ForCategory(CategoryName.Of(type)), type));
         return builder;
     }
-
-    // The category an annotated type's strings are extracted under: its reflection full name (the enum helper and
-    // the IL extractor use the same), falling back to the simple name for the rare type with no full name.
-    private static string CategoryOf(Type type) => type.FullName ?? type.Name;
 }

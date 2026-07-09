@@ -40,23 +40,67 @@ internal static class CatalogDirectoryResolver
         return ordered;
     }
 
-    /// <summary>The single directory <c>import</c> writes returned translations into when <c>--output</c> is
-    /// omitted: a project's / solution's <c>Translations</c> folder, or the current directory's. The directory
-    /// need not pre-exist (the caller creates it); <c>--input</c> is the zip here, not the write target, so it
-    /// is ignored.</summary>
-    public static string ResolveWriteDirectory(ScopeOptions scope)
+    /// <summary>
+    /// Each in-scope project's name mapped to its directory, so <c>import</c> routes a returned catalog back to the
+    /// project that owns it (by the assembly name the entry carries) — the per-project layout the authoring
+    /// commands wrote. Empty when the scope discovers no projects.
+    /// </summary>
+    public static IReadOnlyDictionary<string, string> ProjectDirectoriesByName(ScopeOptions scope)
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var projectFile in ScopeProjects(scope))
+        {
+            map[Path.GetFileNameWithoutExtension(projectFile)] = Path.GetDirectoryName(projectFile)!;
+        }
+
+        return map;
+    }
+
+    /// <summary>
+    /// The base directory a scope's catalogs sit under — the project's, the solution's, or the current directory —
+    /// which a relative catalog folder (e.g. <c>Translations</c>) resolves against for an assembly with no matching
+    /// project.
+    /// </summary>
+    public static string ScopeBaseDirectory(ScopeOptions scope)
     {
         if (scope.Project is { } project)
         {
-            return ProjectCatalogDirectory(ScopeDiscovery.ResolveSingleFile(project, "project", "*.csproj"));
+            return Path.GetDirectoryName(ScopeDiscovery.ResolveSingleFile(project, "project", "*.csproj"))!;
         }
 
         if (scope.Solution is { } solution)
         {
-            return Path.Combine(Path.GetDirectoryName(ScopeDiscovery.ResolveSingleFile(solution, "solution", "*.sln", "*.slnx"))!, CatalogFolderName);
+            return Path.GetDirectoryName(ScopeDiscovery.ResolveSingleFile(solution, "solution", "*.sln", "*.slnx"))!;
         }
 
-        return Path.Combine(Directory.GetCurrentDirectory(), CatalogFolderName);
+        CurrentDirectoryScope current = ScopeDiscovery.DiscoverCurrentDirectory();
+        if (current.Solution is { } discoveredSolution)
+        {
+            return Path.GetDirectoryName(discoveredSolution)!;
+        }
+
+        return current.Project is { } discoveredProject ? Path.GetDirectoryName(discoveredProject)! : current.Directory;
+    }
+
+    private static IEnumerable<string> ScopeProjects(ScopeOptions scope)
+    {
+        if (scope.Project is { } project)
+        {
+            return ScopeDiscovery.ProjectClosure(ScopeDiscovery.ResolveSingleFile(project, "project", "*.csproj"), scope.Recurse);
+        }
+
+        if (scope.Solution is { } solution)
+        {
+            return ScopeDiscovery.SolutionProjects(ScopeDiscovery.ResolveSingleFile(solution, "solution", "*.sln", "*.slnx"));
+        }
+
+        CurrentDirectoryScope current = ScopeDiscovery.DiscoverCurrentDirectory();
+        if (current.Solution is { } discoveredSolution)
+        {
+            return ScopeDiscovery.SolutionProjects(discoveredSolution);
+        }
+
+        return current.Project is { } discoveredProject ? [discoveredProject] : [];
     }
 
     private static IEnumerable<string> CandidateDirectories(ScopeOptions scope)
@@ -101,6 +145,49 @@ internal static class CatalogDirectoryResolver
         }
 
         throw new ArgumentException("No project or solution found in the current directory. Run from your app folder, or pass --project, --solution, or --input <dir>.");
+    }
+
+    /// <summary>
+    /// The catalog directory the authoring commands (<c>extract</c>/<c>add</c>/<c>sync</c>) write an assembly's
+    /// catalogs into: the <paramref name="folder"/> subfolder of the project that built it (found by walking up to
+    /// the nearest <c>.csproj</c>) so a whole app's catalogs stay beside their own projects; or, for a loose
+    /// <c>--assembly</c>/<c>--input</c> path with no project, the same subfolder beside the input base. Never one
+    /// shared flat folder across separate projects. (An absolute <paramref name="folder"/> from an explicit
+    /// <c>--output</c> wins, the low-level escape.)
+    /// </summary>
+    public static string CatalogDirectoryFor(string assemblyPath, ScopeOptions scope, string folder) =>
+        ProjectCatalogDirectoryOf(assemblyPath, folder) ?? Path.Combine(InputBase(scope, assemblyPath), folder);
+
+    /// <summary>The <paramref name="folder"/> subfolder of the assembly's project, or null when it is not in a
+    /// project tree.</summary>
+    public static string? ProjectCatalogDirectoryOf(string assemblyPath, string folder)
+    {
+        for (var directory = Path.GetDirectoryName(Path.GetFullPath(assemblyPath)); directory is not null; directory = Path.GetDirectoryName(directory))
+        {
+            if (Directory.EnumerateFiles(directory, "*.csproj").Any())
+            {
+                return Path.Combine(directory, folder);
+            }
+        }
+
+        return null;
+    }
+
+    // The base a loose assembly's catalogs sit beside: the --input directory, the --assembly's own directory, or
+    // (failing both) the assembly file's directory.
+    private static string InputBase(ScopeOptions scope, string assemblyPath)
+    {
+        if (scope.Input is { Length: > 0 } input)
+        {
+            return Path.GetFullPath(input);
+        }
+
+        if (scope.Assembly is { Length: > 0 } assembly)
+        {
+            return Path.GetDirectoryName(Path.GetFullPath(assembly))!;
+        }
+
+        return Path.GetDirectoryName(Path.GetFullPath(assemblyPath))!;
     }
 
     private static string ProjectCatalogDirectory(string projectPath) =>

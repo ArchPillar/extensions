@@ -91,7 +91,7 @@ public static class PluralRules
         var w = trimmed.Length;
         var f = v == 0 ? 0L : ParseDigits(fractionText, keepLowOrder: false);
         var t = w == 0 ? 0L : ParseDigits(trimmed, keepLowOrder: false);
-        return new PluralOperands(absolute, i, v, w, f, t, 0, 0);
+        return new PluralOperands(absolute, i, v, w, f, t, 0);
     }
 
     /// <summary>
@@ -137,20 +137,7 @@ public static class PluralRules
             throw new ArgumentNullException(nameof(culture));
         }
 
-        return GettextPluralExpression.Build(GettextOrder(culture), CardinalRules(culture));
-    }
-
-    private static IReadOnlyList<CldrPluralRule> CardinalRules(string culture)
-    {
-        foreach (var candidate in CultureCandidates(culture))
-        {
-            if (CldrPluralData.Cardinal.TryGetValue(candidate, out CldrPluralRule[]? rules))
-            {
-                return rules;
-            }
-        }
-
-        return [];
+        return GettextPluralExpression.Build(GettextOrder(culture), RulesFor(CldrPluralData.Cardinal, culture));
     }
 
     // Parses a run of digits into a long that cannot overflow: a value with more than 18 digits is far
@@ -176,15 +163,7 @@ public static class PluralRules
         string culture,
         PluralOperands operands)
     {
-        foreach (var candidate in CultureCandidates(culture))
-        {
-            if (table.TryGetValue(candidate, out CldrPluralRule[]? rules))
-            {
-                return Evaluate(rules, operands);
-            }
-        }
-
-        return PluralCategory.Other;
+        return Evaluate(RulesFor(table, culture), operands);
     }
 
     private static PluralCategory Evaluate(CldrPluralRule[] rules, PluralOperands operands)
@@ -203,29 +182,38 @@ public static class PluralRules
     private static HashSet<PluralCategory> CategoriesFor(string culture)
     {
         var categories = new HashSet<PluralCategory>();
-        foreach (var candidate in CultureCandidates(culture))
+        foreach (CldrPluralRule rule in RulesFor(CldrPluralData.Cardinal, culture))
         {
-            if (CldrPluralData.Cardinal.TryGetValue(candidate, out CldrPluralRule[]? rules))
-            {
-                foreach (CldrPluralRule rule in rules)
-                {
-                    categories.Add(rule.Category);
-                }
-
-                break;
-            }
+            categories.Add(rule.Category);
         }
 
         return categories;
     }
 
-    private static IEnumerable<string> CultureCandidates(string culture)
+    // Resolves the rule set for a culture from the table, falling back from the full name to its base language
+    // (the part before the first '-'), or an empty set when neither is present. Allocation-lean: a base-language
+    // substring is taken only on the fallback path; an exact-name hit allocates nothing.
+    private static CldrPluralRule[] RulesFor(IReadOnlyDictionary<string, CldrPluralRule[]> table, string culture)
     {
-        yield return culture;
-        var parts = culture.Split('-');
-        if (parts.Length > 1)
+        if (table.TryGetValue(culture, out CldrPluralRule[]? rules))
         {
-            yield return parts[0];
+            return rules;
         }
+
+        var dash = culture.IndexOf('-');
+        if (dash > 0)
+        {
+#if NETSTANDARD2_0
+            var language = culture.Substring(0, dash);
+#else
+            var language = culture[..dash];
+#endif
+            if (table.TryGetValue(language, out rules))
+            {
+                return rules;
+            }
+        }
+
+        return [];
     }
 }

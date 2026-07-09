@@ -1,4 +1,3 @@
-using System.Text;
 using ArchPillar.Extensions.Localization.MessageFormat;
 
 namespace ArchPillar.Extensions.Localization.Formats;
@@ -19,21 +18,22 @@ internal sealed record GettextPlural(
 /// Converts between an ICU cardinal-plural message and its gettext form. Only a clean top-level
 /// <c>plural</c> (not <c>selectordinal</c>, no <c>offset</c>, no explicit <c>=N</c> selectors, source
 /// expressed with <c>one</c>/<c>other</c>) is representable; anything else returns <see langword="null"/>
-/// so the provider keeps the message as opaque ICU text.
+/// so the provider keeps the message as opaque ICU text. ICU recognition and emission are owned by
+/// <see cref="MessageSyntax"/>; this type only maps between the ICU branches and the gettext form order.
 /// </summary>
 internal static class PoPluralConverter
 {
     public static GettextPlural? ToGettext(string sourceIcu, string? translatedIcu, string targetCulture)
     {
-        if (!IcuPluralScanner.TryScan(sourceIcu, out IcuPluralShape? source)
-            || !source!.Branches.TryGetValue(PluralCategory.One, out var singular)
+        if (MessageSyntax.RecognizeCardinalPlural(sourceIcu) is not { } source
+            || !source.Branches.TryGetValue(PluralCategory.One, out var singular)
             || !source.Branches.TryGetValue(PluralCategory.Other, out var pluralSource))
         {
             return null;
         }
 
         IReadOnlyList<PluralCategory> order = PluralRules.GettextOrder(targetCulture);
-        IReadOnlyDictionary<PluralCategory, string> translatedBranches = ScanTranslatedBranches(translatedIcu);
+        IReadOnlyDictionary<PluralCategory, string> translatedBranches = TranslatedBranches(translatedIcu);
 
         var forms = new string[order.Count];
         for (var index = 0; index < order.Count; index++)
@@ -46,7 +46,7 @@ internal static class PoPluralConverter
 
     public static (string Source, string? Translated) FromGettext(GettextPlural plural, string targetCulture)
     {
-        var source = BuildIcuPlural(
+        var source = MessageSyntax.BuildCardinalPlural(
             plural.ArgumentName,
             [(PluralCategory.One, plural.SingularSource), (PluralCategory.Other, plural.PluralSource)]);
 
@@ -59,29 +59,13 @@ internal static class PoPluralConverter
             anyTranslated |= plural.TranslatedForms[index].Length > 0;
         }
 
-        return anyTranslated ? (source, BuildIcuPlural(plural.ArgumentName, branches)) : (source, null);
+        return anyTranslated
+            ? (source, MessageSyntax.BuildCardinalPlural(plural.ArgumentName, branches))
+            : (source, null);
     }
 
-    private static IReadOnlyDictionary<PluralCategory, string> ScanTranslatedBranches(string? translatedIcu)
-    {
-        if (translatedIcu is not null && IcuPluralScanner.TryScan(translatedIcu, out IcuPluralShape? shape))
-        {
-            return shape!.Branches;
-        }
-
-        return new Dictionary<PluralCategory, string>();
-    }
-
-    private static string BuildIcuPlural(string argumentName, IReadOnlyList<(PluralCategory Category, string Body)> branches)
-    {
-        var builder = new StringBuilder();
-        builder.Append('{').Append(argumentName).Append(", plural,");
-        foreach ((PluralCategory category, var body) in branches)
-        {
-            builder.Append(' ').Append(PluralCategoryKeyword.Of(category)).Append(" {").Append(body).Append('}');
-        }
-
-        builder.Append('}');
-        return builder.ToString();
-    }
+    private static IReadOnlyDictionary<PluralCategory, string> TranslatedBranches(string? translatedIcu) =>
+        translatedIcu is not null && MessageSyntax.RecognizeCardinalPlural(translatedIcu) is { } shape
+            ? shape.Branches
+            : new Dictionary<PluralCategory, string>();
 }

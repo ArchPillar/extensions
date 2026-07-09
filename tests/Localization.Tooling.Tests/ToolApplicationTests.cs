@@ -385,13 +385,13 @@ public sealed class ToolApplicationTests : IDisposable
         };
 
         using FileStream stream = File.Create(path);
-        await _arb.WriteAsync(stream, catalog, CancellationToken.None);
+        await _arb.WriteAsync(stream, catalog);
     }
 
     private static async Task WriteCatalogRawAsync(string path, Catalog catalog)
     {
         using FileStream stream = File.Create(path);
-        await _arb.WriteAsync(stream, catalog, CancellationToken.None);
+        await _arb.WriteAsync(stream, catalog);
     }
 
     private async Task WriteTemplateAsync()
@@ -407,7 +407,7 @@ public sealed class ToolApplicationTests : IDisposable
         };
 
         using FileStream stream = File.Create(_template);
-        await _arb.WriteAsync(stream, catalog, CancellationToken.None);
+        await _arb.WriteAsync(stream, catalog);
     }
 
     private static Catalog Read(string path)

@@ -1,72 +1,156 @@
-using ArchPillar.Extensions.Localization.Snapshots;
+using System.Collections.Concurrent;
+using System.Text.Json;
+using System.Xml;
+using ArchPillar.Extensions.Localization.Providers;
 
 namespace ArchPillar.Extensions.Localization.Catalogs;
 
 /// <summary>
-/// Builds a <see cref="TranslationSnapshot"/> by reading every translation file in the configured
-/// directory through the bundled format providers, grouping by culture, skipping untranslated entries, and
-/// resolving cross-format overlap by the configured precedence. The source language is loaded as an override
-/// layer like any other culture; the in-code default remains the terminal fallback, and an un-customized
-/// source entry (an echo of that default) stays <see cref="TranslationState.NeedsTranslation"/> so the
-/// per-entry filter drops it and only a genuine source override is loaded.
+/// The one owner of loading catalogs and remembering what has been loaded. When asked to load a descriptor it
+/// deduplicates the request itself — skipping any catalog already loaded, already failed, or in flight — then opens
+/// it (a synchronous source inline, an asynchronous source on a coalesced background task, one fetch per identity)
+/// and records the result under its provider. It signals through <c>onAsyncLanded</c> when an asynchronous catalog
+/// grows the loaded set, so the store rebuilds its snapshot; it never publishes itself.
 /// </summary>
-internal static class CatalogLoader
+/// <remarks>
+/// Lock-free: the per-provider registry maps each identity to its loaded catalog, or <see langword="null"/> when the
+/// load was attempted and failed (so it is not retried). The provider set is fixed for one configuration, so the
+/// outer map's keys never change after construction and it is read concurrently without locking; the inner maps are
+/// <see cref="ConcurrentDictionary{TKey,TValue}"/>, so dedup is an atomic <c>TryAdd</c>. Opens run without any lock
+/// (they take the CLR loader lock).
+/// </remarks>
+internal sealed class CatalogLoader(
+    IReadOnlyList<ICatalogProvider> providers)
 {
-    /// <summary>
-    /// Loads <paramref name="catalogs"/> exactly as the runtime does — last source wins, untranslated entries
-    /// skipped, the source language included as an override layer (only its genuine overrides survive) — and
-    /// dumps the merged result as one flattened <see cref="Catalog"/> per culture (the publish bundle). A
-    /// culture with no surviving entries produces no bundle, so an un-customized source language ships nothing.
-    /// Because it reuses <see cref="TranslationSnapshot"/>, the bundle resolves identically to loading the many files.
-    /// Translator-only metadata is dropped; a runtime bundle needs only the translations.
-    /// </summary>
-    public static IReadOnlyList<Catalog> Flatten(IEnumerable<Catalog> catalogs)
+    private readonly IReadOnlyDictionary<ICatalogProvider, ConcurrentDictionary<(string Culture, string Name), Catalog?>> _registry = providers.ToDictionary(provider => provider, _ => new ConcurrentDictionary<(string Culture, string Name), Catalog?>());
+    private readonly ConcurrentDictionary<(string Culture, string Name), Task> _inFlight = new();
+
+    // Loads the whole <paramref name="work"/> set (each item a provider and one of its descriptors): every catalog is
+    // opened and registered unless already loaded, failed, or in flight. A synchronous source is opened inline and an
+    // asynchronous one is coalesced onto the background queue. <paramref name="onChanged"/> is raised whenever the
+    // loaded set actually grows — once for the synchronous batch, and once per asynchronous catalog as it lands —
+    // regardless of timing. Returns the in-flight tasks so an awaited caller can drain them.
+    public IReadOnlyList<Task> Load(
+        IReadOnlyList<(ICatalogProvider Provider, CatalogDescriptor Descriptor)> work,
+        Action onChanged)
     {
-        var snapshot = TranslationSnapshot.Build(catalogs);
-        var result = new List<Catalog>();
-        foreach (KeyValuePair<string, CategoryMap> culture in snapshot.Cultures)
+        var tasks = new List<Task>();
+        var grew = false;
+        foreach ((ICatalogProvider provider, CatalogDescriptor descriptor) in work)
         {
-            var entries = new List<CatalogEntry>();
-            foreach (KeyValuePair<string, TranslationMap> category in culture.Value)
+            switch (descriptor.Source)
             {
-                foreach (KeyValuePair<string, string> entry in category.Value)
-                {
-                    (var key, var context) = SplitComposite(entry.Key);
-                    entries.Add(new CatalogEntry
-                    {
-                        Category = category.Key,
-                        Key = key,
-                        Context = context,
-                        SourceMessage = entry.Value,
-                        TranslatedMessage = entry.Value,
-                        SourceFingerprint = string.Empty,
-                        State = TranslationState.Translated
-                    });
-                }
+                case CatalogSource.Synchronous source:
+                    grew |= OpenSynchronous(provider, descriptor, source);
+                    break;
+                case CatalogSource.Asynchronous source:
+                    tasks.Add(_inFlight.GetOrAdd(descriptor.Identity, _ => FetchAsync(provider, descriptor, source, onChanged)));
+                    break;
             }
-
-            // A culture that contributed no loadable entry (e.g. a source catalog of pure echoes) yields no
-            // bundle rather than an empty file.
-            if (entries.Count == 0)
-            {
-                continue;
-            }
-
-            IEnumerable<CatalogEntry> ordered = entries
-                .OrderBy(entry => entry.Category, StringComparer.Ordinal)
-                .ThenBy(entry => entry.Key, StringComparer.Ordinal)
-                .ThenBy(entry => entry.Context ?? string.Empty, StringComparer.Ordinal);
-            result.Add(new Catalog { Culture = culture.Key, Entries = [.. ordered] });
         }
 
-        return result;
+        if (grew)
+        {
+            onChanged();
+        }
+
+        return tasks;
     }
 
-    private static (string Key, string? Context) SplitComposite(string composite)
+    // The loaded catalogs across <paramref name="providers"/>, in their given order (provider precedence), for the
+    // snapshot rebuild. Within a provider the catalogs are ordered by identity (ordinal), so two overlapping catalogs
+    // for the same culture merge deterministically — the later one wins — regardless of the registry's (unordered)
+    // internal layout or the file system's enumeration order. A failed entry (null value) is skipped.
+    public IReadOnlyList<Catalog> LoadedCatalogs(IReadOnlyList<ICatalogProvider> providers)
     {
-        var separator = composite.IndexOf(TranslationKey.Separator);
-        return separator >= 0
-            ? (composite[(separator + 1)..], composite[..separator])
-            : (composite, null);
+        var catalogs = new List<Catalog>();
+        foreach (ICatalogProvider provider in providers)
+        {
+            if (_registry.TryGetValue(provider, out ConcurrentDictionary<(string Culture, string Name), Catalog?>? loaded))
+            {
+                foreach (KeyValuePair<(string Culture, string Name), Catalog?> entry in loaded
+                    .OrderBy(pair => pair.Key.Culture, StringComparer.Ordinal)
+                    .ThenBy(pair => pair.Key.Name, StringComparer.Ordinal))
+                {
+                    if (entry.Value is not null)
+                    {
+                        catalogs.Add(entry.Value);
+                    }
+                }
+            }
+        }
+
+        return catalogs;
     }
+
+    // Forgets one catalog so the next load re-fetches it — a hot-reload edit or an assembly-load replacement.
+    public void Forget(ICatalogProvider provider, (string Culture, string Name) identity)
+    {
+        if (_registry.TryGetValue(provider, out ConcurrentDictionary<(string Culture, string Name), Catalog?>? loaded))
+        {
+            loaded.TryRemove(identity, out _);
+        }
+    }
+
+    // Opens a synchronous source unless already handled, recording the catalog (or null on an expected failure).
+    // Returns true only when a real catalog was newly registered. The open runs outside any lock; TryAdd re-checks so
+    // a concurrent load never double-registers.
+    private bool OpenSynchronous(ICatalogProvider provider, CatalogDescriptor descriptor, CatalogSource.Synchronous source)
+    {
+        ConcurrentDictionary<(string Culture, string Name), Catalog?> catalogs = _registry[provider];
+        if (catalogs.ContainsKey(descriptor.Identity))
+        {
+            return false;
+        }
+
+        Catalog? catalog;
+        try
+        {
+            catalog = source.Open();
+        }
+        catch (Exception exception) when (IsCatalogLoadFailure(exception))
+        {
+            catalog = null;
+        }
+
+        return catalogs.TryAdd(descriptor.Identity, catalog) && catalog is not null;
+    }
+
+    // Fetches an asynchronous source, records it, and signals when it grows the loaded set, then leaves the in-flight
+    // queue. The only asynchronous-open site, so the miss path never opens a stream inline.
+    private async Task FetchAsync(ICatalogProvider provider, CatalogDescriptor descriptor, CatalogSource.Asynchronous source, Action onChanged)
+    {
+        try
+        {
+            Catalog? catalog;
+            try
+            {
+                catalog = await source.OpenAsync(CancellationToken.None).ConfigureAwait(false);
+            }
+            catch (Exception exception) when (IsCatalogLoadFailure(exception))
+            {
+                catalog = null;
+            }
+
+            if (_registry[provider].TryAdd(descriptor.Identity, catalog) && catalog is not null)
+            {
+                onChanged();
+            }
+        }
+        finally
+        {
+            _inFlight.TryRemove(descriptor.Identity, out _);
+        }
+    }
+
+    // Whether an exception is an expected catalog-load failure (missing or malformed) rather than an unrelated or
+    // fatal one that should propagate. OperationCanceledException is excluded, so cancellation propagates.
+    private static bool IsCatalogLoadFailure(Exception exception) =>
+        exception is IOException
+            or UnauthorizedAccessException
+            or HttpRequestException
+            or JsonException
+            or XmlException
+            or FormatException
+            or NotSupportedException;
 }

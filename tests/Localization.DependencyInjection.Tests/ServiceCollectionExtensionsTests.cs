@@ -18,7 +18,7 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
         services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" });
         using ServiceProvider provider = services.BuildServiceProvider();
 
-        Assert.Same(provider.GetRequiredService<DefaultLocalizer>(), provider.GetRequiredService<DefaultLocalizer>());
+        Assert.Same(provider.GetRequiredService<ILocalizer>(), provider.GetRequiredService<ILocalizer>());
     }
 
     [Fact]
@@ -51,6 +51,41 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
     }
 
     [Fact]
+    public void Factory_IsInjectable_AndCreatesCategoryLocalizersOverTheAmbientStore()
+    {
+        // ILocalizerFactory is the ILoggerFactory-shaped door (Decision D-H); it must be injectable and resolve
+        // through the same ambient store as ILocalizer<T> — the context itself is the factory.
+        Ambient.Reset();
+        var catalog = new Catalog
+        {
+            Culture = "de",
+            Entries =
+            [
+                new CatalogEntry
+                {
+                    Category = typeof(Buttons).FullName!,
+                    Key = "save",
+                    SourceMessage = "Save",
+                    TranslatedMessage = "Speichern",
+                    SourceFingerprint = "fp",
+                    State = TranslationState.Translated
+                }
+            ]
+        };
+
+        var services = new ServiceCollection();
+        services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en", Providers = [Layer(catalog)] });
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        ILocalizerFactory factory = provider.GetRequiredService<ILocalizerFactory>();
+        WithCulture(_german, () =>
+        {
+            Assert.Equal("Speichern", factory.Create<Buttons>().Translate("save", "Save"));
+            Assert.Equal("Speichern", factory.Create(typeof(Buttons).FullName!).Translate("save", "Save"));
+        });
+    }
+
+    [Fact]
     public void AmbientInterface_HonorsTheConfiguredMissingArgumentPolicy()
     {
         // The injected interface goes through the ambient store; the Throw policy configured via options must
@@ -77,9 +112,9 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
         services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" });
         services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" });
 
-        // The second call is a no-op: the DefaultLocalizer marker is registered exactly once, so it does not stack a
-        // second set of native views.
-        Assert.Equal(1, services.Count(descriptor => descriptor.ServiceType == typeof(DefaultLocalizer)));
+        // The second call is a no-op: the LocalizationContext marker is registered exactly once, so it does not stack
+        // a second set of native views.
+        Assert.Equal(1, services.Count(descriptor => descriptor.ServiceType == typeof(LocalizationContext)));
 
         using ServiceProvider provider = services.BuildServiceProvider();
         Assert.NotNull(provider.GetRequiredService<ILocalizer>());

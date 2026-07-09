@@ -13,7 +13,7 @@ namespace ArchPillar.Extensions.Localization.Detection;
 /// default, context, comment, and placeholders. The analyzer, the generator, and the tool all use this
 /// so they agree byte-for-byte.
 /// </summary>
-public static class TranslationSiteDetector
+internal static class TranslationSiteDetector
 {
     /// <summary>
     /// Detects every translation site in <paramref name="compilation"/>.
@@ -65,7 +65,19 @@ public static class TranslationSiteDetector
         bool includeStringLocalizer,
         CancellationToken cancellationToken)
     {
-        var symbols = AttributeSymbols.From(model.Compilation);
+        return DetectAt(model, node, AttributeSymbols.From(model.Compilation), includeStringLocalizer, cancellationToken);
+    }
+
+    // The same detection over a symbol set resolved once per compilation, so a per-node caller (the editor
+    // analyzer, which runs on every keystroke) reuses the localization well-known symbols instead of
+    // re-resolving seven metadata names on every node.
+    internal static TranslationSiteResult? DetectAt(
+        SemanticModel model,
+        SyntaxNode node,
+        AttributeSymbols symbols,
+        bool includeStringLocalizer,
+        CancellationToken cancellationToken)
+    {
         return symbols.Translatable is null && symbols.StringLocalizer is null
             ? null
             : DetectCore(model, node, symbols, includeStringLocalizer, cancellationToken);
@@ -164,7 +176,7 @@ public static class TranslationSiteDetector
 
         var category = StringLocalizerCategory(reference.Instance?.Type as INamedTypeSymbol, symbols.GenericStringLocalizer);
         IReadOnlyList<string> placeholders = [.. MessageSyntax.ExtractPlaceholders(name)];
-        var site = new TranslationSite(name, name, null, category, null, placeholders, ToReference(node), null);
+        var site = new TranslationSite(name, name, null, category, null, placeholders, ToReference(node));
         return new TranslationSiteResult(site, []);
     }
 
@@ -224,7 +236,7 @@ public static class TranslationSiteDetector
         IArgumentOperation? defaultArgument = FindArgument(arguments, symbols.Default);
         var defaultMessage = Constant(defaultArgument, problems);
         var context = Constant(FindArgument(arguments, symbols.Context), problems);
-        var comment = ResolveComment(arguments, symbols);
+        var comment = ResolveComment(arguments, symbols, problems);
 
         if (key is null || defaultMessage is null || defaultArgument is null)
         {
@@ -237,7 +249,7 @@ public static class TranslationSiteDetector
         AddMissingOtherProblems(defaultMessage, defaultArgument, problems);
 
         var category = CategoryFrom(receiver, symbols.Scope);
-        var site = new TranslationSite(key, defaultMessage, context, category, comment, placeholders, ToReference(node), supplied);
+        var site = new TranslationSite(key, defaultMessage, context, category, comment, placeholders, ToReference(node));
         return new TranslationSiteResult(site, problems);
     }
 
@@ -485,7 +497,7 @@ public static class TranslationSiteDetector
         return null;
     }
 
-    private static string? ResolveComment(ImmutableArray<IArgumentOperation> arguments, AttributeSymbols symbols)
+    private static string? ResolveComment(ImmutableArray<IArgumentOperation> arguments, AttributeSymbols symbols, List<DetectionProblem> problems)
     {
         IArgumentOperation? commentArgument = FindArgument(arguments, symbols.Comment);
         if (commentArgument is not null)
@@ -495,6 +507,13 @@ public static class TranslationSiteDetector
             {
                 return constant.Value as string;
             }
+
+            // A non-constant comment cannot be baked into the catalog — report it like the key/default/context
+            // arguments do, rather than dropping it silently, then fall back to any method-level comment.
+            problems.Add(new DetectionProblem(
+                DetectionCause.NonConstantArgument,
+                null,
+                commentArgument.Value.Syntax.GetLocation()));
         }
 
         return MethodComment(arguments, symbols);
@@ -548,7 +567,7 @@ public static class TranslationSiteDetector
         return new SourceReference(span.Path, span.StartLinePosition.Line + 1, span.StartLinePosition.Character + 1);
     }
 
-    private sealed class AttributeSymbols
+    internal sealed class AttributeSymbols
     {
         private AttributeSymbols(
             INamedTypeSymbol? translatable,

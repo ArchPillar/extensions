@@ -121,7 +121,7 @@ public sealed class ToolGateTests : IDisposable
     {
         var format = new ArbTranslationFormat();
         using FileStream stream = File.Create(path);
-        await format.WriteAsync(stream, catalog, CancellationToken.None);
+        await format.WriteAsync(stream, catalog);
     }
 
     private static Catalog ReadCatalog(string path)

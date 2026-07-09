@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Composition;
+using ArchPillar.Extensions.Localization.Analyzers;
 using ArchPillar.Extensions.Localization.MessageFormat;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
@@ -18,10 +19,10 @@ namespace ArchPillar.Extensions.Localization.CodeFixes;
 [Shared]
 public sealed class MissingOtherCodeFixProvider : CodeFixProvider
 {
-    private const string DiagnosticId = "APL0005";
+    private static readonly string _diagnosticId = Diagnostics.MissingOther.Id;
 
     /// <inheritdoc />
-    public override ImmutableArray<string> FixableDiagnosticIds { get; } = ImmutableArray.Create(DiagnosticId);
+    public override ImmutableArray<string> FixableDiagnosticIds { get; } = ImmutableArray.Create(_diagnosticId);
 
     /// <inheritdoc />
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
@@ -44,7 +45,7 @@ public sealed class MissingOtherCodeFixProvider : CodeFixProvider
                     CodeAction.Create(
                         "Add 'other' branch",
                         token => AddOtherBranchAsync(context.Document, root, literal, token),
-                        equivalenceKey: DiagnosticId),
+                        equivalenceKey: _diagnosticId),
                     diagnostic);
             }
         }

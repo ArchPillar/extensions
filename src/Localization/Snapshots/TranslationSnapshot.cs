@@ -1,19 +1,18 @@
 using System.Globalization;
-using ArchPillar.Extensions.Localization.Providers;
 
 namespace ArchPillar.Extensions.Localization.Snapshots;
 
-internal sealed class TranslationMap ()
+internal sealed class TranslationMap()
     : Dictionary<string, string>(StringComparer.Ordinal)
 {
 }
 
-internal sealed class CategoryMap ()
+internal sealed class CategoryMap()
     : Dictionary<string, TranslationMap>(StringComparer.Ordinal)
 {
 }
 
-internal sealed class CultureMap ()
+internal sealed class CultureMap()
     : Dictionary<string, CategoryMap>(StringComparer.OrdinalIgnoreCase)
 {
 }
@@ -36,6 +35,8 @@ internal sealed class TranslationSnapshot(
     // default is the engine's terminal fallback, applied by the caller.
     public string? Lookup(CultureInfo culture, string category, string compositeKey)
     {
+        // Hand-rolled rather than CultureChain.Of: this is the allocation-free lookup hot path, and an iterator
+        // method would allocate an enumerator per call.
         for (CultureInfo? current = culture; !string.IsNullOrEmpty(current?.Name); current = current.Parent)
         {
             if (Cultures.TryGetValue(current.Name, out CategoryMap? byCategory)
@@ -55,7 +56,7 @@ internal sealed class TranslationSnapshot(
     public IReadOnlyList<KeyValuePair<string, string>> EnumerateCategory(CultureInfo culture, string category, bool includeParentCultures)
     {
         var chain = new List<string>();
-        for (CultureInfo? current = culture; !string.IsNullOrEmpty(current?.Name); current = current.Parent)
+        foreach (CultureInfo current in CultureChain.Of(culture))
         {
             chain.Add(current.Name);
             if (!includeParentCultures)
@@ -81,12 +82,6 @@ internal sealed class TranslationSnapshot(
     }
 
     public static TranslationSnapshot Empty { get; } = new([]);
-
-    public static TranslationSnapshot Build(
-        IEnumerable<ProviderState> providers)
-    {
-        return Build(providers.SelectMany(state => state.Catalogs.Values));
-    }
 
     public static TranslationSnapshot Build(
         IEnumerable<Catalog> catalogs)

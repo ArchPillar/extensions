@@ -103,7 +103,7 @@ internal static class GettextPluralExpression
     {
         var negate = relation.Contains(" != ");
         var sides = relation.Split([negate ? " != " : " = "], 2, StringSplitOptions.None);
-        (long Low, long High)[] ranges = ParseRanges(sides[1].Trim());
+        (long Low, long High)[] ranges = PluralRanges.Parse(sides[1].Trim());
 
         if (!TryExpression(sides[0].Trim(), out var expr))
         {
@@ -142,30 +142,6 @@ internal static class GettextPluralExpression
         }
 
         return parts.Count == 1 ? parts[0] : $"({string.Join(" || ", parts)})";
-    }
-
-    private static (long Low, long High)[] ParseRanges(string list)
-    {
-        var items = list.Split(',');
-        var ranges = new (long Low, long High)[items.Length];
-        for (var index = 0; index < items.Length; index++)
-        {
-            ranges[index] = ParseRange(items[index].Trim());
-        }
-
-        return ranges;
-    }
-
-    private static (long Low, long High) ParseRange(string item)
-    {
-        if (!item.Contains(".."))
-        {
-            var single = long.Parse(item, CultureInfo.InvariantCulture);
-            return (single, single);
-        }
-
-        var bounds = item.Split([".."], 2, StringSplitOptions.None);
-        return (long.Parse(bounds[0], CultureInfo.InvariantCulture), long.Parse(bounds[1], CultureInfo.InvariantCulture));
     }
 
     private static int IndexOf(IReadOnlyList<PluralCategory> order, PluralCategory category)

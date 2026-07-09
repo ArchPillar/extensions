@@ -91,7 +91,7 @@ internal static class TranslationKeyRegistryEmitter
         var suffix = 2;
         while (!used.Add(candidate))
         {
-            candidate = identifier + suffix.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            candidate = identifier + suffix.ToString(CultureInfo.InvariantCulture);
             suffix++;
         }
 

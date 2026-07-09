@@ -176,6 +176,18 @@ public sealed class MessageParserTests
         Assert.Throws<MessageFormatException>(() => MessageParser.Parse("{n, plural, banana {x} other {y}}"));
     }
 
+    [Fact]
+    public void Parse_DuplicatePluralSelector_Throws()
+    {
+        Assert.Throws<MessageFormatException>(() => MessageParser.Parse("{n, plural, one {a} one {b} other {c}}"));
+    }
+
+    [Fact]
+    public void Parse_DuplicateSelectSelector_Throws()
+    {
+        Assert.Throws<MessageFormatException>(() => MessageParser.Parse("{g, select, male {a} male {b} other {c}}"));
+    }
+
     private static string LiteralOf(Message message) =>
         Assert.IsType<LiteralPart>(Assert.Single(message.Parts)).Text;
 }

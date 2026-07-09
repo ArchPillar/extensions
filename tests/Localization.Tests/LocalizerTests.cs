@@ -243,7 +243,7 @@ public sealed class LocalizerTests : IDisposable
     private static void WriteCatalog(ITranslationFormat format, string directory, string fileName, Catalog catalog)
     {
         using FileStream stream = File.Create(Path.Combine(directory, fileName));
-        format.WriteAsync(stream, catalog, CancellationToken.None).GetAwaiter().GetResult();
+        format.WriteAsync(stream, catalog).GetAwaiter().GetResult();
     }
 
     private DefaultLocalizer Make(string directory) =>
@@ -254,7 +254,7 @@ public sealed class LocalizerTests : IDisposable
     {
         var store = new CatalogStore(options);
         _stores.Add(store);
-        return new DefaultLocalizer(store);
+        return new DefaultLocalizer(store, RenderingContext.For(options.SourceCulture, options.MissingArguments));
     }
 
     // Builds a localizer over the given in-memory catalogs via an InMemoryCatalogProvider (no files on disk).

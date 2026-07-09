@@ -24,15 +24,11 @@ internal sealed class RenderingContext
     {
         SourceCultureName = sourceCulture ?? "en";
         SourceCulture = CreateCulture(SourceCultureName);
-        MissingArguments = missingArguments;
         Formatter = new MessageFormatter(missingArguments);
     }
 
     /// <summary>The language the in-code defaults are written in (the source culture's name).</summary>
     public string SourceCultureName { get; }
-
-    /// <summary>The policy applied when a rendered message references an argument with no supplied value.</summary>
-    public MissingArgumentPolicy MissingArguments { get; }
 
     /// <summary>The source culture used to render in-code defaults (their text is in this language).</summary>
     internal CultureInfo SourceCulture { get; }

@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Composition;
+using ArchPillar.Extensions.Localization.Analyzers;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
@@ -17,10 +18,10 @@ namespace ArchPillar.Extensions.Localization.CodeFixes;
 [Shared]
 public sealed class MarkLocalizedPartialCodeFixProvider : CodeFixProvider
 {
-    private const string DiagnosticId = "APL0010";
+    private static readonly string _diagnosticId = Diagnostics.MarkPartialForDi.Id;
 
     /// <inheritdoc />
-    public override ImmutableArray<string> FixableDiagnosticIds { get; } = ImmutableArray.Create(DiagnosticId);
+    public override ImmutableArray<string> FixableDiagnosticIds { get; } = ImmutableArray.Create(_diagnosticId);
 
     /// <inheritdoc />
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
@@ -47,7 +48,7 @@ public sealed class MarkLocalizedPartialCodeFixProvider : CodeFixProvider
                 CodeAction.Create(
                     "Mark partial",
                     token => AddPartialAsync(context.Document, root, declaration, token),
-                    equivalenceKey: DiagnosticId),
+                    equivalenceKey: _diagnosticId),
                 diagnostic);
         }
     }

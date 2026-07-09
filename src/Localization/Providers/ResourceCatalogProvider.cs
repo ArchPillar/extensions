@@ -89,7 +89,7 @@ public sealed class ResourceCatalogProvider : ICatalogProvider
             ITranslationFormat format = resolved;
             descriptors.Add(new CatalogDescriptor
             {
-                Culture = CultureFromName(resourceName),
+                Culture = CatalogFileName.CultureOf(resourceName),
                 Format = attribute.Format,
                 Name = resourceName,
                 Source = new CatalogSource.Synchronous(() => Read(format, owner, resourceName))
@@ -186,15 +186,6 @@ public sealed class ResourceCatalogProvider : ICatalogProvider
         {
             return [];
         }
-    }
-
-    // The culture tag a resource name ends with: App.de.arb -> "de", de.arb -> "de". The same rule the
-    // directory provider uses, keyed off the {name}.{culture}.{ext} naming convention.
-    private static string CultureFromName(string resourceName)
-    {
-        var name = Path.GetFileNameWithoutExtension(resourceName);
-        var lastDot = name.LastIndexOf('.');
-        return lastDot >= 0 ? name[(lastDot + 1)..] : name;
     }
 
     // A watch over assembly loads: a newly-loaded assembly may carry embedded catalogs (a plugin) or be a

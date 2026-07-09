@@ -51,7 +51,7 @@ public static class EnumLocalizationExtensions
             return name;
         }
 
-        return context.TranslateInCategory(type.FullName ?? type.Name, annotation.Key, annotation.Default, [], out _);
+        return context.TranslateInCategory(CategoryName.Of(type), annotation.Key, annotation.Default, [], out _);
     }
 
     // The (key, default) the member's display annotation carries: the [Display(Name = …)] value is the key (the

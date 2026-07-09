@@ -17,7 +17,7 @@ public sealed class CatalogFlattenTests
             Cat("en", Untranslated("echo", "App.A")),          // an echo of the default → dropped
         ];
 
-        IReadOnlyList<Catalog> merged = CatalogLoader.Flatten(catalogs);
+        IReadOnlyList<Catalog> merged = CatalogFlattener.Flatten(catalogs);
 
         // The source language is now an override layer: en is included (carrying its translated override),
         // alongside de + fr.

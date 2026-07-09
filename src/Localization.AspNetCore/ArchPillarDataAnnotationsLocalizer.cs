@@ -95,33 +95,31 @@ internal sealed class ArchPillarDataAnnotationsLocalizer : IStringLocalizer
         }
     }
 
-    // The display-name key the framework looks the member up by — [DisplayName] or [Display(Name)] (GetName, so it
-    // matches the framework's own resolution). Null when neither carries a non-empty value.
+    // The display-name key the framework looks the member up by. MVC resolves [Display(Name)] before [DisplayName]
+    // (DisplayAttribute.GetName() ?? DisplayNameAttribute.DisplayName), so this must too, or a member carrying both
+    // would key off the value MVC never looks up by. Null when neither carries a non-empty value.
     private static string? DisplayKey(MemberInfo member)
     {
-        if (member.GetCustomAttribute<DisplayNameAttribute>()?.DisplayName is { Length: > 0 } displayName)
+        if (member.GetCustomAttribute<DisplayAttribute>()?.GetName() is { Length: > 0 } name)
         {
-            return displayName;
+            return name;
         }
 
-        return member.GetCustomAttribute<DisplayAttribute>()?.GetName() is { Length: > 0 } name ? name : null;
+        return member.GetCustomAttribute<DisplayNameAttribute>()?.DisplayName is { Length: > 0 } displayName ? displayName : null;
     }
 
+    // Likewise [Display(Description)] before [Description], matching MVC's own precedence.
     private static string? DescriptionKey(MemberInfo member)
     {
-        if (member.GetCustomAttribute<DescriptionAttribute>()?.Description is { Length: > 0 } description)
+        if (member.GetCustomAttribute<DisplayAttribute>()?.GetDescription() is { Length: > 0 } displayDescription)
         {
-            return description;
+            return displayDescription;
         }
 
-        return member.GetCustomAttribute<DisplayAttribute>()?.GetDescription() is { Length: > 0 } displayDescription
-            ? displayDescription
-            : null;
+        return member.GetCustomAttribute<DescriptionAttribute>()?.Description is { Length: > 0 } description ? description : null;
     }
 
     // The ErrorMessage of the validator named by a message twin — the key that validator's message resolves under.
     private static string? ErrorMessageKey(MemberInfo member, Type validationType) =>
-        member.GetCustomAttributes()
-            .OfType<ValidationAttribute>()
-            .FirstOrDefault(attribute => attribute.GetType() == validationType)?.ErrorMessage;
+        (member.GetCustomAttribute(validationType) as ValidationAttribute)?.ErrorMessage;
 }

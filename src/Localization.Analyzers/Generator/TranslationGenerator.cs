@@ -22,8 +22,8 @@ public sealed class TranslationGenerator : IIncrementalGenerator
         IncrementalValueProvider<ImmutableArray<TranslationSite?>> sites = context.SyntaxProvider
             .CreateSyntaxProvider(
                 static (node, _) => node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax or ElementAccessExpressionSyntax or ElementBindingExpressionSyntax,
-                static (syntaxContext, ct) =>
-                    TranslationSiteDetector.DetectAt(syntaxContext.SemanticModel, syntaxContext.Node, includeStringLocalizer: true, ct)?.Site)
+                static (syntaxContext, cancellationToken) =>
+                    TranslationSiteDetector.DetectAt(syntaxContext.SemanticModel, syntaxContext.Node, includeStringLocalizer: true, cancellationToken)?.Site)
             .Where(static site => site is not null)
             .Collect();
 
@@ -37,7 +37,7 @@ public sealed class TranslationGenerator : IIncrementalGenerator
         IncrementalValueProvider<ImmutableArray<LocalizedBundleEmit?>> bundles = context.SyntaxProvider
             .CreateSyntaxProvider(
                 static (node, _) => node is ClassDeclarationSyntax { BaseList: not null } or RecordDeclarationSyntax { BaseList: not null },
-                static (syntaxContext, ct) => LocalizedBundleDetector.DetectAt(syntaxContext.SemanticModel, syntaxContext.Node, ct))
+                static (syntaxContext, cancellationToken) => LocalizedBundleDetector.DetectAt(syntaxContext.SemanticModel, syntaxContext.Node, cancellationToken))
             .Where(static bundle => bundle is not null)
             .Collect();
 

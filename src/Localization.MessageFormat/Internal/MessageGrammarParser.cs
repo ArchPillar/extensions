@@ -7,19 +7,20 @@ namespace ArchPillar.Extensions.Localization.MessageFormat.Internal;
 /// A single-pass recursive-descent parser for the supported ICU MessageFormat grammar. One instance
 /// parses one source string; it is not reusable or thread-safe.
 /// </summary>
-internal sealed class MessageGrammarParser
+internal ref struct MessageGrammarParser(string text)
 {
-    private readonly string _text;
+    private readonly string _text = text;
     private int _pos;
+    private List<int>? _missingOtherOffsets;
 
-    public MessageGrammarParser(string text)
-    {
-        _text = text;
-    }
+    private readonly bool AtEnd => _pos >= _text.Length;
 
-    private bool AtEnd => _pos >= _text.Length;
+    private readonly char Current => _pos < _text.Length ? _text[_pos] : '\0';
 
-    private char Current => _pos < _text.Length ? _text[_pos] : '\0';
+    // The close-brace offset of every plural/select construct that lacks its required 'other' branch,
+    // captured during the single parse pass (in ascending position order) so the code-fix can splice
+    // ' other {}' without a second scan. Empty — and unallocated — for a message that needs no repair.
+    public readonly IReadOnlyList<int> MissingOtherCloseOffsets => _missingOtherOffsets ?? [];
 
     public Message ParseFull()
     {
@@ -166,6 +167,11 @@ internal sealed class MessageGrammarParser
         Expect(',');
         var offset = ReadOffset();
         IReadOnlyDictionary<PluralSelector, Message> branches = ReadPluralBranches();
+        if (!PluralSelectors.ContainsOther(branches.Keys))
+        {
+            (_missingOtherOffsets ??= []).Add(_pos);
+        }
+
         Expect('}');
         return new PluralPart(name, ordinal, offset, branches);
     }
@@ -175,6 +181,11 @@ internal sealed class MessageGrammarParser
         SkipWhitespace();
         Expect(',');
         IReadOnlyDictionary<string, Message> branches = ReadSelectBranches(allowPound);
+        if (!branches.ContainsKey("other"))
+        {
+            (_missingOtherOffsets ??= []).Add(_pos);
+        }
+
         Expect('}');
         return new SelectPart(name, branches);
     }
@@ -201,16 +212,26 @@ internal sealed class MessageGrammarParser
         {
             PluralSelector selector = ReadPluralSelector();
             Message body = ReadBranchBody(allowPound: true);
-            if (!branches.ContainsKey(selector))
+
+            // A repeated selector is a template error, like every other malformation the parser rejects —
+            // silently keeping the first would hide the author's mistake.
+            if (branches.ContainsKey(selector))
             {
-                branches.Add(selector, body);
+                throw Error($"Duplicate plural selector '{Describe(selector)}'.");
             }
+
+            branches.Add(selector, body);
 
             SkipWhitespace();
         }
 
         return branches;
     }
+
+    private static string Describe(PluralSelector selector) =>
+        selector.ExplicitValue is { } value
+            ? "=" + value.ToString(CultureInfo.InvariantCulture)
+            : selector.Category.ToString()!;
 
     private IReadOnlyDictionary<string, Message> ReadSelectBranches(bool allowPound)
     {
@@ -220,10 +241,12 @@ internal sealed class MessageGrammarParser
         {
             var key = ReadKeyword();
             Message body = ReadBranchBody(allowPound);
-            if (!branches.ContainsKey(key))
+            if (branches.ContainsKey(key))
             {
-                branches.Add(key, body);
+                throw Error($"Duplicate selector '{key}'.");
             }
+
+            branches.Add(key, body);
 
             SkipWhitespace();
         }
@@ -252,7 +275,7 @@ internal sealed class MessageGrammarParser
         return new PluralSelector(null, MapCategory(keyword));
     }
 
-    private PluralCategory MapCategory(string keyword) => keyword switch
+    private readonly PluralCategory MapCategory(string keyword) => keyword switch
     {
         "zero" => PluralCategory.Zero,
         "one" => PluralCategory.One,
@@ -335,7 +358,7 @@ internal sealed class MessageGrammarParser
         }
     }
 
-    private bool Matches(string token)
+    private readonly bool Matches(string token)
     {
         if (_pos + token.Length > _text.Length)
         {
@@ -355,7 +378,7 @@ internal sealed class MessageGrammarParser
         _pos++;
     }
 
-    private MessageFormatException Error(string message) => new(message, _pos);
+    private readonly MessageFormatException Error(string message) => new(message, _pos);
 
     private static bool IsSyntax(char c) => c is '{' or '}' or '#';
 

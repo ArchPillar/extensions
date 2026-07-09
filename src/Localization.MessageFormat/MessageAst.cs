@@ -66,6 +66,39 @@ internal sealed record SelectPart(
 /// <param name="Category">The plural category for a keyword selector, or <see langword="null"/>.</param>
 internal readonly record struct PluralSelector(int? ExplicitValue, PluralCategory? Category);
 
+/// <summary>Helpers over a set of <see cref="PluralSelector"/>s.</summary>
+internal static class PluralSelectors
+{
+    /// <summary>Whether the selectors include the required <c>other</c> category branch.</summary>
+    public static bool ContainsOther(IEnumerable<PluralSelector> selectors)
+    {
+        foreach (PluralSelector selector in selectors)
+        {
+            if (selector.Category == PluralCategory.Other)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
+/// <summary>Helpers over a <see cref="PluralCategory"/>.</summary>
+internal static class PluralCategories
+{
+    /// <summary>The ICU keyword a category is written as (<c>one</c>, <c>other</c>, …).</summary>
+    public static string Keyword(this PluralCategory category) => category switch
+    {
+        PluralCategory.Zero => "zero",
+        PluralCategory.One => "one",
+        PluralCategory.Two => "two",
+        PluralCategory.Few => "few",
+        PluralCategory.Many => "many",
+        _ => "other"
+    };
+}
+
 /// <summary>
 /// The CLDR plural categories.
 /// </summary>

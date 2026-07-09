@@ -39,6 +39,15 @@ public sealed class MessageFormatterTests
     }
 
     [Fact]
+    public void Format_NaNPluralArgument_ThrowsMessageFormatExceptionNotOverflow()
+    {
+        // NaN/±Infinity are not representable as decimal; they must surface as the argument error, not a raw
+        // OverflowException from the decimal cast.
+        Assert.Throws<MessageFormatException>(() =>
+            _formatter.Format("{count, plural, one {# item} other {# items}}", _english, ("count", double.NaN)));
+    }
+
+    [Fact]
     public void Format_Plural_UsesTargetCulturePluralRules()
     {
         // 5 is "many" in Polish, "other" in English — same Template, different branch.

@@ -98,20 +98,17 @@ public sealed class DirectoryCatalogProvider : ICatalogProvider
     private CatalogDescriptor? Describe(string path)
     {
         var extension = Path.GetExtension(path);
-        ITranslationFormat? resolved = _registry.ResolveByExtension(extension);
-        if (resolved is null)
+        if (_registry.ResolveByExtension(extension) is not { } format)
         {
             return null;
         }
 
-        var filePath = path;
-        ITranslationFormat format = resolved;
         return new CatalogDescriptor
         {
-            Culture = CultureFromFileName(path),
+            Culture = CatalogFileName.CultureOf(path),
             Format = extension,
             Name = Path.GetFileName(path),
-            Source = new CatalogSource.Synchronous(() => Read(format, filePath))
+            Source = new CatalogSource.Synchronous(() => Read(format, path))
         };
     }
 
@@ -133,25 +130,13 @@ public sealed class DirectoryCatalogProvider : ICatalogProvider
             return null;
         }
 
+        // Re-run the one precedence scan (Discover) and take this catalog's current winner, so the winner rule and
+        // the recursive enumeration are defined in exactly one place; fall back to the changed path when its group
+        // is now empty, so the store drops a catalog whose files are gone.
         var key = Path.GetFileNameWithoutExtension(path);
-        CatalogDescriptor? winner = null;
-        if (Directory.Exists(_directory))
-        {
-            foreach (var file in Directory.EnumerateFiles(_directory))
-            {
-                if (!string.Equals(Path.GetFileNameWithoutExtension(file), key, StringComparison.OrdinalIgnoreCase) || Describe(file) is not { } descriptor)
-                {
-                    continue;
-                }
-
-                if (winner is null || Rank(descriptor.Format) < Rank(winner.Format))
-                {
-                    winner = descriptor;
-                }
-            }
-        }
-
-        return winner ?? Describe(path);
+        return Discover().Find(descriptor =>
+            string.Equals(Path.GetFileNameWithoutExtension(descriptor.Name), key, StringComparison.OrdinalIgnoreCase))
+            ?? Describe(path);
     }
 
     // A format's precedence rank by its registered id (lower wins); an unrecognized or unranked format sorts last,
@@ -173,15 +158,6 @@ public sealed class DirectoryCatalogProvider : ICatalogProvider
         }
 
         return int.MaxValue;
-    }
-
-    // The culture tag a catalog file name ends with: App.Web.de.xliff -> "de", de.arb -> "de". The same rule
-    // the directory loader uses, keyed off the {name}.{culture}.{ext} naming convention.
-    private static string CultureFromFileName(string file)
-    {
-        var name = Path.GetFileNameWithoutExtension(file);
-        var lastDot = name.LastIndexOf('.');
-        return lastDot >= 0 ? name[(lastDot + 1)..] : name;
     }
 
     // A debounced FileSystemWatcher that accumulates the changed file paths: every change records the path and

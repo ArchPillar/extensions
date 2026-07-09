@@ -89,7 +89,8 @@ internal static class Reconciler
             SourceMessage = source.SourceMessage,
             TranslatedMessage = onDisk,
             Comment = source.Comment,
-            References = source.References,
+            // Preserve existing references when the template has none (see Merge) so a re-extract never wipes them.
+            References = source.References.Count > 0 ? source.References : existing.References,
             Placeholders = source.Placeholders,
             SourceFingerprint = source.SourceFingerprint,
             State = state
@@ -134,7 +135,10 @@ internal static class Reconciler
         {
             // Always refresh the displayed source and non-translation metadata from the template.
             SourceMessage = source.SourceMessage,
-            References = source.References,
+            // Keep the target's existing references when the template carries none: the IL extractor cannot
+            // recover source locations, so overwriting would wipe references a translator (or an earlier
+            // syntax-aware extraction) added. When the template does carry references, they win.
+            References = source.References.Count > 0 ? source.References : current.References,
             Comment = source.Comment,
             Placeholders = source.Placeholders,
             SourceFingerprint = source.SourceFingerprint,
@@ -186,5 +190,5 @@ internal static class Reconciler
     // Identity includes the category: the same key under two categories is two distinct entries (matching
     // the template, the runtime snapshot, and the on-disk qualified member), reconciled independently.
     private static string Composite(CatalogEntry entry) =>
-        entry.Category + TranslationKey.Separator + TranslationKey.Compose(entry.Key, entry.Context);
+        TranslationKey.ComposeQualified(entry.Category, entry.Key, entry.Context);
 }

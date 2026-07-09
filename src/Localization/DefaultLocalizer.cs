@@ -6,25 +6,29 @@ namespace ArchPillar.Extensions.Localization;
 /// <summary>
 /// Renders translatable call sites at runtime: looks up the loaded override for the requested culture
 /// and key, falls back through parent cultures to the in-code default, and formats with the ICU engine. A
-/// pure resolution engine — it resolves against the snapshot and rendering context of a live
-/// <see cref="CatalogStore"/> and owns no I/O. Lookups are lock-free; designed to be a singleton and safe for
-/// concurrent use.
+/// pure resolution engine — it resolves against the snapshot of a live <see cref="CatalogStore"/> and renders
+/// through its own <see cref="RenderingContext"/>, and owns no I/O. Lookups are lock-free; designed to be a
+/// singleton and safe for concurrent use.
 /// </summary>
 public sealed class DefaultLocalizer : ILocalizer
 {
     private readonly CatalogStore _store;
+    private volatile RenderingContext _rendering;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="DefaultLocalizer"/> class over a <see cref="CatalogStore"/>,
-    /// resolving against the store's current snapshot and rendering through its <see cref="CatalogStore.Context"/>,
-    /// both read live so a reload or configuration change is observed on the next lookup. The store is owned by
-    /// the caller; the localizer only reads it.
+    /// Initializes a new instance of the <see cref="DefaultLocalizer"/> class over a <see cref="CatalogStore"/>
+    /// and a <see cref="RenderingContext"/>: it resolves overrides against the store's current snapshot (read live,
+    /// so a reload is observed on the next lookup) and renders through the rendering context, which
+    /// <see cref="Reconfigure"/> swaps on a configuration change. The store is owned by the caller; the localizer
+    /// only reads it.
     /// </summary>
     /// <param name="store">The catalogue store to resolve against.</param>
+    /// <param name="rendering">The rendering context — source culture, missing-argument policy, and the ICU formatter.</param>
     /// <exception cref="ArgumentNullException"><paramref name="store"/> is <see langword="null"/>.</exception>
-    internal DefaultLocalizer(CatalogStore store)
+    internal DefaultLocalizer(CatalogStore store, RenderingContext rendering)
     {
         _store = store ?? throw new ArgumentNullException(nameof(store));
+        _rendering = rendering;
     }
 
     /// <summary>
@@ -176,7 +180,13 @@ public sealed class DefaultLocalizer : ILocalizer
         (string Name, object? Value)[] arguments) =>
         Translate(culture, key, defaultMessage, context, out _, arguments);
 
-    // The rendering context: the store's live context, so a configuration change is observed immediately and the
-    // formatter instance is shared.
-    private RenderingContext CurrentContext() => _store.Context;
+    // The live rendering context, swapped by Reconfigure on a configuration change so the formatter and source
+    // culture are observed on the next lookup.
+    private RenderingContext CurrentContext() => _rendering;
+
+    // Applies a new rendering context after a reconfigure (the owning context re-derives it from the options).
+    internal void Reconfigure(RenderingContext rendering) => _rendering = rendering;
+
+    // The source language the in-code defaults are written in, for the owning context/ambient facade to surface.
+    internal string SourceCultureName => _rendering.SourceCultureName;
 }

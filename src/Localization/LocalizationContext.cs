@@ -10,7 +10,7 @@ namespace ArchPillar.Extensions.Localization;
 /// hosting more than one localization scope in a process). The process-wide ambient environment behind the
 /// static <see cref="Localizer"/> is one of these.
 /// </summary>
-public sealed class LocalizationContext : IDisposable
+public sealed class LocalizationContext : IDisposable, ILocalizerFactory
 {
     private readonly CatalogStore _store;
 
@@ -27,7 +27,7 @@ public sealed class LocalizationContext : IDisposable
     private LocalizationContext(LocalizerOptions options, bool ambient)
     {
         _store = ambient ? CatalogStore.CreateAmbient() : new CatalogStore(options);
-        Engine = new DefaultLocalizer(_store);
+        Engine = new DefaultLocalizer(_store, RenderingContext.For(options.SourceCulture, options.MissingArguments));
         Default = new Internal.AmbientLocalizer(this);
     }
 
@@ -64,6 +64,13 @@ public sealed class LocalizationContext : IDisposable
         return new Internal.AmbientCategoryLocalizer(this, category);
     }
 
+    // The ILocalizerFactory (ILoggerFactory-shaped) view: this context already creates category-scoped
+    // localizers, so Create maps straight onto For<T>/ForCategory. Explicit, so the context's own surface
+    // keeps the intent-revealing names and the factory shape is offered only through the interface.
+    ILocalizer<T> ILocalizerFactory.Create<T>() => For<T>();
+
+    ILocalizer ILocalizerFactory.Create(string category) => ForCategory(category);
+
     /// <summary>Translates <paramref name="key"/> through this context's global bucket, falling back to
     /// <paramref name="defaultMessage"/> — the instance form of <see cref="Default"/>.</summary>
     /// <param name="key">The stable symbolic key.</param>
@@ -99,6 +106,9 @@ public sealed class LocalizationContext : IDisposable
     {
         ArgumentNullException.ThrowIfNull(options);
 
+        // Rendering (source culture + missing-argument policy) and catalog loading are re-derived from the same
+        // options, but they are separate concerns: the engine owns the rendering context, the store owns loading.
+        Engine.Reconfigure(RenderingContext.For(options.SourceCulture, options.MissingArguments));
         _store.Configure(options);
     }
 
@@ -133,7 +143,11 @@ public sealed class LocalizationContext : IDisposable
         _store.PreloadAllAsync(cancellationToken);
 
     /// <summary>Clears the configured providers and loaded catalogs, returning the context to its default empty state.</summary>
-    public void Reset() => _store.Reset();
+    public void Reset()
+    {
+        Engine.Reconfigure(RenderingContext.Default);
+        _store.Reset();
+    }
 
     /// <inheritdoc />
     public void Dispose() => _store.Dispose();
@@ -147,7 +161,7 @@ public sealed class LocalizationContext : IDisposable
     /// <see cref="LocalizerOptions.SourceCulture"/>, defaulting to <c>en</c>) — the language whose strings appear
     /// in code as defaults. A host registering a culture-scoped catalog provider reads it so the fetch still pulls
     /// the source-language overrides.</summary>
-    public string SourceCultureName => _store.SourceCultureName;
+    public string SourceCultureName => Engine.SourceCultureName;
 
     // The found-aware ambient lookup the IStringLocalizer adapter composes over.
     internal string TranslateInCategory(

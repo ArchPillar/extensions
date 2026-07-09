@@ -10,9 +10,9 @@ public static class ServiceCollectionExtensions
 {
     /// <summary>
     /// Configures the ambient <see cref="Localizer"/> store from <paramref name="options"/> and registers
-    /// the native localization views — <see cref="ILocalizer"/>, <see cref="ILocalizer{T}"/>, and a concrete
-    /// <see cref="DefaultLocalizer"/> for direct injection — over it, so an injected localizer, a non-DI caller, and
-    /// an exception text all read the same store (Decision D-I). For <c>IStringLocalizer</c> interop while
+    /// the native localization views — <see cref="ILocalizer"/>, <see cref="ILocalizer{T}"/>, and
+    /// <see cref="ILocalizerFactory"/> — over it, so an injected localizer, a non-DI caller, and an exception text
+    /// all read the same store (Decision D-I). For <c>IStringLocalizer</c> interop while
     /// migrating an existing codebase, add the <c>ArchPillar.Extensions.Localization.StringLocalizer</c>
     /// package and call <c>AddArchPillarStringLocalizer</c> instead (Decision D-J).
     /// </summary>
@@ -39,10 +39,11 @@ public static class ServiceCollectionExtensions
         Localizer.Configure(resolved);
         services.AddSingleton(Localizer.Ambient);
 
-        // The native views over the ambient context.
+        // The native views over the ambient context. The context is itself the ILocalizerFactory (the
+        // ILoggerFactory-shaped door), so it is registered as that view rather than a separate factory type.
         services.AddSingleton<ILocalizer>(provider => provider.GetRequiredService<LocalizationContext>().Default);
-        services.AddSingleton(typeof(ILocalizer<>), typeof(AmbientLocalizer<>));
-        services.AddSingleton(provider => provider.GetRequiredService<LocalizationContext>().Engine);
+        services.AddSingleton(typeof(ILocalizer<>), typeof(InjectedLocalizer<>));
+        services.AddSingleton<ILocalizerFactory>(provider => provider.GetRequiredService<LocalizationContext>());
         return services;
     }
 }

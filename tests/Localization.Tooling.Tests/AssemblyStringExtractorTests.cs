@@ -138,7 +138,7 @@ public sealed class AssemblyStringExtractorTests : IDisposable
     {
         var path = Compile(source);
         using var extractor = new AssemblyStringExtractor();
-        return extractor.Extract(path);
+        return extractor.Extract(path, includeAnnotations: false).CallSites;
     }
 
     // Compiles the fixture beside the ArchPillar reference assemblies (the test output directory), so the

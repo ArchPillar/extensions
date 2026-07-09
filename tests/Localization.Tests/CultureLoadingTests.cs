@@ -35,6 +35,34 @@ public sealed class CultureLoadingTests
     }
 
     [Fact]
+    public void Cultures_AllowList_LoadsOnlyListedCulturesAndTheSource()
+    {
+        var directory = NewDirectory();
+        try
+        {
+            WriteCatalog(directory, "de", "Hallo");
+            WriteCatalog(directory, "fr", "Bonjour");
+            WriteCatalog(directory, "en", "Hi there");
+
+            using var store = new CatalogStore(new LocalizerOptions
+            {
+                TranslationsDirectory = directory,
+                SourceCulture = "en",
+                Cultures = ["de"]
+            });
+
+            // The allow-list admits 'de'; the source 'en' loads regardless of the list; 'fr' is excluded.
+            Assert.Contains("de", store.LoadedCultures);
+            Assert.Contains("en", store.LoadedCultures);
+            Assert.DoesNotContain("fr", store.LoadedCultures);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
     public void OnDemand_ReadsACulturesFilesOnlyWhenItIsFirstRequested()
     {
         var directory = NewDirectory();

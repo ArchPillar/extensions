@@ -252,7 +252,7 @@ public sealed class PoTranslationFormatTests
     private static async Task<byte[]> WriteAsync(Catalog catalog)
     {
         using var stream = new MemoryStream();
-        await _format.WriteAsync(stream, catalog, CancellationToken.None);
+        await _format.WriteAsync(stream, catalog);
         return stream.ToArray();
     }
 

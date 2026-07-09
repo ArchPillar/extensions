@@ -171,6 +171,6 @@ public sealed class CatalogStoreProviderTests
         };
 
         using FileStream stream = File.Create(Path.Combine(directory, $"App.{culture}.xliff"));
-        new XliffTranslationFormat().WriteAsync(stream, catalog, CancellationToken.None).GetAwaiter().GetResult();
+        new XliffTranslationFormat().WriteAsync(stream, catalog).GetAwaiter().GetResult();
     }
 }

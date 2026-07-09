@@ -54,7 +54,7 @@ public sealed class ArbTranslationFormat : ITranslationFormat
     }
 
     /// <inheritdoc />
-    public async Task WriteAsync(Stream output, Catalog catalog, CancellationToken cancellationToken, CatalogWriteOptions? options = null)
+    public async Task WriteAsync(Stream output, Catalog catalog, CatalogWriteOptions? options = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(output);
         ArgumentNullException.ThrowIfNull(catalog);
@@ -132,7 +132,7 @@ public sealed class ArbTranslationFormat : ITranslationFormat
         var stateText = GetString(meta, "x-state");
         return new CatalogEntry
         {
-            Key = QualifiedKey.Unqualify(member, category, context),
+            Key = ArbMemberKey.Unqualify(member, category, context),
             // ARB stores one value per key, so a translated entry's value is the translation. The source text
             // is preserved separately under the spec's source_text attribute (written on save when it differs
             // from the value), so the original stays visible to translation tools and round-trips; a file
@@ -244,7 +244,7 @@ public sealed class ArbTranslationFormat : ITranslationFormat
         // The member name is the category-qualified identity, so entries from different categories (or with
         // different contexts) never collide as JSON members, and a key beginning with "@" becomes a member
         // beginning with the category (or "::"), never mistaken for metadata.
-        var member = QualifiedKey.Qualify(entry.Category, entry.Key, entry.Context);
+        var member = ArbMemberKey.Qualify(entry.Category, entry.Key, entry.Context);
         var value = entry.TranslatedMessage ?? entry.SourceMessage;
         writer.WriteString(member, value);
 

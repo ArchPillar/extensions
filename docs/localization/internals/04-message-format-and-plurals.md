@@ -81,10 +81,10 @@ The parser reports errors with character offsets so the analyzer can place a pre
 ## Formatter
 
 ```csharp
-public static class MessageFormatter
+public sealed class MessageFormatter(MissingArgumentPolicy missingArguments = MissingArgumentPolicy.PassThrough)
 {
-    public static string Format(Message message, CultureInfo culture,
-        IReadOnlyDictionary<string, object?> arguments);
+    public string Format(string template, CultureInfo culture,
+        params (string Name, object? Value)[] arguments);
 }
 ```
 

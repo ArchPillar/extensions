@@ -42,7 +42,7 @@ public sealed class PoTranslationFormat : ITranslationFormat
     }
 
     /// <inheritdoc />
-    public async Task WriteAsync(Stream output, Catalog catalog, CancellationToken cancellationToken, CatalogWriteOptions? options = null)
+    public async Task WriteAsync(Stream output, Catalog catalog, CatalogWriteOptions? options = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(output);
         ArgumentNullException.ThrowIfNull(catalog);
@@ -333,10 +333,7 @@ public sealed class PoTranslationFormat : ITranslationFormat
 
         public CatalogEntry ToCatalogEntry(string culture)
         {
-            var composite = Msgctxt ?? string.Empty;
-            var separator = composite.IndexOf(TranslationKey.Separator);
-            var context = separator >= 0 ? composite[..separator] : null;
-            var key = separator >= 0 ? composite[(separator + 1)..] : composite;
+            (var key, var context) = TranslationKey.Decompose(Msgctxt ?? string.Empty);
 
             (var source, var translated) = ResolveMessages(culture, out var hasTranslation);
             return new CatalogEntry

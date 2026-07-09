@@ -53,8 +53,11 @@ public static class StringLocalizerServiceCollectionExtensions
         ServiceDescriptor? innerFactory = services.LastOrDefault(descriptor => descriptor.ServiceType == typeof(IStringLocalizerFactory));
         services.AddSingleton<IStringLocalizerFactory>(provider =>
             new LocalizerStringLocalizerFactory(ResolveInnerFactory(provider, innerFactory)));
-        services.AddSingleton(typeof(IStringLocalizer<>), typeof(StringLocalizer<>));
-        services.AddSingleton<IStringLocalizer>(_ => new LocalizerStringLocalizer(string.Empty, inner: null));
+        // The non-generic IStringLocalizer is the global-category adapter; build it through the composing factory
+        // (not directly) so it composes over the inner .resx factory exactly like IStringLocalizer<T> does, rather
+        // than a second door with no inner. (IStringLocalizer<> itself is already registered by AddLocalization.)
+        services.AddSingleton<IStringLocalizer>(provider =>
+            provider.GetRequiredService<IStringLocalizerFactory>().Create(string.Empty, string.Empty));
         return services;
     }
 
@@ -79,26 +82,23 @@ public static class StringLocalizerServiceCollectionExtensions
             return instance;
         }
 
-        if (descriptor.ImplementationFactory is { } factory)
-        {
-            return factory(provider) as IStringLocalizerFactory;
-        }
-
-        if (descriptor.ImplementationType is null)
-        {
-            return null;
-        }
-
+        // Both construction paths below can throw when a dependency the inner factory needs — typically
+        // ILoggerFactory — is not registered. Degrade to no inner factory rather than failing every
+        // IStringLocalizer resolution; the adapter then uses the ambient store and the in-code default, which is
+        // exactly the behaviour with no .resx present.
         try
         {
-            return (IStringLocalizerFactory)ActivatorUtilities.CreateInstance(provider, descriptor.ImplementationType);
+            if (descriptor.ImplementationFactory is { } factory)
+            {
+                return factory(provider) as IStringLocalizerFactory;
+            }
+
+            return descriptor.ImplementationType is { } type
+                ? (IStringLocalizerFactory)ActivatorUtilities.CreateInstance(provider, type)
+                : null;
         }
         catch (InvalidOperationException)
         {
-            // The inner factory (e.g. the ResourceManager one we registered via AddLocalization) could not be
-            // constructed because a dependency it needs — typically ILoggerFactory — is not registered. Degrade
-            // to no inner factory rather than failing every IStringLocalizer resolution; the adapter then uses
-            // the ambient store and the in-code default, which is exactly the behaviour with no .resx present.
             return null;
         }
     }

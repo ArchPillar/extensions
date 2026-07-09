@@ -1,4 +1,3 @@
-using ArchPillar.Extensions.Localization.Internal;
 using Microsoft.Extensions.Localization;
 
 namespace ArchPillar.Extensions.Localization.StringLocalizer;

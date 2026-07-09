@@ -177,7 +177,7 @@ public sealed class ManifestCatalogProviderTests : IDisposable
         };
 
         using var buffer = new MemoryStream();
-        await new ArbTranslationFormat().WriteAsync(buffer, catalog, CancellationToken.None);
+        await new ArbTranslationFormat().WriteAsync(buffer, catalog);
         return buffer.ToArray();
     }
 
