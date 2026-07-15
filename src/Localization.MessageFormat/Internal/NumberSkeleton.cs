@@ -59,7 +59,7 @@ internal static class NumberSkeleton
             {
                 grouping = true;
             }
-            else if (stem.Length > 0 && stem[0] == '.')
+            else if (stem[0] == '.')
             {
                 (min, max) = ParseFraction(stem);
             }

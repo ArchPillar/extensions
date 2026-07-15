@@ -74,4 +74,12 @@ public sealed class NumberSkeletonTests
     {
         Assert.Throws<MessageFormatException>(() => NumberSkeleton.Parse(skeleton));
     }
+
+    [Theory]
+    [InlineData("::currency/USD .0#")]  // ranged (min 1, max 2) on currency -> unsupported
+    [InlineData("::currency/USD .##")]  // ranged (min 0, max 2) on currency -> unsupported
+    public void Parse_CurrencyWithRangedFraction_Throws(string skeleton)
+    {
+        Assert.Throws<MessageFormatException>(() => NumberSkeleton.Parse(skeleton));
+    }
 }
