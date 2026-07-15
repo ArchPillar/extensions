@@ -16,7 +16,7 @@ internal enum NumberUnit
 /// <summary>
 /// A resolved number-format intent: what unit to render, the currency code (when any), the fraction-digit
 /// bounds (<see langword="null"/> means "unit default"), and whether to group. Produced from a message's
-/// <c>{arg, number, X}</c> style by <c>NumberFormatting.Resolve</c>.
+/// <c>{arg, number, X}</c> style by <see cref="NumberFormatting.Resolve"/>.
 /// </summary>
 /// <param name="Unit">The number kind.</param>
 /// <param name="CurrencyCode">The ISO currency code for an explicit-currency skeleton, or <see langword="null"/>.</param>
