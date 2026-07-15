@@ -58,6 +58,20 @@ public sealed class MessageFormatterTests
         Assert.Equal("1 plik", _formatter.Format(Template, _polish, ("count", 1)));
     }
 
+    [Theory]
+    [InlineData("1.0", "1 star")]     // displayed as "1" -> one
+    [InlineData("1.50", "1.5 stars")] // displayed as "1.5" -> other
+    [InlineData("2", "2 stars")]
+    public void Format_DecimalPlural_SelectsByDisplayedDigits(string value, string expected)
+    {
+        var amount = decimal.Parse(value, CultureInfo.InvariantCulture);
+
+        var result = _formatter.Format(
+            "{n, plural, one {# star} other {# stars}}", _english, ("n", amount));
+
+        Assert.Equal(expected, result);
+    }
+
     [Fact]
     public void Format_PluralWithOffset_SubtractsOffsetFromPound()
     {

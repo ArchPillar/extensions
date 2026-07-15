@@ -62,24 +62,27 @@ public static class PluralRules
     }
 
     /// <summary>
-    /// Computes the CLDR plural <see cref="PluralOperands"/> for <paramref name="value"/>. The number
-    /// of visible fraction digits is taken from the value's own scale (which a <see cref="decimal"/>
-    /// preserves, including trailing zeros) and may be raised by <paramref name="minFractionDigits"/>.
+    /// Computes the CLDR plural <see cref="PluralOperands"/> for <paramref name="value"/> as displayed with
+    /// <paramref name="visibleFractionDigits"/> fraction digits. The visible-digit count is supplied by the
+    /// caller (the number formatter), so plural selection agrees with what is rendered rather than inferring
+    /// precision from the value's own scale.
     /// </summary>
     /// <param name="value">The value to analyze.</param>
-    /// <param name="minFractionDigits">An optional minimum number of visible fraction digits to assume.</param>
-    /// <returns>The operands for <paramref name="value"/>.</returns>
-    public static PluralOperands Operands(decimal value, int? minFractionDigits = null)
+    /// <param name="visibleFractionDigits">The number of fraction digits the value is displayed with.</param>
+    /// <returns>The operands for <paramref name="value"/> at that display precision.</returns>
+    public static PluralOperands Operands(decimal value, int visibleFractionDigits)
     {
         var absolute = Math.Abs(value);
-        var segments = absolute.ToString(CultureInfo.InvariantCulture).Split('.');
-        var integerText = segments[0];
-        var fractionText = segments.Length > 1 ? segments[1] : string.Empty;
-        if (minFractionDigits is int minimum && minimum > fractionText.Length)
-        {
-            fractionText = fractionText.PadRight(minimum, '0');
-        }
-
+        var text = absolute.ToString(
+            "F" + visibleFractionDigits.ToString(CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+        var separator = text.IndexOf('.');
+#if NETSTANDARD2_0
+        var integerText = separator < 0 ? text : text.Substring(0, separator);
+        var fractionText = separator < 0 ? string.Empty : text.Substring(separator + 1);
+#else
+        var integerText = separator < 0 ? text : text[..separator];
+        var fractionText = separator < 0 ? string.Empty : text[(separator + 1)..];
+#endif
         var trimmed = fractionText.TrimEnd('0');
 
         // The i/f/t operands are 64-bit, but a decimal can carry up to 29 digits, so parsing a long run of

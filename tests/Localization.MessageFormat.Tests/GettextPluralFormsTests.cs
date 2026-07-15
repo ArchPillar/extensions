@@ -22,7 +22,7 @@ public sealed class GettextPluralFormsTests
         // The C expression must, for every integer n, yield the index of the form the runtime resolves.
         for (var n = 0; n <= 200; n++)
         {
-            var expected = order.IndexOf(PluralRules.Cardinal(culture, PluralRules.Operands(n)));
+            var expected = order.IndexOf(PluralRules.Cardinal(culture, PluralRules.Operands(n, 0)));
             Assert.Equal(expected, (int)Evaluate(expression, n));
         }
     }

@@ -153,7 +153,8 @@ internal readonly ref struct MessageRenderer
             return exact!;
         }
 
-        PluralOperands operands = PluralRules.Operands(number - plural.Offset);
+        var adjusted = number - plural.Offset;
+        PluralOperands operands = PluralRules.Operands(adjusted, NumberFormatting.VisibleFractionDigits(adjusted));
         PluralCategory category = plural.Ordinal
             ? PluralRules.Ordinal(_culture.Name, operands)
             : PluralRules.Cardinal(_culture.Name, operands);

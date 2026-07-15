@@ -43,7 +43,7 @@ public sealed class PluralRulesTests
     [InlineData("de-AT", 2, PluralCategory.Other)]
     [InlineData("xx", 1, PluralCategory.Other)]
     public void Cardinal_MatchesCldr(string culture, int value, PluralCategory expected) =>
-        Assert.Equal(expected, PluralRules.Cardinal(culture, PluralRules.Operands(value)));
+        Assert.Equal(expected, PluralRules.Cardinal(culture, PluralRules.Operands(value, 0)));
 
     [Theory]
     // English ordinals: 1st, 2nd, 3rd, 4th, ... 11th/12th/13th, 21st.
@@ -62,27 +62,30 @@ public sealed class PluralRulesTests
     // A language without ordinal rules falls back to other.
     [InlineData("pl", 3, PluralCategory.Other)]
     public void Ordinal_MatchesCldr(string culture, int value, PluralCategory expected) =>
-        Assert.Equal(expected, PluralRules.Ordinal(culture, PluralRules.Operands(value)));
+        Assert.Equal(expected, PluralRules.Ordinal(culture, PluralRules.Operands(value, 0)));
 
     [Fact]
     public void Cardinal_UsesVisibleFractionDigits()
     {
-        // English: 1.0 is "other" (v != 0), not "one".
-        Assert.Equal(PluralCategory.Other, PluralRules.Cardinal("en", PluralRules.Operands(1.0m)));
+        // English: with one visible fraction digit (v != 0) 1.0 is "other", not "one".
+        Assert.Equal(PluralCategory.Other, PluralRules.Cardinal("en", PluralRules.Operands(1.0m, 1)));
+        // With zero visible digits the same value is "one".
+        Assert.Equal(PluralCategory.One, PluralRules.Cardinal("en", PluralRules.Operands(1m, 0)));
         // Czech: any fractional value is "many".
-        Assert.Equal(PluralCategory.Many, PluralRules.Cardinal("cs", PluralRules.Operands(1.5m)));
+        Assert.Equal(PluralCategory.Many, PluralRules.Cardinal("cs", PluralRules.Operands(1.5m, 1)));
         // Polish: a fractional value falls through to "other".
-        Assert.Equal(PluralCategory.Other, PluralRules.Cardinal("pl", PluralRules.Operands(1.5m)));
+        Assert.Equal(PluralCategory.Other, PluralRules.Cardinal("pl", PluralRules.Operands(1.5m, 1)));
     }
 
     [Theory]
-    [InlineData("1", 1, 0, 0, 0, 0)]
-    [InlineData("1.0", 1, 1, 0, 0, 0)]
-    [InlineData("1.50", 1, 2, 1, 50, 5)]
-    [InlineData("123", 123, 0, 0, 0, 0)]
-    public void Operands_ComputesCldrOperands(string value, long i, int v, int w, long f, long t)
+    [InlineData("1", 0, 1, 0, 0, 0, 0)]
+    [InlineData("1.0", 1, 1, 1, 0, 0, 0)]
+    [InlineData("1.50", 2, 1, 2, 1, 50, 5)]
+    [InlineData("123", 0, 123, 0, 0, 0, 0)]
+    public void Operands_ComputesCldrOperands(string value, int visibleFractionDigits, long i, int v, int w, long f, long t)
     {
-        PluralOperands operands = PluralRules.Operands(decimal.Parse(value, System.Globalization.CultureInfo.InvariantCulture));
+        PluralOperands operands = PluralRules.Operands(
+            decimal.Parse(value, System.Globalization.CultureInfo.InvariantCulture), visibleFractionDigits);
 
         Assert.Equal(i, operands.I);
         Assert.Equal(v, operands.V);
@@ -97,18 +100,18 @@ public sealed class PluralRulesTests
         // Values with more than 19 integer/fraction digits formerly threw OverflowException via long.Parse.
         Exception? exception = Record.Exception(() =>
         {
-            PluralRules.Operands(123456789012345678901234m);   // 24 integer digits
-            PluralRules.Operands(0.12345678901234567890123m);  // 23 fraction digits
-            PluralRules.Cardinal("en", PluralRules.Operands(123456789012345678901234m));
+            PluralRules.Operands(123456789012345678901234m, 0);   // 24 integer digits
+            PluralRules.Operands(0.12345678901234567890123m, 23); // 23 fraction digits
+            PluralRules.Cardinal("en", PluralRules.Operands(123456789012345678901234m, 0));
         });
 
         Assert.Null(exception);
     }
 
     [Fact]
-    public void Operands_MinFractionDigits_PadsVisibleDigits()
+    public void Operands_VisibleFractionDigits_PadWithZeros()
     {
-        PluralOperands operands = PluralRules.Operands(1m, minFractionDigits: 2);
+        PluralOperands operands = PluralRules.Operands(1m, 2);
 
         Assert.Equal(2, operands.V);
         Assert.Equal(0, operands.W);
