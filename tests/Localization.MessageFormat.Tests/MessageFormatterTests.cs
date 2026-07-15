@@ -154,4 +154,34 @@ public sealed class MessageFormatterTests
 
         Assert.Equal("5", result);
     }
+
+    [Fact]
+    public void Format_CurrencyCodeSkeleton_RendersSpecifiedCurrency()
+    {
+        var german = CultureInfo.GetCultureInfo("de-DE");
+
+        Assert.Equal("Price: $19.99", _formatter.Format("Price: {p, number, ::currency/USD}", _english, ("p", 19.99m)));
+        Assert.Equal("Preis: 19,99 $", _formatter.Format("Preis: {p, number, ::currency/USD}", german, ("p", 19.99m)));
+    }
+
+    [Fact]
+    public void Format_NamedCurrency_RendersCultureCurrency()
+    {
+        var enUs = CultureInfo.GetCultureInfo("en-US");
+
+        Assert.Equal("$19.99", _formatter.Format("{p, number, currency}", enUs, ("p", 19.99m)));
+        Assert.Equal("$5.00", _formatter.Format("{p, number, currency}", enUs, ("p", 5m)));
+    }
+
+    [Fact]
+    public void Format_PercentStyle_IsIcuAligned()
+    {
+        Assert.Equal("50%", _formatter.Format("{r, number, percent}", _english, ("r", 0.5)));
+    }
+
+    [Fact]
+    public void Format_FixedFractionSkeleton_RendersFixedDigits()
+    {
+        Assert.Equal("1.50", _formatter.Format("{q, number, ::.00}", _english, ("q", 1.5m)));
+    }
 }

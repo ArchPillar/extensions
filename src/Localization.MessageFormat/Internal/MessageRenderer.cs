@@ -98,7 +98,7 @@ internal readonly ref struct MessageRenderer
                 _builder.Append(literal.Text);
                 break;
             case PoundPart:
-                _builder.Append(FormatNumber(pound ?? 0m));
+                _builder.Append(NumberFormatting.Format(pound ?? 0m, null, _culture));
                 break;
             case ArgumentPart argument:
                 RenderArgument(argument);
@@ -250,42 +250,23 @@ internal readonly ref struct MessageRenderer
 
     private string FormatTyped(object? value, string type, string? style)
     {
+        if (type == "number")
+        {
+            return NumberFormatting.Format(value, style, _culture);
+        }
+
         if (value is not IFormattable formattable)
         {
             return value?.ToString() ?? string.Empty;
         }
 
-        // A plain "{n, number}" (no/unknown style) uses the locale's default number format, which groups —
-        // matching the "integer" style and ICU. Only the explicit styles take a fixed format string.
-        if (type == "number" && NumberStyle(style) is null)
-        {
-            return FormatNumber(value);
-        }
-
         return formattable.ToString(ResolveFormat(type, style), _culture);
     }
 
-    // Formats a number with the locale's grouping separators (ICU's default for "#" and "{n, number}"):
-    // grouped, and up to three fraction digits with trailing zeros trimmed — so an integer groups with no
-    // decimals and a fractional value keeps its digits.
-    private string FormatNumber(object? value) =>
-        value is IFormattable formattable
-            ? formattable.ToString("#,##0.###", _culture)
-            : value?.ToString() ?? string.Empty;
-
     private static string? ResolveFormat(string type, string? style) => type switch
     {
-        "number" => NumberStyle(style),
         "date" => DateStyle(style),
         "time" => TimeStyle(style),
-        _ => null
-    };
-
-    private static string? NumberStyle(string? style) => style switch
-    {
-        "integer" => "N0",
-        "percent" => "P",
-        "currency" => "C",
         _ => null
     };
 
