@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 
 namespace ArchPillar.Extensions.Localization.MessageFormat.Internal;
@@ -10,6 +11,10 @@ namespace ArchPillar.Extensions.Localization.MessageFormat.Internal;
 /// </summary>
 internal static class NumberFormatting
 {
+    // One parse per distinct skeleton: keys are template-authored style strings, so the cache is bounded
+    // the same way the formatter's own template cache is (finite authored styles, never user input).
+    private static readonly ConcurrentDictionary<string, NumberFormatSpec> _skeletons = new(StringComparer.Ordinal);
+
     /// <summary>Classifies and validates a style, throwing on an unknown or unsupported one.</summary>
     public static NumberFormatSpec Resolve(string? style)
     {
@@ -20,7 +25,7 @@ internal static class NumberFormatting
 
         if (style!.StartsWith("::", StringComparison.Ordinal))
         {
-            return NumberSkeleton.Parse(style);
+            return _skeletons.GetOrAdd(style!, NumberSkeleton.Parse);
         }
 
         return style switch
@@ -43,7 +48,7 @@ internal static class NumberFormatting
     /// </summary>
     public static int VisibleFractionDigits(decimal value)
     {
-        var text = Math.Abs(value).ToString("0.###", CultureInfo.InvariantCulture);
+        var text = value.ToString("0.###", CultureInfo.InvariantCulture);
         var dot = text.IndexOf('.');
         return dot < 0 ? 0 : text.Length - dot - 1;
     }
@@ -75,6 +80,11 @@ internal static class NumberFormatting
         var format = (NumberFormatInfo)culture.NumberFormat.Clone();
         format.CurrencySymbol = symbol;
         format.CurrencyDecimalDigits = spec.MinFractionDigits ?? digits;
+        if (!spec.Grouping)
+        {
+            format.CurrencyGroupSizes = [0];
+        }
+
         return value.ToString("C", format);
     }
 

@@ -29,6 +29,25 @@ public sealed class NumberFormattingTests
         Assert.Equal("$19.99", NumberFormatting.Format(D("19.99"), "currency", _en));
     }
 
+    [Fact]
+    public void Format_CurrencyGroupOff_DropsGroupingSeparator()
+    {
+        Assert.Equal("$1234.50", NumberFormatting.Format(D("1234.5"), "::currency/USD group-off", _en));
+    }
+
+    [Fact]
+    public void Format_CurrencyFractionOverride_WinsOverLookedUpMinorUnits()
+    {
+        // JPY's CLDR minor units are 0, so without an override the amount rounds to a whole number...
+        var withoutOverride = NumberFormatting.Format(D("19.9"), "::currency/JPY", _en);
+        Assert.Contains("20", withoutOverride, StringComparison.Ordinal);
+        Assert.DoesNotContain("19.9", withoutOverride, StringComparison.Ordinal);
+
+        // ...and an explicit .00 override must win over the looked-up 0 digits (spec D5).
+        var withOverride = NumberFormatting.Format(D("19.9"), "::currency/JPY .00", _en);
+        Assert.Contains("19.90", withOverride, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("::.00", "1.50")]
     [InlineData("::.##", "1.5")]

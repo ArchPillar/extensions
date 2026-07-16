@@ -17,7 +17,9 @@ internal static class MessageParser
     /// <param name="text">The ICU MessageFormat source.</param>
     /// <returns>The parsed message.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="text"/> is <see langword="null"/>.</exception>
-    /// <exception cref="MessageFormatException">The text is not valid ICU MessageFormat syntax.</exception>
+    /// <exception cref="MessageFormatException">
+    /// The text is not valid ICU MessageFormat syntax, or a number argument's style is unknown or unsupported.
+    /// </exception>
     public static Message Parse(string text)
     {
         if (text is null)
