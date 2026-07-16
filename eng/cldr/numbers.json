@@ -1,0 +1,3842 @@
+{
+  "version": {
+    "_cldrVersion": "48"
+  },
+  "locales": {
+    "aa": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "aa-dj": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "aa-er": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ab": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "af": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "af-na": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "agq": {
+      "currency": "#,##0.00¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ak": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "am": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "an": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ann": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "apc": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar-ae": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar-bh": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar-dj": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar-dz": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar-eg": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar-eh": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar-er": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar-il": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar-iq": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar-jo": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar-km": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar-kw": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar-lb": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar-ly": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar-ma": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar-mr": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar-om": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar-ps": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar-qa": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar-sa": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar-sd": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar-so": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar-ss": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar-sy": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar-td": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar-tn": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ar-ye": {
+      "currency": "‏#,##0.00\u00A0¤;‏-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "arn": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "as": {
+      "currency": "¤\u00A0#,##,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##,##0%"
+    },
+    "asa": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ast": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "az": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "az-arab": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "az-arab-iq": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "az-arab-tr": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "az-cyrl": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "az-latn": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ba": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "bal": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "bal-arab": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "bal-latn": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "bas": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "be": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "be-tarask": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "bem": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "bew": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "bez": {
+      "currency": "#,##0.00¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "bg": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "bgc": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "bgn": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "bgn-ae": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "bgn-af": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "bgn-ir": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "bgn-om": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "bho": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "blo": {
+      "currency": "¤\u00A0#,##0.00;¤\u00A0-#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "%\u00A0#,#0;%\u00A0-#,#0"
+    },
+    "blt": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "bm": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "bm-nkoo": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "bn": {
+      "currency": "#,##,##0.00¤",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##,##0%"
+    },
+    "bn-in": {
+      "currency": "¤#,##,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##,##0%"
+    },
+    "bo": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "bo-in": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "bqi": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "br": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "brx": {
+      "currency": "¤\u00A0#,##,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##,##0%"
+    },
+    "bs": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "bs-cyrl": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "bs-latn": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "bss": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "bua": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "byn": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ca": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "ca-ad": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "ca-es-valencia": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "ca-fr": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "ca-it": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "cad": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "cch": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ccp": {
+      "currency": "#,##,##0.00¤",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##,##0%"
+    },
+    "ccp-in": {
+      "currency": "#,##,##0.00¤",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##,##0%"
+    },
+    "ce": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "ceb": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "cgg": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "cho": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "chr": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "cic": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ckb": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ckb-ir": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "co": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "cop": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "cs": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "csw": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "cu": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "cv": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "cy": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "da": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "da-gl": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "dav": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "de": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "de-at": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "de-be": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "de-ch": {
+      "currency": "¤\u00A0#,##0.00;¤-#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "de-it": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "de-li": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "de-lu": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "dje": {
+      "currency": "#,##0.00¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "doi": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "dsb": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "dua": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "dv": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "dyo": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "dz": {
+      "currency": "¤#,##,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##,##0\u00A0%"
+    },
+    "ebu": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ee": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ee-tg": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "el": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "el-cy": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "el-polyton": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-001": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-150": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-ae": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-ag": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-ai": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-as": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-at": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "en-au": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-bb": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-be": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-bi": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-bm": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-bs": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-bw": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-bz": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-ca": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-cc": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-ch": {
+      "currency": "¤\u00A0#,##0.00;¤-#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-ck": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-cm": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-cx": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-cy": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-cz": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-de": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "en-dg": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-dk": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "en-dm": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-dsrt": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-ee": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-er": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-es": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-fi": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "en-fj": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-fk": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-fm": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-fr": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-gb": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-gd": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-ge": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-gg": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-gh": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-gi": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-gm": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-gs": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-gu": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-gy": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-hk": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-hu": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-id": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-ie": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-il": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-im": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-in": {
+      "currency": "¤#,##,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##,##0%"
+    },
+    "en-io": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-it": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-je": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-jm": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-jp": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-ke": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-ki": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-kn": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-ky": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-lc": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-lr": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-ls": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-lt": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-lv": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-mg": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-mh": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-mo": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-mp": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-ms": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-mt": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-mu": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-mv": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-mw": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-my": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-na": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-nf": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-ng": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-nl": {
+      "currency": "¤\u00A0#,##0.00;¤\u00A0-#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-no": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "en-nr": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-nu": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-nz": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-pg": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-ph": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-pk": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-pl": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-pn": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-pr": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-pt": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-pw": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-ro": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-rw": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-sb": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-sc": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-sd": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-se": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "en-sg": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-sh": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-shaw": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-si": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-sk": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-sl": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-ss": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-sx": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-sz": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-tc": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-tk": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-to": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-tt": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-tv": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-tz": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-ua": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-ug": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-um": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-vc": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-vg": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-vi": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-vu": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-ws": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-za": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-zm": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "en-zw": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "eo": {
+      "currency": "#,##0.00\u202F¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "es": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "es-419": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "es-ar": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "es-bo": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "es-br": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "es-bz": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "es-cl": {
+      "currency": "¤#,##0.00;¤-#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "es-co": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "es-cr": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "es-cu": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "es-do": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "es-ea": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "es-ec": {
+      "currency": "¤#,##0.00;¤-#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "es-gq": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "es-gt": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "es-hn": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "es-ic": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "es-mx": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "es-ni": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "es-pa": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "es-pe": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "es-ph": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "es-pr": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "es-py": {
+      "currency": "¤\u00A0#,##0.00;¤\u00A0-#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "es-sv": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "es-us": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "es-uy": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "es-ve": {
+      "currency": "¤#,##0.00;¤-#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "et": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "eu": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "%\u00A0#,##0"
+    },
+    "ewo": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "fa": {
+      "currency": "‎¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "fa-af": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ff": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ff-adlm": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ff-adlm-bf": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ff-adlm-cm": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ff-adlm-gh": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ff-adlm-gm": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ff-adlm-gw": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ff-adlm-lr": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ff-adlm-mr": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ff-adlm-ne": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ff-adlm-ng": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ff-adlm-sl": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ff-adlm-sn": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ff-latn": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ff-latn-bf": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ff-latn-cm": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ff-latn-gh": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ff-latn-gm": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ff-latn-gn": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ff-latn-gw": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ff-latn-lr": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ff-latn-mr": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ff-latn-ne": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ff-latn-ng": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ff-latn-sl": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "fi": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fil": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "fo": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fo-dk": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-be": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-bf": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-bi": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-bj": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-bl": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-ca": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-cd": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-cf": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-cg": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-ch": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "fr-ci": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-cm": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-dj": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-dz": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-ga": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-gf": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-gn": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-gp": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-gq": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-ht": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-km": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-lu": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-ma": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-mc": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-mf": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-mg": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-ml": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-mq": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-mr": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-mu": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-nc": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-ne": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-pf": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-pm": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-re": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-rw": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-sc": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-sn": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-sy": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-td": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-tg": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-tn": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-vu": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-wf": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "fr-yt": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "frr": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "fur": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "fy": {
+      "currency": "¤\u00A0#,##0.00;¤\u00A0#,##0.00-",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ga": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ga-gb": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "gaa": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "gd": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "gez": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "gez-er": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "gl": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "gn": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "gsw": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "gsw-fr": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "gsw-li": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "gu": {
+      "currency": "¤#,##,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##,##0%"
+    },
+    "guz": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "gv": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ha": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ha-arab": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ha-arab-sd": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ha-gh": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ha-ne": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "haw": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "he": {
+      "currency": "‏#,##0.00\u00A0‏¤;‏-#,##0.00\u00A0‏¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "hi": {
+      "currency": "¤#,##,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##,##0%"
+    },
+    "hi-latn": {
+      "currency": "¤#,##,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##,##0%"
+    },
+    "hnj": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "hnj-hmnp": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "hr": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "hr-ba": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "hsb": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "ht": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "hu": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "hy": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ia": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "id": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ie": {
+      "currency": "¤\u00A0#,##0.00;¤\u00A0-#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ig": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ii": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "io": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "is": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "it": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "it-ch": {
+      "currency": "¤\u00A0#,##0.00;¤-#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "it-sm": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "it-va": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "iu": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "iu-latn": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ja": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "jbo": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "jgo": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "jmc": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "jv": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ka": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "kaa": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "kaa-cyrl": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "kaa-latn": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "kab": {
+      "currency": "#,##0.00¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "kaj": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "kam": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "kcg": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "kde": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "kea": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "kek": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ken": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "kgp": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "khq": {
+      "currency": "#,##0.00¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ki": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "kk": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "kk-arab": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "kk-cyrl": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "kk-kz": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "kkj": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "kl": {
+      "currency": "¤#,##0.00;¤-#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "kln": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "km": {
+      "currency": "#,##0.00¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "kn": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ko": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ko-cn": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ko-kp": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "kok": {
+      "currency": "¤#,##,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##0%"
+    },
+    "kok-deva": {
+      "currency": "¤#,##,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##0%"
+    },
+    "kok-latn": {
+      "currency": "¤#,##,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##0%"
+    },
+    "kpe": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "kpe-gn": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ks": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ks-arab": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ks-deva": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ksb": {
+      "currency": "#,##0.00¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ksf": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ksh": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "ku": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "%#,##0"
+    },
+    "ku-arab": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ku-arab-ir": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ku-latn": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "%#,##0"
+    },
+    "ku-latn-iq": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "%#,##0"
+    },
+    "ku-latn-sy": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "%#,##0"
+    },
+    "ku-tr": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "%#,##0"
+    },
+    "kw": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "kxv": {
+      "currency": "¤#,##,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##0%"
+    },
+    "kxv-deva": {
+      "currency": "¤#,##,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##0%"
+    },
+    "kxv-latn": {
+      "currency": "¤#,##,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##0%"
+    },
+    "kxv-orya": {
+      "currency": "¤#,##,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##0%"
+    },
+    "kxv-telu": {
+      "currency": "¤#,##,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##0%"
+    },
+    "ky": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "la": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "lag": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "lb": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "lg": {
+      "currency": "#,##0.00¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "lij": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "lkt": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "lld": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "lmo": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ln": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ln-ao": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ln-cf": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ln-cg": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "lo": {
+      "currency": "¤#,##0.00;¤-#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "lrc": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "lrc-iq": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "lt": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "ltg": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "lu": {
+      "currency": "#,##0.00¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "luo": {
+      "currency": "#,##0.00¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "luy": {
+      "currency": "¤#,##0.00;¤-\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "lv": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "lzz": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "mai": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "mas": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "mas-tz": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "mdf": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "mer": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "mfe": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "mg": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "mgh": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "mgo": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "mhn": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "mi": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "mic": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "mk": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "ml": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##0%"
+    },
+    "mn": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "mn-mong": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "mn-mong-mn": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "mni": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "mni-beng": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "mni-mtei": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "moh": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "mr": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##0%"
+    },
+    "ms": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ms-arab": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ms-arab-bn": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ms-bn": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ms-id": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ms-sg": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "mt": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "mua": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "mus": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "mww": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "mww-hmnp": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "my": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "myv": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "mzn": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "naq": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "nb": {
+      "currency": "#,##0.00\u00A0¤;-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "nb-sj": {
+      "currency": "#,##0.00\u00A0¤;-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "nd": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "nds": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "nds-nl": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "ne": {
+      "currency": "¤\u00A0#,##,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##0%"
+    },
+    "ne-in": {
+      "currency": "¤\u00A0#,##,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##0%"
+    },
+    "nl": {
+      "currency": "¤\u00A0#,##0.00;¤\u00A0-#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "nl-aw": {
+      "currency": "¤\u00A0#,##0.00;¤\u00A0-#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "nl-be": {
+      "currency": "¤\u00A0#,##0.00;¤\u00A0-#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "nl-bq": {
+      "currency": "¤\u00A0#,##0.00;¤\u00A0-#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "nl-cw": {
+      "currency": "¤\u00A0#,##0.00;¤\u00A0-#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "nl-sr": {
+      "currency": "¤\u00A0#,##0.00;¤\u00A0-#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "nl-sx": {
+      "currency": "¤\u00A0#,##0.00;¤\u00A0-#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "nmg": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "nn": {
+      "currency": "#,##0.00\u00A0¤;-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "nnh": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "no": {
+      "currency": "#,##0.00\u00A0¤;-#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "nqo": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "nr": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "nso": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "nus": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "nv": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ny": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "nyn": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "oc": {
+      "currency": "#,##0.00¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u202F%"
+    },
+    "oc-es": {
+      "currency": "#,##0.00¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u202F%"
+    },
+    "oka": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "oka-us": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "om": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "om-ke": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "or": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##0%"
+    },
+    "os": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "os-ru": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "osa": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "pa": {
+      "currency": "¤#,##,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##,##0%"
+    },
+    "pa-arab": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "pa-guru": {
+      "currency": "¤#,##,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##,##0%"
+    },
+    "pap": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "pap-aw": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "pcm": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "pi": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "pi-latn": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "pis": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "pl": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "pms": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "prg": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ps": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ps-pk": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "pt": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "pt-ao": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "pt-ch": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "pt-cv": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "pt-gq": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "pt-gw": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "pt-lu": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "pt-mo": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "pt-mz": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "pt-pt": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "pt-st": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "pt-tl": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "qu": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "qu-bo": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "qu-ec": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "quc": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "raj": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "rhg": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "rhg-rohg": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "rhg-rohg-bd": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "rif": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "rm": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "rn": {
+      "currency": "#,##0.00¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "ro": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "ro-md": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "rof": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "root": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ru": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "ru-by": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "ru-kg": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "ru-kz": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "ru-md": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "ru-ua": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "rw": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "rwk": {
+      "currency": "#,##0.00¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sa": {
+      "currency": "¤#,##,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##,##0%"
+    },
+    "sah": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "saq": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sat": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sat-deva": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sat-olck": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sbp": {
+      "currency": "#,##0.00¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sc": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "scn": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sd": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sd-arab": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sd-deva": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sdh": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sdh-iq": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "se": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "se-fi": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "se-se": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "seh": {
+      "currency": "#,##0.00¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ses": {
+      "currency": "#,##0.00¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sg": {
+      "currency": "¤#,##0.00;¤-#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sgs": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "shi": {
+      "currency": "#,##0.00¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "shi-latn": {
+      "currency": "#,##0.00¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "shi-tfng": {
+      "currency": "#,##0.00¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "shn": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "shn-th": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "si": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sid": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sk": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "skr": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sl": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "sma": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sma-no": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "smj": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "smj-no": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "smn": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "sms": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sn": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "so": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "so-dj": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "so-et": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "so-ke": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sq": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sq-mk": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sq-xk": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sr": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sr-cyrl": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sr-cyrl-ba": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sr-cyrl-me": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sr-cyrl-xk": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sr-latn": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sr-latn-ba": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sr-latn-me": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sr-latn-xk": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ss": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ss-sz": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ssy": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "st": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "st-ls": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "su": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "su-latn": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "suz": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "suz-deva": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "suz-sunu": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sv": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "sv-ax": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "sv-fi": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "sw": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sw-cd": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sw-ke": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "sw-ug": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "syr": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "syr-sy": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "szl": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ta": {
+      "currency": "¤#,##,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##,##0%"
+    },
+    "ta-lk": {
+      "currency": "¤#,##,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##,##0%"
+    },
+    "ta-my": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ta-sg": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "te": {
+      "currency": "¤#,##,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##0%"
+    },
+    "teo": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "teo-ke": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "tg": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "th": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ti": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ti-er": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "tig": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "tk": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "tn": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "tn-bw": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "to": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "tok": {
+      "currency": "¤#,#0.00",
+      "decimal": "#,#0.###",
+      "percent": "#,##0%"
+    },
+    "tpi": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "tr": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "%#,##0"
+    },
+    "tr-cy": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "%#,##0"
+    },
+    "trv": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "trw": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ts": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "tt": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "twq": {
+      "currency": "#,##0.00¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "tyv": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "tzm": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ug": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "uk": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "und": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ur": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ur-in": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "uz": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "uz-arab": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "uz-cyrl": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "uz-latn": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "vai": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "vai-latn": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "vai-vaii": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "ve": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "vec": {
+      "currency": "#,##0.00\u202F¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "vi": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "vmw": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "vo": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "vun": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "wa": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "wae": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "wal": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "wbp": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "wo": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "xh": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "xnr": {
+      "currency": "¤#,##,##0.00",
+      "decimal": "#,##,##0.###",
+      "percent": "#,##,##0%"
+    },
+    "xog": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "yav": {
+      "currency": "#,##0.00\u00A0¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "yi": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "yo": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "yo-bj": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "yrl": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "yrl-co": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "yrl-ve": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "yue": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "yue-hans": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "yue-hant": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "yue-hant-cn": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "yue-hant-mo": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "za": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "zgh": {
+      "currency": "#,##0.00¤",
+      "decimal": "#,##0.###",
+      "percent": "#,##0\u00A0%"
+    },
+    "zh": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "zh-hans": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "zh-hans-hk": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "zh-hans-mo": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "zh-hans-my": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "zh-hans-sg": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "zh-hant": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "zh-hant-hk": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "zh-hant-mo": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "zh-hant-my": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "zh-latn": {
+      "currency": "¤\u00A0#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    },
+    "zu": {
+      "currency": "¤#,##0.00",
+      "decimal": "#,##0.###",
+      "percent": "#,##0%"
+    }
+  }
+}
