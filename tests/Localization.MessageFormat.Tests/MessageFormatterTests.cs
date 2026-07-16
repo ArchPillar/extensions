@@ -198,4 +198,21 @@ public sealed class MessageFormatterTests
     {
         Assert.Equal("1.50", _formatter.Format("{q, number, ::.00}", _english, ("q", 1.5m)));
     }
+
+    [Theory]
+    [InlineData("{n, number, currnecy}")]        // typo -> unknown style
+    [InlineData("{n, number, ::compact-short}")] // reserved for Spec 2
+    [InlineData("{n, number, ::currency/US}")]   // malformed skeleton
+    public void Format_InvalidNumberStyle_ThrowsAtParseIndependentOfValue(string template)
+    {
+        // Throws even though the number argument is absent, proving validation is at parse, not render.
+        Assert.Throws<MessageFormatException>(() => _formatter.Format(template, _english));
+    }
+
+    [Fact]
+    public void InvalidNumberStyle_IsReportedByTryValidate()
+    {
+        Assert.False(MessageSyntax.TryValidate("{n, number, ::scientific}", out MessageFormatError? error));
+        Assert.NotNull(error);
+    }
 }

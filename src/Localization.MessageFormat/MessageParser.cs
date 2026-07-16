@@ -25,7 +25,9 @@ internal static class MessageParser
             throw new ArgumentNullException(nameof(text));
         }
 
-        return new MessageGrammarParser(text).ParseFull();
+        Message message = new MessageGrammarParser(text).ParseFull();
+        ValidateNumberStyles(message);
+        return message;
     }
 
     /// <summary>
@@ -179,6 +181,17 @@ internal static class MessageParser
             }
         }
     }
+
+    // Resolves every number argument's style once, at parse, so an unknown/unsupported/malformed style is a
+    // fail-fast error before any value is rendered — and, via TryParse, surfaces to the analyzer as a diagnostic.
+    private static void ValidateNumberStyles(Message message) =>
+        Walk(message, part =>
+        {
+            if (part is ArgumentPart { Type: "number" } argument)
+            {
+                NumberFormatting.Resolve(argument.Style);
+            }
+        });
 
     private static void Add(string name, List<string> names, HashSet<string> seen)
     {
