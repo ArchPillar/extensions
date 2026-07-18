@@ -286,49 +286,8 @@ internal readonly ref struct MessageRenderer
         _ => "T"
     };
 
-    private static bool TryToNumber(object? value, out decimal number)
-    {
-        switch (value)
-        {
-            case decimal d:
-                number = d;
-                return true;
-            case double db:
-                // NaN and ±Infinity are not representable as decimal (the cast throws OverflowException); treat
-                // them as non-numeric so the caller reports the argument error rather than crashing.
-                if (double.IsNaN(db) || double.IsInfinity(db))
-                {
-                    number = 0m;
-                    return false;
-                }
-
-                number = (decimal)db;
-                return true;
-            case float fl:
-                if (float.IsNaN(fl) || float.IsInfinity(fl))
-                {
-                    number = 0m;
-                    return false;
-                }
-
-                number = (decimal)fl;
-                return true;
-            case null:
-                number = 0m;
-                return false;
-            default:
-                try
-                {
-                    number = Convert.ToDecimal(value, CultureInfo.InvariantCulture);
-                    return true;
-                }
-                catch (Exception exception) when (exception is FormatException or InvalidCastException or OverflowException)
-                {
-                    number = 0m;
-                    return false;
-                }
-        }
-    }
+    private static bool TryToNumber(object? value, out decimal number) =>
+        NumberFormatting.TryToDecimal(value, out number);
 
     private static Message EmptyMessage { get; } = new([]);
 }

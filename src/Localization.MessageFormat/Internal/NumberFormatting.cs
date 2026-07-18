@@ -55,52 +55,137 @@ internal static class NumberFormatting
 
     private static string FormatSpec(object? value, NumberFormatSpec spec, CultureInfo culture)
     {
-        if (value is not IFormattable formattable)
+        if (!TryToDecimal(value, out var number))
         {
-            return value?.ToString() ?? string.Empty;
+            // Non-numeric or non-finite (NaN/±∞): fall back to the value's own culture rendering,
+            // matching the pre-engine behavior ("NaN" and friends).
+            return value is IFormattable formattable
+                ? formattable.ToString(null, culture)
+                : value?.ToString() ?? string.Empty;
         }
 
-        return spec.Unit switch
+        NumberPattern pattern = PatternFor(spec.Unit, culture);
+        var currencySymbol = string.Empty;
+        var currencyCode = string.Empty;
+        int minimum;
+        int maximum;
+        if (spec.Unit == NumberUnit.Currency)
         {
-            NumberUnit.Currency => FormatCurrency(formattable, spec, culture),
-            NumberUnit.Percent => formattable.ToString(BuildFormat(spec, "%"), culture),
-            _ => formattable.ToString(BuildFormat(spec, string.Empty), culture)
+            int digits;
+            if (spec.CurrencyCode is null)
+            {
+                // Named `currency` — the rendering culture's own currency.
+                NumberFormatInfo info = culture.NumberFormat;
+                currencySymbol = info.CurrencySymbol;
+                digits = info.CurrencyDecimalDigits;
+            }
+            else
+            {
+                (currencySymbol, digits) = CurrencyLookup.Resolve(spec.CurrencyCode);
+                currencyCode = spec.CurrencyCode;
+            }
+
+            // ICU's currency-digits override: minor units win over the pattern's fraction body.
+            minimum = spec.MinFractionDigits ?? digits;
+            maximum = spec.MaxFractionDigits ?? digits;
+        }
+        else
+        {
+            minimum = spec.MinFractionDigits ?? pattern.MinFractionDigits;
+            maximum = spec.MaxFractionDigits ?? pattern.MaxFractionDigits;
+        }
+
+        if (maximum < minimum)
+        {
+            maximum = minimum;
+        }
+
+        return PatternRenderer.Render(
+            pattern, number, PatternPrecision.Fraction(minimum, maximum), spec.Grouping, culture, currencySymbol, currencyCode);
+    }
+
+    // The CLDR standard pattern for a unit in a culture: exact locale, then base language, then root —
+    // mirroring PluralRules.RulesFor.
+    private static NumberPattern PatternFor(NumberUnit unit, CultureInfo culture)
+    {
+        CldrNumberPatternSet set = PatternSetFor(culture.Name);
+        var pattern = unit switch
+        {
+            NumberUnit.Percent => set.Percent,
+            NumberUnit.Currency => set.Currency,
+            _ => set.Decimal
         };
+        return NumberPatternParser.Parse(pattern);
     }
 
-    private static string FormatCurrency(IFormattable value, NumberFormatSpec spec, CultureInfo culture)
+    private static CldrNumberPatternSet PatternSetFor(string locale)
     {
-        if (spec.CurrencyCode is null)
+        if (CldrNumberPatterns.Locales.TryGetValue(locale, out CldrNumberPatternSet? set))
         {
-            // Named `currency` — the rendering culture's own currency.
-            return value.ToString("C", culture);
+            return set;
         }
 
-        (var symbol, var digits) = CurrencyLookup.Resolve(spec.CurrencyCode);
-        var format = (NumberFormatInfo)culture.NumberFormat.Clone();
-        format.CurrencySymbol = symbol;
-        format.CurrencyDecimalDigits = spec.MinFractionDigits ?? digits;
-        if (!spec.Grouping)
+        var dash = locale.IndexOf('-');
+        if (dash > 0)
         {
-            format.CurrencyGroupSizes = [0];
+#if NETSTANDARD2_0
+            var language = locale.Substring(0, dash);
+#else
+            var language = locale[..dash];
+#endif
+            if (CldrNumberPatterns.Locales.TryGetValue(language, out set))
+            {
+                return set;
+            }
         }
 
-        return value.ToString("C", format);
+        return CldrNumberPatterns.Locales["root"];
     }
 
-    // Builds a "#,##0.###"-style custom format for decimal/percent: min '0's then optional '#'s, grouped
-    // unless disabled. suffix is "%" for percent (the specifier multiplies by 100 and adds the locale sign).
-    private static string BuildFormat(NumberFormatSpec spec, string suffix)
+    /// <summary>
+    /// Converts a supplied argument to a finite <see cref="decimal"/>. NaN/±infinity and non-numeric
+    /// values report <see langword="false"/>. The one owner of "argument → number" for both the plural
+    /// path (<see cref="MessageRenderer"/>) and the formatting engine.
+    /// </summary>
+    internal static bool TryToDecimal(object? value, out decimal number)
     {
-        var min = spec.MinFractionDigits ?? 0;
-        var max = spec.MaxFractionDigits ?? 3;
-        var integer = spec.Grouping ? "#,##0" : "0";
-        if (max == 0)
+        switch (value)
         {
-            return integer + suffix;
-        }
+            case decimal d:
+                number = d;
+                return true;
+            case double db:
+                if (double.IsNaN(db) || double.IsInfinity(db))
+                {
+                    number = 0m;
+                    return false;
+                }
 
-        var fraction = "." + new string('0', min) + new string('#', max - min);
-        return integer + fraction + suffix;
+                number = (decimal)db;
+                return true;
+            case float fl:
+                if (float.IsNaN(fl) || float.IsInfinity(fl))
+                {
+                    number = 0m;
+                    return false;
+                }
+
+                number = (decimal)fl;
+                return true;
+            case null:
+                number = 0m;
+                return false;
+            default:
+                try
+                {
+                    number = Convert.ToDecimal(value, CultureInfo.InvariantCulture);
+                    return true;
+                }
+                catch (Exception exception) when (exception is FormatException or InvalidCastException or OverflowException)
+                {
+                    number = 0m;
+                    return false;
+                }
+        }
     }
 }

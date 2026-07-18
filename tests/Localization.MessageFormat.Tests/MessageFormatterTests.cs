@@ -175,7 +175,7 @@ public sealed class MessageFormatterTests
         var german = CultureInfo.GetCultureInfo("de-DE");
 
         Assert.Equal("Price: $19.99", _formatter.Format("Price: {p, number, ::currency/USD}", _english, ("p", 19.99m)));
-        Assert.Equal("Preis: 19,99 $", _formatter.Format("Preis: {p, number, ::currency/USD}", german, ("p", 19.99m)));
+        Assert.Equal("Preis: 19,99\u00A0$", _formatter.Format("Preis: {p, number, ::currency/USD}", german, ("p", 19.99m)));
     }
 
     [Fact]

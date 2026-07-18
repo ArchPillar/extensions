@@ -14,7 +14,7 @@ public sealed class NumberFormattingTests
     public void Format_CurrencyCode_UsesSpecifiedCurrencyRegardlessOfCulture()
     {
         Assert.Equal("$19.99", NumberFormatting.Format(D("19.99"), "::currency/USD", _en));
-        Assert.Equal("19,99 $", NumberFormatting.Format(D("19.99"), "::currency/USD", _de));
+        Assert.Equal("19,99\u00A0$", NumberFormatting.Format(D("19.99"), "::currency/USD", _de));
     }
 
     [Fact]
@@ -61,7 +61,23 @@ public sealed class NumberFormattingTests
     public void Format_Percent_IsIcuAligned()
     {
         Assert.Equal("50%", NumberFormatting.Format(0.5, "percent", _en));
-        Assert.Equal("53.5%", NumberFormatting.Format(0.535, "percent", _en));
+        // CLDR's percent pattern has zero fraction digits -- true Intl behavior rounds.
+        Assert.Equal("54%", NumberFormatting.Format(0.535, "percent", _en));
+        // An explicit fraction stem restores digits.
+        Assert.Equal("53.5%", NumberFormatting.Format(0.535, "::percent .0#", _en));
+    }
+
+    [Fact]
+    public void Format_Percent_UsesLocaleSpacingFromPattern()
+    {
+        Assert.Equal("50\u00A0%", NumberFormatting.Format(0.5, "percent", _de));
+    }
+
+    [Fact]
+    public void Format_NegativeCurrency_UsesCldrShape()
+    {
+        // en's standard currency pattern has no negative subpattern -> derived minus prefix.
+        Assert.Equal("-$19.99", NumberFormatting.Format(D("-19.99"), "::currency/USD", _en));
     }
 
     [Fact]
