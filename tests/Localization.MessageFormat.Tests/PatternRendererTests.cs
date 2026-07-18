@@ -23,7 +23,7 @@ public sealed class PatternRendererTests
     public void Render_CurrencyAffix_SubstitutesSymbolWithExactSpacing()
     {
         Assert.Equal("$1,234.50", Render("¤#,##0.00", 1234.5m, PatternPrecision.Fraction(2, 2), _en));
-        Assert.Equal("1.234,50 $", Render("#,##0.00 ¤", 1234.5m, PatternPrecision.Fraction(2, 2), _de));
+        Assert.Equal("1.234,50\u00A0$", Render("#,##0.00\u00A0¤", 1234.5m, PatternPrecision.Fraction(2, 2), _de));
     }
 
     [Fact]
@@ -48,9 +48,9 @@ public sealed class PatternRendererTests
     [Fact]
     public void Render_NegativeSubpattern_UsesItsAffixes()
     {
-        var result = Render("¤ #,##0.00;¤ -#,##0.00", -1234.5m, PatternPrecision.Fraction(2, 2), _en, symbol: "€");
+        var result = Render("¤\u00A0#,##0.00;¤\u00A0-#,##0.00", -1234.5m, PatternPrecision.Fraction(2, 2), _en, symbol: "€");
 
-        Assert.Equal("€ -1,234.50", result);
+        Assert.Equal("€\u00A0-1,234.50", result);
     }
 
     [Fact]
@@ -65,6 +65,10 @@ public sealed class PatternRendererTests
     [InlineData("1.234", 2, "1.2")]
     [InlineData("0.001234", 2, "0.0012")]
     [InlineData("999999", 2, "1000000")]
+    [InlineData("1000", 2, "1000")]
+    [InlineData("100", 1, "100")]
+    [InlineData("0.001", 2, "0.001")]
+    [InlineData("-1234", 2, "-1200")]
     public void RoundToSignificant_RoundsHalfAway(string value, int digits, string expected)
     {
         var rounded = PatternRenderer.RoundToSignificant(
