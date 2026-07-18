@@ -76,10 +76,14 @@ public sealed class NumberSkeletonTests
     }
 
     [Theory]
-    [InlineData("::currency/USD .0#")]  // ranged (min 1, max 2) on currency -> unsupported
-    [InlineData("::currency/USD .##")]  // ranged (min 0, max 2) on currency -> unsupported
-    public void Parse_CurrencyWithRangedFraction_Throws(string skeleton)
+    [InlineData("::currency/USD .0#", 1, 2)]
+    [InlineData("::currency/USD .##", 0, 2)]
+    public void Parse_CurrencyWithRangedFraction_IsSupported(string skeleton, int min, int max)
     {
-        Assert.Throws<MessageFormatException>(() => NumberSkeleton.Parse(skeleton));
+        NumberFormatSpec spec = NumberSkeleton.Parse(skeleton);
+
+        Assert.Equal(NumberUnit.Currency, spec.Unit);
+        Assert.Equal(min, spec.MinFractionDigits);
+        Assert.Equal(max, spec.MaxFractionDigits);
     }
 }

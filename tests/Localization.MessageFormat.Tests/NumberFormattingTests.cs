@@ -114,4 +114,12 @@ public sealed class NumberFormattingTests
     {
         Assert.Equal(expected, NumberFormatting.VisibleFractionDigits(D(value)));
     }
+
+    [Fact]
+    public void Format_CurrencyRangedFraction_TrimsTrailingZeros()
+    {
+        Assert.Equal("$1,234.5", NumberFormatting.Format(D("1234.5"), "::currency/USD .##", _en));
+        Assert.Equal("$1,234", NumberFormatting.Format(D("1234"), "::currency/USD .##", _en));
+        Assert.Equal("$1,234.5", NumberFormatting.Format(D("1234.5"), "::currency/USD .0#", _en));
+    }
 }

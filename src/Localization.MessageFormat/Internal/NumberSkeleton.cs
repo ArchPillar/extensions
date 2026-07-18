@@ -75,11 +75,6 @@ internal static class NumberSkeleton
             max = 0;
         }
 
-        if (unit == NumberUnit.Currency && min is int low && max is int high && low != high)
-        {
-            throw Unsupported("ranged fraction digits are not supported on a currency skeleton; use an exact count such as .00");
-        }
-
         return new NumberFormatSpec(unit, currencyCode, min, max, grouping);
     }
 
