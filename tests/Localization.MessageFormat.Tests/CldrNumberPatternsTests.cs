@@ -50,4 +50,17 @@ public sealed class CldrNumberPatternsTests
             Assert.Equal(sizes.Length > 1 ? sizes[1] : sizes[0], secondary);
         }
     }
+
+    [Fact]
+    public void AllPinnedPatterns_Parse()
+    {
+        foreach (CldrNumberPatternSet set in CldrNumberPatterns.Locales.Values)
+        {
+            foreach (var pattern in new[] { set.Decimal, set.Percent, set.Currency })
+            {
+                Exception? error = Record.Exception(() => NumberPatternParser.Parse(pattern));
+                Assert.True(error is null, $"pattern '{pattern}' failed to parse: {error?.Message}");
+            }
+        }
+    }
 }

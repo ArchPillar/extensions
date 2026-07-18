@@ -7,9 +7,9 @@ namespace ArchPillar.Extensions.Localization.MessageFormat.Internal;
 /// Parses the supported subset of CLDR number patterns (the standard decimal/percent/currency patterns and,
 /// later, compact patterns) into <see cref="NumberPattern"/>. Sole owner of the pattern grammar: quoted
 /// literals (<c>'…'</c>, <c>''</c> = apostrophe), <c>¤</c>/<c>¤¤</c>, <c>%</c>, <c>-</c>, and an optional
-/// <c>positive;negative</c> subpattern pair. Parsed once per distinct pattern (bounded: patterns come from
-/// the pinned CLDR tables). Unsupported syntax throws <see cref="FormatException"/> — pinned data is
-/// validated at generation, so a runtime throw is a bug guard, not a user error.
+/// <c>positive;negative</c> subpattern pair. Parsed on first use and cached per distinct pattern (bounded:
+/// patterns come from the pinned CLDR tables). Unsupported syntax throws <see cref="FormatException"/> —
+/// pinned data is validated at generation, so a runtime throw is a bug guard, not a user error.
 /// </summary>
 internal static class NumberPatternParser
 {

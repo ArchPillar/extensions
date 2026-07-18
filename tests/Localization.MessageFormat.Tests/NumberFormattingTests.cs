@@ -122,4 +122,13 @@ public sealed class NumberFormattingTests
         Assert.Equal("$1,234", NumberFormatting.Format(D("1234"), "::currency/USD .##", _en));
         Assert.Equal("$1,234.5", NumberFormatting.Format(D("1234.5"), "::currency/USD .0#", _en));
     }
+
+    [Fact]
+    public void Format_BoolArgument_CoercesToOneOrZero()
+    {
+        // A bool routed to a number placeholder is coerced to 1/0 via TryToDecimal — unified with the
+        // plural selector path (which already treats true as 1), not the pre-engine "True"/"False".
+        Assert.Equal("1", NumberFormatting.Format(true, null, _en));
+        Assert.Equal("0", NumberFormatting.Format(false, null, _en));
+    }
 }
