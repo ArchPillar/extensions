@@ -39,4 +39,17 @@ public sealed class CompactFormatterTests
     {
         Assert.Equal("-1.2K", Short(D("-1234")));
     }
+
+    [Fact]
+    public void TryFormat_SentinelBucket_DefersToStandard()
+    {
+        // German short-decimal carries "0" sentinels below 1e6 (no sub-million compaction), so these defer
+        // to standard (return null). 999999 sits atop the 100000 sentinel bucket and must NOT round up into
+        // the real million bucket — it defers, matching Intl "999.999".
+        var de = CultureInfo.GetCultureInfo("de-DE");
+        Assert.Null(CompactFormatter.TryFormat(12345m, NumberNotation.CompactShort, NumberUnit.Decimal, de, string.Empty, string.Empty));
+        Assert.Null(CompactFormatter.TryFormat(999999m, NumberNotation.CompactShort, NumberUnit.Decimal, de, string.Empty, string.Empty));
+        // ...but the million bucket is real, so it compacts (non-null).
+        Assert.NotNull(CompactFormatter.TryFormat(1000000m, NumberNotation.CompactShort, NumberUnit.Decimal, de, string.Empty, string.Empty));
+    }
 }

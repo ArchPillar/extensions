@@ -34,9 +34,10 @@ internal static class CompactFormatter
 
         var bucketIndex = SelectBucket(set, absolute);
         CompactBucket bucket = set.Buckets[bucketIndex];
-        if (SampleZeroCount(bucket) == 0)
+        if (SelectCategoryPattern(bucket, PluralCategory.Other) == "0")
         {
-            // The bucket's pattern is the "0" sentinel: CLDR marks this magnitude as not compacted.
+            // The bucket's category pattern is the literal "0" sentinel: CLDR marks this magnitude as not
+            // compacted (e.g. German short-decimal below a million), so defer to standard formatting.
             return null;
         }
 
