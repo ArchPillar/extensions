@@ -1,6 +1,5 @@
 using System.Globalization;
 using ArchPillar.Extensions.Localization.MessageFormat.Internal;
-using Xunit;
 
 namespace ArchPillar.Extensions.Localization.MessageFormat.Tests;
 
@@ -79,6 +78,15 @@ public sealed class CompactNotationTests
         Assert.Equal("mille", NumberFormatting.Format(D("1049"), "::compact-long", fr));
         // 1050 compacts to 1.1 -> count-one pattern "0 millier" (REGULAR space U+0020, per compact.json fr).
         Assert.Equal("1,1 millier", NumberFormatting.Format(D("1050"), "::compact-long", fr));
+    }
+
+    [Fact]
+    public void Format_LongDecimalFrench_NegativeExplicitValue_RendersMinusMille()
+    {
+        // The explicit-value "mille" (fr long, compacted magnitude 1) must be reached for NEGATIVE values too:
+        // -1000 -> "-mille", NOT "-1 millier" (which is what a signed comparison wrongly produced).
+        var fr = CultureInfo.GetCultureInfo("fr-FR");
+        Assert.Equal("-mille", NumberFormatting.Format(D("-1000"), "::compact-long", fr));
     }
 
     [Fact]

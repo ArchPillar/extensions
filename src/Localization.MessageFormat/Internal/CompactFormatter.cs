@@ -90,19 +90,19 @@ internal static class CompactFormatter
         {
             if (IsAlphabeticSymbol(currencySymbol))
             {
-                CompactBucketSet? alpha = CompactBucketSet_FirstNonNull(locale, data => data.ShortCurrencyAlpha);
+                CompactBucketSet? alpha = FirstNonNullSet(locale, data => data.ShortCurrencyAlpha);
                 if (alpha is not null)
                 {
                     return alpha;
                 }
             }
 
-            return CompactBucketSet_FirstNonNull(locale, data => data.ShortCurrency);
+            return FirstNonNullSet(locale, data => data.ShortCurrency);
         }
 
         return notation == NumberNotation.CompactLong
-            ? CompactBucketSet_FirstNonNull(locale, data => data.LongDecimal)
-            : CompactBucketSet_FirstNonNull(locale, data => data.ShortDecimal);
+            ? FirstNonNullSet(locale, data => data.LongDecimal)
+            : FirstNonNullSet(locale, data => data.ShortDecimal);
     }
 
     // A symbol is "alphabetic at the digit boundary" when either boundary character is a Unicode letter
@@ -122,7 +122,7 @@ internal static class CompactFormatter
         return char.IsLetter(symbol[0]) || char.IsLetter(last);
     }
 
-    private static CompactBucketSet? CompactBucketSet_FirstNonNull(
+    private static CompactBucketSet? FirstNonNullSet(
         string locale, Func<CompactLocaleData, CompactBucketSet?> pick)
     {
         if (CldrCompactData.Locales.TryGetValue(locale, out CompactLocaleData? exact) && pick(exact) is { } exactSet)
@@ -193,9 +193,14 @@ internal static class CompactFormatter
     // pattern.
     private static string SelectPattern(CompactBucket bucket, PluralCategory category, decimal rounded)
     {
+        // The explicit-value match is on MAGNITUDE — like bucket selection (uses `absolute`) and the plural
+        // operands (PluralRules does Math.Abs). ExplicitValue is always positive but `rounded` is signed, so
+        // compare against its absolute value; otherwise a negative value (fr -1000 compact-long) would miss
+        // its explicit "mille" literal and wrongly fall to the count-one pattern.
+        var magnitude = Math.Abs(rounded);
         foreach (CompactVariant variant in bucket.Variants)
         {
-            if (variant.ExplicitValue == rounded)
+            if (variant.ExplicitValue == magnitude)
             {
                 return variant.Pattern;
             }

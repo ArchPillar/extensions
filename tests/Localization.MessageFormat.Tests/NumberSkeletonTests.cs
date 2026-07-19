@@ -124,6 +124,14 @@ public sealed class NumberSkeletonTests
         Assert.Throws<MessageFormatException>(() => NumberSkeleton.Parse("::percent compact-short"));
     }
 
+    [Fact]
+    public void Parse_CompactWithGroupOff_Succeeds()
+    {
+        NumberFormatSpec spec = NumberSkeleton.Parse("::compact-short group-off");
+        Assert.Equal(NumberNotation.CompactShort, spec.Notation);
+        Assert.False(spec.Grouping);
+    }
+
     [Theory]
     [InlineData("::currency/USD .0#", 1, 2)]
     [InlineData("::currency/USD .##", 0, 2)]

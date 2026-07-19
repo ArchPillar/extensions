@@ -87,7 +87,7 @@ internal static class NumberSkeleton
 
         if (notation != NumberNotation.Standard)
         {
-            if (integer || min is not null || max is not null)
+            if (min is not null || max is not null)
             {
                 throw Unsupported("compact notation cannot combine with a fraction or precision override");
             }
