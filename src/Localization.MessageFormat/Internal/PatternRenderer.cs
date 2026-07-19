@@ -5,7 +5,8 @@ namespace ArchPillar.Extensions.Localization.MessageFormat.Internal;
 
 /// <summary>
 /// Digit precision for <see cref="PatternRenderer"/>: fraction-digit bounds (standard formats) or
-/// significant digits (compact notation, Spec 3).
+/// significant digits (reserved for a future significant-digit skeleton such as <c>::@@#</c>; compact
+/// notation uses fraction precision).
 /// </summary>
 internal readonly record struct PatternPrecision
 {
@@ -31,7 +32,7 @@ internal readonly record struct PatternPrecision
     /// <summary>Fraction-digit precision: at least <paramref name="min"/>, at most <paramref name="max"/> digits.</summary>
     public static PatternPrecision Fraction(int min, int max) => new(min, max, 0);
 
-    /// <summary>Significant-digit precision: round to <paramref name="digits"/> significant digits, trimmed.</summary>
+    /// <summary>Significant-digit precision: round to <paramref name="digits"/> significant digits, trimmed. Reserved: no current skeleton selects significant-digit precision.</summary>
     public static PatternPrecision Significant(int digits) => new(0, 0, digits);
 }
 
@@ -98,7 +99,7 @@ internal static class PatternRenderer
         return builder.ToString();
     }
 
-    /// <summary>Rounds to <paramref name="digits"/> significant digits, half away from zero (ECMA-402's default).</summary>
+    /// <summary>Rounds to <paramref name="digits"/> significant digits, half away from zero (ECMA-402's default). Reserved for a future significant-digit skeleton; unused by compact notation, which rounds by fraction digits.</summary>
     internal static decimal RoundToSignificant(decimal value, int digits)
     {
         if (value == 0m)
