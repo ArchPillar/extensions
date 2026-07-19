@@ -23,22 +23,24 @@ internal enum NumberUnit
 /// <param name="MinFractionDigits">The minimum visible fraction digits, or <see langword="null"/> for the unit default.</param>
 /// <param name="MaxFractionDigits">The maximum visible fraction digits, or <see langword="null"/> for the unit default.</param>
 /// <param name="Grouping">Whether to insert grouping (thousands) separators.</param>
+/// <param name="Notation">The scaling/abbreviation notation (standard or compact).</param>
 internal sealed record NumberFormatSpec(
     NumberUnit Unit,
     string? CurrencyCode,
     int? MinFractionDigits,
     int? MaxFractionDigits,
-    bool Grouping)
+    bool Grouping,
+    NumberNotation Notation)
 {
     /// <summary>The default: a grouped decimal with up to three trailing-zero-trimmed fraction digits.</summary>
-    public static NumberFormatSpec Default { get; } = new(NumberUnit.Decimal, null, null, null, true);
+    public static NumberFormatSpec Default { get; } = new(NumberUnit.Decimal, null, null, null, true, NumberNotation.Standard);
 
     /// <summary>The <c>integer</c> style: a grouped whole number.</summary>
-    public static NumberFormatSpec Integer { get; } = new(NumberUnit.Decimal, null, 0, 0, true);
+    public static NumberFormatSpec Integer { get; } = new(NumberUnit.Decimal, null, 0, 0, true, NumberNotation.Standard);
 
     /// <summary>The <c>percent</c> style.</summary>
-    public static NumberFormatSpec Percent { get; } = new(NumberUnit.Percent, null, null, null, true);
+    public static NumberFormatSpec Percent { get; } = new(NumberUnit.Percent, null, null, null, true, NumberNotation.Standard);
 
     /// <summary>The <c>currency</c> style, optionally with an explicit ISO code (<see langword="null"/> = the culture's own).</summary>
-    public static NumberFormatSpec Currency(string? code) => new(NumberUnit.Currency, code, null, null, true);
+    public static NumberFormatSpec Currency(string? code) => new(NumberUnit.Currency, code, null, null, true, NumberNotation.Standard);
 }

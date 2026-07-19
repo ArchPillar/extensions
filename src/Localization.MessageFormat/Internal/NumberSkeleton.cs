@@ -4,8 +4,9 @@ namespace ArchPillar.Extensions.Localization.MessageFormat.Internal;
 /// Parses the supported subset of ICU number skeletons — the <c>::</c>-prefixed style of a
 /// <c>{arg, number, ::…}</c> placeholder — into a <see cref="NumberFormatSpec"/>. Supported stems:
 /// <c>currency/&lt;ISO&gt;</c>, fraction precision (<c>.00</c>/<c>.##</c>/<c>.0#</c>),
-/// <c>precision-integer</c> (or <c>.</c>), <c>percent</c> (or <c>%</c>), and <c>group-off</c>/<c>group-auto</c>.
-/// Any other stem — including compact notation, reserved for a later spec — throws.
+/// <c>precision-integer</c> (or <c>.</c>), <c>percent</c> (or <c>%</c>), <c>group-off</c>/<c>group-auto</c>,
+/// and compact notation (<c>compact-short</c>/<c>K</c>, <c>compact-long</c>/<c>KK</c>).
+/// Any other stem throws.
 /// </summary>
 internal static class NumberSkeleton
 {
@@ -27,6 +28,7 @@ internal static class NumberSkeleton
         int? max = null;
         var grouping = true;
         var integer = false;
+        NumberNotation notation = NumberNotation.Standard;
 
         foreach (var stem in stems)
         {
@@ -59,6 +61,14 @@ internal static class NumberSkeleton
             {
                 grouping = true;
             }
+            else if (stem is "compact-short" or "K")
+            {
+                notation = NumberNotation.CompactShort;
+            }
+            else if (stem is "compact-long" or "KK")
+            {
+                notation = NumberNotation.CompactLong;
+            }
             else if (stem[0] == '.')
             {
                 (min, max) = ParseFraction(stem);
@@ -75,7 +85,20 @@ internal static class NumberSkeleton
             max = 0;
         }
 
-        return new NumberFormatSpec(unit, currencyCode, min, max, grouping);
+        if (notation != NumberNotation.Standard)
+        {
+            if (integer || min is not null || max is not null)
+            {
+                throw Unsupported("compact notation cannot combine with a fraction or precision override");
+            }
+
+            if (unit == NumberUnit.Percent)
+            {
+                throw Unsupported("compact notation is not supported for percent");
+            }
+        }
+
+        return new NumberFormatSpec(unit, currencyCode, min, max, grouping, notation);
     }
 
     // A fraction stem: '.' then leading '0's (minimum digits) then trailing '#'s (additional maximum digits).

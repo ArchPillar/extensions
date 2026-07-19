@@ -63,8 +63,6 @@ public sealed class NumberSkeletonTests
 
     [Theory]
     [InlineData("::scientific")]
-    [InlineData("::compact-short")]
-    [InlineData("::K")]
     [InlineData("::unit/length-meter")]
     [InlineData("::currency/US")]        // malformed: not 3 letters
     [InlineData("::currency/")]          // malformed: no code
@@ -73,6 +71,57 @@ public sealed class NumberSkeletonTests
     public void Parse_UnsupportedOrMalformed_Throws(string skeleton)
     {
         Assert.Throws<MessageFormatException>(() => NumberSkeleton.Parse(skeleton));
+    }
+
+    [Theory]
+    [InlineData("::compact-short")]
+    [InlineData("::K")]
+    public void Parse_CompactShortStems_SetShortNotation(string skeleton)
+    {
+        NumberFormatSpec spec = NumberSkeleton.Parse(skeleton);
+        Assert.Equal(NumberNotation.CompactShort, spec.Notation);
+        Assert.Equal(NumberUnit.Decimal, spec.Unit);
+    }
+
+    [Theory]
+    [InlineData("::compact-long")]
+    [InlineData("::KK")]
+    public void Parse_CompactLongStems_SetLongNotation(string skeleton)
+    {
+        NumberFormatSpec spec = NumberSkeleton.Parse(skeleton);
+        Assert.Equal(NumberNotation.CompactLong, spec.Notation);
+        Assert.Equal(NumberUnit.Decimal, spec.Unit);
+    }
+
+    [Fact]
+    public void Parse_CompactCurrency_KeepsCurrencyUnit()
+    {
+        NumberFormatSpec spec = NumberSkeleton.Parse("::currency/USD compact-short");
+        Assert.Equal(NumberNotation.CompactShort, spec.Notation);
+        Assert.Equal(NumberUnit.Currency, spec.Unit);
+        Assert.Equal("USD", spec.CurrencyCode);
+    }
+
+    [Fact]
+    public void Parse_DefaultSkeleton_IsStandardNotation()
+    {
+        NumberFormatSpec spec = NumberSkeleton.Parse("::currency/USD");
+        Assert.Equal(NumberNotation.Standard, spec.Notation);
+    }
+
+    [Theory]
+    [InlineData("::compact-short .00")]
+    [InlineData("::.00 compact-short")]
+    [InlineData("::compact-long precision-integer")]
+    public void Parse_CompactWithFractionOverride_Throws(string skeleton)
+    {
+        Assert.Throws<MessageFormatException>(() => NumberSkeleton.Parse(skeleton));
+    }
+
+    [Fact]
+    public void Parse_CompactPercent_Throws()
+    {
+        Assert.Throws<MessageFormatException>(() => NumberSkeleton.Parse("::percent compact-short"));
     }
 
     [Theory]

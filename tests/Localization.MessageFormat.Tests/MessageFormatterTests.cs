@@ -201,7 +201,6 @@ public sealed class MessageFormatterTests
 
     [Theory]
     [InlineData("{n, number, currnecy}")]        // typo -> unknown style
-    [InlineData("{n, number, ::compact-short}")] // reserved for Spec 2
     [InlineData("{n, number, ::currency/US}")]   // malformed skeleton
     public void Format_InvalidNumberStyle_ThrowsAtParseIndependentOfValue(string template)
     {
