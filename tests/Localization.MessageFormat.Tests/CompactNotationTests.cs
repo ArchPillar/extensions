@@ -33,7 +33,7 @@ public sealed class CompactNotationTests
     [Fact]
     public void Format_BelowThreshold_FallsThroughToStandard()
     {
-        // < 1000 is not compacted: identical to the default decimal render.
+        // A sub-bucket integer renders plain and here coincides byte-for-byte with the default decimal render.
         Assert.Equal(
             NumberFormatting.Format(D("950"), null, _en),
             NumberFormatting.Format(D("950"), "::compact-short", _en));
@@ -61,12 +61,12 @@ public sealed class CompactNotationTests
     }
 
     [Fact]
-    public void Format_LongDecimalFrench_NegativeExplicitValue_RendersMinusMille()
+    public void Format_LongDecimalFrench_Negative_UsesCountPatternNotExplicit()
     {
-        // The explicit-value "mille" (fr long, compacted magnitude 1) must be reached for NEGATIVE values too:
-        // -1000 -> "-mille", NOT "-1 millier" (which is what a signed comparison wrongly produced).
+        // CLDR explicit-value "mille" (count="1") is positive-only: a NEGATIVE takes the count-one pattern
+        // "0 millier" with the sign prefixed. Matches Intl/ICU4C: fr -1000 -> "-1 millier", NOT "-mille".
         var fr = CultureInfo.GetCultureInfo("fr-FR");
-        Assert.Equal("-mille", NumberFormatting.Format(D("-1000"), "::compact-long", fr));
+        Assert.Equal("-1 millier", NumberFormatting.Format(D("-1000"), "::compact-long", fr));
     }
 
     [Fact]

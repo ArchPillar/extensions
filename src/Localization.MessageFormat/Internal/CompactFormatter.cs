@@ -262,14 +262,12 @@ internal static class CompactFormatter
     // pattern.
     private static string SelectPattern(CompactBucket bucket, PluralCategory category, decimal rounded)
     {
-        // The explicit-value match is on MAGNITUDE — like bucket selection (uses `absolute`) and the plural
-        // operands (PluralRules does Math.Abs). ExplicitValue is always positive but `rounded` is signed, so
-        // compare against its absolute value; otherwise a negative value (fr -1000 compact-long) would miss
-        // its explicit "mille" literal and wrongly fall to the count-one pattern.
-        var magnitude = Math.Abs(rounded);
+        // CLDR explicit-value counts (count="1") match the SIGNED compacted value, per ICU4C/Intl: a negative
+        // value does NOT take the explicit literal — fr -1000 -> "-1 millier" (count-one + sign), not "-mille".
+        // Positive values are unaffected (they equal their own magnitude). fr 1000 -> "mille" still holds.
         foreach (CompactVariant variant in bucket.Variants)
         {
-            if (variant.ExplicitValue == magnitude)
+            if (variant.ExplicitValue == rounded)
             {
                 return variant.Pattern;
             }
