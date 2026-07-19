@@ -117,6 +117,13 @@ var json = output.ToJsonString(new JsonSerializerOptions
 File.WriteAllText(outPath, json + "\n");
 Console.WriteLine($"locales={locales.Count} cldr={cldrVersion} -> {outPath}");
 
+// CLDR publishes root data under 'und'; the compact resolver (like the standard one) terminates at 'root'.
+if (!compactLocales.ContainsKey("root") && compactLocales.TryGetValue("und", out var undCompact))
+{
+    compactLocales["root"] = undCompact;
+    compactLocales.Remove("und");
+}
+
 var compactOutput = new JsonObject
 {
     ["version"] = new JsonObject { ["_cldrVersion"] = cldrVersion },
