@@ -64,30 +64,32 @@ internal static class NumberFormatting
                 : value?.ToString() ?? string.Empty;
         }
 
-        NumberPattern pattern = PatternFor(spec.Unit, culture);
         var currencySymbol = string.Empty;
         var currencyCode = string.Empty;
+        var currencyDigits = 0;
+        if (spec.Unit == NumberUnit.Currency)
+        {
+            (currencySymbol, currencyCode, currencyDigits) = ResolveCurrency(spec.CurrencyCode, culture);
+        }
+
+        if (spec.Notation != NumberNotation.Standard)
+        {
+            var compact = CompactFormatter.TryFormat(number, spec.Notation, spec.Unit, culture, currencySymbol, currencyCode);
+            if (compact is not null)
+            {
+                return compact;
+            }
+            // Declined (below threshold / no data): fall through to the standard path.
+        }
+
+        NumberPattern pattern = PatternFor(spec.Unit, culture);
         int minimum;
         int maximum;
         if (spec.Unit == NumberUnit.Currency)
         {
-            int digits;
-            if (spec.CurrencyCode is null)
-            {
-                // Named `currency` — the rendering culture's own currency.
-                NumberFormatInfo info = culture.NumberFormat;
-                currencySymbol = info.CurrencySymbol;
-                digits = info.CurrencyDecimalDigits;
-            }
-            else
-            {
-                (currencySymbol, digits) = CurrencyLookup.Resolve(spec.CurrencyCode);
-                currencyCode = spec.CurrencyCode;
-            }
-
             // ICU's currency-digits override: minor units win over the pattern's fraction body.
-            minimum = spec.MinFractionDigits ?? digits;
-            maximum = spec.MaxFractionDigits ?? digits;
+            minimum = spec.MinFractionDigits ?? currencyDigits;
+            maximum = spec.MaxFractionDigits ?? currencyDigits;
         }
         else
         {
@@ -102,6 +104,20 @@ internal static class NumberFormatting
 
         return PatternRenderer.Render(
             pattern, number, PatternPrecision.Fraction(minimum, maximum), spec.Grouping, culture, currencySymbol, currencyCode);
+    }
+
+    // Resolves the display symbol, ISO code, and default minor-unit digits for a currency spec. A null code
+    // means the rendering culture's own currency; an explicit code goes through CurrencyLookup.
+    private static (string Symbol, string Code, int Digits) ResolveCurrency(string? currencyCode, CultureInfo culture)
+    {
+        if (currencyCode is null)
+        {
+            NumberFormatInfo info = culture.NumberFormat;
+            return (info.CurrencySymbol, string.Empty, info.CurrencyDecimalDigits);
+        }
+
+        (var symbol, var digits) = CurrencyLookup.Resolve(currencyCode);
+        return (symbol, currencyCode, digits);
     }
 
     // The CLDR standard pattern for a unit in a culture: exact locale, then base language, then root —
