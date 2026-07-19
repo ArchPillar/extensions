@@ -188,6 +188,44 @@ public sealed class MessageParserTests
         Assert.Throws<MessageFormatException>(() => MessageParser.Parse("{g, select, male {a} male {b} other {c}}"));
     }
 
+    [Theory]
+    [InlineData("{}", 1)]
+    [InlineData("{ }", 2)]
+    public void Parse_EmptyArgumentName_ThrowsAtTheNameOffset(string template, int position)
+    {
+        MessageFormatException exception =
+            Assert.Throws<MessageFormatException>(() => MessageParser.Parse(template));
+
+        Assert.Equal(position, exception.Position);
+    }
+
+    [Fact]
+    public void Parse_OffsetWithNoDigits_ThrowsAfterTheOffsetKeyword()
+    {
+        MessageFormatException exception = Assert.Throws<MessageFormatException>(
+            () => MessageParser.Parse("{n, plural, offset: one {x} other {y}}"));
+
+        Assert.Equal(19, exception.Position);
+    }
+
+    [Fact]
+    public void Parse_MissingKeywordAfterComma_ThrowsAtTheKeywordOffset()
+    {
+        MessageFormatException exception =
+            Assert.Throws<MessageFormatException>(() => MessageParser.Parse("{n, }"));
+
+        Assert.Equal(4, exception.Position);
+    }
+
+    [Fact]
+    public void Parse_ArgumentNameWithDigitsAndUnderscore_ProducesArgumentPart()
+    {
+        Message message = MessageParser.Parse("{arg_1}");
+
+        ArgumentPart argument = Assert.IsType<ArgumentPart>(Assert.Single(message.Parts));
+        Assert.Equal("arg_1", argument.Name);
+    }
+
     private static string LiteralOf(Message message) =>
         Assert.IsType<LiteralPart>(Assert.Single(message.Parts)).Text;
 }

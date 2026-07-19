@@ -214,4 +214,250 @@ public sealed class MessageFormatterTests
         Assert.False(MessageSyntax.TryValidate("{n, number, ::scientific}", out MessageFormatError? error));
         Assert.NotNull(error);
     }
+
+    [Theory]
+    [InlineData(1, "1st")]
+    [InlineData(2, "2nd")]
+    [InlineData(3, "3rd")]
+    [InlineData(4, "4th")]
+    [InlineData(11, "11th")]
+    [InlineData(21, "21st")]
+    public void Format_SelectOrdinal_RendersEnglishOrdinalSuffixes(int value, string expected)
+    {
+        var result = _formatter.Format(
+            "{n, selectordinal, one {#st} two {#nd} few {#rd} other {#th}}", _english, ("n", value));
+
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData(0, "ZERO")]
+    [InlineData(1, "ONE")]
+    [InlineData(2, "TWO")]
+    [InlineData(3, "FEW")]
+    [InlineData(5, "MANY")]
+    [InlineData(10, "OTHER")]
+    public void Format_SelectOrdinal_WelshSpansAllSixCategories(int value, string expected)
+    {
+        // Welsh ordinal rules are the only CLDR ordinal set that uses all six categories
+        // (confirmed against Intl.PluralRules('cy', {type:'ordinal'})).
+        const string Template =
+            "{n, selectordinal, zero {ZERO} one {ONE} two {TWO} few {FEW} many {MANY} other {OTHER}}";
+        var welsh = CultureInfo.GetCultureInfo("cy");
+
+        Assert.Equal(expected, _formatter.Format(Template, welsh, ("n", value)));
+    }
+
+    [Fact]
+    public void Format_PluralMissingOtherBranch_RendersEmptyStringForNonMatchingValue()
+    {
+        // No 'other' branch and 5 doesn't match 'one': the renderer silently drops to an empty message
+        // rather than throwing (MessageRenderer.SelectPluralBranch falls through to EmptyMessage).
+        var result = _formatter.Format("{n, plural, one {# item}}", _english, ("n", 5));
+
+        Assert.Equal(string.Empty, result);
+    }
+
+    [Fact]
+    public void Format_PluralMissingArgument_RespectsPolicy()
+    {
+        // Mirrors Format_SelectMissingArgument_RespectsPolicy: plural must follow the same contract as select.
+        Assert.Equal("{count}", _formatter.Format("{count, plural, other {#}}", _english));
+
+        var strict = new MessageFormatter(MissingArgumentPolicy.Throw);
+        MissingArgumentException exception = Assert.Throws<MissingArgumentException>(
+            () => strict.Format("{count, plural, other {#}}", _english));
+        Assert.Equal("count", exception.ArgumentName);
+    }
+
+    [Fact]
+    public void Format_NumberArgument_WrongType_FallsBackToStringRepresentation()
+    {
+        // A string can't be converted to decimal; NumberFormatting.FormatSpec falls back to the value's own
+        // string representation rather than throwing (string is not IFormattable, so value.ToString() wins).
+        var result = _formatter.Format("{v, number, integer}", _english, ("v", "abc"));
+
+        Assert.Equal("abc", result);
+    }
+
+    [Fact]
+    public void Format_Select_NonStringArgumentValue_CoercesViaToString()
+    {
+        // RenderSelect keys branches on value?.ToString(); an int argument must coerce to its decimal string.
+        var result = _formatter.Format("{code, select, 1 {one} 2 {two} other {other}}", _english, ("code", 1));
+
+        Assert.Equal("one", result);
+    }
+
+    [Theory]
+    [InlineData(0, "ZERO")]
+    [InlineData(1, "ONE")]
+    [InlineData(2, "TWO")]
+    [InlineData(3, "FEW")]
+    [InlineData(11, "MANY")]
+    [InlineData(100, "OTHER")]
+    public void Format_Plural_ArabicSpansAllSixCategories(int value, string expected)
+    {
+        const string Template =
+            "{n, plural, zero {ZERO} one {ONE} two {TWO} few {FEW} many {MANY} other {OTHER}}";
+        var arabic = CultureInfo.GetCultureInfo("ar");
+
+        Assert.Equal(expected, _formatter.Format(Template, arabic, ("n", value)));
+    }
+
+    [Theory]
+    [InlineData(1, "ONE")]
+    [InlineData(2, "FEW")]
+    [InlineData(5, "MANY")]
+    [InlineData(11, "MANY")]
+    [InlineData(21, "ONE")]
+    public void Format_Plural_RussianDistinguishesFewAndMany(int value, string expected)
+    {
+        const string Template = "{n, plural, one {ONE} few {FEW} many {MANY} other {OTHER}}";
+        var russian = CultureInfo.GetCultureInfo("ru");
+
+        Assert.Equal(expected, _formatter.Format(Template, russian, ("n", value)));
+    }
+
+    [Theory]
+    [InlineData(1, "ONE")]
+    [InlineData(3, "FEW")]
+    [InlineData(5, "OTHER")]
+    public void Format_Plural_CzechDistinguishesFewFromOther(int value, string expected)
+    {
+        const string Template = "{n, plural, one {ONE} few {FEW} many {MANY} other {OTHER}}";
+        var czech = CultureInfo.GetCultureInfo("cs");
+
+        Assert.Equal(expected, _formatter.Format(Template, czech, ("n", value)));
+    }
+
+    [Theory]
+    [InlineData("1.5")]
+    [InlineData("3.5")]
+    [InlineData("100.5")]
+    public void Format_Plural_CzechMf8Seam_AnyVisibleFractionForcesMany(string value)
+    {
+        // MF-8: category selection follows the value's *visible* fraction digits. Czech maps any fractional
+        // value to "many" regardless of magnitude (3 alone would be "few"; 3.5 is "many").
+        var amount = decimal.Parse(value, CultureInfo.InvariantCulture);
+        const string Template = "{n, plural, one {ONE} few {FEW} many {MANY} other {OTHER}}";
+        var czech = CultureInfo.GetCultureInfo("cs");
+
+        Assert.Equal("MANY", _formatter.Format(Template, czech, ("n", amount)));
+    }
+
+    [Theory]
+    [InlineData(0, "ZERO")]
+    [InlineData(1, "ONE")]
+    [InlineData(2, "TWO")]
+    [InlineData(3, "FEW")]
+    [InlineData(6, "MANY")]
+    [InlineData(100, "OTHER")]
+    public void Format_Plural_WelshSpansAllSixCategories(int value, string expected)
+    {
+        const string Template =
+            "{n, plural, zero {ZERO} one {ONE} two {TWO} few {FEW} many {MANY} other {OTHER}}";
+        var welsh = CultureInfo.GetCultureInfo("cy");
+
+        Assert.Equal(expected, _formatter.Format(Template, welsh, ("n", value)));
+    }
+
+    [Fact]
+    public void Format_QuotedPound_IsLiteralInsidePluralBranch()
+    {
+        // '#' quoted with apostrophes must render as a literal '#' character, distinct from the unquoted
+        // PoundPart later in the same branch, which still substitutes the plural's number.
+        var result = _formatter.Format("{n, plural, other {'#' of #}}", _english, ("n", 3));
+
+        Assert.Equal("# of 3", result);
+    }
+
+    [Fact]
+    public void Format_NestedPluralInsidePlural_RendersBothLevels()
+    {
+        const string Template =
+            "{n, plural, other {# outer with {m, plural, one {# inner} other {# inners}}}}";
+
+        Assert.Equal("5 outer with 1 inner", _formatter.Format(Template, _english, ("n", 5), ("m", 1)));
+        Assert.Equal("5 outer with 2 inners", _formatter.Format(Template, _english, ("n", 5), ("m", 2)));
+    }
+
+    [Fact]
+    public void Format_NestedSelectInsideSelect_RendersBothLevels()
+    {
+        const string Template =
+            "{a, select, x {A:{b, select, y {AY} other {AOther}}} other {Other}}";
+
+        Assert.Equal("A:AY", _formatter.Format(Template, _english, ("a", "x"), ("b", "y")));
+        Assert.Equal("A:AOther", _formatter.Format(Template, _english, ("a", "x"), ("b", "z")));
+        Assert.Equal("Other", _formatter.Format(Template, _english, ("a", "q"), ("b", "y")));
+    }
+
+    [Fact]
+    public void Format_CompactWhitespaceGrammar_ParsesSameAsSpacedForm()
+    {
+        Assert.Equal("x", _formatter.Format("{n,plural,other{x}}", _english, ("n", 5)));
+    }
+
+    [Fact]
+    public void Format_IrregularWhitespaceGrammar_ParsesSameAsSpacedForm()
+    {
+        const string Template = "{n,\n  plural,\n  one {# item}\n  other {# items}\n}";
+
+        Assert.Equal("1 item", _formatter.Format(Template, _english, ("n", 1)));
+        Assert.Equal("5 items", _formatter.Format(Template, _english, ("n", 5)));
+    }
+
+    [Theory]
+    [InlineData("{name")]                                              // unterminated argument
+    [InlineData("a } b")]                                               // stray closing brace
+    [InlineData("{n, plural, banana {x} other {y}}")]                   // invalid plural category
+    [InlineData("{n, plural, one {a} one {b} other {c}}")]              // duplicate plural selector
+    [InlineData("{g, select, male {a} male {b} other {c}}")]            // duplicate select selector
+    public void Format_GrammarParseErrors_ThrowThroughThePublicFormatEntryPoint(string template)
+    {
+        // These grammar errors are otherwise asserted only via MessageParser or MessageSyntax directly.
+        // Format shares the same parse path through the template cache and must surface them the same way.
+        Assert.Throws<MessageFormatException>(() => _formatter.Format(template, _english));
+    }
+
+    [Fact]
+    public void Format_ThreeOrMoreArguments_AllSubstituted()
+    {
+        var result = _formatter.Format("{a} {b} {c}", _english, ("a", "1"), ("b", "2"), ("c", "3"));
+
+        Assert.Equal("1 2 3", result);
+    }
+
+    [Fact]
+    public void Format_UntypedArgument_NumericIFormattable_UsesCultureAwareToString()
+    {
+        // A bare {n} placeholder bound to a numeric value takes the IFormattable culture-aware path
+        // (MessageRenderer.FormatValue), distinct from every other numeric test which goes through
+        // 'number'/'plural'.
+        var german = CultureInfo.GetCultureInfo("de-DE");
+
+        Assert.Equal("1234", _formatter.Format("{n}", _english, ("n", 1234)));
+        Assert.Equal("1234.5", _formatter.Format("{n}", _english, ("n", 1234.5m)));
+        Assert.Equal("1234,5", _formatter.Format("{n}", german, ("n", 1234.5m)));
+    }
+
+    [Fact]
+    public void Format_UnknownTypeToken_FallsBackToFormattableCultureString()
+    {
+        // An unrecognized type keyword (neither number/date/time/plural/select/selectordinal) resolves no
+        // format string (MessageRenderer.ResolveFormat returns null) and falls back to the default
+        // IFormattable.ToString(null, culture) rendering rather than erroring.
+        var result = _formatter.Format("{v, banana}", _english, ("v", 42));
+
+        Assert.Equal("42", result);
+    }
+
+    [Fact]
+    public void Format_ArgumentNameWithDigitsAndUnderscore_Substitutes()
+    {
+        var result = _formatter.Format("{arg_1}", _english, ("arg_1", "x"));
+
+        Assert.Equal("x", result);
+    }
 }
