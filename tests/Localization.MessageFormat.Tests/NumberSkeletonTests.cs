@@ -20,6 +20,8 @@ public sealed class NumberSkeletonTests
     [InlineData("::.00", 2, 2)]
     [InlineData("::.##", 0, 2)]
     [InlineData("::.0#", 1, 2)]
+    [InlineData("::.0", 1, 1)]
+    [InlineData("::.#", 0, 1)]
     public void Parse_Fraction_SetsMinMax(string skeleton, int min, int max)
     {
         NumberFormatSpec spec = NumberSkeleton.Parse(skeleton);
@@ -54,6 +56,19 @@ public sealed class NumberSkeletonTests
     }
 
     [Fact]
+    public void Parse_GroupOffAlias_DisablesGrouping()
+    {
+        Assert.False(NumberSkeleton.Parse("::,_").Grouping);
+    }
+
+    [Fact]
+    public void Parse_ConflictingGroupStems_LastStemWins()
+    {
+        Assert.True(NumberSkeleton.Parse("::group-off group-auto").Grouping);
+        Assert.False(NumberSkeleton.Parse("::group-auto group-off").Grouping);
+    }
+
+    [Fact]
     public void Parse_CombinedStems_MergeIntoOneSpec()
     {
         NumberFormatSpec spec = NumberSkeleton.Parse("::currency/USD .00");
@@ -61,6 +76,27 @@ public sealed class NumberSkeletonTests
         Assert.Equal(NumberUnit.Currency, spec.Unit);
         Assert.Equal("USD", spec.CurrencyCode);
         Assert.Equal(2, spec.MinFractionDigits);
+        Assert.Equal(2, spec.MaxFractionDigits);
+    }
+
+    [Fact]
+    public void Parse_ConflictingUnitStems_LastStemWins()
+    {
+        NumberFormatSpec percentThenCurrency = NumberSkeleton.Parse("::percent currency/USD");
+        Assert.Equal(NumberUnit.Currency, percentThenCurrency.Unit);
+        Assert.Equal("USD", percentThenCurrency.CurrencyCode);
+
+        NumberFormatSpec currencyThenPercent = NumberSkeleton.Parse("::currency/USD percent");
+        Assert.Equal(NumberUnit.Percent, currencyThenPercent.Unit);
+        Assert.Equal("USD", currencyThenPercent.CurrencyCode);
+    }
+
+    [Fact]
+    public void Parse_ConflictingFractionStems_LastStemWins()
+    {
+        NumberFormatSpec spec = NumberSkeleton.Parse("::.00 .##");
+
+        Assert.Equal(0, spec.MinFractionDigits);
         Assert.Equal(2, spec.MaxFractionDigits);
     }
 
@@ -121,10 +157,12 @@ public sealed class NumberSkeletonTests
         Assert.Throws<MessageFormatException>(() => NumberSkeleton.Parse(skeleton));
     }
 
-    [Fact]
-    public void Parse_CompactPercent_Throws()
+    [Theory]
+    [InlineData("::percent compact-short")]
+    [InlineData("::percent compact-long")]
+    public void Parse_CompactPercent_Throws(string skeleton)
     {
-        Assert.Throws<MessageFormatException>(() => NumberSkeleton.Parse("::percent compact-short"));
+        Assert.Throws<MessageFormatException>(() => NumberSkeleton.Parse(skeleton));
     }
 
     [Fact]
@@ -132,6 +170,16 @@ public sealed class NumberSkeletonTests
     {
         NumberFormatSpec spec = NumberSkeleton.Parse("::compact-short group-off");
         Assert.Equal(NumberNotation.CompactShort, spec.Notation);
+        Assert.False(spec.Grouping);
+    }
+
+    [Fact]
+    public void Parse_CurrencyWithGroupOff_DisablesGroupingKeepsCurrency()
+    {
+        NumberFormatSpec spec = NumberSkeleton.Parse("::currency/USD group-off");
+
+        Assert.Equal(NumberUnit.Currency, spec.Unit);
+        Assert.Equal("USD", spec.CurrencyCode);
         Assert.False(spec.Grouping);
     }
 
@@ -173,6 +221,7 @@ public sealed class NumberSkeletonTests
     [InlineData("::currency/US$")]    // symbol at the end
     [InlineData("::currency/US")]     // too short
     [InlineData("::currency/USDX")]   // too long
+    [InlineData("::currency/")]       // empty code — same length gate, zero letters
     public void Parse_Currency_NotThreeAsciiLetters_Throws(string skeleton)
     {
         Assert.Throws<MessageFormatException>(() => NumberSkeleton.Parse(skeleton));
@@ -184,5 +233,35 @@ public sealed class NumberSkeletonTests
         // Number-style validation errors carry the documented -1 (offset is not tracked at this point).
         MessageFormatException ex = Assert.Throws<MessageFormatException>(() => NumberSkeleton.Parse("::currency/123"));
         Assert.Equal(-1, ex.Position);
+    }
+
+    [Theory]
+    [InlineData("::.0a")]                   // malformed fraction stem
+    [InlineData("::scientific")]            // unsupported stem
+    [InlineData("::percent compact-short")] // post-loop compact+percent validation error
+    public void Parse_OtherInvalidFamilies_ReportUntrackedPosition(string skeleton)
+    {
+        MessageFormatException ex = Assert.Throws<MessageFormatException>(() => NumberSkeleton.Parse(skeleton));
+        Assert.Equal(-1, ex.Position);
+    }
+
+    [Fact]
+    public void Parse_EmptySkeleton_MatchesDefaultSpec()
+    {
+        NumberFormatSpec spec = NumberSkeleton.Parse("::");
+
+        Assert.Equal(NumberFormatSpec.Default, spec);
+        Assert.Equal(NumberUnit.Decimal, spec.Unit);
+        Assert.Null(spec.CurrencyCode);
+        Assert.Null(spec.MinFractionDigits);
+        Assert.Null(spec.MaxFractionDigits);
+        Assert.True(spec.Grouping);
+        Assert.Equal(NumberNotation.Standard, spec.Notation);
+    }
+
+    [Fact]
+    public void Resolve_EmptyStyle_ReturnsDefaultSpec()
+    {
+        Assert.Equal(NumberFormatSpec.Default, NumberFormatting.Resolve(""));
     }
 }
