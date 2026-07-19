@@ -74,15 +74,16 @@ internal static class NumberFormatting
 
         if (spec.Notation != NumberNotation.Standard)
         {
-            var compact = CompactFormatter.TryFormat(number, spec.Notation, spec.Unit, culture, currencySymbol, currencyCode);
+            var compact = CompactFormatter.TryFormat(
+                number, spec.Notation, spec.Unit, culture, currencySymbol, currencyCode, spec.Grouping);
             if (compact is not null)
             {
                 return compact;
             }
-            // Declined (below threshold / no data): fall through to the standard path.
+            // No compact data (unreachable in practice — root always has data): fall through to the standard path.
         }
 
-        NumberPattern pattern = PatternFor(spec.Unit, culture);
+        NumberPattern pattern = StandardPatterns.For(spec.Unit, culture);
         int minimum;
         int maximum;
         if (spec.Unit == NumberUnit.Currency)
@@ -118,44 +119,6 @@ internal static class NumberFormatting
 
         (var symbol, var digits) = CurrencyLookup.Resolve(currencyCode);
         return (symbol, currencyCode, digits);
-    }
-
-    // The CLDR standard pattern for a unit in a culture: exact locale, then base language, then root —
-    // mirroring PluralRules.RulesFor.
-    private static NumberPattern PatternFor(NumberUnit unit, CultureInfo culture)
-    {
-        CldrNumberPatternSet set = PatternSetFor(culture.Name);
-        var pattern = unit switch
-        {
-            NumberUnit.Percent => set.Percent,
-            NumberUnit.Currency => set.Currency,
-            _ => set.Decimal
-        };
-        return NumberPatternParser.Parse(pattern);
-    }
-
-    private static CldrNumberPatternSet PatternSetFor(string locale)
-    {
-        if (CldrNumberPatterns.Locales.TryGetValue(locale, out CldrNumberPatternSet? set))
-        {
-            return set;
-        }
-
-        var dash = locale.IndexOf('-');
-        if (dash > 0)
-        {
-#if NETSTANDARD2_0
-            var language = locale.Substring(0, dash);
-#else
-            var language = locale[..dash];
-#endif
-            if (CldrNumberPatterns.Locales.TryGetValue(language, out set))
-            {
-                return set;
-            }
-        }
-
-        return CldrNumberPatterns.Locales["root"];
     }
 
     /// <summary>

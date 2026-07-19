@@ -3,12 +3,15 @@ using System.Globalization;
 namespace ArchPillar.Extensions.Localization.MessageFormat.Internal;
 
 /// <summary>
-/// Applies ICU compact notation: scales a value into a CLDR magnitude bucket, rounds to compact precision,
-/// selects the plural-count pattern for the compacted value, and composes the result through the Spec 2
-/// <see cref="NumberPatternParser"/>/<see cref="PatternRenderer"/> engine. Owns only the compact-specific
-/// arithmetic; all affix composition is the engine's. Returns <see langword="null"/> when the value is not
-/// compacted (below 1000, a CLDR "no-compact" bucket, or no data for the locale/notation), so the caller
-/// falls through to standard formatting.
+/// Applies ICU compact notation for EVERY value in a locale/unit, byte-matching <c>Intl.NumberFormat</c>.
+/// A value that reaches a real magnitude bucket scales into it, rounds to compact precision, selects the
+/// plural-count pattern, and composes the suffix through the Spec 2
+/// <see cref="NumberPatternParser"/>/<see cref="PatternRenderer"/> engine. A value below the smallest bucket
+/// (or on a CLDR "no-compact" sentinel bucket, e.g. German thousands) renders PLAIN through the standard
+/// pattern with the compact 0/1 fraction and ECMA-402 min2 grouping. Rounding may carry a value up one
+/// bucket. Owns only the compact-specific arithmetic; all affix composition is the engine's. Returns
+/// <see langword="null"/> only when the locale/unit has no compact set at all (unreachable — root always
+/// has data), so the caller falls through to standard formatting.
 /// </summary>
 internal static class CompactFormatter
 {
@@ -18,47 +21,36 @@ internal static class CompactFormatter
         NumberUnit unit,
         CultureInfo culture,
         string currencySymbol,
-        string currencyCode)
+        string currencyCode,
+        bool grouping)
     {
         var absolute = Math.Abs(value);
-        if (absolute < 1000m)
-        {
-            return null;
-        }
-
         CompactBucketSet? set = SetFor(culture.Name, unit, notation, currencySymbol);
         if (set is null || set.Buckets.Count == 0)
         {
             return null;
         }
 
-        var bucketIndex = SelectBucket(set, absolute);
-        CompactBucket bucket = set.Buckets[bucketIndex];
-        if (SelectCategoryPattern(bucket, PluralCategory.Other) == "0")
+        var index = SelectBucket(set, absolute);
+        index = ResolveCarry(set, index, value);
+
+        if (index < 0 || IsSentinel(set.Buckets[index]))
         {
-            // The bucket's category pattern is the literal "0" sentinel: CLDR marks this magnitude as not
-            // compacted (e.g. German short-decimal below a million), so defer to standard formatting.
-            return null;
+            // PLAIN render (no suffix): the value stays below the smallest real magnitude, or sits on a CLDR
+            // "no-compact" sentinel bucket. Render through the standard pattern with the compact 0/1 fraction
+            // and min2 grouping — matching Intl for every non-compacted value.
+            var plainFraction = absolute < 10m ? 1 : 0;
+            var plainRounded = Math.Round(value, plainFraction, MidpointRounding.AwayFromZero);
+            return RenderPlain(plainRounded, plainFraction, unit, culture, currencySymbol, currencyCode, grouping);
         }
 
+        // REAL bucket -> compact with suffix. ResolveCarry already fixed the final index, so recompute the
+        // scaled value and fraction once for it.
+        CompactBucket bucket = set.Buckets[index];
         var divisor = DivisorFor(bucket);
         var scaled = value / divisor;
         var fractionDigits = Math.Abs(scaled) < 10m ? 1 : 0;
         var rounded = Math.Round(scaled, fractionDigits, MidpointRounding.AwayFromZero);
-
-        // A round-up can push the value into the next magnitude (999,999 -> "1M"). Re-bucket once.
-        if (bucketIndex + 1 < set.Buckets.Count)
-        {
-            CompactBucket next = set.Buckets[bucketIndex + 1];
-            if (Math.Abs(rounded) * divisor >= next.Magnitude)
-            {
-                bucket = next;
-                divisor = DivisorFor(bucket);
-                scaled = value / divisor;
-                fractionDigits = Math.Abs(scaled) < 10m ? 1 : 0;
-                rounded = Math.Round(scaled, fractionDigits, MidpointRounding.AwayFromZero);
-            }
-        }
 
         var visibleFraction = VisibleFraction(rounded, fractionDigits);
         PluralCategory category = PluralRules.Cardinal(culture.Name, PluralRules.Operands(rounded, visibleFraction));
@@ -79,6 +71,81 @@ internal static class CompactFormatter
             culture,
             currencySymbol,
             currencyCode);
+    }
+
+    // Rounds at the current level and advances one bucket when the rounded value reaches the next bucket's
+    // magnitude — the single carry owner for both the plain level (idx < 0 or a sentinel bucket) and a real
+    // bucket. 999.9 -> 1000 enters bucket 0; de 999999.9 -> 1000000 enters the Mio. bucket. One carry max.
+    private static int ResolveCarry(CompactBucketSet set, int index, decimal value)
+    {
+        if (index < 0 || IsSentinel(set.Buckets[index]))
+        {
+            var fraction = Math.Abs(value) < 10m ? 1 : 0;
+            var rounded = Math.Abs(Math.Round(value, fraction, MidpointRounding.AwayFromZero));
+            var nextIndex = index + 1;               // idx < 0 -> 0 (first bucket); sentinel idx -> idx + 1
+            if (nextIndex < set.Buckets.Count && rounded >= set.Buckets[nextIndex].Magnitude)
+            {
+                return nextIndex;
+            }
+
+            return index;
+        }
+
+        CompactBucket bucket = set.Buckets[index];
+        var divisor = DivisorFor(bucket);
+        var scaled = value / divisor;
+        var frac = Math.Abs(scaled) < 10m ? 1 : 0;
+        var roundedScaled = Math.Round(scaled, frac, MidpointRounding.AwayFromZero);
+        if (index + 1 < set.Buckets.Count && Math.Abs(roundedScaled) * divisor >= set.Buckets[index + 1].Magnitude)
+        {
+            return index + 1;
+        }
+
+        return index;
+    }
+
+    // A bucket is a CLDR "no-compact" sentinel when its Other-category pattern is the bare literal "0"
+    // (e.g. German short-decimal below a million): the magnitude exists but carries no abbreviation.
+    private static bool IsSentinel(CompactBucket bucket) =>
+        SelectCategoryPattern(bucket, PluralCategory.Other) == "0";
+
+    // Renders a non-compacted value through the standard pattern: the compact 0/1 fraction overrides the
+    // pattern's own fraction body (so a currency ".00" drops to compact minor-units) while the pattern still
+    // supplies the affixes (currency symbol + CLDR joiner). Grouping is ECMA-402 min2.
+    private static string RenderPlain(
+        decimal rounded,
+        int fraction,
+        NumberUnit unit,
+        CultureInfo culture,
+        string currencySymbol,
+        string currencyCode,
+        bool grouping)
+    {
+        NumberPattern pattern = StandardPatterns.For(unit, culture);
+        var group = grouping && Min2Grouping(rounded, culture.NumberFormat);
+        return PatternRenderer.Render(
+            pattern, rounded, PatternPrecision.Fraction(0, fraction), group, culture, currencySymbol, currencyCode);
+    }
+
+    // ECMA-402 "min2" grouping (compact notation's default): group only when the integer part has at least
+    // primaryGroupSize + 2 digits — i.e. the most-significant group would be preceded by >= 2 grouped digits.
+    // For standard 3-digit grouping this leaves 4-digit values ungrouped (1234) but groups 5+ (12345).
+    private static bool Min2Grouping(decimal value, NumberFormatInfo format)
+    {
+        var groupSizes = format.NumberGroupSizes;
+        if (groupSizes.Length == 0 || groupSizes[0] == 0)
+        {
+            return false;
+        }
+
+        return IntegerDigitCount(Math.Abs(value)) - groupSizes[0] >= 2;
+    }
+
+    private static int IntegerDigitCount(decimal absolute)
+    {
+        var text = absolute.ToString(CultureInfo.InvariantCulture);
+        var dot = text.IndexOf('.');
+        return dot < 0 ? text.Length : dot;
     }
 
     // The set for a unit+notation, walking the locale fallback chain (exact -> base language -> root) and
@@ -147,9 +214,11 @@ internal static class CompactFormatter
         return CldrCompactData.Locales.TryGetValue("root", out CompactLocaleData? root) ? pick(root) : null;
     }
 
+    // The greatest bucket index whose magnitude is <= absolute, or -1 when absolute is below the smallest
+    // bucket (the plain-render level). Buckets are ascending, so the scan stops at the first larger magnitude.
     private static int SelectBucket(CompactBucketSet set, decimal absolute)
     {
-        var index = 0;
+        var index = -1;
         for (var i = 0; i < set.Buckets.Count; i++)
         {
             if (set.Buckets[i].Magnitude <= absolute)

@@ -7,6 +7,7 @@ public sealed class CompactNotationTests
 {
     private static readonly CultureInfo _en = CultureInfo.GetCultureInfo("en-US");
     private static readonly CultureInfo _de = CultureInfo.GetCultureInfo("de-DE");
+    private static readonly CultureInfo _hi = CultureInfo.GetCultureInfo("hi-IN");
 
     private static decimal D(string value) => decimal.Parse(value, CultureInfo.InvariantCulture);
 
@@ -36,27 +37,6 @@ public sealed class CompactNotationTests
         Assert.Equal(
             NumberFormatting.Format(D("950"), null, _en),
             NumberFormatting.Format(D("950"), "::compact-short", _en));
-    }
-
-    [Theory]
-    [InlineData("12345", "12.345")]                 // sentinel (de: no sub-million compaction) -> deferred to standard
-    [InlineData("123456", "123.456")]               // sentinel deferred
-    [InlineData("999999", "999.999")]               // sentinel deferred; NOT re-bucketed to a million (matches Intl)
-    [InlineData("1200000", "1,2\u00A0Mio.")]        // Intl de compact short; NBSP joiner (pattern "0 Mio'.'")
-    [InlineData("1000000", "1\u00A0Mio.")]          // exact million -> singular affix, compacted 1.0 trims to "1"
-    [InlineData("1500000", "1,5\u00A0Mio.")]        // NBSP joiner
-    public void Format_ShortDecimalGerman(string value, string expected)
-    {
-        Assert.Equal(expected, NumberFormatting.Format(D(value), "::compact-short", _de));
-    }
-
-    [Fact]
-    public void Format_ShortDecimalGerman_FourDigit_DivergesFromIntlMin2Grouping()
-    {
-        // KNOWN LIMITATION (Task 6): Intl compact notation uses min2 grouping, so a 4-digit deferred value
-        // drops the group separator (Intl de "1234"). We defer sentinel/small values to the standard path,
-        // which groups ("1.234"). Everything from 5 digits up matches Intl. This asserts OUR behavior.
-        Assert.Equal("1.234", NumberFormatting.Format(D("1234"), "::compact-short", _de));
     }
 
     [Fact]
@@ -113,5 +93,42 @@ public sealed class CompactNotationTests
         var text = NumberFormatting.Format(D("1234"), "::currency/ZZZ compact-short", _en);
         Assert.Contains("ZZZ", text, StringComparison.Ordinal);
         Assert.Contains("\u00A0", text, StringComparison.Ordinal);   // NBSP boundary from the alpha variant
+    }
+
+    [Theory]
+    // Currency (short): a plain value below the smallest bucket keeps the currency affix but overrides
+    // minor units to the compact 0/1 fraction; the real bucket compacts with the suffix. Matches Intl.
+    [InlineData("5.5", "$5.5")]
+    [InlineData("9.99", "$10")]
+    [InlineData("12.5", "$13")]
+    [InlineData("123.45", "$123")]
+    [InlineData("999.9", "$1K")]
+    [InlineData("1234", "$1.2K")]
+    public void Format_CurrencyShortEnglish_MatchesIntl(string value, string expected)
+    {
+        Assert.Equal(expected, NumberFormatting.Format(D(value), "::currency/USD compact-short", _en));
+    }
+
+    [Theory]
+    // German currency (short): the plain render inherits the standard de currency NBSP joiner and min2
+    // grouping while dropping the minor-unit .00 (compact 0 fraction); the million bucket compacts.
+    [InlineData("1234", "1234\u00A0€")]
+    [InlineData("12345", "12.345\u00A0€")]
+    [InlineData("1000000", "1\u00A0Mio.\u00A0€")]
+    public void Format_CurrencyShortGerman_MatchesIntl(string value, string expected)
+    {
+        Assert.Equal(expected, NumberFormatting.Format(D(value), "::currency/EUR compact-short", _de));
+    }
+
+    [Theory]
+    // Non-Latin compact affix (Devanagari) with Latin digits and an NBSP joiner, over Indian magnitude
+    // buckets. Derived from Intl.NumberFormat("hi",{notation:"compact"}); Devanagari letters stay literal.
+    [InlineData("1234", "1.2\u00A0हज़ार")]
+    [InlineData("12345", "12\u00A0हज़ार")]
+    [InlineData("123456", "1.2\u00A0लाख")]
+    [InlineData("1000000", "10\u00A0लाख")]
+    public void Format_ShortDecimalHindi_MatchesIntl(string value, string expected)
+    {
+        Assert.Equal(expected, NumberFormatting.Format(D(value), "::compact-short", _hi));
     }
 }
