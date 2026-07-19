@@ -24,10 +24,10 @@ public sealed class NumberLocalizationExtensionsTests
     [InlineData(null)]
     public void ToLocalizedString_MatchesInMessageRendering_AcrossCultures(string? style)
     {
-        var value = 1234.56m;
+        const decimal Value = 1234.56m;   // const, PascalCase: RCS1118 (const local) is warnings-as-error in Release; constants must be PascalCase per .editorconfig
         foreach (CultureInfo culture in new[] { _en, _de, _fr })
         {
-            Assert.Equal(ViaMessage(value, style, culture), value.ToLocalizedString(style, culture));
+            Assert.Equal(ViaMessage(Value, style, culture), Value.ToLocalizedString(style, culture));
         }
     }
 
