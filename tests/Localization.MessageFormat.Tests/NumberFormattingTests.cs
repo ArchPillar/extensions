@@ -27,6 +27,9 @@ public sealed class NumberFormattingTests
     public void Format_NamedCurrency_UsesRenderingCultureCurrency()
     {
         Assert.Equal("$19.99", NumberFormatting.Format(D("19.99"), "currency", _en));
+        // de-DE's own currency is EUR: exercises the null-code ResolveCurrency branch for a second
+        // locale, with a non-'$' symbol and NBSP joiner together.
+        Assert.Equal("19,99\u00A0€", NumberFormatting.Format(D("19.99"), "currency", _de));
     }
 
     [Fact]
@@ -38,14 +41,12 @@ public sealed class NumberFormattingTests
     [Fact]
     public void Format_CurrencyFractionOverride_WinsOverLookedUpMinorUnits()
     {
-        // JPY's CLDR minor units are 0, so without an override the amount rounds to a whole number...
-        var withoutOverride = NumberFormatting.Format(D("19.9"), "::currency/JPY", _en);
-        Assert.Contains("20", withoutOverride, StringComparison.Ordinal);
-        Assert.DoesNotContain("19.9", withoutOverride, StringComparison.Ordinal);
+        // JPY's CLDR minor units are 0, so without an override the amount rounds to a whole number
+        // (CurrencyLookup resolves JPY's symbol to the fullwidth yen sign U+FFE5, per .NET's RegionInfo).
+        Assert.Equal("￥20", NumberFormatting.Format(D("19.9"), "::currency/JPY", _en));
 
         // ...and an explicit .00 override must win over the looked-up 0 digits (spec D5).
-        var withOverride = NumberFormatting.Format(D("19.9"), "::currency/JPY .00", _en);
-        Assert.Contains("19.90", withOverride, StringComparison.Ordinal);
+        Assert.Equal("￥19.90", NumberFormatting.Format(D("19.9"), "::currency/JPY .00", _en));
     }
 
     [Theory]
@@ -74,6 +75,28 @@ public sealed class NumberFormattingTests
     }
 
     [Fact]
+    public void Format_NegativePercent_AppliesSignScaleAndRounding()
+    {
+        Assert.Equal("-50%", NumberFormatting.Format(-0.5, "percent", _en));
+    }
+
+    [Fact]
+    public void Format_PercentWithGroupingVisible_UsesGroupSeparator()
+    {
+        // 12.34 scales to 1234%, the first percent fixture anywhere to exceed 999% and actually
+        // exercise the default Grouping=true separator for NumberFormatSpec.Percent.
+        Assert.Equal("1,234%", NumberFormatting.Format(D("12.34"), "percent", _en));
+    }
+
+    [Fact]
+    public void Format_PercentGroupOff_DropsGroupingSeparator()
+    {
+        // 12.345 scales to 1234.5%, rounding away from zero to 1235% -- group-off must drop the separator
+        // that would otherwise appear (see Format_PercentWithGroupingVisible_UsesGroupSeparator).
+        Assert.Equal("1235%", NumberFormatting.Format(D("12.345"), "::percent group-off", _en));
+    }
+
+    [Fact]
     public void Format_NegativeCurrency_UsesCldrShape()
     {
         // en's standard currency pattern has no negative subpattern -> derived minus prefix.
@@ -84,6 +107,14 @@ public sealed class NumberFormattingTests
     public void Format_Integer_GroupsWithoutFractions()
     {
         Assert.Equal("1,234", NumberFormatting.Format(1234, "integer", _en));
+    }
+
+    [Fact]
+    public void Format_Integer_RoundsFractionalInputAwayFromZero()
+    {
+        // The `integer` style's Min=0,Max=0 fraction bounds must actually round a fractional input,
+        // not merely display zero fraction digits for an already-integral value.
+        Assert.Equal("1,235", NumberFormatting.Format(D("1234.7"), "integer", _en));
     }
 
     [Fact]
@@ -100,6 +131,42 @@ public sealed class NumberFormattingTests
     }
 
     [Fact]
+    public void Format_NegativeDefaultStyle_DerivesMinusPrefix()
+    {
+        // The bare default style, end-to-end through Format (not PatternRenderer/compact/currency),
+        // with a negative value: en's plain decimal pattern has no negative subpattern -> derived minus.
+        Assert.Equal("-1,234.5", NumberFormatting.Format(D("-1234.5"), null, _en));
+    }
+
+    [Fact]
+    public void Format_NaN_FallsBackToOwnRendering()
+    {
+        // FormatSpec's distinctive "don't throw, degrade gracefully" behavior for non-finite doubles,
+        // exercised directly at the formatting-rule layer (not the plural path, which throws instead).
+        Assert.Equal(double.NaN.ToString(_en), NumberFormatting.Format(double.NaN, null, _en));
+    }
+
+    [Fact]
+    public void Format_PositiveInfinity_FallsBackToOwnRendering()
+    {
+        Assert.Equal(double.PositiveInfinity.ToString(_en), NumberFormatting.Format(double.PositiveInfinity, null, _en));
+    }
+
+    [Fact]
+    public void Format_NegativeInfinity_FallsBackToOwnRendering()
+    {
+        Assert.Equal(double.NegativeInfinity.ToString(_en), NumberFormatting.Format(double.NegativeInfinity, null, _en));
+    }
+
+    [Fact]
+    public void Format_NonNumericString_ReturnsVerbatim()
+    {
+        // A non-numeric string fails TryToDecimal and is not IFormattable-special-cased beyond its own
+        // ToString(); string.ToString() returns itself verbatim.
+        Assert.Equal("abc", NumberFormatting.Format("abc", null, _en));
+    }
+
+    [Fact]
     public void Resolve_UnknownStyle_Throws()
     {
         Assert.Throws<MessageFormatException>(() => NumberFormatting.Resolve("currnecy"));
@@ -110,6 +177,9 @@ public sealed class NumberFormattingTests
     [InlineData("1.50", 1)]
     [InlineData("1.567", 3)]
     [InlineData("2", 0)]
+    [InlineData("1.5678", 3)]   // rounds to "1.568" -- more than 3 fraction digits forces the round, not just a trim
+    [InlineData("1.9995", 0)]   // rounds to "2.000" -> trims to 0 digits, changing both count and value
+    [InlineData("-1.50", 1)]    // negative value: same trim/round math, sign must not perturb the digit count
     public void VisibleFractionDigits_MatchesDefaultDisplay(string value, int expected)
     {
         Assert.Equal(expected, NumberFormatting.VisibleFractionDigits(D(value)));

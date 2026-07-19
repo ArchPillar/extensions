@@ -90,9 +90,15 @@ public sealed class CompactNotationTests
     {
         // An alphabetic symbol (ISO-code fallback) triggers the alphaNextToNumber variant, which inserts a
         // no-break space the base pattern lacks. ZZZ is unmatched -> symbol "ZZZ" (alphabetic), deterministic.
-        var text = NumberFormatting.Format(D("1234"), "::currency/ZZZ compact-short", _en);
-        Assert.Contains("ZZZ", text, StringComparison.Ordinal);
-        Assert.Contains("\u00A0", text, StringComparison.Ordinal);   // NBSP boundary from the alpha variant
+        Assert.Equal("ZZZ\u00A01.2K", NumberFormatting.Format(D("1234"), "::currency/ZZZ compact-short", _en));
+    }
+
+    [Fact]
+    public void Format_RealAlphabeticCurrencySymbol_UsesAlphaSpacingVariant()
+    {
+        // Same alpha-spacing rule, but with a GENUINE CLDR letter symbol from real currency data (SEK's
+        // en-region symbol is "kr", not a synthetic unmatched-code fallback like "ZZZ" above).
+        Assert.Equal("kr\u00A01.2K", NumberFormatting.Format(D("1234"), "::currency/SEK compact-short", _en));
     }
 
     [Theory]

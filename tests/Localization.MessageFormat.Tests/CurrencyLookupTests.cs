@@ -32,4 +32,16 @@ public sealed class CurrencyLookupTests
         Assert.Equal("ZZZ", symbol);
         Assert.Equal(2, digits);
     }
+
+    [Fact]
+    public void Resolve_SameCode_ReturnsCachedInstance()
+    {
+        // "zzy" is genuinely lower-case and unmatched: the fallback path computes code.ToUpperInvariant(),
+        // which allocates a NEW string every time an actual case change happens. Two calls returning the
+        // SAME string reference proves the result came from the cache, not a fresh Lookup each time.
+        (var first, _) = CurrencyLookup.Resolve("zzy");
+        (var second, _) = CurrencyLookup.Resolve("zzy");
+
+        Assert.Same(first, second);
+    }
 }

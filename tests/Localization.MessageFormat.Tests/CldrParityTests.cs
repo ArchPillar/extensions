@@ -30,7 +30,7 @@ public sealed class CldrParityTests
     [Fact]
     public void Format_German_UsesDataCarriedSpacing()
     {
-        // Derived: de currency pattern is "#,##0.00<NBSP>\u00A4" -- Intl shape "1.234,56 $"; joiner is U+00A0.
+        // Derived: de currency pattern is "#,##0.00<NBSP>¤" -- Intl shape "1.234,56 $"; joiner is U+00A0.
         Assert.Equal("1.234,56\u00A0$", Format("de-DE", "::currency/USD", "1234.56"));
         // Derived: de percent pattern is "#,##0<NBSP>%" -- Intl shape "50 %".
         Assert.Equal("50\u00A0%", Format("de-DE", "percent", "0.5"));
@@ -59,9 +59,26 @@ public sealed class CldrParityTests
     [Fact]
     public void Format_Japanese_ZeroMinorUnits()
     {
-        var result = Format("ja-JP", "::currency/JPY", "1234.5");
+        // ja's currency pattern is "¤#,##0.00" (symbol prefix, no space); JPY's minor units are 0, so
+        // 1234.5 rounds away from zero to 1235 with no fraction. CurrencyLookup resolves JPY's symbol to
+        // the fullwidth yen sign U+FFE5 (.NET's RegionInfo for ja-JP), matching Intl's "￥1,235".
+        Assert.Equal("￥1,235", Format("ja-JP", "::currency/JPY", "1234.5"));
+    }
 
-        Assert.Contains("1,235", result, StringComparison.Ordinal);
-        Assert.DoesNotContain(".", result, StringComparison.Ordinal);
+    [Fact]
+    public void Format_German_NegativeCurrency_DerivesMinusWithNbspJoiner()
+    {
+        // de's currency pattern "#,##0.00<NBSP>¤" has no negative subpattern (no ';') -> derived minus,
+        // prepended before the digits, with the pattern's own NBSP joiner still carried into the suffix.
+        Assert.Equal("-1.234,56\u00A0$", Format("de-DE", "::currency/USD", "-1234.56"));
+    }
+
+    [Fact]
+    public void Format_French_NegativeCurrency_DerivesMinusWithNarrowNbspGroupingAndNbspJoiner()
+    {
+        // Same pinned pattern as German (no negative subpattern) -> derived minus. The digit-internal
+        // group separator is still fr-FR's NFI atom, narrow no-break space U+202F, distinct from the
+        // pattern's own amount<->symbol joiner, U+00A0.
+        Assert.Equal("-1\u202F234,56\u00A0$", Format("fr-FR", "::currency/USD", "-1234.56"));
     }
 }

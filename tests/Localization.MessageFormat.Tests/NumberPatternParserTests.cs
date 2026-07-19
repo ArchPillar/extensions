@@ -87,6 +87,8 @@ public sealed class NumberPatternParserTests
     [InlineData("0;0;0")]        // more than one ';'
     [InlineData("¤¤¤0")]         // display-name currency placeholder unsupported
     [InlineData("0.#0")]         // '#' before '0' in fraction
+    [InlineData("#A0.00")]       // unrecognized integer-body character between the digit-body bounds
+    [InlineData("abc")]          // affix-only segment: no '#'/'0' digit body at all
     public void Parse_UnsupportedSyntax_Throws(string pattern)
     {
         Assert.Throws<FormatException>(() => NumberPatternParser.Parse(pattern));

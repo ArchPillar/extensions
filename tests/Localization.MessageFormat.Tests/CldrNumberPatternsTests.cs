@@ -52,6 +52,29 @@ public sealed class CldrNumberPatternsTests
     }
 
     [Fact]
+    public void StandardPatterns_LocaleFallback_BaseLanguageTier()
+    {
+        // "zh-CN" is absent from the pinned set but its base language "zh" is present, and "zh"'s currency
+        // pattern ("¤#,##0.00") differs from root's ("¤ #,##0.00", with a space) -- so a match proves
+        // StandardPatterns.For actually walked to the middle (base-language) fallback tier, not root.
+        NumberPattern viaBaseLanguage = StandardPatterns.For(NumberUnit.Currency, CultureInfo.GetCultureInfo("zh-CN"));
+        NumberPattern zh = NumberPatternParser.Parse(CldrNumberPatterns.Locales["zh"].Currency);
+
+        Assert.Same(zh, viaBaseLanguage);
+    }
+
+    [Fact]
+    public void StandardPatterns_LocaleFallback_RootTier()
+    {
+        // CultureInfo.InvariantCulture.Name is "" -- absent from the pinned set, with no base-language
+        // segment to try either, so this exercises the root tier directly.
+        NumberPattern viaRoot = StandardPatterns.For(NumberUnit.Currency, CultureInfo.InvariantCulture);
+        NumberPattern root = NumberPatternParser.Parse(CldrNumberPatterns.Locales["root"].Currency);
+
+        Assert.Same(root, viaRoot);
+    }
+
+    [Fact]
     public void AllPinnedPatterns_Parse()
     {
         foreach (CldrNumberPatternSet set in CldrNumberPatterns.Locales.Values)
