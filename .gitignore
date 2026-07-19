@@ -64,3 +64,6 @@ docs/superpowers/
 
 # Generated skill-marketplace staging output (built by the canonical marketplace builder)
 tools/skill-marketplace/dist/
+
+# ICU4C runtime for the dev-only CLDR/ICU oracle (downloaded by eng/oracle/fetch-icu.cs)
+eng/oracle/icu/
