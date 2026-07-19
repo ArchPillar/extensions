@@ -131,4 +131,39 @@ public sealed class NumberFormattingTests
         Assert.Equal("1", NumberFormatting.Format(true, null, _en));
         Assert.Equal("0", NumberFormatting.Format(false, null, _en));
     }
+
+    [Fact]
+    public void TryToDecimal_DoubleOutOfDecimalRange_ReturnsFalse()
+    {
+        // A finite double beyond decimal's range must report false (not throw), matching the NaN/±infinity guards.
+        Assert.False(NumberFormatting.TryToDecimal(double.MaxValue, out var number));
+        Assert.Equal(0m, number);
+    }
+
+    [Fact]
+    public void TryToDecimal_FloatOutOfDecimalRange_ReturnsFalse()
+    {
+        Assert.False(NumberFormatting.TryToDecimal(float.MaxValue, out var number));
+        Assert.Equal(0m, number);
+    }
+
+    [Fact]
+    public void Format_DoubleOutOfDecimalRange_FallsBackToOwnRendering()
+    {
+        // The formatter must not crash on a large double; it falls back to the double's own culture rendering.
+        Assert.Equal(double.MaxValue.ToString(_en), NumberFormatting.Format(double.MaxValue, null, _en));
+    }
+
+    [Fact]
+    public void Format_FloatOutOfDecimalRange_FallsBackToOwnRendering()
+    {
+        Assert.Equal(float.MaxValue.ToString(_en), NumberFormatting.Format(float.MaxValue, null, _en));
+    }
+
+    [Fact]
+    public void Format_NormalRangeDouble_FormatsCorrectly()
+    {
+        // Control: an in-range double still formats through the decimal path.
+        Assert.Equal("12.5", NumberFormatting.Format(12.5, null, _en));
+    }
 }

@@ -40,7 +40,7 @@ internal static class NumberSkeleton
 #else
                 currencyCode = stem[CurrencyPrefix.Length..];
 #endif
-                if (currencyCode.Length != 3)
+                if (!IsThreeAsciiLetters(currencyCode))
                 {
                     throw Unsupported($"malformed currency skeleton '{stem}' (expected a three-letter ISO code)");
                 }
@@ -136,6 +136,26 @@ internal static class NumberSkeleton
         }
 
         return (min, max);
+    }
+
+    // ICU requires a currency code of exactly three ASCII letters, case-insensitive (USD/usd valid; 123/u$d/US$
+    // rejected). netstandard2.0 has no char.IsAsciiLetter, so the A–Z/a–z range check is inlined.
+    private static bool IsThreeAsciiLetters(string code)
+    {
+        if (code.Length != 3)
+        {
+            return false;
+        }
+
+        foreach (var c in code)
+        {
+            if (c is not (>= 'A' and <= 'Z' or >= 'a' and <= 'z'))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static MessageFormatException Unsupported(string message) => new(message, -1);

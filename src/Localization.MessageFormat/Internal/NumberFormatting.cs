@@ -140,8 +140,17 @@ internal static class NumberFormatting
                     return false;
                 }
 
-                number = (decimal)db;
-                return true;
+                try
+                {
+                    number = (decimal)db;
+                    return true;
+                }
+                catch (OverflowException)
+                {
+                    // Finite but beyond decimal's range: report false rather than crash, matching the default case.
+                    number = 0m;
+                    return false;
+                }
             case float fl:
                 if (float.IsNaN(fl) || float.IsInfinity(fl))
                 {
@@ -149,8 +158,16 @@ internal static class NumberFormatting
                     return false;
                 }
 
-                number = (decimal)fl;
-                return true;
+                try
+                {
+                    number = (decimal)fl;
+                    return true;
+                }
+                catch (OverflowException)
+                {
+                    number = 0m;
+                    return false;
+                }
             case null:
                 number = 0m;
                 return false;

@@ -1,9 +1,12 @@
+using System.Globalization;
 using ArchPillar.Extensions.Localization.MessageFormat.Internal;
 
 namespace ArchPillar.Extensions.Localization.MessageFormat.Tests;
 
 public sealed class NumberSkeletonTests
 {
+    private static readonly CultureInfo _en = CultureInfo.GetCultureInfo("en-US");
+
     [Fact]
     public void Parse_Currency_SetsUnitAndCode()
     {
@@ -142,5 +145,44 @@ public sealed class NumberSkeletonTests
         Assert.Equal(NumberUnit.Currency, spec.Unit);
         Assert.Equal(min, spec.MinFractionDigits);
         Assert.Equal(max, spec.MaxFractionDigits);
+    }
+
+    [Theory]
+    [InlineData("::currency/usd", "usd")]   // lowercase is valid (resolves case-insensitively)
+    [InlineData("::currency/ABC", "ABC")]   // unassigned 3-letter code is valid at parse (format-only check)
+    [InlineData("::currency/ZZZ", "ZZZ")]
+    public void Parse_Currency_ThreeAsciiLetters_IsValid(string skeleton, string expectedCode)
+    {
+        NumberFormatSpec spec = NumberSkeleton.Parse(skeleton);
+
+        Assert.Equal(NumberUnit.Currency, spec.Unit);
+        Assert.Equal(expectedCode, spec.CurrencyCode);
+    }
+
+    [Fact]
+    public void Parse_Currency_LowercaseCode_RendersSymbolCaseInsensitively()
+    {
+        // usd resolves the same $ symbol as USD in en-US — ICU treats the code case-insensitively.
+        var rendered = NumberFormatting.Format(19.99m, "::currency/usd", _en);
+        Assert.Equal("$19.99", rendered);
+    }
+
+    [Theory]
+    [InlineData("::currency/123")]    // digits, not letters
+    [InlineData("::currency/u$d")]    // symbol embedded
+    [InlineData("::currency/US$")]    // symbol at the end
+    [InlineData("::currency/US")]     // too short
+    [InlineData("::currency/USDX")]   // too long
+    public void Parse_Currency_NotThreeAsciiLetters_Throws(string skeleton)
+    {
+        Assert.Throws<MessageFormatException>(() => NumberSkeleton.Parse(skeleton));
+    }
+
+    [Fact]
+    public void Parse_Currency_Invalid_ReportsUntrackedPosition()
+    {
+        // Number-style validation errors carry the documented -1 (offset is not tracked at this point).
+        MessageFormatException ex = Assert.Throws<MessageFormatException>(() => NumberSkeleton.Parse("::currency/123"));
+        Assert.Equal(-1, ex.Position);
     }
 }
