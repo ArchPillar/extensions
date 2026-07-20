@@ -137,4 +137,19 @@ public sealed class CompactNotationTests
     {
         Assert.Equal(expected, NumberFormatting.Format(D(value), "::compact-short", _hi));
     }
+
+    [Theory]
+    // D7: "::compact-short currency/USD" renders the CLDR *Short* compact currency glyph, matched
+    // byte-for-byte against the ICU 78 / CLDR 48 oracle -- en "$1.2K", de "1235<NBSP>$",
+    // fr "1,2<NBSP>k<NBSP>$US". The currency symbol comes from the CLDR short set, not the host/standard
+    // symbol used before D7 (e.g. fr shifts to the "$US" short glyph).
+    [InlineData("en-US", "$1.2K")]
+    [InlineData("de-DE", "1235\u00A0$")]
+    [InlineData("fr-FR", "1,2\u00A0k\u00A0$US")]
+    public void Format_CompactShortCurrency_UsesCldrShortGlyph(string locale, string expected)
+    {
+        Assert.Equal(
+            expected,
+            NumberFormatting.Format(D("1234.56"), "::compact-short currency/USD", CultureInfo.GetCultureInfo(locale)));
+    }
 }

@@ -18,6 +18,9 @@ public sealed class NumberLocalizationExtensionsTests
 
     [Theory]
     [InlineData("::currency/USD")]
+    [InlineData("::currency/USD unit-width-narrow")]     // both doors agree across all four currency widths
+    [InlineData("::currency/USD unit-width-iso-code")]
+    [InlineData("::currency/USD unit-width-full-name")]
     [InlineData("::compact-short")]
     [InlineData("::percent")]
     [InlineData("integer")]

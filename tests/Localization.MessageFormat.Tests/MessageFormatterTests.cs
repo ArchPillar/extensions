@@ -216,6 +216,16 @@ public sealed class MessageFormatterTests
     }
 
     [Theory]
+    [InlineData("{v, number, ::percent unit-width-full-name}")]                    // unit-width is currency-only
+    [InlineData("{v, number, ::compact-short currency/USD unit-width-iso-code}")]  // iso-code/full-name forbidden with compact currency
+    public void Format_CurrencyWidthOnUnsupportedStem_ThrowsMessageFormatExceptionAtPositionMinusOne(string template)
+    {
+        // The width-rule validation runs at parse and carries no source offset, so Position is -1.
+        MessageFormatException exception = Assert.Throws<MessageFormatException>(() => _formatter.Format(template, _english));
+        Assert.Equal(-1, exception.Position);
+    }
+
+    [Theory]
     [InlineData(1, "1st")]
     [InlineData(2, "2nd")]
     [InlineData(3, "3rd")]
