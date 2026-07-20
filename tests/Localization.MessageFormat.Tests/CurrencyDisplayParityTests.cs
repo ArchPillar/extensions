@@ -70,6 +70,8 @@ public sealed class CurrencyDisplayParityTests
     [InlineData("pl-PL", "currency/USD unit-width-iso-code", "-12345.67", "-12\u00A0345,67\u00A0USD")]
     [InlineData("pl-PL", "currency/USD unit-width-full-name", "12345.67", "12\u00A0345,67 dolara amerykańskiego")]
     [InlineData("pl-PL", "currency/USD unit-width-full-name", "-12345.67", "-12\u00A0345,67 dolara amerykańskiego")]
+    [InlineData("en-US", "currency/USD", "0", "$0.00")]
+    [InlineData("en-US", "currency/USD unit-width-full-name", "0", "0.00 US dollars")]
     [InlineData("en-US", "currency/USD unit-width-full-name", "1", "1.00 US dollars")]
     [InlineData("en-US", "currency/USD unit-width-full-name", "2", "2.00 US dollars")]
     [InlineData("fr-FR", "currency/USD unit-width-full-name", "1", "1,00 dollar des États-Unis")]

@@ -4,6 +4,12 @@ namespace ArchPillar.Extensions.Localization.MessageFormat.Tests;
 
 public sealed class CurrencyDataTests
 {
+    [Fact]
+    public void CldrVersion_IsRecorded()
+    {
+        Assert.Equal("48", CldrCurrencyData.CldrVersion);
+    }
+
     [Theory]
     [InlineData("JPY", 0)]
     [InlineData("BHD", 3)]

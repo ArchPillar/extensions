@@ -81,15 +81,8 @@ internal static class NumberFormatting
             else if (spec.Width == CurrencyWidth.FullName)
             {
                 // Route the plural display-name form before touching the glyph/pattern path.
-                var digitsF = CurrencyDisplay.Digits(code);
-                var minF = spec.MinFractionDigits ?? digitsF;
-                var maxF = spec.MaxFractionDigits ?? digitsF;
-                if (maxF < minF)
-                {
-                    maxF = minF;
-                }
-
-                return CurrencyNameRenderer.Render(number, code, culture, minF, maxF, spec.Grouping);
+                (var minimumFraction, var maximumFraction) = ResolveCurrencyFraction(spec, CurrencyDisplay.Digits(code));
+                return CurrencyNameRenderer.Render(number, code, culture, minimumFraction, maximumFraction, spec.Grouping);
             }
             else
             {
@@ -115,19 +108,16 @@ internal static class NumberFormatting
         int maximum;
         if (spec.Unit == NumberUnit.Currency)
         {
-            // ICU's currency-digits override: minor units win over the pattern's fraction body.
-            minimum = spec.MinFractionDigits ?? currencyDigits;
-            maximum = spec.MaxFractionDigits ?? currencyDigits;
+            (minimum, maximum) = ResolveCurrencyFraction(spec, currencyDigits);
         }
         else
         {
             minimum = spec.MinFractionDigits ?? pattern.MinFractionDigits;
             maximum = spec.MaxFractionDigits ?? pattern.MaxFractionDigits;
-        }
-
-        if (maximum < minimum)
-        {
-            maximum = minimum;
+            if (maximum < minimum)
+            {
+                maximum = minimum;
+            }
         }
 
         // Currency threads the CLDR currencySpacing insert (NBSP joiner) so an alphabetic code/symbol
@@ -135,6 +125,21 @@ internal static class NumberFormatting
         var spacingInsert = spec.Unit == NumberUnit.Currency ? CurrencyDisplay.Spacing(culture) : string.Empty;
         return PatternRenderer.Render(
             pattern, number, PatternPrecision.Fraction(minimum, maximum), spec.Grouping, culture, currencySymbol, currencyCode, spacingInsert);
+    }
+
+    // ICU's currency-digits override resolved to a (min, max) fraction pair: an explicit skeleton fraction
+    // wins, otherwise the currency's CLDR minor-unit count, with max never below min. Shared by the
+    // full-name and glyph/pattern currency paths so both resolve fractions identically.
+    private static (int Min, int Max) ResolveCurrencyFraction(NumberFormatSpec spec, int currencyDigits)
+    {
+        var minimum = spec.MinFractionDigits ?? currencyDigits;
+        var maximum = spec.MaxFractionDigits ?? currencyDigits;
+        if (maximum < minimum)
+        {
+            maximum = minimum;
+        }
+
+        return (minimum, maximum);
     }
 
     // Which currency a bare `currency` style / null code uses: the culture's region currency (host selects

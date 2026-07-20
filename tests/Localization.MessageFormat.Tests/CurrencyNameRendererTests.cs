@@ -18,9 +18,9 @@ public sealed class CurrencyNameRendererTests
     [InlineData("fr-FR", "USD", "1", "1,00 dollar des États-Unis")]
     public void Render_FullName_MatchesOracle(string culture, string code, string value, string expected)
     {
-        CultureInfo c = Culture(culture);
+        CultureInfo cultureInfo = Culture(culture);
         var digits = CurrencyDisplay.Digits(code);
-        var result = CurrencyNameRenderer.Render(decimal.Parse(value, CultureInfo.InvariantCulture), code, c, digits, digits, true);
+        var result = CurrencyNameRenderer.Render(decimal.Parse(value, CultureInfo.InvariantCulture), code, cultureInfo, digits, digits, true);
 
         Assert.Equal(expected, result);
     }
