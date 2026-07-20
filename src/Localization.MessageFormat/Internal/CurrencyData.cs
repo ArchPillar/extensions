@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IO.Compression;
 using System.Reflection;
 using System.Text;
@@ -76,7 +77,9 @@ internal static class CurrencyData
         using var deflate = new DeflateStream(resource, CompressionMode.Decompress);
         using var reader = new StreamReader(deflate, Encoding.UTF8);
 
-        var digits = new Dictionary<string, int>(StringComparer.Ordinal);
+        // Must match TryEntry's per-locale code table casing (OrdinalIgnoreCase): skeletons accept
+        // lower-cased currency codes, so Digits("bhd") and TryEntry(..., "bhd") have to agree.
+        var digits = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var spacing = new List<string>();
         var patterns = new List<IReadOnlyDictionary<string, string>>();
         var metaMap = new Dictionary<string, (int Pattern, int Spacing)>(StringComparer.OrdinalIgnoreCase);
@@ -89,8 +92,10 @@ internal static class CurrencyData
             switch (f[0])
             {
                 case "R":
-                    digits[f[1]] = int.Parse(f[2], System.Globalization.CultureInfo.InvariantCulture);
+                    digits[f[1]] = int.Parse(f[2], CultureInfo.InvariantCulture);
                     break;
+                // K/P sets are appended positionally (f[1] ignored): the loader relies on the generator
+                // emitting them in dense ascending index order, so list position == the stored index.
                 case "K":
                     spacing.Add(f[2]);
                     break;
@@ -98,8 +103,8 @@ internal static class CurrencyData
                     patterns.Add(ParseMap(f[2]));
                     break;
                 case "L":
-                    metaMap[f[1]] = (int.Parse(f[2], System.Globalization.CultureInfo.InvariantCulture),
-                                     int.Parse(f[3], System.Globalization.CultureInfo.InvariantCulture));
+                    metaMap[f[1]] = (int.Parse(f[2], CultureInfo.InvariantCulture),
+                                     int.Parse(f[3], CultureInfo.InvariantCulture));
                     break;
                 case "C":
                     if (!currency.TryGetValue(f[1], out Dictionary<string, CurrencyEntry>? codes))

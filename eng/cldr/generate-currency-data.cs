@@ -34,6 +34,10 @@ namespace CldrTooling
     {
         private const char Us = '\u001F';
 
+        // TAB and LF are the record/field separators and U+001F the sub-list separator; an emitted value that
+        // carried any of them would silently corrupt the stream, so every value is checked before it is joined.
+        private static readonly char[] _structural = ['\t', '\n', Us];
+
         // currencies.json + currency-fractions.json -> the ordered record lines (V, R*, K*, P*, L*, C*).
         public static List<string> Build(JsonObject currencies, JsonNode fractionsDoc, string version)
         {
@@ -117,10 +121,10 @@ internal static class CldrCurrencyData
                     foreach ((var code, JsonNode? c) in cur)
                     {
                         JsonObject o = c!.AsObject();
-                        var sym = (string?)o["symbol"] ?? code;
-                        var narrow = (string?)o["narrow"] ?? "";
+                        var sym = Guard((string?)o["symbol"] ?? code, locale, $"{code} symbol");
+                        var narrow = Guard((string?)o["narrow"] ?? "", locale, $"{code} narrow");
                         var names = o["names"] is JsonObject nm
-                            ? string.Join(Us, nm.Select(p => $"{p.Key}={(string)p.Value!}"))
+                            ? string.Join(Us, nm.Select(p => $"{p.Key}={Guard((string)p.Value!, locale, $"{code} name")}"))
                             : "";
                         codes[code] = (sym, narrow == sym ? "" : narrow, names);
                     }
@@ -128,9 +132,9 @@ internal static class CldrCurrencyData
 
                 localeCodes[locale] = codes;
                 var patterns = bucket["unitPattern"] is JsonObject up
-                    ? string.Join(Us, up.Select(p => $"{p.Key}={(string)p.Value!}"))
+                    ? string.Join(Us, up.Select(p => $"{p.Key}={Guard((string)p.Value!, locale, "unitPattern")}"))
                     : "other={0} {1}";
-                localeMeta[locale] = (patterns, (string?)bucket["spacing"] ?? "\u00A0");
+                localeMeta[locale] = (patterns, Guard((string?)bucket["spacing"] ?? "\u00A0", locale, "spacing"));
             }
         }
 
@@ -192,6 +196,19 @@ internal static class CldrCurrencyData
             }
 
             return i;
+        }
+
+        // Rejects a value carrying a TAB, LF, or U+001F (which would corrupt the record format) and otherwise
+        // returns it unchanged, so it can wrap each emit-site value inline.
+        private static string Guard(string value, string locale, string what)
+        {
+            if (value.IndexOfAny(_structural) >= 0)
+            {
+                throw new InvalidOperationException(
+                    $"CLDR value for {locale} ({what}) contains a TAB, LF, or U+001F separator that would corrupt the resource format.");
+            }
+
+            return value;
         }
     }
 }
