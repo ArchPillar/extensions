@@ -96,9 +96,9 @@ public sealed class CompactNotationTests
     [Fact]
     public void Format_RealAlphabeticCurrencySymbol_UsesAlphaSpacingVariant()
     {
-        // Same alpha-spacing rule, but with a GENUINE CLDR letter symbol from real currency data (SEK's
-        // en-region symbol is "kr", not a synthetic unmatched-code fallback like "ZZZ" above).
-        Assert.Equal("kr\u00A01.2K", NumberFormatting.Format(D("1234"), "::currency/SEK compact-short", _en));
+        // Same alpha-spacing rule, but with a GENUINE CLDR letter symbol from real currency data (en's
+        // short symbol for SEK is the alphabetic "SEK", not a synthetic unmatched-code fallback like "ZZZ").
+        Assert.Equal("SEK\u00A01.2K", NumberFormatting.Format(D("1234"), "::currency/SEK compact-short", _en));
     }
 
     [Theory]

@@ -108,7 +108,9 @@ internal static class NumberFormatting
     }
 
     // Resolves the display symbol, ISO code, and default minor-unit digits for a currency spec. A null code
-    // means the rendering culture's own currency; an explicit code goes through CurrencyLookup.
+    // means the rendering culture's own currency; an explicit code goes through the CLDR CurrencyDisplay
+    // resolver. TEMPORARY: this always uses the Short width; width-aware routing (narrow/iso-code/full-name)
+    // lands in Task 7. For now it keeps Short-currency working against CLDR data.
     private static (string Symbol, string Code, int Digits) ResolveCurrency(string? currencyCode, CultureInfo culture)
     {
         if (currencyCode is null)
@@ -117,8 +119,8 @@ internal static class NumberFormatting
             return (info.CurrencySymbol, string.Empty, info.CurrencyDecimalDigits);
         }
 
-        (var symbol, var digits) = CurrencyLookup.Resolve(currencyCode);
-        return (symbol, currencyCode, digits);
+        var symbol = CurrencyDisplay.Glyph(currencyCode, culture, CurrencyWidth.Short);
+        return (symbol, currencyCode, CurrencyDisplay.Digits(currencyCode));
     }
 
     /// <summary>

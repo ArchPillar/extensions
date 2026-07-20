@@ -41,12 +41,12 @@ public sealed class NumberFormattingTests
     [Fact]
     public void Format_CurrencyFractionOverride_WinsOverLookedUpMinorUnits()
     {
-        // JPY's CLDR minor units are 0, so without an override the amount rounds to a whole number
-        // (CurrencyLookup resolves JPY's symbol to the fullwidth yen sign U+FFE5, per .NET's RegionInfo).
-        Assert.Equal("￥20", NumberFormatting.Format(D("19.9"), "::currency/JPY", _en));
+        // JPY's CLDR minor units are 0, so without an override the amount rounds to a whole number.
+        // CLDR's en symbol for JPY is the yen sign U+00A5, not .NET RegionInfo's fullwidth U+FFE5.
+        Assert.Equal("¥20", NumberFormatting.Format(D("19.9"), "::currency/JPY", _en));
 
         // ...and an explicit .00 override must win over the looked-up 0 digits (spec D5).
-        Assert.Equal("￥19.90", NumberFormatting.Format(D("19.9"), "::currency/JPY .00", _en));
+        Assert.Equal("¥19.90", NumberFormatting.Format(D("19.9"), "::currency/JPY .00", _en));
     }
 
     [Theory]

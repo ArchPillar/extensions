@@ -43,8 +43,9 @@ public sealed class CldrParityTests
         Assert.Equal("50\u00A0%", Format("fr-FR", "percent", "0.5"));
         // Derived: fr currency has TWO different invisible spaces -- the digit-internal group separator is
         // .NET's NFI atom for fr-FR, narrow no-break space U+202F, while the amount<->symbol joiner comes
-        // from the pinned pattern's literal token, U+00A0 -- Intl shape "1 234,56 $".
-        Assert.Equal("1\u202F234,56\u00A0$", Format("fr-FR", "::currency/USD", "1234.56"));
+        // from the pinned pattern's literal token, U+00A0. CLDR's fr symbol for USD is "$US" -- Intl shape
+        // "1 234,56 $US".
+        Assert.Equal("1\u202F234,56\u00A0$US", Format("fr-FR", "::currency/USD", "1234.56"));
     }
 
     [Fact]
@@ -52,16 +53,16 @@ public sealed class CldrParityTests
     {
         // Derived: the pinned nl currency pattern is "¤<NBSP>#,##0.00;¤<NBSP>-#,##0.00" -- a genuine negative
         // subpattern, so the minus sits between the symbol and digits rather than being derived as a prefix.
-        // Intl shape "€ -1.234,56" (with our USD symbol substituted).
-        Assert.Equal("$\u00A0-1.234,56", Format("nl-NL", "::currency/USD", "-1234.56"));
+        // CLDR's nl symbol for USD is "US$" -- Intl shape "US$ -1.234,56".
+        Assert.Equal("US$\u00A0-1.234,56", Format("nl-NL", "::currency/USD", "-1234.56"));
     }
 
     [Fact]
     public void Format_Japanese_ZeroMinorUnits()
     {
         // ja's currency pattern is "¤#,##0.00" (symbol prefix, no space); JPY's minor units are 0, so
-        // 1234.5 rounds away from zero to 1235 with no fraction. CurrencyLookup resolves JPY's symbol to
-        // the fullwidth yen sign U+FFE5 (.NET's RegionInfo for ja-JP), matching Intl's "￥1,235".
+        // 1234.5 rounds away from zero to 1235 with no fraction. CLDR's ja symbol for JPY is the fullwidth
+        // yen sign U+FFE5 (distinct from en's U+00A5), matching Intl's "￥1,235".
         Assert.Equal("￥1,235", Format("ja-JP", "::currency/JPY", "1234.5"));
     }
 
@@ -79,6 +80,6 @@ public sealed class CldrParityTests
         // Same pinned pattern as German (no negative subpattern) -> derived minus. The digit-internal
         // group separator is still fr-FR's NFI atom, narrow no-break space U+202F, distinct from the
         // pattern's own amount<->symbol joiner, U+00A0.
-        Assert.Equal("-1\u202F234,56\u00A0$", Format("fr-FR", "::currency/USD", "-1234.56"));
+        Assert.Equal("-1\u202F234,56\u00A0$US", Format("fr-FR", "::currency/USD", "-1234.56"));
     }
 }
