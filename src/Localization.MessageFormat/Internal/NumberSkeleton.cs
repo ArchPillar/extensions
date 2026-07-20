@@ -29,6 +29,7 @@ internal static class NumberSkeleton
         var grouping = true;
         var integer = false;
         NumberNotation notation = NumberNotation.Standard;
+        CurrencyWidth width = CurrencyWidth.Short;
 
         foreach (var stem in stems)
         {
@@ -69,6 +70,22 @@ internal static class NumberSkeleton
             {
                 notation = NumberNotation.CompactLong;
             }
+            else if (stem is "unit-width-short")
+            {
+                width = CurrencyWidth.Short;
+            }
+            else if (stem is "unit-width-narrow")
+            {
+                width = CurrencyWidth.Narrow;
+            }
+            else if (stem is "unit-width-iso-code")
+            {
+                width = CurrencyWidth.IsoCode;
+            }
+            else if (stem is "unit-width-full-name")
+            {
+                width = CurrencyWidth.FullName;
+            }
             else if (stem[0] == '.')
             {
                 (min, max) = ParseFraction(stem);
@@ -98,7 +115,20 @@ internal static class NumberSkeleton
             }
         }
 
-        return new NumberFormatSpec(unit, currencyCode, min, max, grouping, notation);
+        if (width != CurrencyWidth.Short)
+        {
+            if (unit != NumberUnit.Currency)
+            {
+                throw Unsupported("unit width applies only to currency");
+            }
+
+            if (notation != NumberNotation.Standard)
+            {
+                throw Unsupported("a currency width other than short is not supported with compact notation");
+            }
+        }
+
+        return new NumberFormatSpec(unit, currencyCode, min, max, grouping, notation, width);
     }
 
     // A fraction stem: '.' then leading '0's (minimum digits) then trailing '#'s (additional maximum digits).

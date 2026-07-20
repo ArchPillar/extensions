@@ -264,4 +264,46 @@ public sealed class NumberSkeletonTests
     {
         Assert.Equal(NumberFormatSpec.Default, NumberFormatting.Resolve(""));
     }
+
+    [Theory]
+    [InlineData("::currency/USD", (int)CurrencyWidth.Short)]
+    [InlineData("::currency/USD unit-width-short", (int)CurrencyWidth.Short)]
+    [InlineData("::currency/USD unit-width-narrow", (int)CurrencyWidth.Narrow)]
+    [InlineData("::currency/USD unit-width-iso-code", (int)CurrencyWidth.IsoCode)]
+    [InlineData("::currency/USD unit-width-full-name", (int)CurrencyWidth.FullName)]
+    public void Parse_CurrencyWidth_SetsWidth(string skeleton, int expected)
+    {
+        Assert.Equal(expected, (int)NumberSkeleton.Parse(skeleton).Width);
+    }
+
+    [Fact]
+    public void Parse_WidthOrderIndependent_SetsWidth()
+    {
+        Assert.Equal(CurrencyWidth.IsoCode, NumberSkeleton.Parse("::unit-width-iso-code currency/USD").Width);
+    }
+
+    [Theory]
+    [InlineData("::percent unit-width-full-name")]
+    [InlineData("::unit-width-narrow")]
+    [InlineData("::.00 unit-width-code")]
+    public void Parse_WidthWithoutCurrency_Throws(string skeleton)
+    {
+        MessageFormatException ex = Assert.Throws<MessageFormatException>(() => NumberSkeleton.Parse(skeleton));
+        Assert.Equal(-1, ex.Position);
+        Assert.NotEmpty(ex.Message);
+    }
+
+    [Theory]
+    [InlineData("::compact-short currency/USD unit-width-iso-code")]
+    [InlineData("::currency/USD unit-width-full-name compact-long")]
+    public void Parse_WidthWithCompact_Throws(string skeleton)
+    {
+        Assert.Equal(-1, Assert.Throws<MessageFormatException>(() => NumberSkeleton.Parse(skeleton)).Position);
+    }
+
+    [Fact]
+    public void Parse_UnknownWidth_Throws()
+    {
+        Assert.Throws<MessageFormatException>(() => NumberSkeleton.Parse("::currency/USD unit-width-bogus"));
+    }
 }

@@ -24,13 +24,15 @@ internal enum NumberUnit
 /// <param name="MaxFractionDigits">The maximum visible fraction digits, or <see langword="null"/> for the unit default.</param>
 /// <param name="Grouping">Whether to insert grouping (thousands) separators.</param>
 /// <param name="Notation">The scaling/abbreviation notation (standard or compact).</param>
+/// <param name="Width">The currency display width; ignored unless <see cref="Unit"/> is <see cref="NumberUnit.Currency"/>.</param>
 internal sealed record NumberFormatSpec(
     NumberUnit Unit,
     string? CurrencyCode,
     int? MinFractionDigits,
     int? MaxFractionDigits,
     bool Grouping,
-    NumberNotation Notation)
+    NumberNotation Notation,
+    CurrencyWidth Width = CurrencyWidth.Short)
 {
     /// <summary>The default: a grouped decimal with up to three trailing-zero-trimmed fraction digits.</summary>
     public static NumberFormatSpec Default { get; } = new(NumberUnit.Decimal, null, null, null, true, NumberNotation.Standard);
