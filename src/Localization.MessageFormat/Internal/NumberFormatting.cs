@@ -69,7 +69,34 @@ internal static class NumberFormatting
         var currencyDigits = 0;
         if (spec.Unit == NumberUnit.Currency)
         {
-            (currencySymbol, currencyCode, currencyDigits) = ResolveCurrency(spec.CurrencyCode, culture);
+            var code = spec.CurrencyCode ?? CultureCurrencyCode(culture);
+            if (code is null)
+            {
+                // No region (neutral culture, no explicit code): last-resort host symbol, unchanged legacy edge.
+                NumberFormatInfo info = culture.NumberFormat;
+                currencySymbol = info.CurrencySymbol;
+                currencyCode = string.Empty;
+                currencyDigits = info.CurrencyDecimalDigits;
+            }
+            else if (spec.Width == CurrencyWidth.FullName)
+            {
+                // Route the plural display-name form before touching the glyph/pattern path.
+                var digitsF = CurrencyDisplay.Digits(code);
+                var minF = spec.MinFractionDigits ?? digitsF;
+                var maxF = spec.MaxFractionDigits ?? digitsF;
+                if (maxF < minF)
+                {
+                    maxF = minF;
+                }
+
+                return CurrencyNameRenderer.Render(number, code, culture, minF, maxF, spec.Grouping);
+            }
+            else
+            {
+                currencySymbol = CurrencyDisplay.Glyph(code, culture, spec.Width);
+                currencyCode = code;
+                currencyDigits = CurrencyDisplay.Digits(code);
+            }
         }
 
         if (spec.Notation != NumberNotation.Standard)
@@ -103,24 +130,25 @@ internal static class NumberFormatting
             maximum = minimum;
         }
 
+        // Currency threads the CLDR currencySpacing insert (NBSP joiner) so an alphabetic code/symbol
+        // sitting directly against the digits gets separated; non-currency passes empty.
+        var spacingInsert = spec.Unit == NumberUnit.Currency ? CurrencyDisplay.Spacing(culture) : string.Empty;
         return PatternRenderer.Render(
-            pattern, number, PatternPrecision.Fraction(minimum, maximum), spec.Grouping, culture, currencySymbol, currencyCode, string.Empty);
+            pattern, number, PatternPrecision.Fraction(minimum, maximum), spec.Grouping, culture, currencySymbol, currencyCode, spacingInsert);
     }
 
-    // Resolves the display symbol, ISO code, and default minor-unit digits for a currency spec. A null code
-    // means the rendering culture's own currency; an explicit code goes through the CLDR CurrencyDisplay
-    // resolver. TEMPORARY: this always uses the Short width; width-aware routing (narrow/iso-code/full-name)
-    // lands in Task 7. For now it keeps Short-currency working against CLDR data.
-    private static (string Symbol, string Code, int Digits) ResolveCurrency(string? currencyCode, CultureInfo culture)
+    // Which currency a bare `currency` style / null code uses: the culture's region currency (host selects
+    // WHICH currency; CLDR renders HOW). Null when the culture has no region (neutral culture).
+    private static string? CultureCurrencyCode(CultureInfo culture)
     {
-        if (currencyCode is null)
+        try
         {
-            NumberFormatInfo info = culture.NumberFormat;
-            return (info.CurrencySymbol, string.Empty, info.CurrencyDecimalDigits);
+            return new RegionInfo(culture.Name).ISOCurrencySymbol;
         }
-
-        var symbol = CurrencyDisplay.Glyph(currencyCode, culture, CurrencyWidth.Short);
-        return (symbol, currencyCode, CurrencyDisplay.Digits(currencyCode));
+        catch (ArgumentException)
+        {
+            return null;
+        }
     }
 
     /// <summary>

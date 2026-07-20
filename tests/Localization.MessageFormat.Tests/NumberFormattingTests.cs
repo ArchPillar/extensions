@@ -20,14 +20,36 @@ public sealed class NumberFormattingTests
     [Fact]
     public void Format_CurrencyCode_UnknownCode_UsesIsoCodeAsSymbol()
     {
-        Assert.Equal("ZZZ19.99", NumberFormatting.Format(D("19.99"), "::currency/ZZZ", _en));
+        // An unknown code falls back to its own upper-cased letters as the symbol; being alphabetic, CLDR
+        // currencySpacing joins the code to the digits with U+00A0 ("ZZZ" + NBSP + "19.99").
+        Assert.Equal("ZZZ\u00A019.99", NumberFormatting.Format(D("19.99"), "::currency/ZZZ", _en));
+    }
+
+    [Theory]
+    // symbol (default width)
+    [InlineData("en-US", "::currency/USD", "1234.56", "$1,234.56")]
+    [InlineData("fr-FR", "::currency/USD", "1234.56", "1\u202F234,56\u00A0$US")]
+    [InlineData("de-DE", "::currency/EUR", "1234.56", "1.234,56\u00A0€")]
+    [InlineData("ja-JP", "::currency/JPY", "1234.56", "￥1,235")]
+    // iso-code (before vs after the number is locale-driven)
+    [InlineData("en-US", "::currency/USD unit-width-iso-code", "1234.56", "USD\u00A01,234.56")]
+    [InlineData("de-DE", "::currency/USD unit-width-iso-code", "1234.56", "1.234,56\u00A0USD")]
+    // narrow
+    [InlineData("en-US", "::currency/SEK unit-width-narrow", "1234.56", "kr\u00A01,234.56")]
+    // full-name (plural-selected display name)
+    [InlineData("en-US", "::currency/USD unit-width-full-name", "1", "1.00 US dollars")]
+    [InlineData("en-US", "::currency/JPY unit-width-full-name", "1", "1 Japanese yen")]
+    public void Format_CurrencyWidths_MatchOracle(string culture, string skeleton, string value, string expected)
+    {
+        var result = NumberFormatting.Format(D(value), skeleton, CultureInfo.GetCultureInfo(culture));
+        Assert.Equal(expected, result);
     }
 
     [Fact]
     public void Format_NamedCurrency_UsesRenderingCultureCurrency()
     {
         Assert.Equal("$19.99", NumberFormatting.Format(D("19.99"), "currency", _en));
-        // de-DE's own currency is EUR: exercises the null-code ResolveCurrency branch for a second
+        // de-DE's own currency is EUR: exercises the null-code CultureCurrencyCode branch for a second
         // locale, with a non-'$' symbol and NBSP joiner together.
         Assert.Equal("19,99\u00A0€", NumberFormatting.Format(D("19.99"), "currency", _de));
     }
