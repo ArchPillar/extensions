@@ -10,7 +10,7 @@ public sealed class PatternRendererTests
 
     private static string Render(string pattern, decimal value, PatternPrecision precision, CultureInfo culture,
         bool grouping = true, string symbol = "$", string code = "USD") =>
-        PatternRenderer.Render(NumberPatternParser.Parse(pattern), value, precision, grouping, culture, symbol, code);
+        PatternRenderer.Render(NumberPatternParser.Parse(pattern), value, precision, grouping, culture, symbol, code, string.Empty);
 
     [Fact]
     public void Render_PlainDecimal_UsesCultureAtoms()
@@ -82,5 +82,25 @@ public sealed class PatternRendererTests
     {
         Assert.Equal("1.2", Render("#,##0.###", 1.234m, PatternPrecision.Significant(2), _en));
         Assert.Equal("1,200", Render("#,##0.###", 1234m, PatternPrecision.Significant(2), _en));
+    }
+
+    [Fact]
+    public void Render_AlphabeticCurrencyGlyph_InsertsNoBreakSpace()
+    {
+        NumberPattern pattern = StandardPatterns.For(NumberUnit.Currency, _en);
+        var result = PatternRenderer.Render(pattern, 1234.56m, PatternPrecision.Fraction(2, 2), true,
+            _en, "USD", "USD", "\u00A0");
+
+        Assert.Equal("USD\u00A01,234.56", result);
+    }
+
+    [Fact]
+    public void Render_SymbolCurrencyGlyph_NoInsert()
+    {
+        NumberPattern pattern = StandardPatterns.For(NumberUnit.Currency, _en);
+        var result = PatternRenderer.Render(pattern, 1234.56m, PatternPrecision.Fraction(2, 2), true,
+            _en, "$", "USD", "\u00A0");
+
+        Assert.Equal("$1,234.56", result);
     }
 }

@@ -104,7 +104,7 @@ internal static class NumberFormatting
         }
 
         return PatternRenderer.Render(
-            pattern, number, PatternPrecision.Fraction(minimum, maximum), spec.Grouping, culture, currencySymbol, currencyCode);
+            pattern, number, PatternPrecision.Fraction(minimum, maximum), spec.Grouping, culture, currencySymbol, currencyCode, string.Empty);
     }
 
     // Resolves the display symbol, ISO code, and default minor-unit digits for a currency spec. A null code

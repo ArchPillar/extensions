@@ -70,7 +70,8 @@ internal static class CompactFormatter
             grouping: false,
             culture,
             currencySymbol,
-            currencyCode);
+            currencyCode,
+            string.Empty);
     }
 
     // Rounds at the current level and advances one bucket when the rounded value reaches the next bucket's
@@ -124,7 +125,7 @@ internal static class CompactFormatter
         NumberPattern pattern = StandardPatterns.For(unit, culture);
         var group = grouping && Min2Grouping(rounded, culture.NumberFormat);
         return PatternRenderer.Render(
-            pattern, rounded, PatternPrecision.Fraction(0, fraction), group, culture, currencySymbol, currencyCode);
+            pattern, rounded, PatternPrecision.Fraction(0, fraction), group, culture, currencySymbol, currencyCode, string.Empty);
     }
 
     // ECMA-402 "min2" grouping (compact notation's default): group only when the integer part has at least

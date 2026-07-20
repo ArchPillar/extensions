@@ -55,7 +55,8 @@ internal static class PatternRenderer
         bool grouping,
         CultureInfo culture,
         string currencySymbol,
-        string currencyCode)
+        string currencyCode,
+        string currencySpacingInsert)
     {
         var negative = value < 0m;
         var absolute = Math.Abs(value);
@@ -93,10 +94,79 @@ internal static class PatternRenderer
             builder.Append(culture.NumberFormat.NegativeSign);
         }
 
+        var prefixGlyph = NumberAdjacentGlyph(prefix, last: true, currencySymbol, currencyCode);
+        var suffixGlyph = NumberAdjacentGlyph(suffix, last: false, currencySymbol, currencyCode);
+
         AppendTokens(builder, prefix, culture, currencySymbol, currencyCode);
+        if (digits.Length > 0 && NeedsSpacing(currencySpacingInsert, prefixGlyph, digits[0], glyphIsPrefix: true))
+        {
+            builder.Append(currencySpacingInsert);
+        }
+
         builder.Append(digits);
+
+        if (digits.Length > 0)
+        {
+#if NETSTANDARD2_0
+            var lastDigit = digits[digits.Length - 1];
+#else
+            var lastDigit = digits[^1];
+#endif
+            if (NeedsSpacing(currencySpacingInsert, suffixGlyph, lastDigit, glyphIsPrefix: false))
+            {
+                builder.Append(currencySpacingInsert);
+            }
+        }
+
         AppendTokens(builder, suffix, culture, currencySymbol, currencyCode);
         return builder.ToString();
+    }
+
+    // The glyph substituted for the currency token that sits adjacent to the number: the LAST token of a
+    // prefix, or the FIRST token of a suffix. Returns "" when that adjacent token is not the currency glyph
+    // (e.g. a trailing literal space in the affix), so no spacing is applied.
+    private static string NumberAdjacentGlyph(IReadOnlyList<PatternToken> tokens, bool last, string symbol, string code)
+    {
+        if (tokens.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        PatternToken token = last ? tokens[tokens.Count - 1] : tokens[0];
+        return token.Kind switch
+        {
+            PatternTokenKind.CurrencySymbol => symbol,
+            PatternTokenKind.CurrencyCode => code,
+            _ => string.Empty
+        };
+    }
+
+    // CLDR currencySpacing: insert when the glyph's number-facing edge matches currencyMatch [[:^S:]&[:^Z:]]
+    // (not a Symbol and not a Separator) and the number edge is a digit (surroundingMatch [:digit:]).
+    // The number-facing edge is unambiguous per side: a PREFIX glyph's is its LAST char (the number sits to
+    // its right); a SUFFIX glyph's is its FIRST char (the number sits to its left).
+    private static bool NeedsSpacing(string insert, string glyph, char numberEdge, bool glyphIsPrefix)
+    {
+        if (insert.Length == 0 || glyph.Length == 0 || !char.IsDigit(numberEdge))
+        {
+            return false;
+        }
+
+#if NETSTANDARD2_0
+        var glyphEdge = glyphIsPrefix ? glyph[glyph.Length - 1] : glyph[0];
+#else
+        var glyphEdge = glyphIsPrefix ? glyph[^1] : glyph[0];
+#endif
+        return NonSymbolNonSeparator(glyphEdge);
+    }
+
+    private static bool NonSymbolNonSeparator(char c)
+    {
+        UnicodeCategory category = CharUnicodeInfo.GetUnicodeCategory(c);
+        return category is not (UnicodeCategory.CurrencySymbol or UnicodeCategory.MathSymbol
+            or UnicodeCategory.ModifierSymbol or UnicodeCategory.OtherSymbol
+            or UnicodeCategory.SpaceSeparator or UnicodeCategory.LineSeparator
+            or UnicodeCategory.ParagraphSeparator);
     }
 
     /// <summary>Rounds to <paramref name="digits"/> significant digits, half away from zero (ECMA-402's default). Reserved for a future significant-digit skeleton; unused by compact notation, which rounds by fraction digits.</summary>
