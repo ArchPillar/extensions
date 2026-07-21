@@ -95,9 +95,9 @@ Full signatures are in the numbered specs and the runtime spec ([`05-runtime.md`
 - **Fail fast at build time.** Unmapped or conflicting keys, invalid ICU, a placeholder with no
   argument, a plural/select missing its `other` branch — these are diagnostics (`APL0001`–`APL0008`)
   at the call site, not query-time surprises. A non-constant key is an error.
-- **Never fail at runtime.** A missing snapshot, culture, key, malformed file, or absent satellite
-  degrades to the in-code default (or a parent culture) for that one call; discovery failures are
-  swallowed. The terminal fallback always renders.
+- **Never fail at runtime.** A missing snapshot, culture, key, malformed file, malformed override
+  value, or absent satellite degrades to the in-code default (or a parent culture) for that one call;
+  discovery failures are swallowed. The terminal fallback always renders.
 
 ## What this library deliberately does not do
 

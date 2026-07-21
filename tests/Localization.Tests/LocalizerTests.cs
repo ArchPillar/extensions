@@ -210,6 +210,34 @@ public sealed class LocalizerTests : IDisposable
         Assert.Equal("Hello", localizer.Translate(_en, "missing", "Hello", null));
     }
 
+    [Fact]
+    public void Translate_MalformedOverride_FallsBackToInCodeDefault()
+    {
+        // A catalog can ship a well-formed file whose message VALUE is invalid ICU (unbalanced brace). The
+        // override render must not crash the caller — it silently degrades to the build-validated in-code
+        // default, rendered in the source culture, exactly as if no override had been loaded.
+        DefaultLocalizer localizer = OverCatalogs(
+            new LocalizerOptions { SourceCulture = "en" },
+            DeCatalog("greeting", "Hi {name"));
+
+        Assert.Equal("Hi Ada", localizer.Translate(_de, "greeting", "Hi {name}", null, ("name", "Ada")));
+    }
+
+    [Fact]
+    public void Translate_MalformedOverride_ReportsOverrideNotFound()
+    {
+        // The overrideFound-reporting overload (the IStringLocalizer adapter's path) must treat a malformed
+        // override the same as no override at all: false, so the adapter still tries its other sources.
+        DefaultLocalizer localizer = OverCatalogs(
+            new LocalizerOptions { SourceCulture = "en" },
+            DeCatalog("greeting", "Hi {name"));
+
+        var rendered = localizer.Translate(_de, "greeting", "Hi {name}", null, out var overrideFound, ("name", "Ada"));
+
+        Assert.Equal("Hi Ada", rendered);
+        Assert.False(overrideFound);
+    }
+
     public void Dispose()
     {
         foreach (CatalogStore store in _stores)

@@ -61,6 +61,8 @@ The looked-up value (or the default) is an ICU MessageFormat string. It is parse
 
 Because the default is always present at the call site, **a missing snapshot, a missing culture, or a missing key never fails** — it degrades to the source language for that one call. This is the runtime expression of the spec-00 invariant.
 
+A loaded override can also be a well-formed file whose message *value* is invalid ICU (an unbalanced brace, a bad plural clause) — a malformed file is caught on load, but a malformed value only fails when it is actually rendered. `DefaultLocalizer` catches `MessageFormatException` around the override render only (never around the in-code default's, which is build-validated by the analyzer) and treats the failure exactly like a missing override: it falls back to the in-code default, and the `overrideFound`-reporting overloads report `false`, so an adapter composing over the result still tries its other sources.
+
 ## Snapshot model and lock-free reads
 
 ```csharp
@@ -133,6 +135,7 @@ public sealed class LocalizerOptions
 - [ ] An untranslated (empty/`NeedsTranslation`) entry in a loaded file falls through to default/parent rather than rendering empty.
 - [ ] Concurrent `Translate` calls during a `Reload()` never throw, never deadlock, and always return either the pre- or post-reload value (no torn reads); verified under a stress test.
 - [ ] A malformed translation file is skipped on load with a logged error; the rest load; the application runs.
+- [ ] A malformed override *value* (invalid ICU that survived a well-formed file) falls back to the in-code default at render, with no throw, and the `overrideFound`-reporting overloads report `false`.
 - [ ] With hot reload enabled, editing a translation file is reflected after the debounce window without restart; with it disabled, no `FileSystemWatcher` is created.
 - [ ] Plural rendering uses the target culture (a German override pluralizes by German rules); parsed messages are cached and not re-parsed per call.
 - [ ] A directory containing a mix of `.arb`, `.xliff`, and `.po` files loads them all; each language resolves from whatever file(s) carry it.

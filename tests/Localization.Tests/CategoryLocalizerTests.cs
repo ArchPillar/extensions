@@ -34,6 +34,17 @@ public sealed class CategoryLocalizerTests : IDisposable
     }
 
     [Fact]
+    public void TypedLocalizer_MalformedOverride_FallsBackToInCodeDefault()
+    {
+        // The category-scoped path (ILocalizer<T> / TranslateInCategory) must degrade the same way the
+        // global path does: a malformed override value never throws, it falls back to the in-code default.
+        LocalizationContext context = Over(DeCatalog(("greeting", typeof(Save).FullName!, "Hi {name")));
+
+        WithCulture(_german, () =>
+            Assert.Equal("Hi Ada", context.For<Save>().Translate("greeting", "Hi {name}", ("name", "Ada"))));
+    }
+
+    [Fact]
     public void GlobalLocalizer_DoesNotSeeCategorizedOverrides()
     {
         LocalizationContext context = Over(DeCatalog(("save", typeof(Save).FullName!, "Speichern")));

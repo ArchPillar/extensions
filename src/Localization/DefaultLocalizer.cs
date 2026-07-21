@@ -1,5 +1,6 @@
 using System.Globalization;
 using ArchPillar.Extensions.Localization.Catalogs;
+using ArchPillar.Extensions.Localization.MessageFormat;
 
 namespace ArchPillar.Extensions.Localization;
 
@@ -104,15 +105,14 @@ public sealed class DefaultLocalizer : ILocalizer
 
         var composite = TranslationKey.Compose(key, context);
         var message = _store.Lookup(culture, category: string.Empty, composite);
-        overrideFound = message is not null;
 
         // An override was authored for the requested culture, so render it with that culture's rules.
         // The in-code default is source-language text, so render it with the source culture's rules —
         // otherwise an English default shown under, say, Japanese rules would pluralize incorrectly.
         RenderingContext rendering = CurrentContext();
-        return message is not null
-            ? rendering.Formatter.Format(message, culture, arguments)
-            : rendering.Formatter.Format(defaultMessage, rendering.SourceCulture, arguments);
+        var rendered = TryRenderOverride(message, culture, rendering, arguments);
+        overrideFound = rendered is not null;
+        return rendered ?? rendering.Formatter.Format(defaultMessage, rendering.SourceCulture, arguments);
     }
 
     // The category-scoped core used by ILocalizer<T> (via the factory). It looks the key up within the
@@ -141,11 +141,10 @@ public sealed class DefaultLocalizer : ILocalizer
         CultureInfo culture = CultureInfo.CurrentUICulture;
         var composite = TranslationKey.Compose(key, context);
         var message = _store.Lookup(culture, category, composite);
-        overrideFound = message is not null;
         RenderingContext rendering = CurrentContext();
-        return message is not null
-            ? rendering.Formatter.Format(message, culture, arguments)
-            : rendering.Formatter.Format(defaultMessage, rendering.SourceCulture, arguments);
+        var rendered = TryRenderOverride(message, culture, rendering, arguments);
+        overrideFound = rendered is not null;
+        return rendered ?? rendering.Formatter.Format(defaultMessage, rendering.SourceCulture, arguments);
     }
 
     // Resolves and formats a loaded override (or a source result) within a category for the current UI
@@ -161,7 +160,7 @@ public sealed class DefaultLocalizer : ILocalizer
         CultureInfo culture = CultureInfo.CurrentUICulture;
         var composite = TranslationKey.Compose(key, context);
         var message = _store.Lookup(culture, category, composite);
-        return message is null ? null : CurrentContext().Formatter.Format(message, culture, arguments);
+        return TryRenderOverride(message, culture, CurrentContext(), arguments);
     }
 
     // Enumerates the loaded overrides for a category in the given culture as (compositeKey, message) pairs — the
@@ -179,6 +178,34 @@ public sealed class DefaultLocalizer : ILocalizer
         string? context,
         (string Name, object? Value)[] arguments) =>
         Translate(culture, key, defaultMessage, context, out _, arguments);
+
+    // Renders a loaded override, or returns null when there is none, or when it fails to render. A catalog can
+    // ship a well-formed file whose message VALUE is invalid ICU (an unbalanced brace, a bad plural clause); a
+    // malformed override is treated exactly like a missing one, so every call site's existing "no override"
+    // handling — render the in-code default, or (for TranslateOverride) report null onward — degrades it
+    // gracefully with no code duplicated per site. Only the override render is ever caught: the in-code default
+    // is build-validated by the analyzer, so a default that fails to parse is a developer bug that must still
+    // surface, never be swallowed here.
+    private static string? TryRenderOverride(
+        string? overrideMessage,
+        CultureInfo culture,
+        RenderingContext rendering,
+        (string Name, object? Value)[] arguments)
+    {
+        if (overrideMessage is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            return rendering.Formatter.Format(overrideMessage, culture, arguments);
+        }
+        catch (MessageFormatException)
+        {
+            return null;
+        }
+    }
 
     // The live rendering context, swapped by Reconfigure on a configuration change so the formatter and source
     // culture are observed on the next lookup.
