@@ -367,24 +367,31 @@ The accepted skeleton subset:
 | `group-off` / `group-auto` | Grouping off / default |
 | `compact-short` (`K`) / `compact-long` (`KK`) | Compact notation (stems combine, e.g. `::compact-short currency/USD`) |
 
-The one-template-two-locales payoff shows up as soon as the same key renders under two cultures: the ISO
-code pins *what* currency is shown, while CLDR alone decides *how* — grouping, decimal comma vs. point,
-and where the symbol sits.
+The ISO code pins *what* currency is shown, while CLDR alone decides *how* — grouping, decimal comma vs.
+point, and where the symbol sits. The clearest way to see the same value under two cultures is
+`ToLocalizedString`, which formats in the culture you pass:
 
 ```csharp
-// One template — the currency code is explicit, so only the *formatting* follows the culture.
-CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
-localizer.Translate("cart.total", "Total: {amount, number, ::currency/USD}", ("amount", 1234.56m));
-// → "Total: $1,234.56"
+using ArchPillar.Extensions.Localization.MessageFormat;
 
-CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("de-DE");
-localizer.Translate("cart.total", "Total: {amount, number, ::currency/USD}", ("amount", 1234.56m));
-// → "Total: 1.234,56 $"   (the space is a non-breaking space, U+00A0)
+1234.56m.ToLocalizedString("::currency/USD", CultureInfo.GetCultureInfo("en-US")); // "$1,234.56"
+1234.56m.ToLocalizedString("::currency/USD", CultureInfo.GetCultureInfo("de-DE")); // "1.234,56 $" (U+00A0)
 ```
 
-> The amount↔symbol space in `de-DE` is a non-breaking space (U+00A0), per CLDR. A bare
-> `{amount, number, currency}` would follow the UI language instead of pinning USD — see
-> [recommendations.md](recommendations.md).
+The same style works inside a message, where the amount formats in the culture the message is *rendered in*:
+
+```csharp
+localizer.Translate("cart.total", "Total: {amount, number, ::currency/USD}", ("amount", 1234.56m));
+// under en → "Total: $1,234.56"
+```
+
+> Inside a message the number follows the culture the message is *rendered in* — the target culture once
+> the string is **translated** for that culture, and the source culture while it still falls back to the
+> in-code default (an untranslated English default is rendered by English rules, and its numbers with it).
+> So a message localises its numbers once translated; to format a value in a specific culture regardless of
+> translation state, use `ToLocalizedString`. The amount↔symbol space in `de-DE` is a non-breaking space
+> (U+00A0), per CLDR; a bare `{amount, number, currency}` would follow the culture instead of pinning USD —
+> see [recommendations.md](recommendations.md).
 
 **Currency width** picks how the currency itself is written, independent of the amount or the culture.
 All four widths for the same `en-US` value:

@@ -44,18 +44,20 @@ plural category can fall back to; without it a count with no matching selector h
 ## Specify the currency code explicitly
 
 `{amount, number, ::currency/USD}` pins the currency to USD; the *formatting* (symbol, grouping,
-decimal separator, spacing) still follows the rendering culture. A bare `{amount, number, currency}`
-— like `ToString("C")` — takes its currency from the culture, so a USD price rendered under a German
-UI would come out in euros. Always pass the ISO code. See
+decimal separator, spacing) still follows the culture the value renders in. A bare `{amount, number,
+currency}` — like `ToString("C")` — takes its currency from that same culture, so a USD price could come
+out in euros. Inside a message, "the culture it renders in" is the target culture once a translation
+exists for that key, and the source culture otherwise — not simply whatever `CurrentUICulture` is set to.
+Always pass the ISO code. See
 [features — Number, currency & compact formatting](features.md#number-currency--compact-formatting).
 
 ```csharp
 "Total: {amount, number, ::currency/USD}"      // USD everywhere; formatting is localized
-// not: "Total: {amount, number, currency}"    // currency follows the UI language
+// not: "Total: {amount, number, currency}"    // currency follows the rendering culture
 ```
 
-> The same rule applies to `value.ToLocalizedString("::currency/USD")` for a value shown outside a
-> message — pass the code, and it renders in the current UI culture.
+> The same rule applies to `value.ToLocalizedString("::currency/USD", culture)` for a value shown outside
+> a message — pass the code; the culture is explicit (or `CurrentUICulture` when omitted).
 
 ## Prefer files for trimming, single-file, and AOT
 
