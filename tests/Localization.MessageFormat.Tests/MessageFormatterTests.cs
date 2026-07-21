@@ -432,6 +432,40 @@ public sealed class MessageFormatterTests
     }
 
     [Fact]
+    public void Format_MalformedTemplate_NegativeCachesTheParseError()
+    {
+        // A malformed template must be parsed exactly once: after the first (throwing) Format, its parse
+        // failure lives in the template cache as a negative entry, so a second Format never re-parses.
+        var formatter = new MessageFormatter();
+        const string Malformed = "{name";
+
+        MessageFormatException thrown =
+            Assert.Throws<MessageFormatException>(() => formatter.Format(Malformed, _english));
+
+        Assert.True(formatter.TryGetCachedParseError(Malformed, out MessageFormatException? cached));
+        Assert.NotNull(cached);
+        Assert.Equal(thrown.Message, cached!.Message);
+        Assert.Equal(thrown.Position, cached.Position);
+    }
+
+    [Fact]
+    public void Format_SameMalformedTemplateTwice_ThrowsIdenticalMessageAndPosition()
+    {
+        // The cached rethrow must preserve the public contract: same exception type, Message, and Position
+        // as the fresh parse would produce on every call.
+        var formatter = new MessageFormatter();
+        const string Malformed = "{n, plural, banana {x} other {y}}";
+
+        MessageFormatException first =
+            Assert.Throws<MessageFormatException>(() => formatter.Format(Malformed, _english));
+        MessageFormatException second =
+            Assert.Throws<MessageFormatException>(() => formatter.Format(Malformed, _english));
+
+        Assert.Equal(first.Message, second.Message);
+        Assert.Equal(first.Position, second.Position);
+    }
+
+    [Fact]
     public void Format_ThreeOrMoreArguments_AllSubstituted()
     {
         var result = _formatter.Format("{a} {b} {c}", _english, ("a", "1"), ("b", "2"), ("c", "3"));
