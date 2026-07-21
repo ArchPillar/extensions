@@ -108,7 +108,10 @@ resolves with **zero allocations**, pinned by allocation tests, and tracked by
 Runnable examples under [`samples/Localization/`](../../samples/Localization/):
 
 - [Localization.ConsoleSample](../../samples/Localization/Localization.ConsoleSample/) — a generic
-  host resolving `ILocalizer` from DI: named arguments, ICU plurals, an English default, a German override.
+  host resolving `ILocalizer` from DI: named arguments, ICU plurals, an English default, a German
+  override — and locale-correct number/currency formatting (`::currency/USD`, a currency width,
+  compact notation) via `ToLocalizedString`, plus one translated in-message value showing a number
+  format in the culture the string is translated into.
 - [Localization.AspNetSample](../../samples/Localization/Localization.AspNetSample/) — a Minimal API
   with `UseRequestLocalization`; endpoints inject the native localizer and the `IStringLocalizer<T>` adapter.
 - [Localization.BlazorSample](../../samples/Localization/Localization.BlazorSample/) — a server-rendered
