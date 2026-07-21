@@ -13,9 +13,8 @@
       <notes>
         <note category="fingerprint">6ef7c2f7178bed7959f90d6c7a8118da</note>
       </notes>
-      <segment state="translated" subState="archpillar:Translated">
+      <segment state="initial" subState="archpillar:NeedsTranslation">
         <source xml:space="preserve">Hello {name}</source>
-        <target xml:space="preserve">Muhaha {name}!</target>
       </segment>
     </unit>
     <unit id="inbox.count">

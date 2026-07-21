@@ -27,7 +27,7 @@ grouping/decimal marks and the symbol joined by a space (shown below as a normal
 
 ```text
 --- en ---
-Muhaha Ada!
+Hello Ada
 No messages
 1 message
 2 messages
@@ -45,11 +45,6 @@ Full name:  1.234,56 US-Dollar
 Compact:    1234 $
 Gesamt: 1.234,56 $
 ```
-
-The `en` greeting reads "Muhaha Ada!" rather than "Hello Ada": `Translations/en.xliff` carries a
-translated override for `home.greeting` (the source-language catalog is itself an editable override
-layer, not just a template), while `cart.total` and `inbox.count` stay untranslated there and fall
-through to the in-code default.
 
 ## Notes
 The German catalog is `Translations/de.xliff`, copied beside the binary and loaded as an override
