@@ -22,8 +22,8 @@ with no translation files still runs correctly.
   marked `[Translatable]` / `[TranslationDefault]` defines a translation site; the incremental
   generator is the one extraction engine.
 - **Stable symbolic keys** (D-2) with a strongly-typed key registry (D-4).
-- **One grammar — ICU MessageFormat** (D-6) — for arguments, `plural`/`selectordinal`/`select`, with
-  embedded CLDR plural data (D-7).
+- **One grammar — ICU MessageFormat** (D-6) — for arguments, typed number/currency/compact formatting,
+  and `plural`/`selectordinal`/`select`, with embedded CLDR plural and number data (D-7).
 - **Namespacing follows the `ILogger<T>` model** (D-H): every key is implicitly scoped by a
   *category* equal to the full type name of `T` in `ILocalizer<T>`. Users never manage namespaces.
 - **Translations load through one ambient, layered store** (D-I), modeled on `IConfiguration`:
@@ -106,5 +106,7 @@ Full signatures are in the numbered specs and the runtime spec ([`05-runtime.md`
 - It does not require DI, a host, or a file system to localize.
 - It does not load satellite assemblies under NativeAOT (it degrades to the in-code default; prefer
   files or a main-assembly embedded catalog for AOT — see [`../recommendations.md`](../recommendations.md)).
-- It does not extract `IStringLocalizer`/`.resx` keys, DataAnnotations messages, or view-localization
-  calls (no in-code default to harvest); the adapter serves them at runtime only.
+- It does not extract `IStringLocalizer`/`.resx` keys or validator `ErrorMessage` strings (no in-code
+  default to harvest); the adapter serves those at runtime only. (Display annotations such as
+  `[Display(Name = …)]` *are* extracted — see [features.md](../features.md) — because they carry an
+  in-code default.)

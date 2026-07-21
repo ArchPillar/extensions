@@ -11,7 +11,9 @@ Zero dependencies beyond the Base Class Library.
 ## Supported grammar
 
 - Plain text with ICU apostrophe quoting (`'{'`, `''`)
-- Simple and typed arguments (`{name}`, `{name, number}`, `{name, date, long}`)
+- Simple and typed arguments (`{name}`, `{name, number, ::currency/USD}`, `{name, date, long}`) —
+  named number styles and the ICU `::`-skeleton subset (currency, currency widths, percent, fractions,
+  compact), CLDR-48-faithful; plus `ToLocalizedString` extensions for values shown outside a message
 - `plural` and `selectordinal` with `offset`, explicit `=N` selectors, the `#` token, and
   CLDR keyword categories (`zero one two few many other`)
 - `select` with arbitrary string keys
