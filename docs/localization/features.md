@@ -325,9 +325,10 @@ as always.
 Defaults and translations are written in **ICU MessageFormat**, the same grammar `.po`/`.arb` translators
 already use, so a string carries its own grammar rather than relying on string concatenation that breaks
 in other languages. The full surface is supported: simple arguments, typed formatting
-(`{name, number|date|time, style}`), `plural` / `selectordinal` (with `offset`, `=N` exact-match
-selectors, and `#` for the formatted count), `select` for arbitrary categories, and arbitrary nesting of
-all of these. Crucially, **plural categories resolve against the target culture** from embedded Unicode
+(`{name, number, style}` for numbers, currency, and compact — see the next section — plus
+`{name, date|time, style}`), `plural` / `selectordinal` (with `offset`, `=N` exact-match selectors, and
+`#` for the formatted count), `select` for arbitrary categories, and arbitrary nesting of all of these.
+Crucially, **plural categories resolve against the target culture** from embedded Unicode
 CLDR data — so the one template below pluralises by English rules under `en`, by Polish rules (which has
 `one`/`few`/`many`/`other`) under `pl`, and so on, with no per-language code.
 
@@ -343,6 +344,96 @@ package usable entirely on its own — `MessageFormatter.Format` to render, `Mes
 default a referenced argument with no supplied value renders its placeholder unchanged and never throws
 (so a partial call still produces readable output); switch `MissingArgumentPolicy.Throw` in the options
 to fail fast instead.
+
+## Number, currency & compact formatting
+
+The `number` placeholder type takes either a **named style** — `integer`, `currency`, `percent` — or an
+ICU **`::`-skeleton**: a space-separated list of stems that compose (a currency code, a width, a fraction
+rule, a compact notation, and so on). Either way the output is **CLDR-48-faithful** — locale grouping, the
+decimal separator, the amount↔symbol spacing, and the negative-number pattern all come from the same
+pinned Unicode CLDR data that drives plural selection above. The style slot is **ICU-only**; a `.NET`
+format string is never accepted there, and an unrecognized stem throws `MessageFormatException` at parse
+time rather than falling back to something plausible.
+
+The accepted skeleton subset:
+
+| Stem | Effect |
+|------|--------|
+| `currency/<ISO>` | Currency, explicit ISO code — **does not follow the UI language** |
+| `unit-width-short` / `-narrow` / `-iso-code` / `-full-name` | Currency width: symbol / narrow / ISO code / full plural name |
+| `.00` / `.##` / `.0#` | Fixed / optional / mixed fraction digits |
+| `percent` | Percent |
+| `integer` (`precision-integer`) | Integer, no fraction |
+| `group-off` / `group-auto` | Grouping off / default |
+| `compact-short` (`K`) / `compact-long` (`KK`) | Compact notation (stems combine, e.g. `::compact-short currency/USD`) |
+
+The one-template-two-locales payoff shows up as soon as the same key renders under two cultures: the ISO
+code pins *what* currency is shown, while CLDR alone decides *how* — grouping, decimal comma vs. point,
+and where the symbol sits.
+
+```csharp
+// One template — the currency code is explicit, so only the *formatting* follows the culture.
+CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
+localizer.Translate("cart.total", "Total: {amount, number, ::currency/USD}", ("amount", 1234.56m));
+// → "Total: $1,234.56"
+
+CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("de-DE");
+localizer.Translate("cart.total", "Total: {amount, number, ::currency/USD}", ("amount", 1234.56m));
+// → "Total: 1.234,56 $"   (the space is a non-breaking space, U+00A0)
+```
+
+> The amount↔symbol space in `de-DE` is a non-breaking space (U+00A0), per CLDR. A bare
+> `{amount, number, currency}` would follow the UI language instead of pinning USD — see
+> [recommendations.md](recommendations.md).
+
+**Currency width** picks how the currency itself is written, independent of the amount or the culture.
+All four widths for the same `en-US` value:
+
+```csharp
+CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
+localizer.Translate("cart.total", "{amount, number, ::currency/USD unit-width-short}", ("amount", 1234.56m));
+// → "$1,234.56"
+localizer.Translate("cart.total", "{amount, number, ::currency/USD unit-width-narrow}", ("amount", 1234.56m));
+// → "$1,234.56"
+localizer.Translate("cart.total", "{amount, number, ::currency/USD unit-width-iso-code}", ("amount", 1234.56m));
+// → "USD 1,234.56"   (the space is a non-breaking space, U+00A0)
+localizer.Translate("cart.total", "{amount, number, ::currency/USD unit-width-full-name}", ("amount", 1234.56m));
+// → "1,234.56 US dollars"
+```
+
+> The `unit-width-iso-code` join (`USD 1,234.56`) uses the same CLDR currency-spacing non-breaking space
+> (U+00A0) as the plain currency example above. `unit-width-short` and `unit-width-narrow` have no join
+> space at all (`$` prefixes the amount directly), and the `unit-width-full-name` join is an ordinary space.
+
+**Compact notation** abbreviates large magnitudes instead of grouping every digit; the stem composes with
+a currency the same way a width does:
+
+```csharp
+localizer.Translate("cart.total", "{amount, number, ::compact-short currency/USD}", ("amount", 1234m));
+// → "$1.2K"
+```
+
+### Formatting a value outside a message
+
+Not every number lives inside a translated sentence — a table cell or a chart axis just needs the value
+itself, in the same CLDR formatting, with no template around it. `ToLocalizedString` is the same engine
+and the same style syntax as an extension method on the value:
+
+```csharp
+using ArchPillar.Extensions.Localization.MessageFormat;
+
+// The same engine and the same style syntax, for a value shown on its own.
+CultureInfo de = CultureInfo.GetCultureInfo("de");
+1234.56m.ToLocalizedString("::currency/USD", de);   // "1.234,56 $"  (the space is U+00A0)
+0.5.ToLocalizedString("::percent");                 // "50%" in en, "50 %" in de (U+00A0)
+```
+
+Overloads exist on `decimal`, `double`, `int`, `long`, and `IFormattable`. The culture parameter defaults
+to **`CultureInfo.CurrentUICulture`** — the same culture the localizer renders against — never
+`CurrentCulture`, which is what makes the two surfaces consistent: `v.ToLocalizedString(s, c)` always
+renders identically to `{v, number, s}` rendered in `c`. The extensions live in the
+`ArchPillar.Extensions.Localization.MessageFormat` namespace, so add the `using` line above to call
+them — everything else in this library resolves without it.
 
 ## Container formats
 

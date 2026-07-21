@@ -74,7 +74,7 @@ lifecycle and commands are in [translation-workflow.md](translation-workflow.md)
 | Files / embedded / satellites | Loose files by default (trim/AOT-safe); opt-in embedding routes catalogs into culture satellite assemblies. |
 | Catalog providers | `ICatalogProvider` is the seam between where catalog bytes come from and how the store reads them — directory, embedded/satellite, and HTTP-manifest providers ship in the box, and a custom source plugs in the same way. |
 | Eager or on-demand loading | Load every culture up front (the server default), or `CultureLoading.OnDemand` to load each culture only when first requested — a single-user client switches language live, no restart. |
-| ICU MessageFormat | Arguments, `plural` / `selectordinal` / `select`, embedded CLDR plural data. |
+| ICU MessageFormat | Arguments, typed number/currency/compact formatting, `plural` / `selectordinal` / `select`, embedded CLDR plural + number data. |
 | Standard formats | XLIFF 2.1 (default), ARB, and Portable Object — round-tripped by the bundled providers. |
 | Dependency injection | `AddArchPillarLocalization` feeds the process-wide ambient context and registers injectable native localizers; the generated `AddArchPillarLocalizedBundles()` registers the assembly's `Localized<T>` bundles. |
 | `IStringLocalizer` interop + migration | A separate `…StringLocalizer` package (`AddArchPillarStringLocalizer`): a composing adapter, on-by-default extraction of indexer literals, and a no-op `L(...)` marker — droppable once migration is done. |
