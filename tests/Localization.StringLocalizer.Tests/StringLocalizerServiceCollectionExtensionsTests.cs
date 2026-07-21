@@ -110,6 +110,48 @@ public sealed class StringLocalizerServiceCollectionExtensionsTests : IDisposabl
     }
 
     [Fact]
+    public void StringLocalizer_MalformedOverride_FallsThroughToInnerFactory()
+    {
+        // A malformed ambient override (a well-formed catalog entry whose translated VALUE is invalid ICU —
+        // here an unclosed "{name" argument) must not crash the adapter: DefaultLocalizer.TranslateOverride
+        // treats it as no usable override (returns null), so LocalizerStringLocalizer.Resolve falls through to
+        // the previously-registered factory exactly as it would on an ambient miss. Pre-fix, TranslateOverride
+        // called Formatter.Format on the malformed override directly and threw MessageFormatException straight
+        // out of this indexer call.
+        Ambient.Reset();
+        var catalog = new Catalog
+        {
+            Culture = "de",
+            Entries =
+            [
+                new CatalogEntry
+                {
+                    Category = typeof(Buttons).FullName!,
+                    Key = "inner",
+                    SourceMessage = "Inner",
+                    TranslatedMessage = "Hi {name",
+                    SourceFingerprint = "fp",
+                    State = TranslationState.Translated
+                }
+            ]
+        };
+
+        var services = new ServiceCollection();
+        services.AddSingleton<IStringLocalizerFactory>(new FakeFactory());
+        services.AddArchPillarStringLocalizer(new LocalizerOptions { SourceCulture = "en", Providers = [Layer(catalog)] });
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        IStringLocalizer localizer = provider.GetRequiredService<IStringLocalizerFactory>().Create(typeof(Buttons));
+
+        WithCulture(_german, () =>
+        {
+            LocalizedString fromInner = localizer["inner"];
+            Assert.Equal("FromInner", fromInner.Value);
+            Assert.False(fromInner.ResourceNotFound);
+        });
+    }
+
+    [Fact]
     public void GetAllStrings_IncludesAmbientEntriesForTheCategory()
     {
         Ambient.Reset();

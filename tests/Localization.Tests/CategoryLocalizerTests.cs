@@ -41,7 +41,16 @@ public sealed class CategoryLocalizerTests : IDisposable
         LocalizationContext context = Over(DeCatalog(("greeting", typeof(Save).FullName!, "Hi {name")));
 
         WithCulture(_german, () =>
-            Assert.Equal("Hi Ada", context.For<Save>().Translate("greeting", "Hi {name}", ("name", "Ada"))));
+        {
+            Assert.Equal("Hi Ada", context.For<Save>().Translate("greeting", "Hi {name}", ("name", "Ada")));
+
+            // The category-scoped overrideFound-reporting overload (the one an adapter composes over) must
+            // report false on the malformed-override fallback too, symmetric with the global-path assertion.
+            var rendered = context.TranslateInCategory(
+                typeof(Save).FullName!, "greeting", "Hi {name}", [("name", "Ada")], out var overrideFound);
+            Assert.Equal("Hi Ada", rendered);
+            Assert.False(overrideFound);
+        });
     }
 
     [Fact]
