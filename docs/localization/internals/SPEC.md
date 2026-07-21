@@ -106,7 +106,7 @@ Full signatures are in the numbered specs and the runtime spec ([`05-runtime.md`
 - It does not require DI, a host, or a file system to localize.
 - It does not load satellite assemblies under NativeAOT (it degrades to the in-code default; prefer
   files or a main-assembly embedded catalog for AOT — see [`../recommendations.md`](../recommendations.md)).
-- It does not extract `IStringLocalizer`/`.resx` keys or validator `ErrorMessage` strings (no in-code
-  default to harvest); the adapter serves those at runtime only. (Display annotations such as
-  `[Display(Name = …)]` *are* extracted — see [features.md](../features.md) — because they carry an
-  in-code default.)
+- It does not extract `IStringLocalizer`/`.resx` keys, view-localization calls, or a *bare* validator
+  `ErrorMessage` (no in-code default to harvest); the adapter serves those at runtime only. (Annotations
+  that carry an in-code default *are* extracted — display annotations such as `[Display(Name = …)]`, and a
+  validator `ErrorMessage` paired with a `[LocalizedMessage<T>]` twin — see [features.md](../features.md).)
