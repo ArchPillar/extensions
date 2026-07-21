@@ -82,10 +82,11 @@ These are the habits to unlearn coming from `.resx` / `IStringLocalizer` / `stri
 8. **Don't hand-format money — and pin the currency code.** Not `ToString("C")`,
    `string.Format("{0:C}")`, or concatenation. Use `{amount, number, ::currency/USD}` with an
    **explicit** ISO code: a bare `{amount, number, currency}` (like `"C"`) takes the currency from
-   the UI culture, so a USD price under a German UI renders euros. The code is fixed; only the
-   *formatting* (symbol, grouping, separators, spacing) follows the culture. For a value shown
-   outside a message, `value.ToLocalizedString("::currency/USD")` (add
-   `using ArchPillar.Extensions.Localization.MessageFormat;`) — it defaults to `CurrentUICulture`.
+   the culture it renders in, so once a string is shown in German, a USD price would come out in
+   euros. The code is fixed; only the *formatting* (symbol, grouping, separators, spacing) follows
+   the culture. For a value shown outside a message, `value.ToLocalizedString("::currency/USD")`
+   (add `using ArchPillar.Extensions.Localization.MessageFormat;`) — it defaults to
+   `CurrentUICulture`.
 
 ## Canonical example
 

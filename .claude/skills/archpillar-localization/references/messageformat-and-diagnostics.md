@@ -39,11 +39,11 @@ and never throws, so a partial call still produces readable output. Switch
 
 `{arg, number, <style>}` takes a **named style** (`integer`/`currency`/`percent`) or an ICU
 **`::`-skeleton** — never a .NET format string. Prefer the skeleton for currency: it takes an
-**explicit ISO code**, `::currency/USD`, which does **not** follow the UI language — a bare
-`currency` style (like `ToString("C")`) does, so a USD price could render in euros under a German
-UI. Currency width is a separate stem (`unit-width-short`/`-narrow`/`-iso-code`/`-full-name`), and
-`::compact-short`/`::compact-long` add compact notation (stems combine, e.g.
-`::compact-short currency/USD`).
+**explicit ISO code**, `::currency/USD`, which does **not** follow the culture the message renders
+in — a bare `currency` style (like `ToString("C")`) does, so a USD price could render in euros once
+the string renders in German. Currency width is a separate stem
+(`unit-width-short`/`-narrow`/`-iso-code`/`-full-name`), and `::compact-short`/`::compact-long` add
+compact notation (stems combine, e.g. `::compact-short currency/USD`).
 
 For a numeric value shown outside a message, `value.ToLocalizedString("::currency/USD")`
 (namespace `ArchPillar.Extensions.Localization.MessageFormat`) runs the same engine and defaults to

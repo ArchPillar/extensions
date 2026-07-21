@@ -17,7 +17,7 @@ Parse, validate, and render the message value grammar used by every format and t
 ## Out of scope
 
 - The Portable Object ↔ gettext plural index conversion (that lives in the Portable Object provider, spec 03; it consumes the plural-category data exposed here).
-- Locale-aware **date/time** formatting beyond delegating to `System.Globalization` (see "Formatters"). Number/currency formatting is **in scope** and CLDR-faithful — see [07-number-formatting.md](07-number-formatting.md).
+- Locale-aware **date/time** formatting beyond delegating to `System.Globalization` (see "Formatters"), including ICU **`::`-skeleton** syntax for `date`/`time` beyond the named styles — still out of scope. Number/currency formatting is **in scope** and CLDR-faithful, skeletons included — see [07-number-formatting.md](07-number-formatting.md).
 
 ## Supported grammar subset
 
