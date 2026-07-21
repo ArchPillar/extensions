@@ -41,6 +41,22 @@ plural category can fall back to; without it a count with no matching selector h
 "{count, plural, one {# item} other {# items}}" // not just `one {…}`
 ```
 
+## Specify the currency code explicitly
+
+`{amount, number, ::currency/USD}` pins the currency to USD; the *formatting* (symbol, grouping,
+decimal separator, spacing) still follows the rendering culture. A bare `{amount, number, currency}`
+— like `ToString("C")` — takes its currency from the culture, so a USD price rendered under a German
+UI would come out in euros. Always pass the ISO code. See
+[features — Number, currency & compact formatting](features.md#number-currency--compact-formatting).
+
+```csharp
+"Total: {amount, number, ::currency/USD}"      // USD everywhere; formatting is localized
+// not: "Total: {amount, number, currency}"    // currency follows the UI language
+```
+
+> The same rule applies to `value.ToLocalizedString("::currency/USD")` for a value shown outside a
+> message — pass the code, and it renders in the current UI culture.
+
 ## Prefer files for trimming, single-file, and AOT
 
 The files-on-disk path uses loose catalogs parsed with DOM APIs and no reflection over assemblies, so
