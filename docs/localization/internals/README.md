@@ -14,6 +14,7 @@ it, see the user-facing docs at [`../`](../).
 | [04-message-format-and-plurals.md](04-message-format-and-plurals.md) | The ICU MessageFormat parser/formatter and embedded CLDR plural data. |
 | [05-runtime.md](05-runtime.md) | The runtime call API, fallback chain, lock-free lookup, and hot reload. |
 | [06-msbuild-integration.md](06-msbuild-integration.md) | The MSBuild property surface and what the build emits. |
+| [07-number-formatting.md](07-number-formatting.md) | The CLDR-48 number/currency/compact formatting engine — the `::`-skeleton subset, the pinned data + generators, currency widths, and the MF-8 precision model. |
 | [TODO.md](TODO.md) | The working implementation tracker. |
 | [llm-skill-testing.md](llm-skill-testing.md) | How the library's LLM Agent Skill is validated against the published package — extraction, `APL` diagnostics, runtime resolution — and how to re-run the oracle. |
 
