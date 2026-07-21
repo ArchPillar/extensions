@@ -48,8 +48,9 @@ Gesamt: 1.234,56 $
 
 ## Notes
 The German catalog is `Translations/de.xliff`, copied beside the binary and loaded as an override
-at runtime; English lives in code, so it has no file. `cart.total` is the one message key with a
-German translation, which is what lets its number render in German — an untranslated message
+at runtime; English lives in code, so it has no file. All three keys are translated in `de.xliff`;
+`cart.total` is the one carrying a `{..., number, ...}` value, so it demonstrates the rule directly
+— because its string is translated for `de`, the number renders in German. An untranslated message
 always renders its `{..., number, ...}` values in the source culture, no matter which culture is
 requested; only a translated string (or `ToLocalizedString`'s explicit culture) reaches the target
 culture's number formatting.
