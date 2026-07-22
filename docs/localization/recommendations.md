@@ -168,15 +168,23 @@ hand (e.g. from `Directory.Build.props`) — add a direct `<PackageReference>`, 
 
 A browser has no readable file system, so the directory source finds nothing: a WebAssembly client must fetch
 its catalogs over HTTP from the app's static web assets. Reference the `…Localization.WebAssembly` package and
-call `host.UseArchPillarLocalizationAsync()` on the built host — it registers the build-emitted manifest as the
-catalog provider and preloads the active language now, so the first render is localized:
+call `host.UseArchPillarLocalizationAsync(options)` on the built host, passing the same `LocalizerOptions`
+instance used to register localization in DI — it registers the build-emitted manifest as the catalog provider
+and preloads the active language now, so the first render is localized:
 
 ```csharp
+var options = new LocalizerOptions { SourceCulture = "en" };
+builder.Services.AddArchPillarLocalization(options);
+
 WebAssemblyHost host = builder.Build();
-await host.UseArchPillarLocalizationAsync();
+await host.UseArchPillarLocalizationAsync(options);
 
 await host.RunAsync();
 ```
+
+`options` is required and must match the DI registration: the call reconfigures the ambient store from scratch,
+so anything the DI options set (source culture, formats, hot reload, culture allow-list) is silently dropped if a
+different — or default — instance is passed here instead.
 
 When the package is referenced in a Blazor WebAssembly app, the build generates `apl-catalogs.json` and registers
 it as a static web asset through the Razor pipeline — gathering the app's own catalogs *and every referenced

@@ -7,10 +7,14 @@ A browser has no readable file system, so the directory catalog source finds not
 fetches its catalogs over HTTP from the app's static web assets instead. This package wires that up in one call.
 
 ```csharp
+var options = new LocalizerOptions { SourceCulture = "en" };
+builder.Services.AddArchPillarLocalization(options);
+
 WebAssemblyHost host = builder.Build();
 
-// Register the build-emitted manifest as a catalog provider and load the active language now.
-await host.UseArchPillarLocalizationAsync();
+// Pass the SAME options instance used above — this reconfigures the ambient store from scratch,
+// so anything the DI registration set (source culture, formats, hot reload, …) would otherwise be lost.
+await host.UseArchPillarLocalizationAsync(options);
 
 await host.RunAsync();
 ```

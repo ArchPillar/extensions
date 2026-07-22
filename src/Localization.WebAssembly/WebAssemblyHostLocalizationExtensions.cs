@@ -23,27 +23,35 @@ public static class WebAssemblyHostLocalizationExtensions
     /// WebAssembly template registers over the host base address), so the provider reuses it for later languages.
     /// </summary>
     /// <param name="host">The Blazor WebAssembly host.</param>
-    /// <param name="options">The localizer options to configure with, or <see langword="null"/> for the defaults.</param>
+    /// <param name="options">
+    /// The localizer options to configure with. Required, and MUST be the same <see cref="LocalizerOptions"/>
+    /// instance (or an equal one) passed to <c>AddArchPillarLocalization</c> in DI: this call reconfigures the
+    /// ambient store from scratch with these options, so any <see cref="LocalizerOptions.SourceCulture"/>,
+    /// <see cref="LocalizerOptions.Formats"/>, hot-reload, culture allow-list, or provider setting the DI
+    /// registration made is silently dropped if a different (or default) instance is passed here.
+    /// </param>
     /// <param name="manifestUri">The manifest URI, relative to the client's base address, or absolute.</param>
     /// <param name="cancellationToken">A token to cancel the initial load.</param>
     /// <returns>A task that completes once the store is configured and the active language is loaded.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="host"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentNullException">
+    /// <paramref name="host"/> or <paramref name="options"/> is <see langword="null"/>.
+    /// </exception>
     /// <exception cref="InvalidOperationException">No <see cref="HttpClient"/> is registered in the host's services.</exception>
     public static async Task UseArchPillarLocalizationAsync(
         this WebAssemblyHost host,
-        LocalizerOptions? options = null,
+        LocalizerOptions options,
         string manifestUri = ManifestCatalogProvider.DefaultManifestPath,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(host);
+        ArgumentNullException.ThrowIfNull(options);
 
-        LocalizerOptions resolved = options ?? new LocalizerOptions();
         HttpClient httpClient = host.Services.GetRequiredService<HttpClient>();
         ManifestCatalogProvider provider = await ManifestCatalogProvider
-            .CreateAsync(httpClient, manifestUri, resolved.SourceCulture, resolved.Formats, cancellationToken)
+            .CreateAsync(httpClient, manifestUri, options.SourceCulture, options.Formats, cancellationToken)
             .ConfigureAwait(false);
 
-        Localizer.Configure(resolved with { Providers = [.. resolved.Providers, _ => provider] });
+        Localizer.Configure(options with { Providers = [.. options.Providers, _ => provider] });
         await Localizer.LoadCultureAsync(CultureInfo.CurrentUICulture, cancellationToken).ConfigureAwait(false);
     }
 }
