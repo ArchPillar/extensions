@@ -202,6 +202,20 @@ public sealed class XliffTranslationFormatTests
         ]
     };
 
+    [Fact]
+    public void Read_DoesNotDisposeTheCallerSuppliedStream()
+    {
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes("""
+            <xliff xmlns="urn:oasis:names:tc:xliff:document:2.1" version="2.1" srcLang="en" trgLang="de">
+              <file id="f1" />
+            </xliff>
+            """));
+
+        _format.Read(stream);
+
+        Assert.True(stream.CanRead);
+    }
+
     private static async Task<Catalog> RoundTripAsync(Catalog catalog) =>
         Read(await WriteAsync(catalog));
 

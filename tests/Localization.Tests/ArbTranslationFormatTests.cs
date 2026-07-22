@@ -389,6 +389,16 @@ public sealed class ArbTranslationFormatTests
         ]
     };
 
+    [Fact]
+    public void Read_DoesNotDisposeTheCallerSuppliedStream()
+    {
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes("""{"@@locale": "de", "greeting": "Hallo"}"""));
+
+        _format.Read(stream);
+
+        Assert.True(stream.CanRead);
+    }
+
     private static async Task<Catalog> RoundTripAsync(Catalog catalog) =>
         Read(await WriteAsync(catalog));
 

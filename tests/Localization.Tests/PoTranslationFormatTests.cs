@@ -230,6 +230,20 @@ public sealed class PoTranslationFormatTests
         Assert.Contains(new SourceReference("Other.cs", 7, 3), entry.References);
     }
 
+    [Fact]
+    public void Read_DoesNotDisposeTheCallerSuppliedStream()
+    {
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes("""
+            msgctxt "k"
+            msgid "src"
+            msgstr "t"
+            """));
+
+        _format.Read(stream);
+
+        Assert.True(stream.CanRead);
+    }
+
     private static Catalog SingleEntry(string key, string message) => new()
     {
         Culture = "de",

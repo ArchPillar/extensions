@@ -36,7 +36,7 @@ public sealed class PoTranslationFormat : ITranslationFormat
     {
         ArgumentNullException.ThrowIfNull(input);
 
-        using var reader = new StreamReader(input, _utf8NoBom);
+        using var reader = new StreamReader(input, _utf8NoBom, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: true);
         var text = reader.ReadToEnd();
         return Parse(text);
     }
