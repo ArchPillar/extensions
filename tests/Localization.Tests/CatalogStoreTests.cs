@@ -171,6 +171,40 @@ public sealed class CatalogStoreTests
         Assert.Equal("Hallo", Resolve(store, _german));
     }
 
+    [Fact]
+    public void Reset_WipesSnapshotAndRaisesCatalogsChanged()
+    {
+        using CatalogStore store = StoreWith(CultureLoading.Eager, new StubProvider(Synchronous("de", "Hallo")));
+        Assert.Equal("Hallo", Resolve(store, _german));
+
+        var changedRaised = false;
+        store.CatalogsChanged += () => changedRaised = true;
+
+        store.Reset();
+
+        // Reset drops the configured provider and rebuilds an empty snapshot: subscribers must be notified of that
+        // populated→empty transition rather than left holding the stale "Hallo" snapshot.
+        Assert.True(changedRaised, "Reset must raise CatalogsChanged for the populated→empty transition");
+
+        // And the override no longer resolves — the store falls back to the in-code default (null here).
+        Assert.Null(Resolve(store, _german));
+    }
+
+    [Fact]
+    public void EnsureCulture_AsyncLoadThrowsNonLoadFailure_StaysUsableAndDegradesToDefault()
+    {
+        using CatalogStore store = StoreWith(CultureLoading.OnDemand, new StubProvider(FaultingAsynchronous("de")));
+
+        // The async load throws InvalidOperationException — not a catalog-load failure, so FetchAsync lets it
+        // propagate and its loader task faults. On the fire-and-forget miss path the store must observe that fault
+        // (not discard it) and stay usable: the miss simply degrades to the in-code default, and the store keeps
+        // working.
+        store.EnsureCulture(_german);
+
+        Assert.Null(Resolve(store, _german));
+        Assert.Empty(store.LoadedCultures);
+    }
+
     private static CatalogStore StoreWith(CultureLoading loading, params ICatalogProvider[] providers) =>
         new(new LocalizerOptions
         {
@@ -221,6 +255,16 @@ public sealed class CatalogStoreTests
         {
             await gate.ConfigureAwait(false);
             return ParseArb(ArbBytes(culture, message));
+        }));
+
+    // An asynchronous load that faults with a NON-catalog-load-failure exception (InvalidOperationException is not in
+    // the loader's caught set), so FetchAsync lets it propagate and the returned task faults — exercising the
+    // fire-and-forget miss path's fault-observing continuation.
+    private static CatalogSpec FaultingAsynchronous(string culture) =>
+        new(culture, () => new CatalogSource.Asynchronous(async _ =>
+        {
+            await Task.Yield();
+            throw new InvalidOperationException("boom");
         }));
 
     private static CatalogSpec Malformed(string culture) =>

@@ -216,13 +216,29 @@ internal sealed class CatalogStore : IDisposable
         // Return to the default empty state: drop the configured providers (and their loaded catalogs) and the
         // in-use culture set, re-deriving the default context. The ambient store re-discovers its embedded and
         // satellite catalogs on the next use; a directory-backed store falls back to the default directory.
-        ApplyOptions(new LocalizerOptions());
-        _loadedCultures.Clear();
-        Rebuild(changed: false);
+        // Serialized by _startupGate (the outer lock) exactly like Configure, so the watch teardown inside
+        // ApplyOptions cannot race a first-time EnsureStarted growing _watches. Rebuild takes _gate internally, so
+        // this holds the correct outer→inner order. Rebuild(changed: true) notifies subscribers that the merged
+        // snapshot went empty — a populated→empty transition is a real change (an already-empty reset fires one
+        // harmless spurious event, far safer than leaving subscribers on a stale snapshot).
+        lock (_startupGate)
+        {
+            ApplyOptions(new LocalizerOptions());
+            _loadedCultures.Clear();
+            Rebuild(changed: true);
+        }
     }
 
     /// <inheritdoc />
-    public void Dispose() => DisposeWatches();
+    public void Dispose()
+    {
+        // Serialized by _startupGate (the outer lock) so the watch teardown cannot race a first-time EnsureStarted
+        // growing _watches — the same discipline Configure and Reset follow.
+        lock (_startupGate)
+        {
+            DisposeWatches();
+        }
+    }
 
     #endregion
 
@@ -336,7 +352,16 @@ internal sealed class CatalogStore : IDisposable
     // Rebuild(false) establishes the baseline when nothing loaded — a no-op once a snapshot exists.
     private void LoadAndPublish(IReadOnlyList<(ICatalogProvider Provider, CatalogDescriptor Descriptor)> work)
     {
-        _loader.Load(work, () => Rebuild(changed: true));
+        // Fire-and-forget: observe each asynchronous load's fault so a non-load-failure exception (e.g. an HttpClient
+        // timeout that FetchAsync deliberately lets propagate) is marked observed and cannot resurface later as an
+        // UnobservedTaskException. A log provider will surface these; here the store just degrades to the in-code default.
+        foreach (Task task in _loader.Load(work, () => Rebuild(changed: true)))
+        {
+            task.ContinueWith(
+                static faulted => _ = faulted.Exception,
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously);
+        }
+
         Rebuild(changed: false);
     }
 
