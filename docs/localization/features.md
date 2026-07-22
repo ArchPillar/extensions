@@ -139,9 +139,9 @@ Localizer.Configure(options with { Providers = [.. options.Providers, _ => new I
 ```
 
 Sources layer **embedded < satellite < directory < host**, last-wins; a lookup is one lock-free read
-that falls to the in-code default on a miss. Internally the loaded catalogs are merged into a single
-flat snapshot, and any custom `ITranslationSource` layers sit above it as additional, equally-ranked
-layers resolved by the very same loop — there is no privileged path for either (see
+that falls to the in-code default on a miss. Internally the loaded catalogs from every provider — built-in
+or a custom one added through `LocalizerOptions.Providers` — merge into a single flat snapshot resolved by
+the very same loop, so a custom provider is never a second-class source (see
 [the loading model](internals/SPEC.md)). `Localizer.Reset()` clears everything back to empty (for test
 isolation). See [recommendations.md](recommendations.md) for why the store is global and how to keep
 tests deterministic against it.
@@ -199,8 +199,8 @@ implemented as a [catalog provider](#catalog-providers) behind a single interfac
 A **catalog provider** is the seam between *where catalog bytes come from* and *how the store reads them*.
 Each delivery mechanism above is a provider implementing `ICatalogProvider`; the store owns the providers,
 asks them what catalogs exist, and parses the bytes itself with the matching container format. This is the
-public extension point for a custom catalog source — distinct from `ITranslationSource`, which resolves a
-single key at lookup time rather than supplying whole catalogs.
+one public extension point for a custom catalog source — there is no separate single-key-lookup mechanism;
+every override, built-in or custom, arrives as a whole catalog.
 
 **Discovery is split from load, and sealed into construction.** A provider is *born ready*: by the time you
 hold an instance, its descriptor inventory is known and exposed **synchronously** — a synchronous provider
@@ -468,7 +468,7 @@ translation pipeline prefers and the runtime loads all three side by side; when 
 more than one format the higher-fidelity file wins (`xliff` > `arb` > `po`, a fixed tie-breaker) and the
 loser is never opened. Each provider (`ArbTranslationFormat`, `XliffTranslationFormat`,
 `PoTranslationFormat`) is public and **stream-based**, so a catalog can come from anywhere — a file, an
-embedded resource, an HTTP response, a database column — and you can build a custom `ITranslationSource`
+embedded resource, an HTTP response, a database column — and you can build a custom `ICatalogProvider`
 on top of one.
 
 ## Compile-time extraction and the typed key registry
