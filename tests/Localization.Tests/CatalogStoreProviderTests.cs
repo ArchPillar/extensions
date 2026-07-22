@@ -95,11 +95,13 @@ public sealed class CatalogStoreProviderTests
     [Fact]
     public async Task OnDemand_ConcurrentEnsureCulture_LoadsEachExactlyOnceAsync()
     {
-        // A gated asynchronous provider so the single background fetch stays in flight for the whole burst: every
-        // overlapping request for the same not-yet-loaded culture then coalesces onto that one in-flight task
-        // instead of racing a second fetch. (The pre-fix duplicate fetch is a thread race and only fires
-        // intermittently, so this pins the post-fix invariant — one fetch per identity — as a regression guard
-        // rather than a deterministic RED; the fix is correctness-by-construction via Lazy<Task>.)
+        // The m1 race is many threads contending to be the FIRST to insert an identity into the loader's in-flight
+        // map, where a non-atomic GetOrAdd factory can let several callers each launch a real fetch for the same
+        // absent key. So the culture is deliberately not primed here — every racer must contest that first
+        // insertion. The gated provider counts each open at entry and then blocks, so overlapping fetches stay
+        // observable. A start barrier releases all racers together and an arrival barrier holds the one fetch in
+        // flight until every racer has reached the map. The Lazy fix runs exactly one fetch per identity, so
+        // without it each racer launches its own and the open count climbs past one.
         var provider = new GatedCountingProvider("de", "Hallo");
         using var store = new CatalogStore(new LocalizerOptions
         {
@@ -111,18 +113,46 @@ public sealed class CatalogStoreProviderTests
             Providers = [_ => provider]
         });
 
-        // The fire-and-forget miss queues the single background fetch (held at the gate); the awaited loads then
-        // pile onto the same in-flight identity. Each LoadCultureAsync reaches the loader's dedup synchronously, so
-        // with the fetch held they all coalesce before any of them can complete.
-        store.EnsureCulture(_german);
-        var loads = Enumerable.Range(0, 32)
-            .Select(_ => store.LoadCultureAsync(_german, CancellationToken.None))
-            .ToList();
+        const int Racers = 33;
+        var start = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var allArrived = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var arrivedCount = 0;
 
+        Task[] racers = Enumerable.Range(0, Racers).Select(index => Task.Run(async () =>
+        {
+            await start.Task.ConfigureAwait(false);
+
+            // Half take the fire-and-forget miss path and half the awaited path; both reach the loader's in-flight
+            // map synchronously before returning, so recording arrival right after the call is accurate.
+            Task? awaited = null;
+            if (index % 2 == 0)
+            {
+                store.EnsureCulture(_german);
+            }
+            else
+            {
+                awaited = store.LoadCultureAsync(_german, CancellationToken.None);
+            }
+
+            if (Interlocked.Increment(ref arrivedCount) == Racers)
+            {
+                allArrived.SetResult();
+            }
+
+            if (awaited is not null)
+            {
+                await awaited.ConfigureAwait(false);
+            }
+        })).ToArray();
+
+        // Release the whole burst at once, wait until every racer has hit the in-flight map, then let the fetch
+        // complete: this makes the first-insertion race genuine while keeping the outcome deterministic.
+        start.SetResult();
+        await allArrived.Task.WaitAsync(TimeSpan.FromSeconds(5));
         provider.Release();
-        await Task.WhenAll(loads).WaitAsync(TimeSpan.FromSeconds(5));
+        await Task.WhenAll(racers).WaitAsync(TimeSpan.FromSeconds(5));
 
-        // One fetch per identity: the coalesced in-flight task opened the provider exactly once despite the burst.
+        // One fetch per identity: the coalesced in-flight task opened the provider exactly once despite the race.
         Assert.Equal(1, provider.OpenCount);
         Assert.Equal("Hallo", Resolve(store, _german));
     }

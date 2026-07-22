@@ -144,6 +144,9 @@ internal sealed class CatalogLoader(
         }
         finally
         {
+            // Removing the entry re-opens this identity to a later reload. The Lazy is stored before its Value is
+            // evaluated, so a concurrent racer always coalesces onto it; only a fetch that completes fully
+            // synchronously (no real provider does — the first await always suspends) could narrow that window.
             _inFlight.TryRemove(descriptor.Identity, out _);
         }
     }
