@@ -191,14 +191,17 @@ public sealed class CatalogStoreTests
     }
 
     [Fact]
-    public void EnsureCulture_AsyncLoadThrowsNonLoadFailure_StaysUsableAndDegradesToDefault()
+    public void EnsureCulture_FaultingAsyncProvider_DegradesToDefaultAndStaysUsable()
     {
         using CatalogStore store = StoreWith(CultureLoading.OnDemand, new StubProvider(FaultingAsynchronous("de")));
 
-        // The async load throws InvalidOperationException — not a catalog-load failure, so FetchAsync lets it
-        // propagate and its loader task faults. On the fire-and-forget miss path the store must observe that fault
-        // (not discard it) and stay usable: the miss simply degrades to the in-code default, and the store keeps
-        // working.
+        // A non-catalog-load-failure (InvalidOperationException, outside the loader's caught set) faults the async
+        // load on the fire-and-forget miss path: FetchAsync lets it propagate and the discarded loader task faults.
+        // The store must not crash, and the miss degrades to the in-code default (null here). NOTE: this asserts
+        // graceful degradation ONLY — it does not prove the m2 fault-observing continuation, because that is
+        // observable only via TaskScheduler.UnobservedTaskException after a forced GC, and SonarAnalyzer S1215 bans
+        // GC.Collect in this repo (a scoped suppression would need explicit approval). The fault-observation itself
+        // (the ContinueWith(static t => _ = t.Exception, ...) in LoadAndPublish) is verified by inspection.
         store.EnsureCulture(_german);
 
         Assert.Null(Resolve(store, _german));
@@ -258,8 +261,8 @@ public sealed class CatalogStoreTests
         }));
 
     // An asynchronous load that faults with a NON-catalog-load-failure exception (InvalidOperationException is not in
-    // the loader's caught set), so FetchAsync lets it propagate and the returned task faults — exercising the
-    // fire-and-forget miss path's fault-observing continuation.
+    // the loader's caught set), so FetchAsync lets it propagate and the returned task faults — driving the
+    // fire-and-forget miss path's graceful degradation.
     private static CatalogSpec FaultingAsynchronous(string culture) =>
         new(culture, () => new CatalogSource.Asynchronous(async _ =>
         {

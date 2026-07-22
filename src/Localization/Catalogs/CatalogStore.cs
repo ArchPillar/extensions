@@ -45,7 +45,11 @@ internal sealed class CatalogStore : IDisposable
     private volatile TranslationSnapshot _snapshot = TranslationSnapshot.Empty;
 
     /// <summary>Raised after a rebuild that changed the merged snapshot. Raised once per operation and outside
-    /// <c>_gate</c>, so a subscriber may re-enter the store.</summary>
+    /// <c>_gate</c>, so a subscriber may re-enter the store for a lookup. Note that on the startup, reconfigure, and
+    /// reset paths it is raised while the outer <c>_startupGate</c> is held: that gate is reentrant, so the raising
+    /// thread may itself re-enter the store, but a subscriber must not synchronously block waiting on a <em>different</em>
+    /// thread that is calling <see cref="Configure"/>, <see cref="Reset"/>, <see cref="Dispose"/>, or
+    /// <see cref="EnsureStarted"/>, or the two threads deadlock on the gate.</summary>
     public event Action? CatalogsChanged;
 
     #endregion
