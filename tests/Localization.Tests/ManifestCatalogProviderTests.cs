@@ -131,6 +131,34 @@ public sealed class ManifestCatalogProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task CreateAsync_DisposesTheManifestAndCatalogHttpResponsesAsync()
+    {
+        var de = await ArbBytesAsync("de", "greeting", "Hallo");
+        const string Manifest = "{\"version\":1,\"catalogs\":[{\"culture\":\"de\",\"file\":\"App.de.arb\"}]}";
+        var handler = new StubHandler(new()
+        {
+            ["/Translations/apl-catalogs.json"] = Ok(Encoding.UTF8.GetBytes(Manifest)),
+            ["/Translations/App.de.arb"] = Ok(de)
+        });
+        var client = new HttpClient(handler, disposeHandler: false) { BaseAddress = new Uri("http://localhost/") };
+        _disposables.Add(handler);
+        _disposables.Add(client);
+
+        ManifestCatalogProvider provider = await ManifestCatalogProvider.CreateAsync(client);
+        CatalogDescriptor descriptor = Assert.Single(provider.Catalogs);
+        CatalogSource.Asynchronous asynchronous = Assert.IsType<CatalogSource.Asynchronous>(descriptor.Source);
+
+        await asynchronous.OpenAsync(CancellationToken.None);
+
+        // Pin: ManifestCatalogProvider already disposes both responses via `using` (ReadManifestAsync for the
+        // manifest, FetchAndReadAsync for the catalog) — this guards against a future refactor dropping either.
+        TrackingHttpResponseMessage manifestResponse = handler.Sent["/Translations/apl-catalogs.json"];
+        TrackingHttpResponseMessage catalogResponse = handler.Sent["/Translations/App.de.arb"];
+        Assert.True(manifestResponse.Disposed);
+        Assert.True(catalogResponse.Disposed);
+    }
+
+    [Fact]
     public async Task Watch_IsANoOpHandleAsync()
     {
         using var http = new HttpClient { BaseAddress = new Uri("http://localhost/") };
@@ -196,19 +224,35 @@ public sealed class ManifestCatalogProviderTests : IDisposable
 
     // A stub handler over a fixed response table. It yields asynchronously (await Task.Yield()) so the response
     // completes asynchronously like a real HttpClient — keeping a manifest provider genuinely async, so the
-    // store's synchronous on-demand path skips it and it is loaded only through the awaited paths.
+    // store's synchronous on-demand path skips it and it is loaded only through the awaited paths. Every
+    // response it hands out is a TrackingHttpResponseMessage, keyed by request path in Sent, so a test can pin
+    // that the provider disposes it.
     internal sealed class StubHandler(Dictionary<string, (HttpStatusCode Status, byte[] Body)> responses) : HttpMessageHandler
     {
+        public Dictionary<string, TrackingHttpResponseMessage> Sent { get; } = [];
+
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             await Task.Yield();
             var path = request.RequestUri!.AbsolutePath;
-            if (responses.TryGetValue(path, out (HttpStatusCode Status, byte[] Body) entry))
-            {
-                return new HttpResponseMessage(entry.Status) { Content = new ByteArrayContent(entry.Body) };
-            }
+            TrackingHttpResponseMessage response = responses.TryGetValue(path, out (HttpStatusCode Status, byte[] Body) entry)
+                ? new TrackingHttpResponseMessage(entry.Status) { Content = new ByteArrayContent(entry.Body) }
+                : new TrackingHttpResponseMessage(HttpStatusCode.NotFound);
+            Sent[path] = response;
+            return response;
+        }
+    }
 
-            return new HttpResponseMessage(HttpStatusCode.NotFound);
+    // Observes disposal so a test can assert the provider disposed the response it fetched, without relying on
+    // reflection or a mock framework.
+    internal sealed class TrackingHttpResponseMessage(HttpStatusCode statusCode) : HttpResponseMessage(statusCode)
+    {
+        public bool Disposed { get; private set; }
+
+        protected override void Dispose(bool disposing)
+        {
+            Disposed = true;
+            base.Dispose(disposing);
         }
     }
 }

@@ -43,6 +43,11 @@ internal sealed record NumberFormatSpec(
     /// <summary>The <c>percent</c> style.</summary>
     public static NumberFormatSpec Percent { get; } = new(NumberUnit.Percent, null, null, null, true, NumberNotation.Standard);
 
+    // The bare `currency` style (no explicit code) is the only null-code call site in practice, so it is worth
+    // caching like Default/Integer/Percent; an explicit code varies per call and is never cached.
+    private static readonly NumberFormatSpec _bareCurrency = new(NumberUnit.Currency, null, null, null, true, NumberNotation.Standard);
+
     /// <summary>The <c>currency</c> style, optionally with an explicit ISO code (<see langword="null"/> = the culture's own).</summary>
-    public static NumberFormatSpec Currency(string? code) => new(NumberUnit.Currency, code, null, null, true, NumberNotation.Standard);
+    public static NumberFormatSpec Currency(string? code) =>
+        code is null ? _bareCurrency : new NumberFormatSpec(NumberUnit.Currency, code, null, null, true, NumberNotation.Standard);
 }
