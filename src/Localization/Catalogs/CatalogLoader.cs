@@ -23,7 +23,7 @@ internal sealed class CatalogLoader(
     IReadOnlyList<ICatalogProvider> providers)
 {
     private readonly IReadOnlyDictionary<ICatalogProvider, ConcurrentDictionary<(string Culture, string Name), Catalog?>> _registry = providers.ToDictionary(provider => provider, _ => new ConcurrentDictionary<(string Culture, string Name), Catalog?>());
-    private readonly ConcurrentDictionary<(string Culture, string Name), Task> _inFlight = new();
+    private readonly ConcurrentDictionary<(string Culture, string Name), Lazy<Task>> _inFlight = new();
 
     // Loads the whole <paramref name="work"/> set (each item a provider and one of its descriptors): every catalog is
     // opened and registered unless already loaded, failed, or in flight. A synchronous source is opened inline and an
@@ -44,7 +44,12 @@ internal sealed class CatalogLoader(
                     grew |= OpenSynchronous(provider, descriptor, source);
                     break;
                 case CatalogSource.Asynchronous source:
-                    tasks.Add(_inFlight.GetOrAdd(descriptor.Identity, _ => FetchAsync(provider, descriptor, source, onChanged)));
+                    // Wrap the fetch in a Lazy so GetOrAdd's factory is side-effect-free: a racing GetOrAdd may build
+                    // several Lazy values, but only the one actually stored ever has its Value evaluated, so exactly
+                    // one FetchAsync runs per identity — no duplicate I/O, and no loser to race the finally's removal.
+                    Task task = _inFlight.GetOrAdd(descriptor.Identity,
+                        _ => new Lazy<Task>(() => FetchAsync(provider, descriptor, source, onChanged))).Value;
+                    tasks.Add(task);
                     break;
             }
         }

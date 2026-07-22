@@ -39,14 +39,20 @@ public sealed class CatalogStoreTests
         // Hold the background fetch at a gate so the "still default" state below is observable deterministically:
         // without it the queued load can commit before the assertion and the test flakes.
         var gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using CatalogStore store = StoreWith(CultureLoading.OnDemand, new StubProvider(GatedAsynchronous("de", "Hallo", gate.Task)));
+        var provider = new StubProvider(GatedAsynchronous("de", "Hallo", gate.Task));
+        using CatalogStore store = StoreWith(CultureLoading.OnDemand, provider);
         var changed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         store.CatalogsChanged += () => changed.TrySetResult();
 
+        // Nothing is opened until a culture is requested.
+        Assert.Equal(0, provider.OpenCount);
+
         // The synchronous miss must not block on the network: it returns nothing now and queues a background load
-        // (parked at the gate, so it cannot have committed yet).
+        // (parked at the gate, so it cannot have committed yet). The async source is opened on that background path
+        // only — never inline on the lookup — and exactly once.
         store.EnsureCulture(_german);
         Assert.Null(Resolve(store, _german));
+        Assert.Equal(1, provider.OpenCount);
 
         // Release the fetch; the background load lands and raises CatalogsChanged; after that the lookup resolves.
         gate.SetResult();
