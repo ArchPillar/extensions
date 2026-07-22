@@ -50,6 +50,9 @@ internal static class PatternRenderer
     // parse-time fraction-stem rejection there share the one source of truth for decimal's rounding limit.
     internal const int MaxDecimalScale = 28;
 
+    // The largest absolute value that can scale by 100 (percent rendering) without overflowing decimal range.
+    private static readonly decimal _maxPercentValue = decimal.MaxValue / 100m;
+
     public static string Render(
         NumberPattern pattern,
         decimal value,
@@ -64,7 +67,7 @@ internal static class PatternRenderer
         var absolute = Math.Abs(value);
         if (pattern.IsPercent)
         {
-            if (absolute > decimal.MaxValue / 100m)
+            if (absolute > _maxPercentValue)
             {
                 throw new MessageFormatException(
                     $"Value {value} cannot be rendered as a percent: scaling by 100 would overflow decimal range.", -1);

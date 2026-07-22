@@ -116,7 +116,7 @@ public sealed class LocalizerOptions
 - When `EnableHotReload` is true, attach a `FileSystemWatcher` to `TranslationsDirectory`.
 - **Debounce:** editors and copy operations fire multiple events per save; collect events and rebuild only after a quiet period of `HotReloadDebounce`. Rebuild only the affected culture(s) where the layout makes that determinable, otherwise rebuild the whole snapshot; either way publish via the same atomic swap.
 - The watcher is the only thing gated behind the flag. With it off, the runtime is complete and correct; turning it on adds one debounced handler that calls the identical reload path. The core lookup never references the watcher.
-- There is no manual `Reload()` — `CatalogStore` has no such method. A host that wants to trigger a refresh itself (for example after pulling new translation files from a Translation Management System) reconfigures: `LocalizationContext.Configure(options)` (or `Localizer.Configure(options)` for the ambient store) re-scans and rebuilds from the current options, the same path the directory watcher drives automatically.
+- There is no manual `Reload()` — `CatalogStore` has no such method. A host that wants to trigger a refresh itself (for example after pulling new translation files from a Translation Management System) reconfigures: `LocalizationContext.Configure(options)` (or `Localizer.Configure(options)` for the ambient store) re-scans and rebuilds from the current options, which converges on the same atomic snapshot rebuild the directory watcher triggers automatically.
 
 ## Diagnostics and observability
 

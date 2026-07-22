@@ -43,12 +43,14 @@ public sealed class PatternRendererTests
     public void Render_PercentAtOverflowBoundary_Succeeds()
     {
         // decimal.MaxValue divided by 100 is the largest value whose percent scaling still fits in decimal
-        // range; dividing then re-scaling by 100 round-trips exactly, so this must render, not throw.
+        // range; dividing then re-scaling by 100 round-trips exactly, so the rendered digits equal
+        // decimal.MaxValue itself (grouped), with the locale percent sign appended — not merely "doesn't throw".
         const decimal Value = decimal.MaxValue / 100m;
 
         var result = Render("#,##0%", Value, PatternPrecision.Fraction(0, 0), _en);
 
-        Assert.EndsWith("%", result, StringComparison.Ordinal);
+        var expected = decimal.MaxValue.ToString("#,##0", _en) + _en.NumberFormat.PercentSymbol;
+        Assert.Equal(expected, result);
     }
 
     [Fact]
