@@ -79,7 +79,7 @@ lifecycle and commands are in [translation-workflow.md](translation-workflow.md)
 | Dependency injection | `AddArchPillarLocalization` feeds the process-wide ambient context and registers injectable native localizers; the generated `AddArchPillarLocalizedBundles()` registers the assembly's `Localized<T>` bundles. |
 | `IStringLocalizer` interop + migration | A separate `…StringLocalizer` package (`AddArchPillarStringLocalizer`): a composing adapter, on-by-default extraction of indexer literals, and a no-op `L(...)` marker — droppable once migration is done. |
 | Display annotations | `[DisplayName]` / `[Display]` / `[Description]` extracted by default (opt-out, text-as-key); optional `[Localized…]` twins supply the source default when you key by a string id; `GetLocalizedDisplayName()` localizes enums; the `…AspNetCore` package routes MVC DataAnnotations through the localizer. |
-| Blazor WebAssembly / HTTP loading | Where there is no file system, the separate `…WebAssembly` package's `host.UseArchPillarLocalizationAsync()` registers a build-emitted manifest as a catalog provider and loads the active language up front; the app loads any other language at runtime with `Localizer.LoadCultureAsync(culture)` inside the switch handler (which re-renders normally); `Localizer.CatalogsChanged` is exposed for the rarer background-fill refresh. The `…AspNetCore` package serves the catalog formats as static files (`UseArchPillarTranslationFiles`). |
+| Blazor WebAssembly / HTTP loading | Where there is no file system, the separate `…WebAssembly` package's `host.UseArchPillarLocalizationAsync(options)` registers a build-emitted manifest as a catalog provider and loads the active language up front; the app loads any other language at runtime with `Localizer.LoadCultureAsync(culture)` inside the switch handler (which re-renders normally); `Localizer.CatalogsChanged` is exposed for the rarer background-fill refresh. The `…AspNetCore` package serves the catalog formats as static files (`UseArchPillarTranslationFiles`). |
 | Publishing | A publish-time merge to one bundle per culture; a documented trim / single-file / AOT matrix. |
 | Zero external dependencies | The runtime, formats, and ICU parser use only the BCL — no third-party packages. |
 
@@ -119,7 +119,7 @@ Runnable examples under [`samples/Localization/`](../../samples/Localization/):
 - [Localization.WasmSample](../../samples/Localization/Localization.WasmSample/) +
   [Localization.WasmLibrary](../../samples/Localization/Localization.WasmLibrary/) — Blazor WebAssembly: catalogs
   are discovered through a build-emitted manifest and fetched over HTTP (`ManifestCatalogProvider`, registered by
-  `host.UseArchPillarLocalizationAsync()`); the build gathers the app's own and the referenced library's catalogs
+  `host.UseArchPillarLocalizationAsync(options)`); the build gathers the app's own and the referenced library's catalogs
   (merged into one bundle per culture on publish), and culture switches in-process.
 - [Localization.TodoSample](../../samples/Localization/Localization.TodoSample/) — a console to-do app
   with English + German/French and a pseudo-localization smoke test.

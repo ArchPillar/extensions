@@ -24,11 +24,10 @@ public static class WebAssemblyHostLocalizationExtensions
     /// </summary>
     /// <param name="host">The Blazor WebAssembly host.</param>
     /// <param name="options">
-    /// The localizer options to configure with. Required, and MUST be the same <see cref="LocalizerOptions"/>
-    /// instance (or an equal one) passed to <c>AddArchPillarLocalization</c> in DI: this call reconfigures the
-    /// ambient store from scratch with these options, so any <see cref="LocalizerOptions.SourceCulture"/>,
-    /// <see cref="LocalizerOptions.Formats"/>, hot-reload, culture allow-list, or provider setting the DI
-    /// registration made is silently dropped if a different (or default) instance is passed here.
+    /// The localizer options. Required, and must be the same <see cref="LocalizerOptions"/> (or an equal one)
+    /// passed to <c>AddArchPillarLocalization</c> in DI — this call reconfigures the ambient store from scratch
+    /// with these options, so any <see cref="LocalizerOptions.SourceCulture"/>, <see cref="LocalizerOptions.Formats"/>,
+    /// hot-reload, culture allow-list, or providers set at DI registration but absent here are silently dropped.
     /// </param>
     /// <param name="manifestUri">The manifest URI, relative to the client's base address, or absolute.</param>
     /// <param name="cancellationToken">A token to cancel the initial load.</param>
