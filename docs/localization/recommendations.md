@@ -93,18 +93,18 @@ pin the two equal (or apply `[assembly: RootNamespace]`) so the legacy resources
 ## Prefer an isolated context (or localizer) in tests over the shared ambient store
 
 The ambient store is process-wide global state, so tests that touch it share it and cannot run in
-parallel safely. To avoid that, **construct a `LocalizationContext`** (or, for just the engine, a
-`DefaultLocalizer`) per test and read through it — it shares nothing with the ambient store or with another
-context, so tests stay isolated and parallelisable with no teardown.
+parallel safely. To avoid that, **construct a `LocalizationContext`** per test, seeded with an
+`InMemoryCatalogProvider` for a fixed set of catalogs, and read through it — it shares nothing with the
+ambient store or with another context, so tests stay isolated and parallelisable with no teardown.
 
 Reserve the shared ambient store (with `Localizer.Reset()` in setup/teardown) for the handful of tests
 that specifically cover ambient loading and discovery.
 
 ```csharp
-using var context = new LocalizationContext(new LocalizerOptions { SourceCulture = "en" });
-context.AddCatalog(catalog);                    // isolated — no shared state, safe in parallel
+var options = new LocalizerOptions { Providers = [_ => new InMemoryCatalogProvider([catalog])] };
+using var context = new LocalizationContext(options);   // isolated — no shared state, safe in parallel
 
-var localizer = new DefaultLocalizer(catalogs); // or just the engine over fixed catalogs
+string s = context.Default.Translate("home.title", "Home");
 ```
 
 ## Treat `IStringLocalizer` extraction as a bridge, not a source
@@ -209,9 +209,10 @@ components — it is an app-level refresh, not a per-component one.
 
 A missing manifest, a missing catalog, or a malformed one is skipped, so a partial deployment degrades to the
 in-code defaults rather than throwing. To wire it yourself instead of using the host extension, create the
-provider with `ManifestCatalogProvider.CreateAsync(http)`, register it with `Localizer.AddProvider(provider)`, and
-load the active language with `Localizer.LoadCultureAsync`. To parse every culture the manifest lists up front — a
-host that shows several at once — call `Localizer.PreloadAllAsync()` after registering the provider.
+provider with `ManifestCatalogProvider.CreateAsync(http)`, layer it in by reconfiguring —
+`Localizer.Configure(options with { Providers = [.. options.Providers, _ => provider] })` — and load the active
+language with `Localizer.LoadCultureAsync`. To parse every culture the manifest lists up front — a host that
+shows several at once — call `Localizer.PreloadAllAsync()` after reconfiguring.
 
 ## Load cultures on demand in a single-user client
 

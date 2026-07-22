@@ -37,8 +37,9 @@ Console.WriteLine(Greet("Ada"));                  // "Hallo Ada!" once a de cata
 
 `Translate` goes through the process-wide ambient store, reachable with no services (or call
 `Localizer.Default.Translate(...)` without the `using static`). Translations come from a
-`Translations/de.arb` file beside the binary (loaded automatically), an embedded catalog, or
-`Localizer.AddCatalog(...)`. Scope keys by category with `ILocalizer<T>` as an app grows.
+`Translations/de.arb` file beside the binary (loaded automatically), an embedded catalog, or an extra
+provider layered through `LocalizerOptions.Providers` and `Localizer.Configure(...)`. Scope keys by
+category with `ILocalizer<T>` as an app grows.
 
 ## Dependency injection and IStringLocalizer
 

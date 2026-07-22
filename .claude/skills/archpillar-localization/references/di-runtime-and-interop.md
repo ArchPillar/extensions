@@ -42,10 +42,13 @@ One process-wide, layered store modeled on `IConfiguration`, reachable with no s
 `using static …Localizer;`). All configuration flows through one `LocalizerOptions` surface:
 
 ```csharp
-Localizer.Configure(new LocalizerOptions { SourceCulture = "en", TranslationsDirectory = "Translations" });
+var options = new LocalizerOptions { SourceCulture = "en", TranslationsDirectory = "Translations" };
+Localizer.Configure(options);
 Localizer.Initialize(options, eager: true);   // configure + load now (otherwise lazy on first use)
-Localizer.AddCatalog(catalog);                 // layer a host override
-Localizer.AddSource(new PseudoLocalizationSource()); // any ITranslationSource
+
+// Layer a host override: no runtime mutation surface — build new options with an extra provider
+// factory appended to Providers and reconfigure.
+Localizer.Configure(options with { Providers = [.. options.Providers, _ => new InMemoryCatalogProvider([catalog])] });
 Localizer.Reset();                              // clear to empty (test isolation)
 ```
 
@@ -59,8 +62,9 @@ A process-wide static is not always wanted (parallel tests, multi-scope hosting)
 that shares nothing with the ambient one or any other context:
 
 ```csharp
-using var context = new LocalizationContext(new LocalizerOptions { SourceCulture = "en" });
-context.AddCatalog(catalog);
+var options = new LocalizerOptions { SourceCulture = "en" };
+using var context = new LocalizationContext(options);
+context.Configure(options with { Providers = [.. options.Providers, _ => new InMemoryCatalogProvider([catalog])] });
 string s = context.For<Checkout>().Translate("pay", "Pay now");
 ```
 

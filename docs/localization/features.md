@@ -124,13 +124,18 @@ does the same and can eager-load up front (otherwise the store loads lazily on f
 ```csharp
 string s = Localizer.Default.Translate("home.title", "Home");
 string t = Translate("home.title", "Home");          // with `using static …Localizer;` — the same call
-Localizer.AddCatalog(catalog);                       // layer a host override (last source wins)
-Localizer.Configure(new LocalizerOptions            // the single configuration surface
+
+var options = new LocalizerOptions                   // the single configuration surface
 {
     SourceCulture = "en",                            // language the in-code defaults are written in
     TranslationsDirectory = "Translations"           // where loose files are read from
-});
+};
+Localizer.Configure(options);
 Localizer.Initialize(options, eager: true);          // configure and load now, at startup
+
+// Layer a host override: there is no runtime mutation surface, so build new options with an
+// extra provider factory appended and reconfigure (last provider wins on overlap).
+Localizer.Configure(options with { Providers = [.. options.Providers, _ => new InMemoryCatalogProvider([catalog])] });
 ```
 
 Sources layer **embedded < satellite < directory < host**, last-wins; a lookup is one lock-free read
@@ -150,8 +155,9 @@ environment the ambient facade wraps, exposed as an ordinary object you can cons
 dispose. In fact the ambient `Localizer` is *exactly* one of these, held in a single static field.
 
 ```csharp
-using var context = new LocalizationContext(new LocalizerOptions { SourceCulture = "en" });
-context.AddCatalog(catalog);
+var options = new LocalizerOptions { SourceCulture = "en" };
+using var context = new LocalizationContext(options);
+context.Configure(options with { Providers = [.. options.Providers, _ => new InMemoryCatalogProvider([catalog])] });
 
 string s = context.Default.Translate("home.title", "Home");
 string t = context.For<Checkout>().Translate("pay", "Pay now");
@@ -159,8 +165,8 @@ string t = context.For<Checkout>().Translate("pay", "Pay now");
 
 A constructed context shares nothing with the ambient one or with any other context — two of them never
 see each other's catalogs — which is what makes them safe for test isolation and multi-scope hosting. It
-carries the full call and configuration surface (`Default`, `For<T>()`, `Translate`, `AddCatalog`,
-`AddSource`, `Configure`, `Load`, `Reset`), and disposing it tears down its directory watcher. For an
+carries the full call and configuration surface (`Default`, `For<T>()`, `Translate`, `Configure`, `Load`,
+`LoadCultureAsync`, `PreloadAllAsync`, `Reset`), and disposing it tears down its directory watcher. For an
 isolated environment, construct one directly and thread it through your own code rather than reaching for
 the static `Localizer`.
 
@@ -255,34 +261,44 @@ synchronous miss) rather than driving a synchronous switch — see the Blazor We
 
 The store is **provider-agnostic**: it loads from an ordered list of providers, lowest-precedence-first (a
 later provider wins on overlap), and never knows where the bytes come from. It auto-wires its synchronous
-defaults, and a host adds further providers explicitly with `AddProvider`:
+defaults, and a host layers further providers through `LocalizerOptions.Providers`:
 
 | Store | Auto-default providers |
 |-------|------------------------|
 | Process-wide ambient (`Localizer` / `AddArchPillarLocalization`) | `[resource, directory]` — embedded and satellite catalogs beneath the directory, so app files win on overlap. |
-| Explicit (`new CatalogStore(options)`, a DI `LocalizationContext`) | `[directory]` — the directory provider alone, with no assembly discovery. |
+| Explicit (`new LocalizationContext(options)`, or via DI) | `[directory]` — the directory provider alone, with no assembly discovery. |
 
-There is **one way to add a provider** — `AddProvider` — not an options list. A synchronous provider is
-`new`'d inline; an asynchronous one is `await CreateAsync`'d (the `await` is visible at the call site,
-because async loading is a real cost the reader should see), then added. Added providers are appended after
-the auto-defaults and **kept across a reconfigure**, so they augment the defaults rather than replacing
-them:
+There is **one way to add a provider** — build new options with an extra factory appended to `Providers`
+and reconfigure — not a mutable `AddProvider` call; `LocalizationContext` has no runtime mutation surface.
+`Providers` holds factories over the resolved options (`Func<LocalizerOptions, ICatalogProvider>`), so a
+provider that needs no wiring is a trivial factory (`_ => provider`) and one that reads the configuration
+does so at the moment it is built (`o => new MyProvider(o.Formats)`). A synchronous provider is `new`'d
+inline inside the factory; an asynchronous one is `await CreateAsync`'d first (the `await` is visible at
+the call site, because async loading is a real cost the reader should see), then wrapped as a trivial
+factory. Every configured provider layers after the auto-defaults, in the order listed, and a later
+provider wins on overlap:
 
 ```csharp
 // Synchronous custom source (a database, an in-memory provider in tests).
-context.AddProvider(new MyDatabaseCatalogProvider(connectionString));
+var options = new LocalizerOptions
+{
+    Providers = [_ => new MyDatabaseCatalogProvider(connectionString)]
+};
+context.Configure(options);
 
-// Asynchronous source — discover up front, then add.
+// Asynchronous source — discover up front, then reconfigure with it appended.
 var manifest = await ManifestCatalogProvider.CreateAsync(httpClient, "_content/app/translations.manifest.json");
-context.AddProvider(manifest);
+context.Configure(options with { Providers = [.. options.Providers, _ => manifest] });
 await context.LoadCultureAsync(CultureInfo.CurrentUICulture);   // awaited, no flash
 ```
 
-> **The auto-default directory follows the configuration; added providers are yours.** The directory a
-> `DirectoryCatalogProvider` reads is set when the provider is built, but `Configure` (and so
-> `Localizer.Initialize`) rebuilds the auto-default directory provider when `TranslationsDirectory` changes,
-> reloading from the new location. Providers you added through `AddProvider` survive the reconfigure
-> untouched — they are yours to manage.
+> **`Configure` rebuilds the whole provider list from the options you pass — nothing is kept aside from
+> them.** The directory a `DirectoryCatalogProvider` reads is set when the provider is built, and every
+> `Configure` call (and so `Localizer.Initialize`) rebuilds the auto-default directory provider from the
+> new `TranslationsDirectory`, and rebuilds `Providers` from the new options' list. To keep a provider you
+> configured earlier across a reconfigure, carry it forward on the new options — `options with
+> { TranslationsDirectory = ... }` keeps the same `Providers`; appending one more is `options with
+> { Providers = [.. options.Providers, _ => anotherProvider] }`.
 
 ### Loading an asynchronous provider — `LoadCultureAsync`, `PreloadAllAsync`, `CatalogsChanged`
 
@@ -634,14 +650,16 @@ merge reuses the runtime's own load, so a merged bundle resolves identically to 
 
 ## Pseudo-localization
 
-Layer a `PseudoLocalizationSource` and every string is pseudo-translated — accented and
-length-expanded (`[!!! Ḩéłłö !!!]`) while ICU placeholders are preserved intact. It is a fast,
-language-free QA pass: any string that comes out in plain Latin was never extracted, and any layout that
-clips or wraps badly will break under genuinely longer languages too. Because it is just another
-`ITranslationSource`, it layers over real catalogs and is trivial to gate behind a build flag.
+There is no dedicated pseudo-localization source — a catalog is the only override mechanism, so a
+pseudo-locale is just another catalog. Author a `Translations/<AssemblyName>.qps-ploc.xliff` (or `.arb` /
+`.po`) file with every string accented and length-expanded (`[!!! Ḩéłłö !!!]`), ICU placeholders left
+intact, and switch to it like any other culture. It is a fast, language-free QA pass: any string that
+comes out in plain Latin was never extracted, and any layout that clips or wraps badly will break under
+genuinely longer languages too.
 
 ```csharp
-Localizer.AddSource(new PseudoLocalizationSource());
+CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("qps-ploc");
+localizer.Translate("home.title", "Home");   // resolves the qps-ploc catalog like any other override
 ```
 
 ## Hot reload
@@ -660,7 +678,7 @@ var localizer = new DefaultLocalizer(store);   // reads store.Snapshot live
 ## Isolated localizers
 
 When you want a localizer that shares nothing with the ambient store, you have two levels. For a full
-environment — its own configuration, directory, watcher, and the `For<T>()` / `AddCatalog` surface —
+environment — its own configuration, directory, watcher, and the `For<T>()` / `Configure` surface —
 construct a [`LocalizationContext`](#the-localization-context). For just the resolution engine over a
 fixed set of catalogs, construct a `DefaultLocalizer` directly: it bypasses the store entirely and reads
 only the catalogs you hand it. `DefaultLocalizer.FromCatalogs(...)` is the convenience for hosts with no

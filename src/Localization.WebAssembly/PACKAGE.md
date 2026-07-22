@@ -20,9 +20,11 @@ await host.RunAsync();
 ```
 
 `UseArchPillarLocalizationAsync` creates a `ManifestCatalogProvider` over the manifest (`apl-catalogs.json`,
-emitted by the build), registers it on the ambient store with `Localizer.AddProvider`, and loads the active
-culture with `Localizer.LoadCultureAsync`, so the first render is localized. Because the manifest is *registered* —
-not loaded once and forgotten — another language is fetched on demand the moment it is needed:
+emitted by the build), registers it on the ambient store by reconfiguring with the provider appended to
+`Providers` (`Localizer.Configure(options with { Providers = [.. options.Providers, _ => provider] })`), and
+loads the active culture with `Localizer.LoadCultureAsync`, so the first render is localized. Because the
+manifest is *registered* — not loaded once and forgotten — another language is fetched on demand the
+moment it is needed:
 
 ```csharp
 // When the app selects a different language, load its catalogs (instant from the PWA cache):
