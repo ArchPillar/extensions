@@ -3,7 +3,7 @@ namespace ArchPillar.Extensions.Localization.MessageFormat;
 /// <summary>
 /// The CLDR plural operands for a numeric value, as defined by Unicode Technical Standard #35. These
 /// are the inputs the CLDR plural-rule conditions are written against. Build them with
-/// <see cref="PluralRules.Operands(decimal, int)"/>.
+/// <see cref="PluralRules.Operands(decimal, int, int)"/>.
 /// </summary>
 /// <param name="N">The absolute value of the number.</param>
 /// <param name="I">The integer digits (absolute value, truncated).</param>

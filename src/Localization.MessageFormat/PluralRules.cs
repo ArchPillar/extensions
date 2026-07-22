@@ -69,8 +69,12 @@ public static class PluralRules
     /// </summary>
     /// <param name="value">The value to analyze.</param>
     /// <param name="visibleFractionDigits">The number of fraction digits the value is displayed with.</param>
+    /// <param name="exponent">The CLDR compact-decimal exponent (the <c>e</c>/<c>c</c> operand): the power of
+    /// ten of the divisor a compact formatter scaled <paramref name="value"/> by, or <c>0</c> for a value that
+    /// is not compact-formatted (the default, and the only value the standard number/message path ever
+    /// passes).</param>
     /// <returns>The operands for <paramref name="value"/> at that display precision.</returns>
-    public static PluralOperands Operands(decimal value, int visibleFractionDigits)
+    public static PluralOperands Operands(decimal value, int visibleFractionDigits, int exponent = 0)
     {
         var absolute = Math.Abs(value);
         var text = absolute.ToString(
@@ -94,7 +98,7 @@ public static class PluralRules
         var w = trimmed.Length;
         var f = v == 0 ? 0L : ParseDigits(fractionText, keepLowOrder: false);
         var t = w == 0 ? 0L : ParseDigits(trimmed, keepLowOrder: false);
-        return new PluralOperands(absolute, i, v, w, f, t, 0);
+        return new PluralOperands(absolute, i, v, w, f, t, exponent);
     }
 
     /// <summary>

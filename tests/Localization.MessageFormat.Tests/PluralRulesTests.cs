@@ -119,6 +119,62 @@ public sealed class PluralRulesTests
     }
 
     [Fact]
+    public void Operands_ExponentOmitted_DefaultsToZero()
+    {
+        // The exponent parameter is optional and additive (m7): every non-compact caller (the standard
+        // number/message path) omits it, so E must stay 0 -- the byte-identity invariant for non-compact
+        // plural selection.
+        PluralOperands operands = PluralRules.Operands(2m, 0);
+
+        Assert.Equal(0, operands.E);
+    }
+
+    [Fact]
+    public void Operands_Exponent_IsThreadedIntoOperands()
+    {
+        PluralOperands operands = PluralRules.Operands(2m, 0, 6);
+
+        Assert.Equal(6, operands.E);
+    }
+
+    [Theory]
+    // m7: CldrPluralData's "Many" rule for these Romance languages is
+    // "e = 0 and i != 0 and i % 1000000 = 0 and v = 0 or e != 0..5" -- the "e != 0..5" disjunct is how CLDR
+    // selects "many" for a million-scale-and-above COMPACT value. Before the fix, e was hard-coded 0 for
+    // every caller, so this disjunct could never fire and a mantissa outside 0..1 (e.g. compacted "2") wrongly
+    // fell through to "other". With the true compact exponent (6 for a million-scale bucket, verified against
+    // the ICU oracle in CompactNotationTests -- log10(divisor), divisor 1,000,000) threaded in, it resolves
+    // to "many" as CLDR's rule requires. (The rendered compact SUFFIX text does not change for these locales,
+    // because CLDR-48 does not define a distinct "many" compact pattern for them -- verified by exhaustively
+    // scanning CldrCompactData.g.cs: no compact bucket for ca/es/fr/it/lld/pt/scn/vec carries a
+    // PluralCategory.Many variant, so pattern selection falls back to "other" either way. The category itself
+    // is still wrong today, and this is the CLDR-correct, oracle-consistent value TR35 requires.)
+    [InlineData("fr")]
+    [InlineData("es")]
+    [InlineData("it")]
+    [InlineData("pt")]
+    [InlineData("ca")]
+    public void Cardinal_CompactExponent_SelectsManyForMillionScaleMantissa(string culture)
+    {
+        // Mantissa 2 (e.g. the compacted "2" of "2M"/"2 millions"): the "one" rule (i = 0,1 / n = 1) never
+        // matches, so before the fix this always fell through to "other".
+        Assert.Equal(PluralCategory.Other, PluralRules.Cardinal(culture, PluralRules.Operands(2m, 0)));
+        Assert.Equal(PluralCategory.Many, PluralRules.Cardinal(culture, PluralRules.Operands(2m, 0, 6)));
+    }
+
+    [Theory]
+    // Regression: the FIRST disjunct of the same "Many" rule ("e = 0 and i != 0 and i % 1000000 = 0 and
+    // v = 0") is the STANDARD (non-compact) path -- an exact multiple of a million typed out in full, e.g.
+    // French/Spanish "2 000 000 d'habitants" needs "many" for its unit-pattern elision. This must stay
+    // byte-identical before and after m7: it already worked at the default exponent 0 and must keep working.
+    [InlineData("fr")]
+    [InlineData("es")]
+    public void Cardinal_StandardExactMillion_StillSelectsMany_NonCompactPathUnaffected(string culture)
+    {
+        Assert.Equal(PluralCategory.Many, PluralRules.Cardinal(culture, PluralRules.Operands(2000000m, 0)));
+    }
+
+    [Fact]
     public void GettextOrder_ReturnsUsedCategories_OtherLast()
     {
         Assert.Equal(new[] { PluralCategory.One, PluralCategory.Other }, PluralRules.GettextOrder("en"));

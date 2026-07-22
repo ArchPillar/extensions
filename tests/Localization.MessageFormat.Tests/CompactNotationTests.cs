@@ -139,6 +139,23 @@ public sealed class CompactNotationTests
     }
 
     [Theory]
+    // m7: million-scale ::compact-long for Romance languages, oracle-verified (ICU 78 / CLDR 48, via
+    // `dotnet run eng/oracle/icu-format.cs -- <locale> compact-long <value>`). These locales' CLDR "many"
+    // cardinal rule now correctly resolves for a compacted mantissa outside 0..1 (verified in
+    // PluralRulesTests.Cardinal_CompactExponent_SelectsManyForMillionScaleMantissa), but CLDR-48 defines no
+    // distinct "many" compact pattern for them, so the rendered word is the SAME "other" text either way --
+    // a regular space (U+0020) joiner, not NBSP. This pins that byte-identical, oracle-matching output.
+    [InlineData("fr-FR", "2000000", "2 millions")]
+    [InlineData("es-ES", "3000000", "3 millones")]
+    [InlineData("it-IT", "2000000", "2 milioni")]
+    [InlineData("pt-PT", "3000000", "3 milhões")]
+    [InlineData("ca-ES", "2000000", "2 milions")]
+    public void Format_LongDecimalRomance_MillionScale_MatchesIcuOracle(string locale, string value, string expected)
+    {
+        Assert.Equal(expected, NumberFormatting.Format(D(value), "::compact-long", CultureInfo.GetCultureInfo(locale)));
+    }
+
+    [Theory]
     // D7: "::compact-short currency/USD" renders the CLDR *Short* compact currency glyph, matched
     // byte-for-byte against the ICU 78 / CLDR 48 oracle -- en "$1.2K", de "1235<NBSP>$",
     // fr "1,2<NBSP>k<NBSP>$US". The currency symbol comes from the CLDR short set, not the host/standard

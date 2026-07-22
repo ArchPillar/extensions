@@ -53,13 +53,21 @@ internal static class CompactFormatter
         var rounded = Math.Round(scaled, fractionDigits, MidpointRounding.AwayFromZero);
 
         var visibleFraction = VisibleFraction(rounded, fractionDigits);
-        PluralCategory category = PluralRules.Cardinal(culture.Name, PluralRules.Operands(rounded, visibleFraction));
+        // TR35's compact-decimal exponent operand (e/c): the power of ten of the divisor the value was just
+        // scaled by (divisor is always an exact power of ten, so its integer digit count minus one is that
+        // power -- e.g. a million-bucket divisor of 1,000,000 has 7 digits, exponent 6). Only this REAL-bucket
+        // branch ever compacts, so the plain/standard render path stays at the PluralRules.Operands default of
+        // 0, leaving non-compact plural selection untouched.
+        var exponent = IntegerDigitCount(divisor) - 1;
+        PluralCategory category = PluralRules.Cardinal(culture.Name, PluralRules.Operands(rounded, visibleFraction, exponent));
         var pattern = SelectPattern(bucket, category, rounded);
         if (!HasDigitBody(pattern))
         {
-            // A CLDR explicit-value pattern with no digit placeholder (e.g. French "mille" for exactly 1000):
-            // emit the literal verbatim, minus-prefixed for negatives. No number is substituted.
-            return value < 0m ? culture.NumberFormat.NegativeSign + pattern : pattern;
+            // A CLDR explicit-value pattern with no digit placeholder (e.g. French "mille" for exactly 1000).
+            // SelectPattern only returns one when rounded equals the (always non-negative) ExplicitValue, so a
+            // negative value never reaches here (fr -1000 takes the count-one pattern instead, per SelectPattern's
+            // sign check) -- emit the literal verbatim, no number substituted.
+            return pattern;
         }
 
         NumberPattern parsed = NumberPatternParser.Parse(ReduceZeroRun(pattern));
