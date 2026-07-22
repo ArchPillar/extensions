@@ -8,15 +8,15 @@ Render translatable call sites at runtime: look up the loaded override for the r
 
 ## The call Application Programming Interface
 
-The attributed surface from spec 01, on a `DefaultLocalizer`. The engine is a pure resolver: it takes a
-snapshot source — a `CatalogStore` (provider-backed, optionally watched) or a fixed set of catalogs —
-and resolves against it. Loading and the file watcher belong to `CatalogStore`, not the engine.
+The attributed surface from spec 01, on a `DefaultLocalizer`. The engine is a pure resolver over a
+`CatalogStore` snapshot (provider-backed, optionally watched); it is built internally by a
+`LocalizationContext` (or the ambient `Localizer`) over its own store, never constructed directly by a
+consumer. Loading and the file watcher belong to `CatalogStore`, not the engine.
 
 ```csharp
-public sealed class CatalogStore : IDisposable   // owns an ordered list of catalog providers; exposes the snapshot
+internal sealed class CatalogStore : IDisposable   // owns an ordered list of catalog providers; exposes the snapshot
 {
     public CatalogStore(LocalizerOptions options);   // auto-wires a directory provider (+ resource for the ambient store)
-    public void Reload();
     public event Action? CatalogsChanged;            // raised after any commit that changed the snapshot
     // Provider registration and asynchronous loading live on LocalizationContext / Localizer:
     //   Configure(options) with an extra LocalizerOptions.Providers factory, LoadCultureAsync(culture), PreloadAllAsync()
@@ -24,9 +24,10 @@ public sealed class CatalogStore : IDisposable   // owns an ordered list of cata
 
 public sealed class DefaultLocalizer : ILocalizer
 {
-    public DefaultLocalizer(CatalogStore store, LocalizerOptions? options = null);   // resolves store.Snapshot live
-    public DefaultLocalizer(IEnumerable<Catalog> catalogs, LocalizerOptions? options = null);   // isolated, fixed
-    public static DefaultLocalizer FromCatalogs(IEnumerable<Catalog> catalogs, LocalizerOptions? options = null);
+    // The only constructor, and it is internal: a consumer never news one up directly. A fixed,
+    // no-file-system catalog set (Blazor WASM, an isolated test) goes through an InMemoryCatalogProvider
+    // layered into a LocalizationContext's Providers instead — see the runtime doc's isolated-use section.
+    internal DefaultLocalizer(CatalogStore store, RenderingContext rendering);
 
     public string Translate(
         [Translatable] string key,

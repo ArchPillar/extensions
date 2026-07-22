@@ -7,7 +7,7 @@ once.
 
 `AddArchPillarLocalization` (in `…Localization.DependencyInjection`) configures a single
 `LocalizationContext` from `LocalizerOptions` and registers the native views — `ILocalizer`,
-`ILocalizer<T>`, and the concrete `DefaultLocalizer`.
+`ILocalizer<T>`, and `ILocalizerFactory`.
 
 ```csharp
 builder.Services.AddArchPillarLocalization(new LocalizerOptions
@@ -68,14 +68,14 @@ context.Configure(options with { Providers = [.. options.Providers, _ => new InM
 string s = context.For<Checkout>().Translate("pay", "Pay now");
 ```
 
-For just the resolution engine over a fixed catalog set, construct a **`DefaultLocalizer`**;
-`DefaultLocalizer.FromCatalogs(...)` is the convenience for hosts with no file system (Blazor WASM:
-fetch+parse catalogs over HTTP, hand them in). **Hot reload**: a `CatalogStore` with
-`EnableHotReload = true` (debounced by `HotReloadDebounce`) reloads on file change, swapping an
-immutable snapshot atomically so in-flight `Translate` calls never tear.
+For a fixed catalog set with no file system (Blazor WASM: fetch+parse catalogs over HTTP, hand them in),
+layer an `InMemoryCatalogProvider` into the context through `Providers` — there is no lower-level "bare
+engine" door; `DefaultLocalizer` is `internal`, built only by a `LocalizationContext` (or the ambient
+`Localizer`) over its own store. **Hot reload**: `EnableHotReload` (debounced by `HotReloadDebounce`)
+reloads on file change, swapping an immutable snapshot atomically so in-flight `Translate` calls never tear.
 
 > **Testing:** the ambient store is global state. Call `Localizer.Reset()` between tests, or avoid
-> the static entirely by constructing a `LocalizationContext` / `DefaultLocalizer` per test. See
+> the static entirely by constructing a `LocalizationContext` per test. See
 > `docs/localization/recommendations.md`.
 
 ## IStringLocalizer interop and migration

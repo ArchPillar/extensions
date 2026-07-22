@@ -568,7 +568,7 @@ builder.Services.AddControllersWithViews().AddArchPillarDataAnnotationsLocalizat
 
 `AddArchPillarLocalization` (in the `…Localization.DependencyInjection` package) configures a single
 `LocalizationContext` from `LocalizerOptions` and registers the native views over it — `ILocalizer`,
-`ILocalizer<T>`, and the concrete `DefaultLocalizer`:
+`ILocalizer<T>`, and `ILocalizerFactory`:
 
 ```csharp
 services.AddArchPillarLocalization(new LocalizerOptions { TranslationsDirectory = "Translations", SourceCulture = "en" });
@@ -664,26 +664,35 @@ localizer.Translate("home.title", "Home");   // resolves the qps-ploc catalog li
 
 ## Hot reload
 
-A `CatalogStore` can watch its directory and reload on change (`EnableHotReload`, debounced by
-`HotReloadDebounce` so a flurry of saves coalesces into one reload). A `DefaultLocalizer` over the store
-always resolves against the store's **latest** snapshot, swapped atomically, so concurrent `Translate`
-calls never tear or block — an in-flight render finishes against the old snapshot and the next lookup
-sees the new one. Edit a translation file and the running app reflects it without a restart.
+Turn on `EnableHotReload` (debounced by `HotReloadDebounce` so a flurry of saves coalesces into one
+reload) and the store — the ambient one, or a `LocalizationContext` — watches its directory and reloads
+on change. A lookup always resolves against the **latest** snapshot, swapped atomically, so concurrent
+`Translate` calls never tear or block — an in-flight render finishes against the old snapshot and the
+next lookup sees the new one. Edit a translation file and the running app reflects it without a restart.
 
 ```csharp
-using var store = new CatalogStore(new LocalizerOptions { TranslationsDirectory = "Translations", EnableHotReload = true });
-var localizer = new DefaultLocalizer(store);   // reads store.Snapshot live
+using var context = new LocalizationContext(new LocalizerOptions
+{
+    TranslationsDirectory = "Translations",
+    EnableHotReload = true
+});
+string s = context.Default.Translate("home.title", "Home");   // reads the live, hot-reloaded snapshot
 ```
 
 ## Isolated localizers
 
-When you want a localizer that shares nothing with the ambient store, you have two levels. For a full
-environment — its own configuration, directory, watcher, and the `For<T>()` / `Configure` surface —
-construct a [`LocalizationContext`](#the-localization-context). For just the resolution engine over a
-fixed set of catalogs, construct a `DefaultLocalizer` directly: it bypasses the store entirely and reads
-only the catalogs you hand it. `DefaultLocalizer.FromCatalogs(...)` is the convenience for hosts with no
-file system, such as Blazor WebAssembly — fetch and parse the catalogs over HTTP, then hand them in.
+When you want a localizer that shares nothing with the ambient store, construct a
+[`LocalizationContext`](#the-localization-context) — its own configuration, directory, watcher, and the
+`For<T>()` / `Configure` surface. There is no lower-level "bare engine" door: the resolution engine
+(`DefaultLocalizer`) is `internal`, built only by a `LocalizationContext` (or the ambient `Localizer`)
+over its own store — a consumer never constructs one directly.
+
+For a fixed set of catalogs with no file system — Blazor WebAssembly fetching and parsing catalogs over
+HTTP, or a test that wants no disk I/O — hand them to an `InMemoryCatalogProvider` and layer it into a
+context the same way any other provider is added:
 
 ```csharp
-var localizer = new DefaultLocalizer(catalogs, new LocalizerOptions { SourceCulture = "en" });
+var options = new LocalizerOptions { Providers = [_ => new InMemoryCatalogProvider(catalogs)] };
+using var context = new LocalizationContext(options);
+string s = context.Default.Translate("home.title", "Home");
 ```
