@@ -74,3 +74,7 @@ eng/cldr/currencies.json
 
 # Local living-plan / review doc — kept on disk, intentionally untracked
 /workflow.md
+
+# CLDR compact-notation intermediate (~2.9MB): produced by extract-numbers.cs, consumed by
+# generate-compact-data.cs. Only the generated CldrCompactData.g.cs it feeds is committed.
+eng/cldr/compact.json
