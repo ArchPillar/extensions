@@ -40,6 +40,27 @@ public sealed class PatternRendererTests
     }
 
     [Fact]
+    public void Render_PercentAtOverflowBoundary_Succeeds()
+    {
+        // decimal.MaxValue divided by 100 is the largest value whose percent scaling still fits in decimal
+        // range; dividing then re-scaling by 100 round-trips exactly, so this must render, not throw.
+        const decimal Value = decimal.MaxValue / 100m;
+
+        var result = Render("#,##0%", Value, PatternPrecision.Fraction(0, 0), _en);
+
+        Assert.EndsWith("%", result, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Render_PercentExceedsOverflowBoundary_ThrowsMessageFormatException()
+    {
+        // Reachable defect: a percent value whose *100 scaling exceeds decimal.MaxValue used to raise a raw
+        // OverflowException instead of the library's fail-fast MessageFormatException contract.
+        Assert.Throws<MessageFormatException>(
+            () => Render("#,##0%", decimal.MaxValue, PatternPrecision.Fraction(0, 0), _en));
+    }
+
+    [Fact]
     public void Render_NegativeWithoutSubpattern_DerivesMinusPrefix()
     {
         Assert.Equal("-$1,234.50", Render("¤#,##0.00", -1234.5m, PatternPrecision.Fraction(2, 2), _en));

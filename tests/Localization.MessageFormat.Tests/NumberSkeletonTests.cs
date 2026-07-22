@@ -30,6 +30,24 @@ public sealed class NumberSkeletonTests
         Assert.Equal(max, spec.MaxFractionDigits);
     }
 
+    [Fact]
+    public void Parse_FractionAtMaxDecimalScale_Succeeds()
+    {
+        // 28 is decimal's maximum scale (mirrors PatternRenderer.MaxDecimalScale) -- the boundary must still parse.
+        NumberFormatSpec spec = NumberSkeleton.Parse("::." + new string('0', 28));
+
+        Assert.Equal(28, spec.MinFractionDigits);
+        Assert.Equal(28, spec.MaxFractionDigits);
+    }
+
+    [Fact]
+    public void Parse_FractionExceedsMaxDecimalScale_Throws()
+    {
+        // 29 fraction digits would reach Math.Round(value, 29, ...) and throw ArgumentOutOfRangeException
+        // downstream; the engine must reject it at parse time instead, with the fail-fast contract.
+        Assert.Throws<MessageFormatException>(() => NumberSkeleton.Parse("::." + new string('0', 29)));
+    }
+
     [Theory]
     [InlineData("::precision-integer")]
     [InlineData("::.")]

@@ -165,6 +165,12 @@ internal static class NumberSkeleton
             }
         }
 
+        if (max > PatternRenderer.MaxDecimalScale)
+        {
+            throw Unsupported(
+                $"fraction skeleton '{stem}' specifies {max} fraction digits, exceeding decimal's maximum of {PatternRenderer.MaxDecimalScale}");
+        }
+
         return (min, max);
     }
 

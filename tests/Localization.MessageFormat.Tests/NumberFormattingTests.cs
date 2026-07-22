@@ -61,6 +61,26 @@ public sealed class NumberFormattingTests
     }
 
     [Fact]
+    public void Format_CurrencyFullNameFractionAtMaxDecimalScale_Renders()
+    {
+        // 28 is decimal's maximum scale; CurrencyNameRenderer's Math.Round(value, maxFraction, ...) accepts it.
+        var skeleton = "::currency/USD unit-width-full-name ." + new string('0', 28);
+        var expected = "1." + new string('0', 28) + " US dollars";
+
+        Assert.Equal(expected, NumberFormatting.Format(D("1"), skeleton, _en));
+    }
+
+    [Fact]
+    public void Format_CurrencyFullNameFractionExceedsMaxDecimalScale_ThrowsMessageFormatException()
+    {
+        // Reachable defect: 29 fraction digits used to reach CurrencyNameRenderer's Math.Round(value, 29, ...)
+        // and throw a raw ArgumentOutOfRangeException instead of the library's fail-fast contract.
+        var skeleton = "::currency/USD unit-width-full-name ." + new string('0', 29);
+
+        Assert.Throws<MessageFormatException>(() => NumberFormatting.Format(D("1"), skeleton, _en));
+    }
+
+    [Fact]
     public void Format_CurrencyFractionOverride_WinsOverLookedUpMinorUnits()
     {
         // JPY's CLDR minor units are 0, so without an override the amount rounds to a whole number.

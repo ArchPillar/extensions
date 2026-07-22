@@ -46,7 +46,9 @@ internal readonly record struct PatternPrecision
 internal static class PatternRenderer
 {
     // decimal's maximum scale; used as the open-ended fraction bound in significant mode (trailing '#'s trim).
-    private const int MaxDecimalScale = 28;
+    // Internal (not private): NumberSkeleton reads it too, so both the significant-digit clamp here and the
+    // parse-time fraction-stem rejection there share the one source of truth for decimal's rounding limit.
+    internal const int MaxDecimalScale = 28;
 
     public static string Render(
         NumberPattern pattern,
@@ -62,6 +64,12 @@ internal static class PatternRenderer
         var absolute = Math.Abs(value);
         if (pattern.IsPercent)
         {
+            if (absolute > decimal.MaxValue / 100m)
+            {
+                throw new MessageFormatException(
+                    $"Value {value} cannot be rendered as a percent: scaling by 100 would overflow decimal range.", -1);
+            }
+
             absolute *= 100m;
         }
 
