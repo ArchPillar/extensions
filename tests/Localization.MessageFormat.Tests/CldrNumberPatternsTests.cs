@@ -86,4 +86,21 @@ public sealed class CldrNumberPatternsTests
             }
         }
     }
+
+    [Fact]
+    public void AllDecimalPatterns_HaveZeroToThreeFractionDigits()
+    {
+        // NumberFormatting.VisibleFractionDigits hardcodes "0.###" (min 0, max 3) to count the fraction digits the
+        // default '#' render shows, which drives plural-category selection — correct only while every locale's
+        // decimal pattern is min-0/max-3. Pin that invariant: if a regenerated CLDR set ever ships a different
+        // decimal fraction bound, this fails, and VisibleFractionDigits must be revisited before shipping.
+        foreach (KeyValuePair<string, CldrNumberPatternSet> entry in CldrNumberPatterns.Locales)
+        {
+            NumberPattern pattern = NumberPatternParser.Parse(entry.Value.Decimal);
+            Assert.True(
+                pattern is { MinFractionDigits: 0, MaxFractionDigits: 3 },
+                $"locale '{entry.Key}' decimal pattern '{entry.Value.Decimal}' is not min-0/max-3 fraction digits "
+                    + $"(min {pattern.MinFractionDigits}, max {pattern.MaxFractionDigits}) — revisit NumberFormatting.VisibleFractionDigits");
+        }
+    }
 }

@@ -214,6 +214,10 @@ public sealed class ManifestCatalogProvider : ICatalogProvider
         return slash >= 0 ? manifestUri[..(slash + 1)] : string.Empty;
     }
 
+    // An absolute path or a full URL is taken as-is; a bare name resolves against the manifest's directory. Passing
+    // absolute/cross-origin entries through is safe: the manifest is a build-emitted, same-origin asset, so anyone
+    // able to rewrite it could already serve malicious same-origin catalogs — and in the browser the fetch is still
+    // governed by CORS. There is no wider trust boundary to guard here.
     private static string Resolve(string baseUri, string file) =>
         file.StartsWith('/') || file.Contains("://", StringComparison.Ordinal) ? file : baseUri + file;
 }

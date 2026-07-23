@@ -43,8 +43,9 @@ internal static class NumberFormatting
 
     /// <summary>
     /// The number of fraction digits the default display (<c>#,##0.###</c>) shows for <paramref name="value"/>:
-    /// rounded to three places with trailing zeros trimmed. Culture-independent (computed in the invariant
-    /// culture), so it is the same count the renderer displays for <c>#</c>.
+    /// rounded to three places with trailing zeros trimmed. The bound is hardcoded because every CLDR-48 decimal
+    /// pattern is min-0/max-3 fraction digits (only grouping varies), so it matches the per-locale maximum the
+    /// renderer applies for <c>#</c> — culture-independent, and guarded by a test over the generated pattern set.
     /// </summary>
     public static int VisibleFractionDigits(decimal value)
     {
