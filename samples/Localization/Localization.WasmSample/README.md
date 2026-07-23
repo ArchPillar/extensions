@@ -19,4 +19,4 @@ The dev server prints a local URL (e.g. `http://localhost:5000`); open it in a b
 
 ## Notes
 
-English ships in code and is the source culture; only the German override (`wwwroot/Translations/de.xliff`) is fetched. The UI lives in `Pages/Home.razor`.
+English ships in code and is the source culture; the client fetches the catalog manifest (`wwwroot/Translations/apl-catalogs.json`) and the German bundle it lists — `de.arb`, the app's and the referenced library's German catalogs merged into one bundle on publish. The UI lives in `Pages/Home.razor`.

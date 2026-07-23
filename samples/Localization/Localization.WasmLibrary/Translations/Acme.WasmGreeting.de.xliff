@@ -6,8 +6,9 @@
         <note category="x-category">!!0</note>
         <note category="fingerprint">11334bc9b6431fdd09063735ad05af96</note>
       </notes>
-      <segment state="initial" subState="archpillar:NeedsTranslation">
+      <segment state="translated" subState="archpillar:Translated">
         <source xml:space="preserve">Hello from the shared library</source>
+        <target xml:space="preserve">Hallo aus der geteilten Bibliothek</target>
       </segment>
     </unit>
   </file>
