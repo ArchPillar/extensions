@@ -11,7 +11,7 @@ namespace ArchPillar.Extensions.Localization;
 /// through its own <see cref="RenderingContext"/>, and owns no I/O. Lookups are lock-free; designed to be a
 /// singleton and safe for concurrent use.
 /// </summary>
-public sealed class DefaultLocalizer : ILocalizer
+internal sealed class DefaultLocalizer : ILocalizer
 {
     private readonly CatalogStore _store;
     private volatile RenderingContext _rendering;

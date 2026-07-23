@@ -143,7 +143,7 @@ public string Continue { get; set; } = "";
 
 ## Register the localizer as a singleton
 
-The `DefaultLocalizer` and the ambient store are built for concurrent use and cache their snapshot;
+The localizer and the ambient store are built for concurrent use and cache their snapshot;
 the DI registration is a singleton for this reason. Do not construct a `CatalogStore` per request —
 that re-parses catalogs and discards the cached snapshot on every call.
 

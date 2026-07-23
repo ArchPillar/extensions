@@ -5,7 +5,7 @@ using ArchPillar.Extensions.Localization.Providers;
 namespace ArchPillar.Extensions.Localization;
 
 /// <summary>
-/// Configuration for a <see cref="DefaultLocalizer"/>: where to load catalogs from, the source language, the
+/// Configuration for a <see cref="LocalizationContext"/>: where to load catalogs from, the source language, the
 /// translation formats, and the missing-argument and hot-reload behaviour. Everything is configured here —
 /// there is no runtime mutation surface; to add a provider or source, build new options (<c>with</c>) and reconfigure.
 /// </summary>

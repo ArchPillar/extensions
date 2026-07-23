@@ -22,7 +22,7 @@ internal sealed class CatalogStore : IDisposable   // owns an ordered list of ca
     //   Configure(options) with an extra LocalizerOptions.Providers factory, LoadCultureAsync(culture), PreloadAllAsync()
 }
 
-public sealed class DefaultLocalizer : ILocalizer
+internal sealed class DefaultLocalizer : ILocalizer
 {
     // The only constructor, and it is internal: a consumer never news one up directly. A fixed,
     // no-file-system catalog set (Blazor WASM, an isolated test) goes through an InMemoryCatalogProvider
