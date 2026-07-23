@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text;
 using ArchPillar.Extensions.Localization.Catalogs;
 using ArchPillar.Extensions.Localization.Formats;
@@ -17,6 +18,7 @@ namespace ArchPillar.Extensions.Localization.Tests;
 public sealed class CatalogStoreTests
 {
     private const string Category = "Greeting";
+    private const string FaultSentinel = "unobserved-guard-fault";
     private static readonly CultureInfo _german = CultureInfo.GetCultureInfo("de");
     private static readonly CultureInfo _french = CultureInfo.GetCultureInfo("fr");
 
@@ -203,15 +205,61 @@ public sealed class CatalogStoreTests
 
         // A non-catalog-load-failure (InvalidOperationException, outside the loader's caught set) faults the async
         // load on the fire-and-forget miss path: FetchAsync lets it propagate and the discarded loader task faults.
-        // The store must not crash, and the miss degrades to the in-code default (null here). NOTE: this asserts
-        // graceful degradation ONLY — it does not prove the m2 fault-observing continuation, because that is
-        // observable only via TaskScheduler.UnobservedTaskException after a forced GC, and SonarAnalyzer S1215 bans
-        // GC.Collect in this repo (a scoped suppression would need explicit approval). The fault-observation itself
-        // (the ContinueWith(static t => _ = t.Exception, ...) in LoadAndPublish) is verified by inspection.
+        // The store must not crash, and the miss degrades to the in-code default (null here). This asserts graceful
+        // degradation and continued usability; the companion test below proves the fault-observing continuation
+        // actually suppresses TaskScheduler.UnobservedTaskException.
         store.EnsureCulture(_german);
 
         Assert.Null(Resolve(store, _german));
         Assert.Empty(store.LoadedCultures);
+    }
+
+    [Fact]
+    public void EnsureCulture_FaultingAsyncProvider_DoesNotLeakUnobservedTaskException()
+    {
+        // The fire-and-forget miss path discards the faulting background load's Task. Without the fault-observing
+        // ContinueWith in LoadAndPublish, that Task's exception is never observed and resurfaces from the Task
+        // finalizer as TaskScheduler.UnobservedTaskException. Drive the fault, force the discarded Task through
+        // finalization, and assert the event never fired for it. Determinism: the source faults *synchronously*
+        // (SynchronouslyFaultingAsynchronous — no await before the throw), so the discarded Task is already faulted
+        // when EnsureCulture returns; the GC below then observes a settled graph, with no handle on the task and no
+        // timing wait. Remove the ContinueWith and this test leaks the exception and fails.
+        var leaked = new List<Exception>();
+        void Observe(object? sender, UnobservedTaskExceptionEventArgs args)
+        {
+            // The event is process-global; match only this test's sentinel so no other suite can trip it.
+            if (args.Exception.Flatten().InnerExceptions.Any(inner => inner is InvalidOperationException { Message: FaultSentinel }))
+            {
+                leaked.Add(args.Exception);
+            }
+        }
+
+        TaskScheduler.UnobservedTaskException += Observe;
+        try
+        {
+            DriveFaultingMiss();
+
+            // The unobserved-exception event is raised from the Task finalizer, so it only fires after a collection
+            // drains finalizers (S1215-suppressed for test projects — see .editorconfig).
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+        }
+        finally
+        {
+            TaskScheduler.UnobservedTaskException -= Observe;
+        }
+
+        Assert.Empty(leaked);
+
+        // A non-inlined local so no stack slot roots the store (or its discarded faulted Task) across the GC above.
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        void DriveFaultingMiss()
+        {
+            using CatalogStore store = StoreWith(CultureLoading.OnDemand, new StubProvider(SynchronouslyFaultingAsynchronous("de")));
+            store.EnsureCulture(_german);
+            Assert.Null(Resolve(store, _german));
+        }
     }
 
     private static CatalogStore StoreWith(CultureLoading loading, params ICatalogProvider[] providers) =>
@@ -275,6 +323,13 @@ public sealed class CatalogStoreTests
             await Task.Yield();
             throw new InvalidOperationException("boom");
         }));
+
+    // An asynchronous source that faults SYNCHRONOUSLY — no await before the throw, so OpenAsync returns an
+    // already-faulted ValueTask and the store's discarded FetchAsync task is faulted before EnsureCulture returns.
+    // That settled state is what lets the unobserved-exception guard test force finalization deterministically.
+    private static CatalogSpec SynchronouslyFaultingAsynchronous(string culture) =>
+        new(culture, () => new CatalogSource.Asynchronous(
+            _ => ValueTask.FromException<Catalog>(new InvalidOperationException(FaultSentinel))));
 
     private static CatalogSpec Malformed(string culture) =>
         new(culture, () => new CatalogSource.Synchronous(() => ParseArb(Encoding.UTF8.GetBytes("{ not valid arb"))));
