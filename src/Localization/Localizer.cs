@@ -128,17 +128,6 @@ public static class Localizer
     public static Task PreloadAllAsync(CancellationToken cancellationToken = default) =>
         Ambient.PreloadAllAsync(cancellationToken);
 
-    /// <summary>Applies the configuration to the ambient store in one rebuild.</summary>
-    /// <param name="options">The configuration to apply.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
-    public static void Configure(LocalizerOptions options) => Ambient.Configure(options);
-
-    /// <summary>
-    /// Clears the configured providers and loaded catalogs from the ambient store, returning it to its default
-    /// state. Intended for test isolation against the shared ambient state.
-    /// </summary>
-    public static void Reset() => Ambient.Reset();
-
     // The internal lookups the IStringLocalizer adapter composes over, on the ambient context.
     internal static string TranslateInCategory(
         string category,

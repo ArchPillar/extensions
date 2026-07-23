@@ -43,13 +43,13 @@ One process-wide, layered store modeled on `IConfiguration`, reachable with no s
 
 ```csharp
 var options = new LocalizerOptions { SourceCulture = "en", TranslationsDirectory = "Translations" };
-Localizer.Configure(options);
+Localizer.Initialize(options);                // configure now, load lazily on first use
 Localizer.Initialize(options, eager: true);   // configure + load now (otherwise lazy on first use)
 
 // Layer a host override: no runtime mutation surface — build new options with an extra provider
-// factory appended to Providers and reconfigure.
-Localizer.Configure(options with { Providers = [.. options.Providers, _ => new InMemoryCatalogProvider([catalog])] });
-Localizer.Reset();                              // clear to empty (test isolation)
+// factory appended to Providers and reconfigure the ambient context.
+Localizer.Ambient.Configure(options with { Providers = [.. options.Providers, _ => new InMemoryCatalogProvider([catalog])] });
+Localizer.Ambient.Reset();                     // clear to empty (test isolation)
 ```
 
 Sources layer **embedded < satellite < directory < host**, last-wins; a lookup is one lock-free read
@@ -74,7 +74,7 @@ engine" door; `DefaultLocalizer` is `internal`, built only by a `LocalizationCon
 `Localizer`) over its own store. **Hot reload**: `EnableHotReload` (debounced by `HotReloadDebounce`)
 reloads on file change, swapping an immutable snapshot atomically so in-flight `Translate` calls never tear.
 
-> **Testing:** the ambient store is global state. Call `Localizer.Reset()` between tests, or avoid
+> **Testing:** the ambient store is global state. Call `Localizer.Ambient.Reset()` between tests, or avoid
 > the static entirely by constructing a `LocalizationContext` per test. See
 > `docs/localization/recommendations.md`.
 

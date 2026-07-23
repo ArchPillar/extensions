@@ -23,8 +23,8 @@ public sealed class LocalizationTests
     [Fact]
     public void ConfiguredCatalog_ResolvesThroughAmbientTypedLocalizer()
     {
-        Localizer.Reset();
-        Localizer.Configure(new LocalizerOptions { Providers = [Layer(DeCatalog(typeof(Greeting).FullName!, "hello", "Hallo"))] });
+        Localizer.Ambient.Reset();
+        Localizer.Ambient.Configure(new LocalizerOptions { Providers = [Layer(DeCatalog(typeof(Greeting).FullName!, "hello", "Hallo"))] });
 
         WithCulture(_german, () => Assert.Equal("Hallo", Localizer.For<Greeting>().Translate("hello", "Hello")));
     }
@@ -32,20 +32,20 @@ public sealed class LocalizationTests
     [Fact]
     public void Translate_StaticGlobal_RendersDefaultThenResolvesTheGlobalOverride()
     {
-        Localizer.Reset();
+        Localizer.Ambient.Reset();
 
         // No catalog: the static free-function form renders the in-code default through the global category.
         Assert.Equal("Hello Ada", Localizer.Translate("greeting", "Hello {name}", ("name", "Ada")));
 
         // A global-category (empty category) override is what the receiver-less Translate resolves against.
-        Localizer.Configure(new LocalizerOptions { Providers = [Layer(DeCatalog(string.Empty, "greeting", "Hallo {name}"))] });
+        Localizer.Ambient.Configure(new LocalizerOptions { Providers = [Layer(DeCatalog(string.Empty, "greeting", "Hallo {name}"))] });
         WithCulture(_german, () => Assert.Equal("Hallo Ada", Localizer.Translate("greeting", "Hello {name}", ("name", "Ada"))));
     }
 
     [Fact]
     public void EmbeddedCatalog_IsDiscoveredFromTheAssembly()
     {
-        Localizer.Reset();
+        Localizer.Ambient.Reset();
 
         WithCulture(_german, () => Assert.Equal("Eingebettet", Localizer.For<EmbeddedStrings>().Translate("embedded.key", "Embedded")));
     }
@@ -66,8 +66,8 @@ public sealed class LocalizationTests
                 }
                 """);
 
-            Localizer.Reset();
-            Localizer.Configure(new LocalizerOptions { TranslationsDirectory = directory });
+            Localizer.Ambient.Reset();
+            Localizer.Ambient.Configure(new LocalizerOptions { TranslationsDirectory = directory });
 
             WithCulture(_german, () => Assert.Equal("Hallo", Localizer.For<Greeting>().Translate("hello", "Hello")));
         }
@@ -80,7 +80,7 @@ public sealed class LocalizationTests
     [Fact]
     public void SatelliteCatalog_IsLoadedLazilyForTheRequestedCulture()
     {
-        Localizer.Reset();
+        Localizer.Ambient.Reset();
 
         WithCulture(_german, () => Assert.Equal("Aus dem Satelliten", Localizer.For<SatelliteStrings>().Translate("sat.key", "From satellite")));
     }
@@ -88,9 +88,9 @@ public sealed class LocalizationTests
     [Fact]
     public void Reset_DropsConfiguredCatalogs()
     {
-        Localizer.Reset();
-        Localizer.Configure(new LocalizerOptions { Providers = [Layer(DeCatalog(typeof(Greeting).FullName!, "hello", "Hallo"))] });
-        Localizer.Reset();
+        Localizer.Ambient.Reset();
+        Localizer.Ambient.Configure(new LocalizerOptions { Providers = [Layer(DeCatalog(typeof(Greeting).FullName!, "hello", "Hallo"))] });
+        Localizer.Ambient.Reset();
 
         WithCulture(_german, () => Assert.Equal("Hello", Localizer.For<Greeting>().Translate("hello", "Hello")));
     }

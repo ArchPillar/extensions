@@ -67,7 +67,7 @@ public sealed class StringLocalizerServiceCollectionExtensionsTests : IDisposabl
     [Fact]
     public void StringLocalizer_ComposesOverAPreviouslyRegisteredFactory()
     {
-        Ambient.Reset();
+        Ambient.ResetAmbientForTests();
         var catalog = new Catalog
         {
             Culture = "de",
@@ -118,7 +118,7 @@ public sealed class StringLocalizerServiceCollectionExtensionsTests : IDisposabl
         // the previously-registered factory exactly as it would on an ambient miss. Pre-fix, TranslateOverride
         // called Formatter.Format on the malformed override directly and threw MessageFormatException straight
         // out of this indexer call.
-        Ambient.Reset();
+        Ambient.ResetAmbientForTests();
         var catalog = new Catalog
         {
             Culture = "de",
@@ -154,7 +154,7 @@ public sealed class StringLocalizerServiceCollectionExtensionsTests : IDisposabl
     [Fact]
     public void GetAllStrings_IncludesAmbientEntriesForTheCategory()
     {
-        Ambient.Reset();
+        Ambient.ResetAmbientForTests();
 
         // GetAllStrings enumerates the loaded catalog snapshot, so the ambient entry must be a loaded catalog —
         // configured here through an InMemoryCatalogProvider over a parsed ARB catalog.
@@ -185,7 +185,7 @@ public sealed class StringLocalizerServiceCollectionExtensionsTests : IDisposabl
         // Reverse of the documented order: the host calls AddLocalization after us. Its TryAdd would be
         // suppressed by our composing factory, silently dropping all .resx — so we register the ResourceManager
         // factory ourselves, and it must be present regardless of order (Decision D-F3).
-        Ambient.Reset();
+        Ambient.ResetAmbientForTests();
         var services = new ServiceCollection();
         services.AddArchPillarStringLocalizer(new LocalizerOptions { SourceCulture = "en" });
         services.AddLocalization();
@@ -198,7 +198,7 @@ public sealed class StringLocalizerServiceCollectionExtensionsTests : IDisposabl
     [Fact]
     public void AddArchPillarStringLocalizer_CalledTwice_IsIdempotent()
     {
-        Ambient.Reset();
+        Ambient.ResetAmbientForTests();
         var services = new ServiceCollection();
         services.AddArchPillarStringLocalizer(new LocalizerOptions { SourceCulture = "en" });
         services.AddArchPillarStringLocalizer(new LocalizerOptions { SourceCulture = "en" });
@@ -233,7 +233,7 @@ public sealed class StringLocalizerServiceCollectionExtensionsTests : IDisposabl
     {
         // The migration case: the value lives in the existing .resx factory. The adapter must reach it, not
         // throw on the ICU-incompatible name first.
-        Ambient.Reset();
+        Ambient.ResetAmbientForTests();
         var services = new ServiceCollection();
         services.AddSingleton<IStringLocalizerFactory>(new FakeFactory());
         services.AddArchPillarStringLocalizer(new LocalizerOptions { SourceCulture = "en" });
@@ -248,13 +248,13 @@ public sealed class StringLocalizerServiceCollectionExtensionsTests : IDisposabl
 
     public void Dispose()
     {
-        Ambient.Reset();
+        Ambient.ResetAmbientForTests();
         Directory.Delete(_directory, recursive: true);
     }
 
     private ServiceProvider BuildProvider()
     {
-        Ambient.Reset();
+        Ambient.ResetAmbientForTests();
         var services = new ServiceCollection();
         services.AddArchPillarStringLocalizer(new LocalizerOptions { TranslationsDirectory = _directory, SourceCulture = "en" });
         return services.BuildServiceProvider();

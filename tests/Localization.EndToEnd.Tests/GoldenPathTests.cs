@@ -24,7 +24,7 @@ public sealed class GoldenPathTests : IDisposable
     {
         _translationsDirectory = Path.Combine(Path.GetTempPath(), "apl-e2e-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_translationsDirectory);
-        Ambient.Reset();
+        Localizer.Ambient.Reset();
     }
 
     [Fact]
@@ -73,7 +73,7 @@ public sealed class GoldenPathTests : IDisposable
 
         // 5. The app loads translations from that directory and renders per request culture — with zero
         //    call-site changes from step 1.
-        Ambient.Configure(new LocalizerOptions { SourceCulture = "en", TranslationsDirectory = _translationsDirectory });
+        Ambient.Initialize(new LocalizerOptions { SourceCulture = "en", TranslationsDirectory = _translationsDirectory });
         ILocalizer localizer = Ambient.Default;
 
         Assert.Equal("Startseite", WithCulture(_german, () => localizer.Translate("home.title", "Home")));
@@ -119,7 +119,7 @@ public sealed class GoldenPathTests : IDisposable
         };
         await WriteArbAsync(Path.Combine(_translationsDirectory, "de.arb"), handedBack);
 
-        Ambient.Configure(new LocalizerOptions { SourceCulture = "en", TranslationsDirectory = _translationsDirectory });
+        Ambient.Initialize(new LocalizerOptions { SourceCulture = "en", TranslationsDirectory = _translationsDirectory });
         ILocalizer localizer = Ambient.Default;
 
         const string Default = "{count, plural, one {# message} other {# messages}}";
@@ -133,7 +133,7 @@ public sealed class GoldenPathTests : IDisposable
 
     public void Dispose()
     {
-        Ambient.Reset();
+        Localizer.Ambient.Reset();
         Directory.Delete(_translationsDirectory, recursive: true);
     }
 

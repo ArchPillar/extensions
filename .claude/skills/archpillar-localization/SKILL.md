@@ -139,9 +139,9 @@ dotnet apl sync --output Translations          # reconcile all languages after c
 | Format money / numbers | ICU `{x, number, ::currency/USD}` (widths: `unit-width-full-name`…); `::compact-short`, `::percent` | Explicit ISO code — does **not** follow the UI language |
 | Number outside a message | `x.ToLocalizedString("::currency/USD")` (`using …MessageFormat;`) | Same engine/syntax; defaults to `CurrentUICulture` |
 | Mark a non-localizer string | `L("text")` (`using static …TranslationMarkers;`) | Extracts an exception/log literal; no runtime change |
-| Configure | `Localizer.Configure(new LocalizerOptions { SourceCulture = "en", TranslationsDirectory = "Translations" })` | One options surface; `Initialize(opts, eager:true)` to load at startup |
+| Configure | `Localizer.Initialize(new LocalizerOptions { SourceCulture = "en", TranslationsDirectory = "Translations" })` | One options surface; add `eager: true` to load at startup (else lazy on first use) |
 | DI registration | `services.AddArchPillarLocalization(options)` | `…DependencyInjection` package; chain `.AddArchPillarLocalizedBundles()` |
-| Isolated / test scope | `new LocalizationContext(options)` or `Localizer.Reset()` | Context shares nothing with the ambient store |
+| Isolated / test scope | `new LocalizationContext(options)` or `Localizer.Ambient.Reset()` | Context shares nothing with the ambient store |
 | IStringLocalizer interop | `services.AddArchPillarStringLocalizer(options)` | `…StringLocalizer` package; composes over existing `.resx` |
 
 ## Packages

@@ -36,7 +36,7 @@ public static class ServiceCollectionExtensions
         // Feed and register the single process-wide ambient context, so DI, a non-DI caller, and an exception
         // text all read one store. Registered as an instance, so the container does not dispose the
         // process-global ambient.
-        Localizer.Configure(resolved);
+        Localizer.Initialize(resolved);
         services.AddSingleton(Localizer.Ambient);
 
         // The native views over the ambient context. The context is itself the ILocalizerFactory (the

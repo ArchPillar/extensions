@@ -97,7 +97,7 @@ parallel safely. To avoid that, **construct a `LocalizationContext`** per test, 
 `InMemoryCatalogProvider` for a fixed set of catalogs, and read through it — it shares nothing with the
 ambient store or with another context, so tests stay isolated and parallelisable with no teardown.
 
-Reserve the shared ambient store (with `Localizer.Reset()` in setup/teardown) for the handful of tests
+Reserve the shared ambient store (with `Localizer.Ambient.Reset()` in setup/teardown) for the handful of tests
 that specifically cover ambient loading and discovery.
 
 ```csharp
@@ -210,7 +210,7 @@ components — it is an app-level refresh, not a per-component one.
 A missing manifest, a missing catalog, or a malformed one is skipped, so a partial deployment degrades to the
 in-code defaults rather than throwing. To wire it yourself instead of using the host extension, create the
 provider with `ManifestCatalogProvider.CreateAsync(http)`, layer it in by reconfiguring —
-`Localizer.Configure(options with { Providers = [.. options.Providers, _ => provider] })` — and load the active
+`Localizer.Ambient.Configure(options with { Providers = [.. options.Providers, _ => provider] })` — and load the active
 language with `Localizer.LoadCultureAsync`. To parse every culture the manifest lists up front — a host that
 shows several at once — call `Localizer.PreloadAllAsync()` after reconfiguring.
 

@@ -118,8 +118,8 @@ ArchPillar.Extensions.Localization.Localizer;` and call `Translate(...)` with no
 `using static System.Console;` gives you `WriteLine(...)`.
 
 Configuration goes through the `LocalizerOptions` object — there is **one** configuration surface, not a
-scatter of mutable knobs. `Localizer.Configure(options)` applies it in a single rebuild; `Initialize`
-does the same and can eager-load up front (otherwise the store loads lazily on first use):
+scatter of mutable knobs. `Localizer.Initialize(options)` applies it in a single rebuild, and can
+eager-load up front (otherwise the store loads lazily on first use):
 
 ```csharp
 string s = Localizer.Default.Translate("home.title", "Home");
@@ -130,19 +130,19 @@ var options = new LocalizerOptions                   // the single configuration
     SourceCulture = "en",                            // language the in-code defaults are written in
     TranslationsDirectory = "Translations"           // where loose files are read from
 };
-Localizer.Configure(options);
+Localizer.Initialize(options);                       // configure now, load lazily on first use
 Localizer.Initialize(options, eager: true);          // configure and load now, at startup
 
 // Layer a host override: there is no runtime mutation surface, so build new options with an
-// extra provider factory appended and reconfigure (last provider wins on overlap).
-Localizer.Configure(options with { Providers = [.. options.Providers, _ => new InMemoryCatalogProvider([catalog])] });
+// extra provider factory appended and reconfigure the ambient context (last provider wins on overlap).
+Localizer.Ambient.Configure(options with { Providers = [.. options.Providers, _ => new InMemoryCatalogProvider([catalog])] });
 ```
 
 Sources layer **embedded < satellite < directory < host**, last-wins; a lookup is one lock-free read
 that falls to the in-code default on a miss. Internally the loaded catalogs from every provider — built-in
 or a custom one added through `LocalizerOptions.Providers` — merge into a single flat snapshot resolved by
 the very same loop, so a custom provider is never a second-class source (see
-[the loading model](internals/SPEC.md)). `Localizer.Reset()` clears everything back to empty (for test
+[the loading model](internals/SPEC.md)). `Localizer.Ambient.Reset()` clears everything back to empty (for test
 isolation). See [recommendations.md](recommendations.md) for why the store is global and how to keep
 tests deterministic against it.
 
@@ -324,7 +324,7 @@ for a server that handles many cultures at once and cannot predict which a given
 requested, so a single-user client (CLI, desktop, Blazor) keeps just the active language in memory:
 
 ```csharp
-Localizer.Configure(new LocalizerOptions { CultureLoading = CultureLoading.OnDemand });
+Localizer.Initialize(new LocalizerOptions { CultureLoading = CultureLoading.OnDemand });
 ```
 
 A **language switch is live — no restart.** The first lookup in a not-yet-loaded culture reads that

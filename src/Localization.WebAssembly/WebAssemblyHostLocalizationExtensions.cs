@@ -50,7 +50,7 @@ public static class WebAssemblyHostLocalizationExtensions
             .CreateAsync(httpClient, manifestUri, options.SourceCulture, options.Formats, cancellationToken)
             .ConfigureAwait(false);
 
-        Localizer.Configure(options with { Providers = [.. options.Providers, _ => provider] });
+        Localizer.Ambient.Configure(options with { Providers = [.. options.Providers, _ => provider] });
         await Localizer.LoadCultureAsync(CultureInfo.CurrentUICulture, cancellationToken).ConfigureAwait(false);
     }
 }

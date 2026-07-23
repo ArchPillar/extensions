@@ -13,7 +13,7 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
     [Fact]
     public void Localizer_IsRegisteredAsSingleton()
     {
-        Ambient.Reset();
+        Ambient.ResetAmbientForTests();
         var services = new ServiceCollection();
         services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" });
         using ServiceProvider provider = services.BuildServiceProvider();
@@ -24,7 +24,7 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
     [Fact]
     public void TypedLocalizer_ReadsTheAmbientStore()
     {
-        Ambient.Reset();
+        Ambient.ResetAmbientForTests();
         var catalog = new Catalog
         {
             Culture = "de",
@@ -55,7 +55,7 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
     {
         // ILocalizerFactory is the ILoggerFactory-shaped door (Decision D-H); it must be injectable and resolve
         // through the same ambient store as ILocalizer<T> — the context itself is the factory.
-        Ambient.Reset();
+        Ambient.ResetAmbientForTests();
         var catalog = new Catalog
         {
             Culture = "de",
@@ -90,7 +90,7 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
     {
         // The injected interface goes through the ambient store; the Throw policy configured via options must
         // apply there too, not only on a directly constructed DefaultLocalizer.
-        Ambient.Reset();
+        Ambient.ResetAmbientForTests();
         var services = new ServiceCollection();
         services.AddArchPillarLocalization(new LocalizerOptions
         {
@@ -107,7 +107,7 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
     [Fact]
     public void AddArchPillarLocalization_CalledTwice_IsIdempotent()
     {
-        Ambient.Reset();
+        Ambient.ResetAmbientForTests();
         var services = new ServiceCollection();
         services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" });
         services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" });
