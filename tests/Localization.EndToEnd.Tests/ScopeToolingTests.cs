@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using ArchPillar.Extensions.Localization.Formats;
 using ArchPillar.Extensions.Localization.Tooling;
 
@@ -46,7 +47,7 @@ public sealed class ScopeToolingTests : IDisposable
 
         // One add creates the German file for every assembly that has strings.
         Assert.Equal(0, await ToolApplication.RunAsync(["add", "de", "--input", _binDirectory, "--output", _catalogs]));
-        Catalog libADe = await ReadAsync(Path.Combine(_catalogs, "LibA.de.xliff"));
+        Catalog libADe = Read(Path.Combine(_catalogs, "LibA.de.xliff"));
         Assert.Equal("de", libADe.Culture);
         Assert.Equal("save", Assert.Single(libADe.Entries).Key);
         Assert.True(File.Exists(Path.Combine(_catalogs, "LibB.de.xliff")));
@@ -63,7 +64,7 @@ public sealed class ScopeToolingTests : IDisposable
 
         // A translator (or merge) drops an entry from one library's catalog; the scoped check must catch it.
         var libBDe = Path.Combine(_catalogs, "LibB.de.xliff");
-        Catalog stale = await ReadAsync(libBDe);
+        Catalog stale = Read(libBDe);
         await WriteAsync(libBDe, stale with { Entries = [] });
 
         Assert.Equal(1, await ToolApplication.RunAsync(["sync", "--input", _binDirectory, "--output", _catalogs, "--check"]));
@@ -77,12 +78,12 @@ public sealed class ScopeToolingTests : IDisposable
 
         // Translate LibA, then add de again: the existing file must be left untouched (not reset to untranslated).
         var libADe = Path.Combine(_catalogs, "LibA.de.xliff");
-        Catalog catalog = await ReadAsync(libADe);
+        Catalog catalog = Read(libADe);
         await WriteAsync(libADe, catalog with { Entries = [.. catalog.Entries.Select(e => e with { TranslatedMessage = "Speichern", State = TranslationState.Translated })] });
 
         Assert.Equal(0, await ToolApplication.RunAsync(["add", "de", "--input", _binDirectory, "--output", _catalogs]));
 
-        Catalog after = await ReadAsync(libADe);
+        Catalog after = Read(libADe);
         Assert.Equal("Speichern", Assert.Single(after.Entries).TranslatedMessage);
     }
 
@@ -107,19 +108,59 @@ public sealed class ScopeToolingTests : IDisposable
         Assert.Equal(2, await ToolApplication.RunAsync(["extract", "--project", _root, "--output", _catalogs]));
     }
 
+    [Fact]
+    public async Task SolutionScope_Import_DistributesEachCatalogToItsOwnProjectAsync()
+    {
+        // Two projects, each in its own subdirectory, referenced by a solution — the layout the authoring commands
+        // write per project. A translator's kit carries one catalog per assembly, flat and project-named.
+        var libADirectory = Path.Combine(_root, "LibA");
+        var libBDirectory = Path.Combine(_root, "LibB");
+        Directory.CreateDirectory(libADirectory);
+        Directory.CreateDirectory(libBDirectory);
+        File.WriteAllText(Path.Combine(libADirectory, "LibA.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
+        File.WriteAllText(Path.Combine(libBDirectory, "LibB.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
+        var solution = Path.Combine(_root, "App.slnx");
+        File.WriteAllText(solution, "<Solution><Project Path=\"LibA/LibA.csproj\" /><Project Path=\"LibB/LibB.csproj\" /></Solution>");
+
+        var kit = Path.Combine(_root, "kit.zip");
+        using (ZipArchive zip = ZipFile.Open(kit, ZipArchiveMode.Create))
+        {
+            await AddCatalogEntryAsync(zip, "LibA.de.xliff");
+            await AddCatalogEntryAsync(zip, "LibB.de.xliff");
+        }
+
+        // Import with no --output: each returned catalog must land in its own project's Translations folder.
+        Assert.Equal(0, await ToolApplication.RunAsync(["import", "--input", kit, "--solution", solution]));
+
+        Assert.True(File.Exists(Path.Combine(libADirectory, "Translations", "LibA.de.xliff")));
+        Assert.True(File.Exists(Path.Combine(libBDirectory, "Translations", "LibB.de.xliff")));
+    }
+
+    private static async Task AddCatalogEntryAsync(ZipArchive zip, string entryName)
+    {
+        var catalog = new Catalog
+        {
+            Culture = "de",
+            Entries = [new CatalogEntry { Key = "home", SourceMessage = "Home", TranslatedMessage = "Startseite", SourceFingerprint = "fp", State = TranslationState.Translated }]
+        };
+        ZipArchiveEntry entry = zip.CreateEntry(entryName);
+        using Stream stream = entry.Open();
+        await new XliffTranslationFormat().WriteAsync(stream, catalog);
+    }
+
     public void Dispose() => Directory.Delete(_root, recursive: true);
 
-    private static async Task<Catalog> ReadAsync(string path)
+    private static Catalog Read(string path)
     {
         var format = new XliffTranslationFormat();
         using var stream = new MemoryStream(File.ReadAllBytes(path));
-        return await format.ReadAsync(stream, CancellationToken.None);
+        return format.Read(stream);
     }
 
     private static async Task WriteAsync(string path, Catalog catalog)
     {
         var format = new XliffTranslationFormat();
         using FileStream stream = File.Create(path);
-        await format.WriteAsync(stream, catalog, CancellationToken.None);
+        await format.WriteAsync(stream, catalog);
     }
 }

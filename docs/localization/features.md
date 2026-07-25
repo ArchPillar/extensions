@@ -24,16 +24,6 @@ The optional **context** is a disambiguator: the same key and default can mean d
 different places (a "Post" button versus a blog "Post"), and a distinct `context` keeps their
 translations separate without inventing two keys.
 
-The identical lookup is also exposed as an **indexer**, for callers who prefer the `IStringLocalizer`
-shape — `loc["key", "default"]`, with arguments passed as a `(name, value)` array. It is purely a
-matter of taste; the analyzer and extractor treat both the same. Settle on one style per codebase (see
-[getting started](getting-started.md#2-translate-a-string)).
-
-```csharp
-string title = localizer["home.title", "Home"];
-string greet = localizer["greeting", "Hello {name}", [("name", "Ada")]];
-```
-
 ## Categories — the `ILogger<T>` model
 
 There are no user-managed namespaces to design, register, or keep unique. Every key is implicitly
@@ -118,26 +108,31 @@ ArchPillar.Extensions.Localization.Localizer;` and call `Translate(...)` with no
 `using static System.Console;` gives you `WriteLine(...)`.
 
 Configuration goes through the `LocalizerOptions` object — there is **one** configuration surface, not a
-scatter of mutable knobs. `Localizer.Configure(options)` applies it in a single rebuild; `Initialize`
-does the same and can eager-load up front (otherwise the store loads lazily on first use):
+scatter of mutable knobs. `Localizer.Initialize(options)` applies it in a single rebuild, and can
+eager-load up front (otherwise the store loads lazily on first use):
 
 ```csharp
 string s = Localizer.Default.Translate("home.title", "Home");
 string t = Translate("home.title", "Home");          // with `using static …Localizer;` — the same call
-Localizer.AddCatalog(catalog);                       // layer a host override (last source wins)
-Localizer.Configure(new LocalizerOptions            // the single configuration surface
+
+var options = new LocalizerOptions                   // the single configuration surface
 {
     SourceCulture = "en",                            // language the in-code defaults are written in
     TranslationsDirectory = "Translations"           // where loose files are read from
-});
+};
+Localizer.Initialize(options);                       // configure now, load lazily on first use
 Localizer.Initialize(options, eager: true);          // configure and load now, at startup
+
+// Layer a host override: there is no runtime mutation surface, so build new options with an
+// extra provider factory appended and reconfigure the ambient context (last provider wins on overlap).
+Localizer.Ambient.Configure(options with { Providers = [.. options.Providers, _ => new InMemoryCatalogProvider([catalog])] });
 ```
 
 Sources layer **embedded < satellite < directory < host**, last-wins; a lookup is one lock-free read
-that falls to the in-code default on a miss. Internally the loaded catalogs are merged into a single
-flat snapshot, and any custom `ITranslationSource` layers sit above it as additional, equally-ranked
-layers resolved by the very same loop — there is no privileged path for either (see
-[the loading model](internals/SPEC.md)). `Localizer.Reset()` clears everything back to empty (for test
+that falls to the in-code default on a miss. Internally the loaded catalogs from every provider — built-in
+or a custom one added through `LocalizerOptions.Providers` — merge into a single flat snapshot resolved by
+the very same loop, so a custom provider is never a second-class source (see
+[the loading model](internals/SPEC.md)). `Localizer.Ambient.Reset()` clears everything back to empty (for test
 isolation). See [recommendations.md](recommendations.md) for why the store is global and how to keep
 tests deterministic against it.
 
@@ -150,8 +145,9 @@ environment the ambient facade wraps, exposed as an ordinary object you can cons
 dispose. In fact the ambient `Localizer` is *exactly* one of these, held in a single static field.
 
 ```csharp
-using var context = new LocalizationContext(new LocalizerOptions { SourceCulture = "en" });
-context.AddCatalog(catalog);
+var options = new LocalizerOptions { SourceCulture = "en" };
+using var context = new LocalizationContext(options);
+context.Configure(options with { Providers = [.. options.Providers, _ => new InMemoryCatalogProvider([catalog])] });
 
 string s = context.Default.Translate("home.title", "Home");
 string t = context.For<Checkout>().Translate("pay", "Pay now");
@@ -159,8 +155,8 @@ string t = context.For<Checkout>().Translate("pay", "Pay now");
 
 A constructed context shares nothing with the ambient one or with any other context — two of them never
 see each other's catalogs — which is what makes them safe for test isolation and multi-scope hosting. It
-carries the full call and configuration surface (`Default`, `For<T>()`, `Translate`, `AddCatalog`,
-`AddSource`, `Configure`, `Load`, `Reset`), and disposing it tears down its directory watcher. For an
+carries the full call and configuration surface (`Default`, `For<T>()`, `Translate`, `Configure`, `Load`,
+`LoadCultureAsync`, `PreloadAllAsync`, `Reset`), and disposing it tears down its directory watcher. For an
 isolated environment, construct one directly and thread it through your own code rather than reaching for
 the static `Localizer`.
 
@@ -182,10 +178,133 @@ to decide here:
 
 Satellite discovery hooks `AssemblyLoad`, so a catalog in a library that loads later is picked up
 automatically; there is no manifest to keep in sync. Whichever mechanism a given assembly uses, its
-catalogs merge into the same layered store and resolve identically.
+catalogs merge into the same layered store and resolve identically. Each of these delivery mechanisms is
+implemented as a [catalog provider](#catalog-providers) behind a single interface.
 
 > Trimming, single-file, and NativeAOT behave differently for embedded catalogs — see the matrix in
 > [recommendations.md](recommendations.md). The files path is safe everywhere.
+
+## Catalog providers
+
+A **catalog provider** is the seam between *where catalog bytes come from* and *how the store reads them*.
+Each delivery mechanism above is a provider implementing `ICatalogProvider`; the store owns the providers,
+asks them what catalogs exist, and parses the bytes itself with the matching container format. This is the
+one public extension point for a custom catalog source — there is no separate single-key-lookup mechanism;
+every override, built-in or custom, arrives as a whole catalog.
+
+**Discovery is split from load, and sealed into construction.** A provider is *born ready*: by the time you
+hold an instance, its descriptor inventory is known and exposed **synchronously** — a synchronous provider
+scans in its constructor (`new DirectoryCatalogProvider(dir)`), an asynchronous one does its async discovery
+up front in a `static CreateAsync` (`await ManifestCatalogProvider.CreateAsync(httpClient, manifestUri)`).
+The provider itself therefore has no asynchronous members:
+
+```csharp
+public interface ICatalogProvider
+{
+    IReadOnlyList<CatalogDescriptor> Catalogs { get; }
+    IReadOnlyList<CatalogDescriptor> CatalogsFor(CultureInfo culture);
+    IDisposable Watch(Action<CatalogDescriptor> onChanged);
+}
+```
+
+`Catalogs` is everything the provider can enumerate cheaply, so the store learns which cultures exist.
+`CatalogsFor` returns the catalogs for one exact culture and may surface descriptors `Catalogs` cannot —
+a culture satellite is found only by probing for it (the store walks the parent chain itself). `Watch`
+starts watching for change (a file edited under hot reload, an assembly loaded later) and invokes the
+callback with the `CatalogDescriptor` that changed or newly appeared; it returns a handle that stops
+watching when disposed, and a provider whose catalogs never change returns a no-op handle.
+
+A provider never returns parsed catalogs. It returns `CatalogDescriptor`s — a culture, a format hint, an
+optional name for diagnostics, and a `CatalogSource` opener — so listing what is available never reads any
+bytes; the store opens a descriptor only when it decides to load it. **`CatalogSource` is a closed union**
+that makes synchronous vs asynchronous loading a type-level distinction rather than a runtime guess:
+
+```csharp
+public abstract record CatalogSource
+{
+    public sealed record Synchronous(Func<Stream> Open) : CatalogSource;
+    public sealed record Asynchronous(Func<CancellationToken, ValueTask<Stream>> OpenAsync) : CatalogSource;
+}
+```
+
+Either arm hands the store a `Stream`; the parse (`ITranslationFormat.Read(Stream)`) is always synchronous.
+The store decides what to do by pattern-matching the union — a `Synchronous` descriptor loads inline and
+resolves immediately; an `Asynchronous` descriptor is never opened on the synchronous lookup path (that
+would deadlock a single-threaded WebAssembly render), so it is awaited up front or loaded in the background.
+
+Three providers ship in the box:
+
+| Provider | Source | Load | `Watch` |
+|----------|--------|------|---------|
+| `DirectoryCatalogProvider` | Translation files under a directory (`File.OpenRead`). | `Synchronous` | Debounced `FileSystemWatcher`. |
+| `ResourceCatalogProvider` | Main-assembly embedded `[LocalizationCatalog]` catalogs, plus culture satellites probed per culture. | `Synchronous` | `AppDomain.AssemblyLoad`. |
+| `ManifestCatalogProvider` | An HTTP-served catalog manifest, each catalog fetched over `HttpClient`. | `Asynchronous` | No-op. |
+
+The directory and resource providers' descriptors are `Synchronous`, which is what lets the store satisfy a
+[live culture switch](#eager-vs-on-demand-culture-loading) straight from its synchronous lookup path, with
+no blocking. The manifest provider's descriptors are `Asynchronous`: it genuinely awaits the network, so it
+is loaded ahead of render (through `LoadCultureAsync` / `PreloadAllAsync`, or in the background on a
+synchronous miss) rather than driving a synchronous switch — see the Blazor WebAssembly pattern in
+[recommendations.md](recommendations.md).
+
+### Choosing the providers
+
+The store is **provider-agnostic**: it loads from an ordered list of providers, lowest-precedence-first (a
+later provider wins on overlap), and never knows where the bytes come from. It auto-wires its synchronous
+defaults, and a host layers further providers through `LocalizerOptions.Providers`:
+
+| Store | Auto-default providers |
+|-------|------------------------|
+| Process-wide ambient (`Localizer` / `AddArchPillarLocalization`) | `[resource, directory]` — embedded and satellite catalogs beneath the directory, so app files win on overlap. |
+| Explicit (`new LocalizationContext(options)`, or via DI) | `[directory]` — the directory provider alone, with no assembly discovery. |
+
+There is **one way to add a provider** — build new options with an extra factory appended to `Providers`
+and reconfigure — not a mutable `AddProvider` call; `LocalizationContext` has no runtime mutation surface.
+`Providers` holds factories over the resolved options (`Func<LocalizerOptions, ICatalogProvider>`), so a
+provider that needs no wiring is a trivial factory (`_ => provider`) and one that reads the configuration
+does so at the moment it is built (`o => new MyProvider(o.Formats)`). A synchronous provider is `new`'d
+inline inside the factory; an asynchronous one is `await CreateAsync`'d first (the `await` is visible at
+the call site, because async loading is a real cost the reader should see), then wrapped as a trivial
+factory. Every configured provider layers after the auto-defaults, in the order listed, and a later
+provider wins on overlap:
+
+```csharp
+// Synchronous custom source (a database, an in-memory provider in tests).
+var options = new LocalizerOptions
+{
+    Providers = [_ => new MyDatabaseCatalogProvider(connectionString)]
+};
+context.Configure(options);
+
+// Asynchronous source — discover up front, then reconfigure with it appended.
+var manifest = await ManifestCatalogProvider.CreateAsync(httpClient, "_content/app/translations.manifest.json");
+context.Configure(options with { Providers = [.. options.Providers, _ => manifest] });
+await context.LoadCultureAsync(CultureInfo.CurrentUICulture);   // awaited, no flash
+```
+
+> **`Configure` rebuilds the whole provider list from the options you pass — nothing is kept aside from
+> them.** The directory a `DirectoryCatalogProvider` reads is set when the provider is built, and every
+> `Configure` call (and so `Localizer.Initialize`) rebuilds the auto-default directory provider from the
+> new `TranslationsDirectory`, and rebuilds `Providers` from the new options' list. To keep a provider you
+> configured earlier across a reconfigure, carry it forward on the new options — `options with
+> { TranslationsDirectory = ... }` keeps the same `Providers`; appending one more is `options with
+> { Providers = [.. options.Providers, _ => anotherProvider] }`.
+
+### Loading an asynchronous provider — `LoadCultureAsync`, `PreloadAllAsync`, `CatalogsChanged`
+
+A synchronous lookup can only resolve what is already in memory, so an `Asynchronous` catalog is never
+fetched on the lookup path. Three context/`Localizer` members drive asynchronous loading instead:
+
+- **`LoadCultureAsync(culture)`** — awaits every provider's catalogs for the culture (and its parent chain),
+  the asynchronous ones included. Await it before the UI renders the culture and the subsequent synchronous
+  lookups resolve an already-loaded snapshot, with **no flash**. It loads catalogs only; setting the active
+  culture is the caller's concern.
+- **`PreloadAllAsync()`** — the awaited "load everything" for an asynchronous context (server startup):
+  every known culture from every provider, both arms awaited.
+- **`CatalogsChanged`** — raised after any commit that changed the snapshot. A synchronous miss on an
+  asynchronous culture returns the in-code default now and queues a coalesced background load; when it lands,
+  `CatalogsChanged` fires and the UI layer re-renders (stale-while-revalidate). An inline synchronous load
+  resolves directly and needs no event.
 
 ## Eager vs on-demand culture loading
 
@@ -195,7 +314,7 @@ for a server that handles many cultures at once and cannot predict which a given
 requested, so a single-user client (CLI, desktop, Blazor) keeps just the active language in memory:
 
 ```csharp
-Localizer.Configure(new LocalizerOptions { CultureLoading = CultureLoading.OnDemand });
+Localizer.Initialize(new LocalizerOptions { CultureLoading = CultureLoading.OnDemand });
 ```
 
 A **language switch is live — no restart.** The first lookup in a not-yet-loaded culture reads that
@@ -212,9 +331,10 @@ as always.
 Defaults and translations are written in **ICU MessageFormat**, the same grammar `.po`/`.arb` translators
 already use, so a string carries its own grammar rather than relying on string concatenation that breaks
 in other languages. The full surface is supported: simple arguments, typed formatting
-(`{name, number|date|time, style}`), `plural` / `selectordinal` (with `offset`, `=N` exact-match
-selectors, and `#` for the formatted count), `select` for arbitrary categories, and arbitrary nesting of
-all of these. Crucially, **plural categories resolve against the target culture** from embedded Unicode
+(`{name, number, style}` for numbers, currency, and compact — see the next section — plus
+`{name, date|time, style}`), `plural` / `selectordinal` (with `offset`, `=N` exact-match selectors, and
+`#` for the formatted count), `select` for arbitrary categories, and arbitrary nesting of all of these.
+Crucially, **plural categories resolve against the target culture** from embedded Unicode
 CLDR data — so the one template below pluralises by English rules under `en`, by Polish rules (which has
 `one`/`few`/`many`/`other`) under `pl`, and so on, with no per-language code.
 
@@ -231,17 +351,114 @@ default a referenced argument with no supplied value renders its placeholder unc
 (so a partial call still produces readable output); switch `MissingArgumentPolicy.Throw` in the options
 to fail fast instead.
 
+## Number, currency & compact formatting
+
+The `number` placeholder type takes either a **named style** — `integer`, `currency`, `percent` — or an
+ICU **`::`-skeleton**: a space-separated list of stems that compose (a currency code, a width, a fraction
+rule, a compact notation, and so on). Either way the output is **CLDR-48-faithful** — locale grouping, the
+decimal separator, the amount↔symbol spacing, and the negative-number pattern all come from the same
+pinned Unicode CLDR data that drives plural selection above. The style slot is **ICU-only**; a `.NET`
+format string is never accepted there, and an unrecognized stem throws `MessageFormatException` at parse
+time rather than falling back to something plausible.
+
+The accepted skeleton subset:
+
+| Stem | Effect |
+|------|--------|
+| `currency/<ISO>` | Currency, explicit ISO code — **does not follow the UI language** |
+| `unit-width-short` / `-narrow` / `-iso-code` / `-full-name` | Currency width: symbol / narrow / ISO code / full plural name |
+| `.00` / `.##` / `.0#` | Fixed / optional / mixed fraction digits |
+| `percent` | Percent |
+| `integer` (`precision-integer`) | Integer, no fraction |
+| `group-off` / `group-auto` | Grouping off / default |
+| `compact-short` (`K`) / `compact-long` (`KK`) | Compact notation (stems combine, e.g. `::compact-short currency/USD`) |
+
+The ISO code pins *what* currency is shown, while CLDR alone decides *how* — grouping, decimal comma vs.
+point, and where the symbol sits. The clearest way to see the same value under two cultures is
+`ToLocalizedString`, which formats in the culture you pass:
+
+```csharp
+using ArchPillar.Extensions.Localization.MessageFormat;
+
+1234.56m.ToLocalizedString("::currency/USD", CultureInfo.GetCultureInfo("en-US")); // "$1,234.56"
+1234.56m.ToLocalizedString("::currency/USD", CultureInfo.GetCultureInfo("de-DE")); // "1.234,56 $" (U+00A0)
+```
+
+The same style works inside a message, where the amount formats in the culture the message is *rendered in*:
+
+```csharp
+localizer.Translate("cart.total", "Total: {amount, number, ::currency/USD}", ("amount", 1234.56m));
+// under en → "Total: $1,234.56"
+```
+
+> Inside a message the number follows the culture the message is *rendered in* — the target culture once
+> the string is **translated** for that culture, and the source culture while it still falls back to the
+> in-code default (an untranslated English default is rendered by English rules, and its numbers with it).
+> So a message localises its numbers once translated; to format a value in a specific culture regardless of
+> translation state, use `ToLocalizedString`. The amount↔symbol space in `de-DE` is a non-breaking space
+> (U+00A0), per CLDR; a bare `{amount, number, currency}` would follow the culture instead of pinning USD —
+> see [recommendations.md](recommendations.md).
+
+**Currency width** picks how the currency itself is written, independent of the amount or the culture.
+All four widths for the same `en-US` value:
+
+```csharp
+CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
+localizer.Translate("cart.total", "{amount, number, ::currency/USD unit-width-short}", ("amount", 1234.56m));
+// → "$1,234.56"
+localizer.Translate("cart.total", "{amount, number, ::currency/USD unit-width-narrow}", ("amount", 1234.56m));
+// → "$1,234.56"
+localizer.Translate("cart.total", "{amount, number, ::currency/USD unit-width-iso-code}", ("amount", 1234.56m));
+// → "USD 1,234.56"   (the space is a non-breaking space, U+00A0)
+localizer.Translate("cart.total", "{amount, number, ::currency/USD unit-width-full-name}", ("amount", 1234.56m));
+// → "1,234.56 US dollars"
+```
+
+> The `unit-width-iso-code` join (`USD 1,234.56`) uses the same CLDR currency-spacing non-breaking space
+> (U+00A0) as the plain currency example above. `unit-width-short` and `unit-width-narrow` have no join
+> space at all (`$` prefixes the amount directly), and the `unit-width-full-name` join is an ordinary space.
+
+**Compact notation** abbreviates large magnitudes instead of grouping every digit; the stem composes with
+a currency the same way a width does:
+
+```csharp
+localizer.Translate("cart.total", "{amount, number, ::compact-short currency/USD}", ("amount", 1234m));
+// → "$1.2K"
+```
+
+### Formatting a value outside a message
+
+Not every number lives inside a translated sentence — a table cell or a chart axis just needs the value
+itself, in the same CLDR formatting, with no template around it. `ToLocalizedString` is the same engine
+and the same style syntax as an extension method on the value:
+
+```csharp
+using ArchPillar.Extensions.Localization.MessageFormat;
+
+// The same engine and the same style syntax, for a value shown on its own.
+CultureInfo de = CultureInfo.GetCultureInfo("de");
+1234.56m.ToLocalizedString("::currency/USD", de);   // "1.234,56 $"  (the space is U+00A0)
+0.5.ToLocalizedString("::percent");                 // "50%" in en, "50 %" in de (U+00A0)
+```
+
+Overloads exist on `decimal`, `double`, `int`, `long`, and `IFormattable`. The culture parameter defaults
+to **`CultureInfo.CurrentUICulture`** — the same culture the localizer renders against — never
+`CurrentCulture`, which is what makes the two surfaces consistent: `v.ToLocalizedString(s, c)` always
+renders identically to `{v, number, s}` rendered in `c`. The extensions live in the
+`ArchPillar.Extensions.Localization.MessageFormat` namespace, so add the `using` line above to call
+them — everything else in this library resolves without it.
+
 ## Container formats
 
 Catalogs round-trip through three standard, translator-tooling-friendly formats, all bundled into the
 runtime (no separate packages, no plugin to register): **XLIFF 2.1** (the default — the XML interchange
 standard most TMS tools speak, with source and translation as distinct first-class fields), **ARB** (a
 JSON dialect with rich metadata), and **Portable Object** (gettext `.po`). You author in whichever your
-translation pipeline prefers and the runtime loads all three side by side; when the same culture and key
-appear in more than one file the higher-fidelity format wins (`xliff` > `arb` > `po`, configurable via
-`FormatPrecedence`), so a richer XLIFF entry is never shadowed by a leaner `.po` one. Each provider (`ArbTranslationFormat`, `XliffTranslationFormat`,
+translation pipeline prefers and the runtime loads all three side by side; when one catalog exists in
+more than one format the higher-fidelity file wins (`xliff` > `arb` > `po`, a fixed tie-breaker) and the
+loser is never opened. Each provider (`ArbTranslationFormat`, `XliffTranslationFormat`,
 `PoTranslationFormat`) is public and **stream-based**, so a catalog can come from anywhere — a file, an
-embedded resource, an HTTP response, a database column — and you can build a custom `ITranslationSource`
+embedded resource, an HTTP response, a database column — and you can build a custom `ICatalogProvider`
 on top of one.
 
 ## Compile-time extraction and the typed key registry
@@ -250,8 +467,8 @@ A Roslyn source generator extracts every translatable call site into a source-la
 real build (never at design time, so editing never churns files), and emits a strongly-typed key
 registry so call sites and the analyzer share rename-safe keys. "Translatable call site" is not a name
 match — it is driven by the `[Translatable]` / `[TranslationDefault]` parameter attributes on the API,
-which is why `Translate(...)`, the indexer, an `L(...)` marker, and even your own wrapper methods are all
-recognised the same way. The shared analyzer then surfaces, in the editor as you type, what would
+which is why `Translate(...)`, an `L(...)` marker, and even your own wrappers — methods or indexers — are
+all recognised the same way. The shared analyzer then surfaces, in the editor as you type, what would
 otherwise be a silent runtime bug:
 
 | Diagnostic | Meaning |
@@ -341,7 +558,7 @@ builder.Services.AddControllersWithViews().AddArchPillarDataAnnotationsLocalizat
 
 `AddArchPillarLocalization` (in the `…Localization.DependencyInjection` package) configures a single
 `LocalizationContext` from `LocalizerOptions` and registers the native views over it — `ILocalizer`,
-`ILocalizer<T>`, and the concrete `DefaultLocalizer`:
+`ILocalizer<T>`, and `ILocalizerFactory`:
 
 ```csharp
 services.AddArchPillarLocalization(new LocalizerOptions { TranslationsDirectory = "Translations", SourceCulture = "en" });
@@ -423,38 +640,49 @@ merge reuses the runtime's own load, so a merged bundle resolves identically to 
 
 ## Pseudo-localization
 
-Layer a `PseudoLocalizationSource` and every string is pseudo-translated — accented and
-length-expanded (`[!!! Ḩéłłö !!!]`) while ICU placeholders are preserved intact. It is a fast,
-language-free QA pass: any string that comes out in plain Latin was never extracted, and any layout that
-clips or wraps badly will break under genuinely longer languages too. Because it is just another
-`ITranslationSource`, it layers over real catalogs and is trivial to gate behind a build flag.
+There is no dedicated pseudo-localization source — a catalog is the only override mechanism, so a
+pseudo-locale is just another catalog. Author a `Translations/<AssemblyName>.qps-ploc.xliff` (or `.arb` /
+`.po`) file with every string accented and length-expanded (`[!!! Ḩéłłö !!!]`), ICU placeholders left
+intact, and switch to it like any other culture. It is a fast, language-free QA pass: any string that
+comes out in plain Latin was never extracted, and any layout that clips or wraps badly will break under
+genuinely longer languages too.
 
 ```csharp
-Localizer.AddSource(new PseudoLocalizationSource());
+CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("qps-ploc");
+localizer.Translate("home.title", "Home");   // resolves the qps-ploc catalog like any other override
 ```
 
 ## Hot reload
 
-A `CatalogStore` can watch its directory and reload on change (`EnableHotReload`, debounced by
-`HotReloadDebounce` so a flurry of saves coalesces into one reload). A `DefaultLocalizer` over the store
-always resolves against the store's **latest** snapshot, swapped atomically, so concurrent `Translate`
-calls never tear or block — an in-flight render finishes against the old snapshot and the next lookup
-sees the new one. Edit a translation file and the running app reflects it without a restart.
+Turn on `EnableHotReload` (debounced by `HotReloadDebounce` so a flurry of saves coalesces into one
+reload) and the store — the ambient one, or a `LocalizationContext` — watches its directory and reloads
+on change. A lookup always resolves against the **latest** snapshot, swapped atomically, so concurrent
+`Translate` calls never tear or block — an in-flight render finishes against the old snapshot and the
+next lookup sees the new one. Edit a translation file and the running app reflects it without a restart.
 
 ```csharp
-using var store = new CatalogStore(new LocalizerOptions { TranslationsDirectory = "Translations", EnableHotReload = true });
-var localizer = new DefaultLocalizer(store);   // reads store.Snapshot live
+using var context = new LocalizationContext(new LocalizerOptions
+{
+    TranslationsDirectory = "Translations",
+    EnableHotReload = true
+});
+string s = context.Default.Translate("home.title", "Home");   // reads the live, hot-reloaded snapshot
 ```
 
 ## Isolated localizers
 
-When you want a localizer that shares nothing with the ambient store, you have two levels. For a full
-environment — its own configuration, directory, watcher, and the `For<T>()` / `AddCatalog` surface —
-construct a [`LocalizationContext`](#the-localization-context). For just the resolution engine over a
-fixed set of catalogs, construct a `DefaultLocalizer` directly: it bypasses the store entirely and reads
-only the catalogs you hand it. `DefaultLocalizer.FromCatalogs(...)` is the convenience for hosts with no
-file system, such as Blazor WebAssembly — fetch and parse the catalogs over HTTP, then hand them in.
+When you want a localizer that shares nothing with the ambient store, construct a
+[`LocalizationContext`](#the-localization-context) — its own configuration, directory, watcher, and the
+`For<T>()` / `Configure` surface. There is no lower-level "bare engine" door: the resolution engine
+(`DefaultLocalizer`) is `internal`, built only by a `LocalizationContext` (or the ambient `Localizer`)
+over its own store — a consumer never constructs one directly.
+
+For a fixed set of catalogs with no file system — Blazor WebAssembly fetching and parsing catalogs over
+HTTP, or a test that wants no disk I/O — hand them to an `InMemoryCatalogProvider` and layer it into a
+context the same way any other provider is added:
 
 ```csharp
-var localizer = new DefaultLocalizer(catalogs, new LocalizerOptions { SourceCulture = "en" });
+var options = new LocalizerOptions { Providers = [_ => new InMemoryCatalogProvider(catalogs)] };
+using var context = new LocalizationContext(options);
+string s = context.Default.Translate("home.title", "Home");
 ```

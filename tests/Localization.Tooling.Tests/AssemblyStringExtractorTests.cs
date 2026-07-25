@@ -77,16 +77,21 @@ public sealed class AssemblyStringExtractorTests : IDisposable
     [Fact]
     public void Extract_NullConditionalIndexer_IsStillExtracted()
     {
-        // loc?["key", "default"] is a defensive null-conditional indexer; its key must still be extracted so
-        // the string is translatable, not silently dropped.
+        // strings?["key", "default"] is a consumer's own indexer called defensively; its key must still be
+        // extracted so the string is translatable, not silently dropped.
         IReadOnlyList<RawCallSite> sites = Extract("""
             using ArchPillar.Extensions.Localization;
 
             namespace Demo;
 
-            public sealed class Banner(ILocalizer? localizer)
+            public interface IStrings
             {
-                public string? Title => localizer?["title", "Home"];
+                string this[[Translatable] string key, [TranslationDefault] string message] { get; }
+            }
+
+            public sealed class Banner(IStrings? strings)
+            {
+                public string? Title => strings?["title", "Home"];
             }
             """);
 
@@ -138,7 +143,7 @@ public sealed class AssemblyStringExtractorTests : IDisposable
     {
         var path = Compile(source);
         using var extractor = new AssemblyStringExtractor();
-        return extractor.Extract(path);
+        return extractor.Extract(path, includeAnnotations: false).CallSites;
     }
 
     // Compiles the fixture beside the ArchPillar reference assemblies (the test output directory), so the

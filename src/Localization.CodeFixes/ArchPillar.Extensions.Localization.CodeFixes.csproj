@@ -14,6 +14,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Localization.MessageFormat\ArchPillar.Extensions.Localization.MessageFormat.csproj" />
+    <!-- The analyzer owns the diagnostic descriptors these fixes are matched to (their shared APL id contract). -->
+    <ProjectReference Include="..\Localization.Analyzers\ArchPillar.Extensions.Localization.Analyzers.csproj" />
   </ItemGroup>
 
 </Project>

@@ -7,7 +7,7 @@ once.
 
 `AddArchPillarLocalization` (in `…Localization.DependencyInjection`) configures a single
 `LocalizationContext` from `LocalizerOptions` and registers the native views — `ILocalizer`,
-`ILocalizer<T>`, and the concrete `DefaultLocalizer`.
+`ILocalizer<T>`, and `ILocalizerFactory`.
 
 ```csharp
 builder.Services.AddArchPillarLocalization(new LocalizerOptions
@@ -42,11 +42,14 @@ One process-wide, layered store modeled on `IConfiguration`, reachable with no s
 `using static …Localizer;`). All configuration flows through one `LocalizerOptions` surface:
 
 ```csharp
-Localizer.Configure(new LocalizerOptions { SourceCulture = "en", TranslationsDirectory = "Translations" });
+var options = new LocalizerOptions { SourceCulture = "en", TranslationsDirectory = "Translations" };
+Localizer.Initialize(options);                // configure now, load lazily on first use
 Localizer.Initialize(options, eager: true);   // configure + load now (otherwise lazy on first use)
-Localizer.AddCatalog(catalog);                 // layer a host override
-Localizer.AddSource(new PseudoLocalizationSource()); // any ITranslationSource
-Localizer.Reset();                              // clear to empty (test isolation)
+
+// Layer a host override: no runtime mutation surface — build new options with an extra provider
+// factory appended to Providers and reconfigure the ambient context.
+Localizer.Ambient.Configure(options with { Providers = [.. options.Providers, _ => new InMemoryCatalogProvider([catalog])] });
+Localizer.Ambient.Reset();                     // clear to empty (test isolation)
 ```
 
 Sources layer **embedded < satellite < directory < host**, last-wins; a lookup is one lock-free read
@@ -59,19 +62,20 @@ A process-wide static is not always wanted (parallel tests, multi-scope hosting)
 that shares nothing with the ambient one or any other context:
 
 ```csharp
-using var context = new LocalizationContext(new LocalizerOptions { SourceCulture = "en" });
-context.AddCatalog(catalog);
+var options = new LocalizerOptions { SourceCulture = "en" };
+using var context = new LocalizationContext(options);
+context.Configure(options with { Providers = [.. options.Providers, _ => new InMemoryCatalogProvider([catalog])] });
 string s = context.For<Checkout>().Translate("pay", "Pay now");
 ```
 
-For just the resolution engine over a fixed catalog set, construct a **`DefaultLocalizer`**;
-`DefaultLocalizer.FromCatalogs(...)` is the convenience for hosts with no file system (Blazor WASM:
-fetch+parse catalogs over HTTP, hand them in). **Hot reload**: a `CatalogStore` with
-`EnableHotReload = true` (debounced by `HotReloadDebounce`) reloads on file change, swapping an
-immutable snapshot atomically so in-flight `Translate` calls never tear.
+For a fixed catalog set with no file system (Blazor WASM: fetch+parse catalogs over HTTP, hand them in),
+layer an `InMemoryCatalogProvider` into the context through `Providers` — there is no lower-level "bare
+engine" door; `DefaultLocalizer` is `internal`, built only by a `LocalizationContext` (or the ambient
+`Localizer`) over its own store. **Hot reload**: `EnableHotReload` (debounced by `HotReloadDebounce`)
+reloads on file change, swapping an immutable snapshot atomically so in-flight `Translate` calls never tear.
 
-> **Testing:** the ambient store is global state. Call `Localizer.Reset()` between tests, or avoid
-> the static entirely by constructing a `LocalizationContext` / `DefaultLocalizer` per test. See
+> **Testing:** the ambient store is global state. Call `Localizer.Ambient.Reset()` between tests, or avoid
+> the static entirely by constructing a `LocalizationContext` per test. See
 > `docs/localization/recommendations.md`.
 
 ## IStringLocalizer interop and migration

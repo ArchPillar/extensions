@@ -11,21 +11,18 @@ namespace ArchPillar.Extensions.Localization;
 /// up by) and the human-readable default here. Without this twin the system attribute's literal is both key and
 /// default.
 /// </summary>
+/// <remarks>Initializes a new instance with the source-language default text.</remarks>
+/// <param name="defaultValue">The source-language display name (the in-code default and terminal fallback);
+/// the stable key comes from the accompanying <c>[DisplayName]</c> / <c>[Display(Name)]</c>.</param>
 [AttributeUsage(
     AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Enum | AttributeTargets.Property | AttributeTargets.Field,
     AllowMultiple = false)]
-public sealed class LocalizedDisplayNameAttribute : Attribute
+public sealed class LocalizedDisplayNameAttribute(
+    string defaultValue)
+    : Attribute
 {
-    /// <summary>Initializes a new instance with the source-language default text.</summary>
-    /// <param name="defaultValue">The source-language display name (the in-code default and terminal fallback);
-    /// the stable key comes from the accompanying <c>[DisplayName]</c> / <c>[Display(Name)]</c>.</param>
-    public LocalizedDisplayNameAttribute(string defaultValue)
-    {
-        Default = defaultValue;
-    }
-
     /// <summary>Gets the source-language display name.</summary>
-    public string Default { get; }
+    public string Default { get; } = defaultValue;
 }
 
 /// <summary>
@@ -33,21 +30,18 @@ public sealed class LocalizedDisplayNameAttribute : Attribute
 /// accompanies (<c>[Description]</c> or <c>[Display(Description = …)]</c>). The description counterpart of
 /// <see cref="LocalizedDisplayNameAttribute"/>.
 /// </summary>
+/// <remarks>Initializes a new instance with the source-language default text.</remarks>
+/// <param name="defaultValue">The source-language description (the in-code default and terminal fallback);
+/// the stable key comes from the accompanying <c>[Description]</c> / <c>[Display(Description)]</c>.</param>
 [AttributeUsage(
     AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Enum | AttributeTargets.Property | AttributeTargets.Field,
     AllowMultiple = false)]
-public sealed class LocalizedDescriptionAttribute : Attribute
+public sealed class LocalizedDescriptionAttribute(
+    string defaultValue)
+    : Attribute
 {
-    /// <summary>Initializes a new instance with the source-language default text.</summary>
-    /// <param name="defaultValue">The source-language description (the in-code default and terminal fallback);
-    /// the stable key comes from the accompanying <c>[Description]</c> / <c>[Display(Description)]</c>.</param>
-    public LocalizedDescriptionAttribute(string defaultValue)
-    {
-        Default = defaultValue;
-    }
-
     /// <summary>Gets the source-language description.</summary>
-    public string Default { get; }
+    public string Default { get; } = defaultValue;
 }
 
 /// <summary>
@@ -56,7 +50,8 @@ public sealed class LocalizedDescriptionAttribute : Attribute
 /// type returns them all, each exposing its <see cref="Default"/> and <see cref="ValidationType"/>. Not applied
 /// directly; apply the generic form.
 /// </summary>
-public abstract class LocalizedMessageAttribute : Attribute
+public abstract class LocalizedMessageAttribute
+    : Attribute
 {
     private protected LocalizedMessageAttribute(string defaultValue, Type validationType)
     {
@@ -87,19 +82,17 @@ public abstract class LocalizedMessageAttribute : Attribute
 /// form of a generic attribute as the same attribute for the duplicate-application check, so a member carrying
 /// several validators would not compile otherwise.
 /// </remarks>
+/// <remarks>Initializes a new instance with the source-language default error message.</remarks>
+/// <param name="defaultValue">The source-language error message; the stable key comes from
+/// <typeparamref name="TValidation"/>'s <c>ErrorMessage</c> on the same member.</param>
 [AttributeUsage(
     AttributeTargets.Class | AttributeTargets.Property | AttributeTargets.Field | AttributeTargets.Parameter,
     AllowMultiple = true)]
-public sealed class LocalizedMessageAttribute<TValidation> : LocalizedMessageAttribute
+public sealed class LocalizedMessageAttribute<TValidation>(
+    string defaultValue)
+    : LocalizedMessageAttribute(defaultValue, typeof(TValidation))
 #if NET8_0_OR_GREATER
     where TValidation : ValidationAttribute
 #endif
 {
-    /// <summary>Initializes a new instance with the source-language default error message.</summary>
-    /// <param name="defaultValue">The source-language error message; the stable key comes from
-    /// <typeparamref name="TValidation"/>'s <c>ErrorMessage</c> on the same member.</param>
-    public LocalizedMessageAttribute(string defaultValue)
-        : base(defaultValue, typeof(TValidation))
-    {
-    }
 }

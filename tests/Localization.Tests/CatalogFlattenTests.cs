@@ -1,4 +1,4 @@
-using ArchPillar.Extensions.Localization.Internal;
+using ArchPillar.Extensions.Localization.Catalogs;
 
 namespace ArchPillar.Extensions.Localization.Tests;
 
@@ -17,7 +17,7 @@ public sealed class CatalogFlattenTests
             Cat("en", Untranslated("echo", "App.A")),          // an echo of the default → dropped
         ];
 
-        IReadOnlyList<Catalog> merged = CatalogLoader.Flatten(catalogs, new LocalizerOptions { SourceCulture = "en" });
+        IReadOnlyList<Catalog> merged = CatalogFlattener.Flatten(catalogs);
 
         // The source language is now an override layer: en is included (carrying its translated override),
         // alongside de + fr.

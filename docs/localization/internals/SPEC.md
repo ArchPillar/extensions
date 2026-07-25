@@ -22,8 +22,8 @@ with no translation files still runs correctly.
   marked `[Translatable]` / `[TranslationDefault]` defines a translation site; the incremental
   generator is the one extraction engine.
 - **Stable symbolic keys** (D-2) with a strongly-typed key registry (D-4).
-- **One grammar — ICU MessageFormat** (D-6) — for arguments, `plural`/`selectordinal`/`select`, with
-  embedded CLDR plural data (D-7).
+- **One grammar — ICU MessageFormat** (D-6) — for arguments, typed number/currency/compact formatting,
+  and `plural`/`selectordinal`/`select`, with embedded CLDR plural and number data (D-7).
 - **Namespacing follows the `ILogger<T>` model** (D-H): every key is implicitly scoped by a
   *category* equal to the full type name of `T` in `ILocalizer<T>`. Users never manage namespaces.
 - **Translations load through one ambient, layered store** (D-I), modeled on `IConfiguration`:
@@ -79,13 +79,13 @@ with no translation files still runs correctly.
 | `ILocalizer` / `ILocalizer<[TranslationScope] T>` | The native lookup API; `<T>`'s full name is the category. |
 | `ILocalizerFactory` | Creates category-scoped localizers (the `ILoggerFactory` shape). |
 | `Localized<TSelf>` | Optional base class: member name → key via `[CallerMemberName]`. |
-| `Localizer` (static) | The process-wide ambient facade: `Default`, `Ambient`, `For<T>()`, `Translate(...)`, `AddCatalog`, `AddSource`, `Configure(options)`, `Initialize(options, eager)`, `Reset()`. All config flows through `LocalizerOptions`. |
+| `Localizer` (static) | The process-wide ambient facade: `Default`, `Ambient`, `For<T>()`, `Translate(...)`, `Configure(options)`, `Initialize(options, eager)`, `LoadCultureAsync(culture)`, `PreloadAllAsync()`, `Reset()`, `CatalogsChanged`. All config flows through `LocalizerOptions`; its `Providers` list is the only way to add a catalog provider or source. |
 | `LocalizationContext` | The instantiable environment behind the facade (catalogs + config + localizers); the ambient context is one of these. Construct one directly for an isolated, static-free setup. |
-| `DefaultLocalizer` | The pure resolution engine over a `CatalogStore` (or a fixed catalog set) for tests/multitenancy. |
-| `CatalogStore` | Owns the layered catalogs, the directory watcher, and assembly discovery; produces the snapshot the engine resolves against. |
+| `DefaultLocalizer` | The pure resolution engine over a `CatalogStore` snapshot; `internal` constructor — built only by a `LocalizationContext` (or the ambient `Localizer`) over its own store, never directly by a consumer. |
+| `CatalogStore` | `internal`. Owns the layered catalogs, the directory watcher, and assembly discovery; produces the snapshot the engine resolves against. |
 | `TranslatableAttribute` / `TranslationDefaultAttribute` / `TranslationContextAttribute` / `TranslationCommentAttribute` / `TranslationScopeAttribute` | Mark the parameters/type-parameters detection reads. |
 | `TranslationMarkers.L` | No-op extraction marker for off-localizer strings. |
-| `Catalog` / `CatalogEntry` / `ITranslationFormat` / `ITranslationSource` | The catalog model and extension points. |
+| `Catalog` / `CatalogEntry` / `ITranslationFormat` | The catalog model and the format extension point. |
 | `IStringLocalizer*` adapters (DI package) | Interop over the ambient store, composing over a prior factory. |
 
 Full signatures are in the numbered specs and the runtime spec ([`05-runtime.md`](05-runtime.md)).
@@ -95,9 +95,9 @@ Full signatures are in the numbered specs and the runtime spec ([`05-runtime.md`
 - **Fail fast at build time.** Unmapped or conflicting keys, invalid ICU, a placeholder with no
   argument, a plural/select missing its `other` branch — these are diagnostics (`APL0001`–`APL0008`)
   at the call site, not query-time surprises. A non-constant key is an error.
-- **Never fail at runtime.** A missing snapshot, culture, key, malformed file, or absent satellite
-  degrades to the in-code default (or a parent culture) for that one call; discovery failures are
-  swallowed. The terminal fallback always renders.
+- **Never fail at runtime.** A missing snapshot, culture, key, malformed file, malformed override
+  value, or absent satellite degrades to the in-code default (or a parent culture) for that one call;
+  discovery failures are swallowed. The terminal fallback always renders.
 
 ## What this library deliberately does not do
 
@@ -106,5 +106,7 @@ Full signatures are in the numbered specs and the runtime spec ([`05-runtime.md`
 - It does not require DI, a host, or a file system to localize.
 - It does not load satellite assemblies under NativeAOT (it degrades to the in-code default; prefer
   files or a main-assembly embedded catalog for AOT — see [`../recommendations.md`](../recommendations.md)).
-- It does not extract `IStringLocalizer`/`.resx` keys, DataAnnotations messages, or view-localization
-  calls (no in-code default to harvest); the adapter serves them at runtime only.
+- It does not extract `IStringLocalizer`/`.resx` keys, view-localization calls, or a *bare* validator
+  `ErrorMessage` (no in-code default to harvest); the adapter serves those at runtime only. (Annotations
+  that carry an in-code default *are* extracted — display annotations such as `[Display(Name = …)]`, and a
+  validator `ErrorMessage` paired with a `[LocalizedMessage<T>]` twin — see [features.md](../features.md).)

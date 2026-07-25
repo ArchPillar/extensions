@@ -5,8 +5,29 @@
 A monorepo of standalone .NET libraries published under the `ArchPillar.Extensions` namespace. Currently contains:
 
 - **Mapper** (`src/Mapper/`) — object-to-object DTO mapping and LINQ/EF Core expression projection. Read `docs/mapper/internals/SPEC.md` for full design philosophy and API surface.
+- **Localization** (`src/Localization/`) — UI-string translation: extract translatable call sites, hand them to translators in standard formats (ARB/XLIFF/PO), and load translations at runtime as pluggable overrides; the in-code default stays the source of truth and terminal fallback. A multi-package family with optional adapters (DI, ASP.NET Core, IStringLocalizer interop, Blazor WebAssembly), Roslyn analyzers/code-fixes, and a `Tooling` dotnet tool. Read `docs/localization/internals/SPEC.md`.
+- **Primitives** (`src/Primitives/`) — foundational result types (`OperationResult`, `OperationResult<TValue>`, `OperationStatus`, `OperationError`, `OperationException`) for returning HTTP-aligned outcomes; the `Primitives.EntityFrameworkCore` companion makes `Id<T>` typed identifiers a first-class SQL type. Read `docs/primitives/internals/SPEC.md`.
+- **Pipelines** (`src/Pipelines/`) — a lightweight, allocation-free async middleware pipeline (`Pipeline<T>`, pre-composed nested lambdas) with Microsoft.Extensions.DependencyInjection integration. Read `docs/pipelines/internals/SPEC.md`.
+- **Commands** (`src/Commands/`) — a lightweight in-process command dispatcher built on Pipelines; cross-cutting concerns (validation, transactions, logging) plug in as middlewares, handlers register through DI, AOT/trim-safe. Read `docs/commands/internals/SPEC.md`.
 
 When writing or reviewing **documentation, sample projects, or LLM agent skills**, follow the authoring standards in `docs/authoring/` — `documentation-guide.md` (user-vs-developer audience split, canonical skeletons, house style), `samples-guide.md` (naming, structure, the per-sample README), and `skills-guide.md` (one skill per library, generate from the SPEC, the compile/run oracle against the published package). Each guide ends with a review checklist; apply it before considering a docs/samples/skills change done. For the general skill-authoring craft (frontmatter, CSO, progressive disclosure, RED-GREEN-REFACTOR), `skills-guide.md` defers to the `superpowers:writing-skills` skill — use it, don't duplicate it.
+
+## Design Principles
+
+These govern how every library in the monorepo is designed and evolved. Give each type one job and one owner, and remove anything that exists for a reason that no longer holds — a design that "feels off" usually hides a second door, a leaked internal, or speculative machinery. Find it and cut it.
+
+- **KISS** — write the simplest thing that meets the requirement; no cleverness the problem didn't ask for.
+- **YAGNI** — don't carry machinery for needs that aren't real. Delete a feature once its original reason no longer holds, and prefer a concrete requirement on the caller over a generic extension point nobody uses.
+- **Subtraction is progress** — favour the change that removes more than it adds and reads clearer afterward.
+- **One job, one owner** — each type does one thing, and each fact or decision has exactly one owner. If you can't state a type's job in a sentence, it is two types.
+- **One door per concern** — exactly one path to accomplish a given thing. Two parallel mechanisms for the same job is a smell; remove the redundant one.
+- **One composition root, explicit wiring** — wiring happens in one place and dependencies are passed, not discovered. No ambient DI, global state, static registries, configuration attributes, or convention-based guessing.
+- **Encapsulate the shape, expose the intent** — hand callers methods (verbs), never the internal data structure, so the representation stays free to change.
+- **Fix the root, never patch** — a dependency that is awkward to thread means the design is wrong; change the design instead of smuggling it through.
+- **Question the spec, not just the code** — when something is overcomplicated, be willing to delete or redesign the feature, not merely refactor its implementation.
+- **Build and tests are the oracle** — keep both green with zero warnings after every step; trust them over stale IDE diagnostics; move in small, reversible steps.
+- **Respect the platform's real limits** — know the target frameworks, and don't force a modern idiom where a target cannot honor it.
+- **Draw it when it feels off** — a quick relationship diagram surfaces seams that code review misses.
 
 ## Build & Test Commands
 
@@ -27,8 +48,8 @@ dotnet run --project benchmarks/Mapper.Benchmarks -c Release  # run benchmarks
 The test suite includes PostgreSQL integration tests that verify SQL translation against a real database. **Always run the full test suite** (`dotnet test tests/Mapper.Tests`) including PostgreSQL tests — do not skip or filter them out.
 
 PostgreSQL test infrastructure (`PostgresTestDatabase`):
-- **Docker available**: Uses Testcontainers to spin up an ephemeral PostgreSQL container
-- **Cloud environment** (`CLAUDE_CLOUD=true`): Falls back to the host-local PostgreSQL instance (`Host=localhost;Port=5432;Username=app;Password=postgres`) when Docker is unavailable. Start it with `pg_ctlcluster 16 main start` if needed.
+- **Podman available**: Uses Testcontainers to spin up an ephemeral PostgreSQL container (Testcontainers talks to the Podman socket; this project uses Podman exclusively, not Docker)
+- **Cloud environment** (`CLAUDE_CLOUD=true`): Falls back to the host-local PostgreSQL instance (`Host=localhost;Port=5432;Username=app;Password=postgres`) when Podman is unavailable. Start it with `pg_ctlcluster 16 main start` if needed.
 
 Each test class gets an isolated database (created/dropped automatically).
 

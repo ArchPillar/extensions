@@ -2,8 +2,9 @@ namespace ArchPillar.Extensions.Localization.MessageFormat;
 
 /// <summary>
 /// Thrown when an ICU MessageFormat string cannot be parsed, or when it cannot be rendered because a
-/// supplied argument has the wrong type (for example a non-numeric value for a <c>plural</c>). For a parse
-/// failure <see cref="Position"/> carries the character offset; for a render-time error it is <c>-1</c>.
+/// supplied argument has the wrong type (for example a non-numeric value for a <c>plural</c>). For a syntax
+/// parse failure <see cref="Position"/> carries the character offset; for a render-time error — and for a
+/// number-style validation error raised at parse, whose offset is not tracked — it is <c>-1</c>.
 /// </summary>
 public sealed class MessageFormatException : Exception
 {

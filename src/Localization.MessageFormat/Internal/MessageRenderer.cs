@@ -9,14 +9,35 @@ namespace ArchPillar.Extensions.Localization.MessageFormat.Internal;
 /// <c>select</c> branches, and renders <c>#</c> as the value minus the construct's offset.
 /// </summary>
 /// <remarks>
-/// The hot path is allocation-conscious: a literal-only message returns its text directly (no
-/// allocation), arguments are looked up over the argument array rather than a dictionary, and a
-/// thread-local <see cref="StringBuilder"/> is reused so a dynamic render allocates only the result.
+/// A stack-only <c>ref struct</c> carries the render-constant context — the output builder, culture,
+/// argument set and missing-argument policy — as fields, so the recursive walk threads only <c>pound</c>
+/// (the enclosing plural's value), which alone varies per branch, and the renderer itself costs no heap
+/// allocation. The hot path is allocation-conscious: a literal-only message returns its text directly,
+/// arguments are looked up over the argument array rather than a dictionary, and a thread-local
+/// <see cref="StringBuilder"/> is reused. A simple substitution then allocates only the rendered result;
+/// plural and number rendering additionally allocate the small operand and culture-fallback intermediates.
 /// </remarks>
-internal static class MessageRenderer
+internal readonly ref struct MessageRenderer
 {
     [ThreadStatic]
     private static StringBuilder? _pooledBuilder;
+
+    private readonly StringBuilder _builder;
+    private readonly CultureInfo _culture;
+    private readonly (string Name, object? Value)[] _arguments;
+    private readonly MissingArgumentPolicy _policy;
+
+    private MessageRenderer(
+        StringBuilder builder,
+        CultureInfo culture,
+        (string Name, object? Value)[] arguments,
+        MissingArgumentPolicy policy)
+    {
+        _builder = builder;
+        _culture = culture;
+        _arguments = arguments;
+        _policy = policy;
+    }
 
     public static string Render(
         Message message,
@@ -34,7 +55,7 @@ internal static class MessageRenderer
         try
         {
             builder.Clear();
-            RenderInto(builder, message, culture, arguments, policy, pound: null);
+            new MessageRenderer(builder, culture, arguments, policy).RenderInto(message, pound: null);
             return builder.ToString();
         }
         finally
@@ -61,78 +82,56 @@ internal static class MessageRenderer
         return false;
     }
 
-    private static void RenderInto(
-        StringBuilder builder,
-        Message message,
-        CultureInfo culture,
-        (string Name, object? Value)[] arguments,
-        MissingArgumentPolicy policy,
-        decimal? pound)
+    private void RenderInto(Message message, decimal? pound)
     {
         foreach (MessagePart part in message.Parts)
         {
-            RenderPart(builder, part, culture, arguments, policy, pound);
+            RenderPart(part, pound);
         }
     }
 
-    private static void RenderPart(
-        StringBuilder builder,
-        MessagePart part,
-        CultureInfo culture,
-        (string Name, object? Value)[] arguments,
-        MissingArgumentPolicy policy,
-        decimal? pound)
+    private void RenderPart(MessagePart part, decimal? pound)
     {
         switch (part)
         {
             case LiteralPart literal:
-                builder.Append(literal.Text);
+                _builder.Append(literal.Text);
                 break;
             case PoundPart:
-                builder.Append(FormatNumber(pound ?? 0m, culture));
+                _builder.Append(NumberFormatting.Format(pound ?? 0m, null, _culture));
                 break;
             case ArgumentPart argument:
-                RenderArgument(builder, argument, culture, arguments, policy);
+                RenderArgument(argument);
                 break;
             case PluralPart plural:
-                RenderPlural(builder, plural, culture, arguments, policy);
+                RenderPlural(plural);
                 break;
             case SelectPart select:
-                RenderSelect(builder, select, culture, arguments, policy, pound);
+                RenderSelect(select, pound);
                 break;
             default:
                 break;
         }
     }
 
-    private static void RenderArgument(
-        StringBuilder builder,
-        ArgumentPart argument,
-        CultureInfo culture,
-        (string Name, object? Value)[] arguments,
-        MissingArgumentPolicy policy)
+    private void RenderArgument(ArgumentPart argument)
     {
-        if (!TryGetArgument(arguments, argument.Name, out var value))
+        if (!TryGetArgument(argument.Name, out var value))
         {
-            AppendMissing(builder, argument.Name, policy);
+            AppendMissing(argument.Name);
             return;
         }
 
-        builder.Append(argument.Type is null
-            ? FormatValue(value, culture)
-            : FormatTyped(value, argument.Type, argument.Style, culture));
+        _builder.Append(argument.Type is null
+            ? FormatValue(value)
+            : FormatTyped(value, argument.Type, argument.Style));
     }
 
-    private static void RenderPlural(
-        StringBuilder builder,
-        PluralPart plural,
-        CultureInfo culture,
-        (string Name, object? Value)[] arguments,
-        MissingArgumentPolicy policy)
+    private void RenderPlural(PluralPart plural)
     {
-        if (!TryGetArgument(arguments, plural.ArgumentName, out var value))
+        if (!TryGetArgument(plural.ArgumentName, out var value))
         {
-            AppendMissing(builder, plural.ArgumentName, policy);
+            AppendMissing(plural.ArgumentName);
             return;
         }
 
@@ -143,21 +142,22 @@ internal static class MessageRenderer
             throw new MessageFormatException($"Argument '{plural.ArgumentName}' is not a number.", -1);
         }
 
-        Message branch = SelectPluralBranch(plural, number, culture);
-        RenderInto(builder, branch, culture, arguments, policy, number - plural.Offset);
+        Message branch = SelectPluralBranch(plural, number);
+        RenderInto(branch, number - plural.Offset);
     }
 
-    private static Message SelectPluralBranch(PluralPart plural, decimal number, CultureInfo culture)
+    private Message SelectPluralBranch(PluralPart plural, decimal number)
     {
         if (TryExplicitBranch(plural, number, out Message? exact))
         {
             return exact!;
         }
 
-        PluralOperands operands = PluralRules.Operands(number - plural.Offset);
+        var adjusted = number - plural.Offset;
+        PluralOperands operands = PluralRules.Operands(adjusted, NumberFormatting.VisibleFractionDigits(adjusted));
         PluralCategory category = plural.Ordinal
-            ? PluralRules.Ordinal(culture.Name, operands)
-            : PluralRules.Cardinal(culture.Name, operands);
+            ? PluralRules.Ordinal(_culture.Name, operands)
+            : PluralRules.Cardinal(_culture.Name, operands);
         return FindCategoryBranch(plural, category)
             ?? FindCategoryBranch(plural, PluralCategory.Other)
             ?? EmptyMessage;
@@ -191,17 +191,11 @@ internal static class MessageRenderer
         return null;
     }
 
-    private static void RenderSelect(
-        StringBuilder builder,
-        SelectPart select,
-        CultureInfo culture,
-        (string Name, object? Value)[] arguments,
-        MissingArgumentPolicy policy,
-        decimal? pound)
+    private void RenderSelect(SelectPart select, decimal? pound)
     {
-        if (!TryGetArgument(arguments, select.ArgumentName, out var value))
+        if (!TryGetArgument(select.ArgumentName, out var value))
         {
-            AppendMissing(builder, select.ArgumentName, policy);
+            AppendMissing(select.ArgumentName);
             return;
         }
 
@@ -214,16 +208,13 @@ internal static class MessageRenderer
         if (branch is not null)
         {
             // Thread the enclosing plural's number so a '#' inside a select-within-a-plural renders it.
-            RenderInto(builder, branch, culture, arguments, policy, pound);
+            RenderInto(branch, pound);
         }
     }
 
-    private static bool TryGetArgument(
-        (string Name, object? Value)[] arguments,
-        string name,
-        out object? value)
+    private bool TryGetArgument(string name, out object? value)
     {
-        foreach ((var argumentName, var argumentValue) in arguments)
+        foreach ((var argumentName, var argumentValue) in _arguments)
         {
             if (string.Equals(argumentName, name, StringComparison.Ordinal))
             {
@@ -236,17 +227,17 @@ internal static class MessageRenderer
         return false;
     }
 
-    private static void AppendMissing(StringBuilder builder, string name, MissingArgumentPolicy policy)
+    private void AppendMissing(string name)
     {
-        if (policy == MissingArgumentPolicy.Throw)
+        if (_policy == MissingArgumentPolicy.Throw)
         {
             throw new MissingArgumentException(name);
         }
 
-        builder.Append('{').Append(name).Append('}');
+        _builder.Append('{').Append(name).Append('}');
     }
 
-    private static string FormatValue(object? value, CultureInfo culture)
+    private string FormatValue(object? value)
     {
         if (value is null)
         {
@@ -254,48 +245,29 @@ internal static class MessageRenderer
         }
 
         return value is IFormattable formattable
-            ? formattable.ToString(null, culture)
+            ? formattable.ToString(null, _culture)
             : value.ToString() ?? string.Empty;
     }
 
-    private static string FormatTyped(object? value, string type, string? style, CultureInfo culture)
+    private string FormatTyped(object? value, string type, string? style)
     {
+        if (type == "number")
+        {
+            return NumberFormatting.Format(value, style, _culture);
+        }
+
         if (value is not IFormattable formattable)
         {
             return value?.ToString() ?? string.Empty;
         }
 
-        // A plain "{n, number}" (no/unknown style) uses the locale's default number format, which groups —
-        // matching the "integer" style and ICU. Only the explicit styles take a fixed format string.
-        if (type == "number" && NumberStyle(style) is null)
-        {
-            return FormatNumber(value, culture);
-        }
-
-        return formattable.ToString(ResolveFormat(type, style), culture);
+        return formattable.ToString(ResolveFormat(type, style), _culture);
     }
-
-    // Formats a number with the locale's grouping separators (ICU's default for "#" and "{n, number}"):
-    // grouped, and up to three fraction digits with trailing zeros trimmed — so an integer groups with no
-    // decimals and a fractional value keeps its digits.
-    private static string FormatNumber(object? value, CultureInfo culture) =>
-        value is IFormattable formattable
-            ? formattable.ToString("#,##0.###", culture)
-            : value?.ToString() ?? string.Empty;
 
     private static string? ResolveFormat(string type, string? style) => type switch
     {
-        "number" => NumberStyle(style),
         "date" => DateStyle(style),
         "time" => TimeStyle(style),
-        _ => null
-    };
-
-    private static string? NumberStyle(string? style) => style switch
-    {
-        "integer" => "N0",
-        "percent" => "P",
-        "currency" => "C",
         _ => null
     };
 
@@ -314,35 +286,8 @@ internal static class MessageRenderer
         _ => "T"
     };
 
-    private static bool TryToNumber(object? value, out decimal number)
-    {
-        switch (value)
-        {
-            case decimal d:
-                number = d;
-                return true;
-            case double db:
-                number = (decimal)db;
-                return true;
-            case float fl:
-                number = (decimal)fl;
-                return true;
-            case null:
-                number = 0m;
-                return false;
-            default:
-                try
-                {
-                    number = Convert.ToDecimal(value, CultureInfo.InvariantCulture);
-                    return true;
-                }
-                catch (Exception exception) when (exception is FormatException or InvalidCastException or OverflowException)
-                {
-                    number = 0m;
-                    return false;
-                }
-        }
-    }
+    private static bool TryToNumber(object? value, out decimal number) =>
+        NumberFormatting.TryToDecimal(value, out number);
 
     private static Message EmptyMessage { get; } = new([]);
 }

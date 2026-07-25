@@ -43,7 +43,10 @@ public sealed class TranslationAnalyzer : DiagnosticAnalyzer
 
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        if (context.Compilation.GetTypeByMetadataName("ArchPillar.Extensions.Localization.TranslatableAttribute") is null)
+        // Resolve the localization well-known symbols once per compilation and reuse them on every node,
+        // rather than re-resolving them per analyzed node. Bail when the attributes are not referenced.
+        TranslationSiteDetector.AttributeSymbols symbols = TranslationSiteDetector.AttributeSymbols.From(context.Compilation);
+        if (symbols.Translatable is null)
         {
             return;
         }
@@ -51,11 +54,12 @@ public sealed class TranslationAnalyzer : DiagnosticAnalyzer
         Regex? keyPattern = KeyPatternOf(context.Options);
         var sites = new ConcurrentBag<RecordedSite>();
         context.RegisterSyntaxNodeAction(
-            nodeContext => Analyze(nodeContext, keyPattern, sites),
+            nodeContext => Analyze(nodeContext, symbols, keyPattern, sites),
             SyntaxKind.InvocationExpression,
             SyntaxKind.ObjectCreationExpression,
             SyntaxKind.ImplicitObjectCreationExpression,
-            SyntaxKind.ElementAccessExpression);
+            SyntaxKind.ElementAccessExpression,
+            SyntaxKind.ElementBindingExpression);
 
         // Duplicate-key (APL0006) and identical-text (APL0007) need the whole compilation: deciding them
         // per node made the result depend on analysis order and blind to cross-file pairs in the IDE. They
@@ -93,13 +97,14 @@ public sealed class TranslationAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    private static void Analyze(SyntaxNodeAnalysisContext context, Regex? keyPattern, ConcurrentBag<RecordedSite> sites)
+    private static void Analyze(SyntaxNodeAnalysisContext context, TranslationSiteDetector.AttributeSymbols symbols, Regex? keyPattern, ConcurrentBag<RecordedSite> sites)
     {
         // The editor analyzer recognises our own attribute-annotated indexer (so a non-constant key or bad ICU
         // is flagged there too) but suppresses the BCL IStringLocalizer indexer, which is extraction-only.
         TranslationSiteResult? result = TranslationSiteDetector.DetectAt(
             context.SemanticModel,
             context.Node,
+            symbols,
             includeStringLocalizer: false,
             context.CancellationToken);
         if (result is null)
@@ -148,8 +153,8 @@ public sealed class TranslationAnalyzer : DiagnosticAnalyzer
 
         // Duplicate-key and identical-text are decided over the whole compilation, so record the site for the
         // end action. Identity is scoped by category: the same key under two categories is a different string.
-        var composite = site.Category + TranslationKey.Separator + TranslationKey.Compose(site.Key, site.Context);
-        var textKey = site.Category + TranslationKey.Separator + site.DefaultMessage + TranslationKey.Separator + (site.Context ?? string.Empty);
+        var composite = TranslationKey.ComposeQualified(site.Category, site.Key, site.Context);
+        var textKey = TranslationKey.ComposeQualified(site.Category, site.DefaultMessage, site.Context);
         sites.Add(new RecordedSite(composite, textKey, site.Key, site.DefaultMessage, location));
     }
 
@@ -241,25 +246,5 @@ public sealed class TranslationAnalyzer : DiagnosticAnalyzer
         return null;
     }
 
-    private sealed class RecordedSite
-    {
-        public RecordedSite(string composite, string textKey, string key, string defaultMessage, Location location)
-        {
-            Composite = composite;
-            TextKey = textKey;
-            Key = key;
-            DefaultMessage = defaultMessage;
-            Location = location;
-        }
-
-        public string Composite { get; }
-
-        public string TextKey { get; }
-
-        public string Key { get; }
-
-        public string DefaultMessage { get; }
-
-        public Location Location { get; }
-    }
+    private sealed record RecordedSite(string Composite, string TextKey, string Key, string DefaultMessage, Location Location);
 }

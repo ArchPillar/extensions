@@ -26,7 +26,7 @@ public sealed class TranslationFormatRegistryTests
     }
 
     [Fact]
-    public void Resolve_Unknown_ReturnsNull()
+    public void ResolveByIdOrExtension_Unknown_ReturnsNull()
     {
         var registry = new TranslationFormatRegistry();
 
@@ -56,10 +56,10 @@ public sealed class TranslationFormatRegistryTests
 
         public FormatCapabilities Capabilities => FormatCapabilities.None;
 
-        public Task<Catalog> ReadAsync(Stream input, CancellationToken cancellationToken) =>
+        public Catalog Read(Stream input) =>
             throw new NotSupportedException();
 
-        public Task WriteAsync(Stream output, Catalog catalog, CancellationToken cancellationToken, CatalogWriteOptions? options = null) =>
+        public Task WriteAsync(Stream output, Catalog catalog, CatalogWriteOptions? options = null, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
     }
 }

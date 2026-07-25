@@ -1,4 +1,7 @@
 using System.Globalization;
+using System.Text;
+using ArchPillar.Extensions.Localization.Formats;
+using ArchPillar.Extensions.Localization.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
 using Ambient = ArchPillar.Extensions.Localization.Localizer;
@@ -64,8 +67,8 @@ public sealed class StringLocalizerServiceCollectionExtensionsTests : IDisposabl
     [Fact]
     public void StringLocalizer_ComposesOverAPreviouslyRegisteredFactory()
     {
-        Ambient.Reset();
-        Ambient.AddCatalog(new Catalog
+        Ambient.ResetAmbientForTests();
+        var catalog = new Catalog
         {
             Culture = "de",
             Entries =
@@ -80,11 +83,11 @@ public sealed class StringLocalizerServiceCollectionExtensionsTests : IDisposabl
                     State = TranslationState.Translated
                 }
             ]
-        });
+        };
 
         var services = new ServiceCollection();
         services.AddSingleton<IStringLocalizerFactory>(new FakeFactory());
-        services.AddArchPillarStringLocalizer(new LocalizerOptions { SourceCulture = "en" });
+        services.AddArchPillarStringLocalizer(new LocalizerOptions { SourceCulture = "en", Providers = [Layer(catalog)] });
         using ServiceProvider provider = services.BuildServiceProvider();
 
         IStringLocalizer localizer = provider.GetRequiredService<IStringLocalizerFactory>().Create(typeof(Buttons));
@@ -107,10 +110,16 @@ public sealed class StringLocalizerServiceCollectionExtensionsTests : IDisposabl
     }
 
     [Fact]
-    public void GetAllStrings_IncludesAmbientEntriesForTheCategory()
+    public void StringLocalizer_MalformedOverride_FallsThroughToInnerFactory()
     {
-        Ambient.Reset();
-        Ambient.AddCatalog(new Catalog
+        // A malformed ambient override (a well-formed catalog entry whose translated VALUE is invalid ICU —
+        // here an unclosed "{name" argument) must not crash the adapter: DefaultLocalizer.TranslateOverride
+        // treats it as no usable override (returns null), so LocalizerStringLocalizer.Resolve falls through to
+        // the previously-registered factory exactly as it would on an ambient miss. Pre-fix, TranslateOverride
+        // called Formatter.Format on the malformed override directly and threw MessageFormatException straight
+        // out of this indexer call.
+        Ambient.ResetAmbientForTests();
+        var catalog = new Catalog
         {
             Culture = "de",
             Entries =
@@ -118,17 +127,48 @@ public sealed class StringLocalizerServiceCollectionExtensionsTests : IDisposabl
                 new CatalogEntry
                 {
                     Category = typeof(Buttons).FullName!,
-                    Key = "save",
-                    SourceMessage = "Save",
-                    TranslatedMessage = "Speichern",
+                    Key = "inner",
+                    SourceMessage = "Inner",
+                    TranslatedMessage = "Hi {name",
                     SourceFingerprint = "fp",
                     State = TranslationState.Translated
                 }
             ]
-        });
+        };
 
         var services = new ServiceCollection();
-        services.AddArchPillarStringLocalizer(new LocalizerOptions { SourceCulture = "en" });
+        services.AddSingleton<IStringLocalizerFactory>(new FakeFactory());
+        services.AddArchPillarStringLocalizer(new LocalizerOptions { SourceCulture = "en", Providers = [Layer(catalog)] });
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        IStringLocalizer localizer = provider.GetRequiredService<IStringLocalizerFactory>().Create(typeof(Buttons));
+
+        WithCulture(_german, () =>
+        {
+            LocalizedString fromInner = localizer["inner"];
+            Assert.Equal("FromInner", fromInner.Value);
+            Assert.False(fromInner.ResourceNotFound);
+        });
+    }
+
+    [Fact]
+    public void GetAllStrings_IncludesAmbientEntriesForTheCategory()
+    {
+        Ambient.ResetAmbientForTests();
+
+        // GetAllStrings enumerates the loaded catalog snapshot, so the ambient entry must be a loaded catalog —
+        // configured here through an InMemoryCatalogProvider over a parsed ARB catalog.
+        var arb = $$"""
+            {
+              "@@locale": "de",
+              "@@x-category": "{{typeof(Buttons).FullName}}",
+              "save": "Speichern",
+              "@save": { "x-state": "Translated", "x-source-fingerprint": "fp" }
+            }
+            """;
+
+        var services = new ServiceCollection();
+        services.AddArchPillarStringLocalizer(new LocalizerOptions { SourceCulture = "en", Providers = [Layer(ParseArb(arb))] });
         using ServiceProvider provider = services.BuildServiceProvider();
         IStringLocalizer localizer = provider.GetRequiredService<IStringLocalizerFactory>().Create(typeof(Buttons));
 
@@ -145,7 +185,7 @@ public sealed class StringLocalizerServiceCollectionExtensionsTests : IDisposabl
         // Reverse of the documented order: the host calls AddLocalization after us. Its TryAdd would be
         // suppressed by our composing factory, silently dropping all .resx — so we register the ResourceManager
         // factory ourselves, and it must be present regardless of order (Decision D-F3).
-        Ambient.Reset();
+        Ambient.ResetAmbientForTests();
         var services = new ServiceCollection();
         services.AddArchPillarStringLocalizer(new LocalizerOptions { SourceCulture = "en" });
         services.AddLocalization();
@@ -158,14 +198,14 @@ public sealed class StringLocalizerServiceCollectionExtensionsTests : IDisposabl
     [Fact]
     public void AddArchPillarStringLocalizer_CalledTwice_IsIdempotent()
     {
-        Ambient.Reset();
+        Ambient.ResetAmbientForTests();
         var services = new ServiceCollection();
         services.AddArchPillarStringLocalizer(new LocalizerOptions { SourceCulture = "en" });
         services.AddArchPillarStringLocalizer(new LocalizerOptions { SourceCulture = "en" });
 
         // The second call is a no-op (the native marker and the interop marker are each registered exactly
         // once), so it does not stack a second composing factory over the first.
-        Assert.Equal(1, services.Count(descriptor => descriptor.ServiceType == typeof(DefaultLocalizer)));
+        Assert.Equal(1, services.Count(descriptor => descriptor.ServiceType == typeof(LocalizationContext)));
         Assert.Equal(1, services.Count(descriptor =>
             descriptor.ServiceType == typeof(IStringLocalizerFactory)
             && descriptor.ImplementationFactory is not null));
@@ -193,7 +233,7 @@ public sealed class StringLocalizerServiceCollectionExtensionsTests : IDisposabl
     {
         // The migration case: the value lives in the existing .resx factory. The adapter must reach it, not
         // throw on the ICU-incompatible name first.
-        Ambient.Reset();
+        Ambient.ResetAmbientForTests();
         var services = new ServiceCollection();
         services.AddSingleton<IStringLocalizerFactory>(new FakeFactory());
         services.AddArchPillarStringLocalizer(new LocalizerOptions { SourceCulture = "en" });
@@ -208,13 +248,13 @@ public sealed class StringLocalizerServiceCollectionExtensionsTests : IDisposabl
 
     public void Dispose()
     {
-        Ambient.Reset();
+        Ambient.ResetAmbientForTests();
         Directory.Delete(_directory, recursive: true);
     }
 
     private ServiceProvider BuildProvider()
     {
-        Ambient.Reset();
+        Ambient.ResetAmbientForTests();
         var services = new ServiceCollection();
         services.AddArchPillarStringLocalizer(new LocalizerOptions { TranslationsDirectory = _directory, SourceCulture = "en" });
         return services.BuildServiceProvider();
@@ -232,6 +272,15 @@ public sealed class StringLocalizerServiceCollectionExtensionsTests : IDisposabl
         {
             CultureInfo.CurrentUICulture = original;
         }
+    }
+
+    private static Func<LocalizerOptions, ICatalogProvider> Layer(Catalog catalog) =>
+        _ => new InMemoryCatalogProvider([catalog]);
+
+    private static Catalog ParseArb(string arb)
+    {
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(arb));
+        return new ArbTranslationFormat().Read(stream);
     }
 
     private sealed class Buttons;

@@ -21,10 +21,7 @@ public static class DataAnnotationsLocalizationMvcBuilderExtensions
     /// <exception cref="ArgumentNullException"><paramref name="builder"/> is <see langword="null"/>.</exception>
     public static IMvcBuilder AddArchPillarDataAnnotationsLocalization(this IMvcBuilder builder)
     {
-        if (builder is null)
-        {
-            throw new ArgumentNullException(nameof(builder));
-        }
+        ArgumentNullException.ThrowIfNull(builder);
 
         // The MVC metadata provider invokes DataAnnotationLocalizerProvider only when an IStringLocalizerFactory
         // is also registered; AddLocalization registers it (we hand the provider our own localizer and ignore the
@@ -32,11 +29,7 @@ public static class DataAnnotationsLocalizationMvcBuilderExtensions
         builder.Services.AddLocalization();
         builder.AddDataAnnotationsLocalization(options =>
             options.DataAnnotationLocalizerProvider = (type, _) =>
-                new ArchPillarDataAnnotationsLocalizer(Localizer.ForCategory(CategoryOf(type)), type));
+                new ArchPillarDataAnnotationsLocalizer(Localizer.ForCategory(CategoryName.Of(type)), type));
         return builder;
     }
-
-    // The category an annotated type's strings are extracted under: its reflection full name (the enum helper and
-    // the IL extractor use the same), falling back to the simple name for the rare type with no full name.
-    private static string CategoryOf(Type type) => type.FullName ?? type.Name;
 }

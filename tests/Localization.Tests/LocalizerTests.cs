@@ -1,5 +1,7 @@
 using System.Globalization;
+using ArchPillar.Extensions.Localization.Catalogs;
 using ArchPillar.Extensions.Localization.Formats;
+using ArchPillar.Extensions.Localization.Providers;
 
 namespace ArchPillar.Extensions.Localization.Tests;
 
@@ -161,21 +163,6 @@ public sealed class LocalizerTests : IDisposable
     }
 
     [Fact]
-    public void Reload_PicksUpNewlyAddedFile()
-    {
-        var directory = NewDirectory();
-        var store = new CatalogStore(new LocalizerOptions { TranslationsDirectory = directory, SourceCulture = "en" });
-        _stores.Add(store);
-        var localizer = new DefaultLocalizer(store);
-        Assert.Equal("Hello", localizer.Translate(_de, "greeting", "Hello", null));
-
-        WriteArb(directory, "de", Entry("greeting", "Hallo"));
-        store.Reload();
-
-        Assert.Equal("Hallo", localizer.Translate(_de, "greeting", "Hello", null));
-    }
-
-    [Fact]
     public void Translate_MixedFormats_PrefersXliffOverArbByDefault()
     {
         var directory = NewDirectory();
@@ -187,34 +174,18 @@ public sealed class LocalizerTests : IDisposable
     }
 
     [Fact]
-    public void Translate_FormatPrecedence_IsConfigurable()
+    public void InMemoryCatalogs_ResolveAsOverride()
     {
-        var directory = NewDirectory();
-        WriteArb(directory, "de", Entry("greeting", "from arb"));
-        WriteCatalog(new XliffTranslationFormat(), directory, "de.xliff", DeCatalog("greeting", "from xliff"));
-        DefaultLocalizer localizer = Over(new LocalizerOptions
-        {
-            TranslationsDirectory = directory,
-            SourceCulture = "en",
-            FormatPrecedence = ["arb", "xliff", "po"]
-        });
-
-        Assert.Equal("from arb", localizer.Translate(_de, "greeting", "Hello", null));
-    }
-
-    [Fact]
-    public void FromCatalogs_UsesSuppliedOverride_WithoutTouchingDisk()
-    {
-        var localizer = DefaultLocalizer.FromCatalogs(
-            [DeCatalog("greeting", "Hallo")],
-            new LocalizerOptions { SourceCulture = "en" });
+        DefaultLocalizer localizer = OverCatalogs(
+            new LocalizerOptions { SourceCulture = "en" },
+            DeCatalog("greeting", "Hallo"));
 
         Assert.Equal("Hallo", localizer.Translate(_de, "greeting", "Hello", null));
         Assert.Equal("Hello", localizer.Translate(_fr, "greeting", "Hello", null));
     }
 
     [Fact]
-    public void FromCatalogs_LoadsSourceCultureOverride()
+    public void InMemoryCatalogs_LoadTheSourceCultureOverride()
     {
         var enCatalog = new Catalog
         {
@@ -232,7 +203,7 @@ public sealed class LocalizerTests : IDisposable
             ]
         };
 
-        var localizer = DefaultLocalizer.FromCatalogs([enCatalog], new LocalizerOptions { SourceCulture = "en" });
+        DefaultLocalizer localizer = OverCatalogs(new LocalizerOptions { SourceCulture = "en" }, enCatalog);
 
         // The source override is loaded above the in-code default; a key without one still falls back.
         Assert.Equal("FROM CATALOG", localizer.Translate(_en, "greeting", "Hello", null));
@@ -240,8 +211,32 @@ public sealed class LocalizerTests : IDisposable
     }
 
     [Fact]
-    public void FromCatalogs_Null_Throws() =>
-        Assert.Throws<ArgumentNullException>(() => DefaultLocalizer.FromCatalogs(null!));
+    public void Translate_MalformedOverride_FallsBackToInCodeDefault()
+    {
+        // A catalog can ship a well-formed file whose message VALUE is invalid ICU (unbalanced brace). The
+        // override render must not crash the caller — it silently degrades to the build-validated in-code
+        // default, rendered in the source culture, exactly as if no override had been loaded.
+        DefaultLocalizer localizer = OverCatalogs(
+            new LocalizerOptions { SourceCulture = "en" },
+            DeCatalog("greeting", "Hi {name"));
+
+        Assert.Equal("Hi Ada", localizer.Translate(_de, "greeting", "Hi {name}", null, ("name", "Ada")));
+    }
+
+    [Fact]
+    public void Translate_MalformedOverride_ReportsOverrideNotFound()
+    {
+        // The overrideFound-reporting overload (the IStringLocalizer adapter's path) must treat a malformed
+        // override the same as no override at all: false, so the adapter still tries its other sources.
+        DefaultLocalizer localizer = OverCatalogs(
+            new LocalizerOptions { SourceCulture = "en" },
+            DeCatalog("greeting", "Hi {name"));
+
+        var rendered = localizer.Translate(_de, "greeting", "Hi {name}", null, out var overrideFound, ("name", "Ada"));
+
+        Assert.Equal("Hi Ada", rendered);
+        Assert.False(overrideFound);
+    }
 
     public void Dispose()
     {
@@ -276,7 +271,7 @@ public sealed class LocalizerTests : IDisposable
     private static void WriteCatalog(ITranslationFormat format, string directory, string fileName, Catalog catalog)
     {
         using FileStream stream = File.Create(Path.Combine(directory, fileName));
-        format.WriteAsync(stream, catalog, CancellationToken.None).GetAwaiter().GetResult();
+        format.WriteAsync(stream, catalog).GetAwaiter().GetResult();
     }
 
     private DefaultLocalizer Make(string directory) =>
@@ -287,8 +282,16 @@ public sealed class LocalizerTests : IDisposable
     {
         var store = new CatalogStore(options);
         _stores.Add(store);
-        return new DefaultLocalizer(store);
+        return new DefaultLocalizer(store, RenderingContext.For(options.SourceCulture, options.MissingArguments));
     }
+
+    // Builds a localizer over the given in-memory catalogs via an InMemoryCatalogProvider (no files on disk).
+    private DefaultLocalizer OverCatalogs(LocalizerOptions options, params Catalog[] catalogs) =>
+        Over(options with
+        {
+            TranslationsDirectory = Path.Combine(Path.GetTempPath(), "apl-empty-" + Guid.NewGuid().ToString("N")),
+            Providers = [.. options.Providers, _ => new InMemoryCatalogProvider(catalogs)]
+        });
 
     private string NewDirectory()
     {

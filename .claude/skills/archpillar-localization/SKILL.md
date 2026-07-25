@@ -79,6 +79,14 @@ These are the habits to unlearn coming from `.resx` / `IStringLocalizer` / `stri
 7. **Custom wrapper APIs need the attributes.** Detection is attribute-driven, not name-based. If
    you write your own method that forwards a translatable string, mark the parameter
    `[Translatable]` / `[TranslationDefault]` so the generator and analyzer recognize it.
+8. **Don't hand-format money — and pin the currency code.** Not `ToString("C")`,
+   `string.Format("{0:C}")`, or concatenation. Use `{amount, number, ::currency/USD}` with an
+   **explicit** ISO code: a bare `{amount, number, currency}` (like `"C"`) takes the currency from
+   the culture it renders in, so once a string is shown in German, a USD price would come out in
+   euros. The code is fixed; only the *formatting* (symbol, grouping, separators, spacing) follows
+   the culture. For a value shown outside a message, `value.ToLocalizedString("::currency/USD")`
+   (add `using ArchPillar.Extensions.Localization.MessageFormat;`) — it defaults to
+   `CurrentUICulture`.
 
 ## Canonical example
 
@@ -122,16 +130,18 @@ dotnet apl sync --output Translations          # reconcile all languages after c
 
 | Need | API / command | Notes |
 | --- | --- | --- |
-| Translate a string | `Translate(key, default, (name, value)…)` | Or instance `loc.Translate(...)` / indexer `loc[key, default]` |
+| Translate a string | `Translate(key, default, (name, value)…)` | Or instance `loc.Translate(...)`; there is no indexer form |
 | No-DI / static access | `using static …Localizer;` → `Translate(...)` | Ambient store; also `Localizer.Default`, `Localizer.For<T>()` |
 | Scope keys | inject `ILocalizer<T>` | `T`'s full name is the category; no namespaces to manage |
 | Disambiguate same key | `Translate(key, default, context: "menu")` | Keeps two meanings of one key/text separate |
 | Bundle of fixed labels | `class X : Localized<X>` (`partial` for DI) | Member name = key; typo = compile error |
 | Plural / gender | ICU `{n, plural, one {…} other {…}}`, `select`, `selectordinal` | Needs `other`; resolves by target-culture CLDR |
+| Format money / numbers | ICU `{x, number, ::currency/USD}` (widths: `unit-width-full-name`…); `::compact-short`, `::percent` | Explicit ISO code — does **not** follow the UI language |
+| Number outside a message | `x.ToLocalizedString("::currency/USD")` (`using …MessageFormat;`) | Same engine/syntax; defaults to `CurrentUICulture` |
 | Mark a non-localizer string | `L("text")` (`using static …TranslationMarkers;`) | Extracts an exception/log literal; no runtime change |
-| Configure | `Localizer.Configure(new LocalizerOptions { SourceCulture = "en", TranslationsDirectory = "Translations" })` | One options surface; `Initialize(opts, eager:true)` to load at startup |
+| Configure | `Localizer.Initialize(new LocalizerOptions { SourceCulture = "en", TranslationsDirectory = "Translations" })` | One options surface; add `eager: true` to load at startup (else lazy on first use) |
 | DI registration | `services.AddArchPillarLocalization(options)` | `…DependencyInjection` package; chain `.AddArchPillarLocalizedBundles()` |
-| Isolated / test scope | `new LocalizationContext(options)` or `Localizer.Reset()` | Context shares nothing with the ambient store |
+| Isolated / test scope | `new LocalizationContext(options)` or `Localizer.Ambient.Reset()` | Context shares nothing with the ambient store |
 | IStringLocalizer interop | `services.AddArchPillarStringLocalizer(options)` | `…StringLocalizer` package; composes over existing `.resx` |
 
 ## Packages

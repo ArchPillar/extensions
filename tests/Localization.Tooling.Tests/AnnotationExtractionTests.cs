@@ -382,7 +382,7 @@ public sealed class AnnotationExtractionTests : IDisposable
     {
         var path = Compile(source);
         using var extractor = new AssemblyStringExtractor();
-        return extractor.ExtractAnnotations(path);
+        return extractor.Extract(path, includeAnnotations: true).Annotations;
     }
 
     // Compiles the fixture beside the ArchPillar reference assemblies (the test output directory), so the

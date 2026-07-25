@@ -23,6 +23,8 @@ app.UseStaticFiles(new StaticFileOptions { RequestPath = "/admin", ContentTypePr
 app.UseStaticFiles(new StaticFileOptions { RequestPath = "/party", ContentTypeProvider = provider });
 ```
 
-The client side — fetching the catalogs and discovering them through the build-emitted manifest — lives in the
-core [`ArchPillar.Extensions.Localization`](https://www.nuget.org/packages/ArchPillar.Extensions.Localization)
-package (`Localizer.AddCatalogsFromManifestAsync`). This package only concerns serving the catalog files.
+The client side — fetching the catalogs and discovering them through the build-emitted manifest — uses
+`ManifestCatalogProvider` from the core
+[`ArchPillar.Extensions.Localization`](https://www.nuget.org/packages/ArchPillar.Extensions.Localization)
+package, wired up by the `ArchPillar.Extensions.Localization.WebAssembly` package's
+`UseArchPillarLocalizationAsync` host helper. This package only concerns serving the catalog files.

@@ -1,3 +1,4 @@
+using System.Text;
 using ArchPillar.Extensions.Localization.MessageFormat.Internal;
 
 namespace ArchPillar.Extensions.Localization.MessageFormat;
@@ -16,7 +17,9 @@ internal static class MessageParser
     /// <param name="text">The ICU MessageFormat source.</param>
     /// <returns>The parsed message.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="text"/> is <see langword="null"/>.</exception>
-    /// <exception cref="MessageFormatException">The text is not valid ICU MessageFormat syntax.</exception>
+    /// <exception cref="MessageFormatException">
+    /// The text is not valid ICU MessageFormat syntax, or a number argument's style is unknown or unsupported.
+    /// </exception>
     public static Message Parse(string text)
     {
         if (text is null)
@@ -24,7 +27,9 @@ internal static class MessageParser
             throw new ArgumentNullException(nameof(text));
         }
 
-        return new MessageGrammarParser(text).ParseFull();
+        Message message = new MessageGrammarParser(text).ParseFull();
+        ValidateNumberStyles(message);
+        return message;
     }
 
     /// <summary>
@@ -52,6 +57,45 @@ internal static class MessageParser
     }
 
     /// <summary>
+    /// Returns <paramref name="text"/> with an empty <c>other {}</c> branch spliced into every
+    /// <c>plural</c>/<c>selectordinal</c>/<c>select</c> construct missing one, or unchanged when the text
+    /// is not valid syntax. The insertion points come from the parser's own scan, so brace and
+    /// apostrophe-quoting rules cannot drift from the grammar.
+    /// </summary>
+    /// <param name="text">The ICU MessageFormat source (assumed non-<see langword="null"/>).</param>
+    /// <returns>The text with the missing <c>other</c> branches inserted.</returns>
+    public static string InsertMissingOtherBranches(string text)
+    {
+        const string OtherBranch = " other {}";
+
+        var parser = new MessageGrammarParser(text);
+        try
+        {
+            parser.ParseFull();
+        }
+        catch (MessageFormatException)
+        {
+            return text;
+        }
+
+        // Offsets arrive in ascending position order; insert from the last so each splice leaves the
+        // earlier offsets valid.
+        IReadOnlyList<int> offsets = parser.MissingOtherCloseOffsets;
+        if (offsets.Count == 0)
+        {
+            return text;
+        }
+
+        var builder = new StringBuilder(text);
+        for (var i = offsets.Count - 1; i >= 0; i--)
+        {
+            builder.Insert(offsets[i], OtherBranch);
+        }
+
+        return builder.ToString();
+    }
+
+    /// <summary>
     /// Returns the distinct argument names referenced anywhere in <paramref name="message"/>, in the
     /// order first encountered, including the selecting argument of every <c>plural</c>/<c>select</c>
     /// construct and any arguments used only inside nested branches.
@@ -62,45 +106,94 @@ internal static class MessageParser
     {
         var names = new List<string>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        CollectFromMessage(message, names, seen);
+        Walk(message, part =>
+        {
+            switch (part)
+            {
+                case ArgumentPart argument:
+                    Add(argument.Name, names, seen);
+                    break;
+                case PluralPart plural:
+                    Add(plural.ArgumentName, names, seen);
+                    break;
+                case SelectPart select:
+                    Add(select.ArgumentName, names, seen);
+                    break;
+                default:
+                    break;
+            }
+        });
         return names;
     }
 
-    private static void CollectFromMessage(Message message, List<string> names, HashSet<string> seen)
+    /// <summary>
+    /// The argument names of every <c>plural</c>/<c>select</c> construct in <paramref name="message"/> that is
+    /// missing its required <c>other</c> branch, in first-seen order — what the analyzer flags and the code fix
+    /// repairs.
+    /// </summary>
+    /// <param name="message">The parsed message to inspect.</param>
+    /// <returns>The argument names of constructs missing an <c>other</c> branch.</returns>
+    public static IReadOnlyCollection<string> FindConstructsMissingOther(Message message)
+    {
+        var names = new List<string>();
+        Walk(message, part =>
+        {
+            switch (part)
+            {
+                case PluralPart plural when !PluralSelectors.ContainsOther(plural.Branches.Keys):
+                    names.Add(plural.ArgumentName);
+                    break;
+                case SelectPart select when !select.Branches.ContainsKey("other"):
+                    names.Add(select.ArgumentName);
+                    break;
+                default:
+                    break;
+            }
+        });
+        return names;
+    }
+
+    // The one owner of "how to walk a Message tree": visits every part in first-seen (pre-order) order,
+    // descending into the branch bodies of plural/select constructs, and hands each part to the caller's
+    // action. Off the render hot path (used by the extractor and the analyzer), so the delegate's
+    // allocation is acceptable — the renderer walks the tree itself to stay allocation-free.
+    private static void Walk(Message message, Action<MessagePart> visit)
     {
         foreach (MessagePart part in message.Parts)
         {
-            CollectFromPart(part, names, seen);
+            visit(part);
+            switch (part)
+            {
+                case PluralPart plural:
+                    foreach (Message branch in plural.Branches.Values)
+                    {
+                        Walk(branch, visit);
+                    }
+
+                    break;
+                case SelectPart select:
+                    foreach (Message branch in select.Branches.Values)
+                    {
+                        Walk(branch, visit);
+                    }
+
+                    break;
+                default:
+                    break;
+            }
         }
     }
 
-    private static void CollectFromPart(MessagePart part, List<string> names, HashSet<string> seen)
-    {
-        switch (part)
+    // Resolves every number argument's style once, at parse, so an unknown/unsupported/malformed style is a
+    // fail-fast error before any value is rendered — and, via TryParse, surfaces to the analyzer as a diagnostic.
+    private static void ValidateNumberStyles(Message message) =>
+        Walk(message, part =>
         {
-            case ArgumentPart argument:
-                Add(argument.Name, names, seen);
-                break;
-            case PluralPart plural:
-                Add(plural.ArgumentName, names, seen);
-                CollectFromBranches(plural.Branches.Values, names, seen);
-                break;
-            case SelectPart select:
-                Add(select.ArgumentName, names, seen);
-                CollectFromBranches(select.Branches.Values, names, seen);
-                break;
-            default:
-                break;
-        }
-    }
-
-    private static void CollectFromBranches(IEnumerable<Message> branches, List<string> names, HashSet<string> seen)
-    {
-        foreach (Message branch in branches)
-        {
-            CollectFromMessage(branch, names, seen);
-        }
-    }
+            if (part is ArgumentPart { Type: "number" } argument)
+            {
+                NumberFormatting.Resolve(argument.Style);
+            }
+        });
 
     private static void Add(string name, List<string> names, HashSet<string> seen)
     {
@@ -108,66 +201,5 @@ internal static class MessageParser
         {
             names.Add(name);
         }
-    }
-
-    public static IReadOnlyCollection<string> FindConstructsMissingOther(Message message)
-    {
-        var names = new List<string>();
-        CollectMissingOther(message, names);
-        return names;
-    }
-
-    private static void CollectMissingOther(Message message, List<string> names)
-    {
-        foreach (MessagePart part in message.Parts)
-        {
-            CollectMissingOtherFromPart(part, names);
-        }
-    }
-
-    private static void CollectMissingOtherFromPart(MessagePart part, List<string> names)
-    {
-        switch (part)
-        {
-            case PluralPart plural:
-                if (!HasOtherCategory(plural.Branches.Keys))
-                {
-                    names.Add(plural.ArgumentName);
-                }
-
-                CollectMissingOtherFromBranches(plural.Branches.Values, names);
-                break;
-            case SelectPart select:
-                if (!select.Branches.ContainsKey("other"))
-                {
-                    names.Add(select.ArgumentName);
-                }
-
-                CollectMissingOtherFromBranches(select.Branches.Values, names);
-                break;
-            default:
-                break;
-        }
-    }
-
-    private static void CollectMissingOtherFromBranches(IEnumerable<Message> branches, List<string> names)
-    {
-        foreach (Message branch in branches)
-        {
-            CollectMissingOther(branch, names);
-        }
-    }
-
-    private static bool HasOtherCategory(IEnumerable<PluralSelector> selectors)
-    {
-        foreach (PluralSelector selector in selectors)
-        {
-            if (selector.Category == PluralCategory.Other)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

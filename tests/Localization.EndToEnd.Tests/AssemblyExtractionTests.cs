@@ -19,15 +19,22 @@ public sealed class AssemblyExtractionTests : IDisposable
 
         public sealed class Home;
 
+        // A user-defined indexer: the library ships none, but the attribute contract recognises any shape,
+        // so a consumer's own indexer is extracted exactly like Translate — category from [TranslationScope].
+        public interface ICustomStrings<[TranslationScope] T>
+        {
+            string this[[Translatable] string key, [TranslationDefault] string message] { get; }
+        }
+
         public sealed class Consumer
         {
-            public void Run(ILocalizer<Home> loc, IStringLocalizer<Home> strings)
+            public void Run(ILocalizer<Home> loc, IStringLocalizer<Home> strings, ICustomStrings<Home> custom)
             {
                 loc.Translate("home.title", "Inbox");                                            // empty params -> Array.Empty
                 loc.Translate("inbox.count", "{count, plural, other {# msgs}}", ("count", 3));    // tuple arg -> newobj
                 loc.Translate("menu.file", "File", "menubar");                                   // with disambiguation context
                 _ = strings["inbox.summary", 3];                                                 // IStringLocalizer indexer
-                _ = loc["greeting", "Hello"];                                                    // ILocalizer indexer
+                _ = custom["greeting", "Hello"];                                                 // a user-defined indexer
                 _ = Localizer.Translate("tagline", "Welcome");                                // static using-static form, global
                 L("Email is required");                                                          // L(...) marker, global category
             }
@@ -48,7 +55,7 @@ public sealed class AssemblyExtractionTests : IDisposable
         var assembly = GeneratorPipeline.EmitAssembly(ConsumerCode, "ExtractTarget", _directory);
 
         using var extractor = new AssemblyStringExtractor();
-        IReadOnlyList<RawCallSite> sites = extractor.Extract(assembly);
+        IReadOnlyList<RawCallSite> sites = extractor.Extract(assembly, includeAnnotations: false).CallSites;
 
         // Translate with an empty params list (the Array.Empty shape that defeated a naive scan).
         RawCallSite title = Assert.Single(sites, s => s.Key == "home.title");
@@ -65,8 +72,8 @@ public sealed class AssemblyExtractionTests : IDisposable
         Assert.Equal("inbox.summary", summary.Default);
         Assert.Equal("App.Home", summary.Category);
 
-        // The ILocalizer indexer (loc["key", "default"]) — recognised by the same [Translatable] /
-        // [TranslationDefault] attribute contract as Translate, not a hardcoded name.
+        // A consumer's own indexer — recognised by the same [Translatable] / [TranslationDefault] attribute
+        // contract as Translate, not a hardcoded name, with the category from its [TranslationScope] argument.
         RawCallSite greeting = Assert.Single(sites, s => s.Key == "greeting");
         Assert.Equal("Hello", greeting.Default);
         Assert.Equal("App.Home", greeting.Category);

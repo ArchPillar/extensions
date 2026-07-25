@@ -1,6 +1,5 @@
 using System.Globalization;
 using Microsoft.Extensions.Localization;
-using Ambient = ArchPillar.Extensions.Localization.Localizer;
 
 namespace ArchPillar.Extensions.Localization.StringLocalizer;
 
@@ -33,7 +32,7 @@ internal sealed class LocalizerStringLocalizer : IStringLocalizer
         // The ambient overrides for this category come first (they win on a key collision), then any of the
         // inner factory's strings not already covered — so the listing reflects what a lookup would resolve.
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (KeyValuePair<string, string> pair in Ambient.EnumerateOverrides(_category, includeParentCultures))
+        foreach (KeyValuePair<string, string> pair in Localizer.EnumerateOverrides(_category, includeParentCultures))
         {
             seen.Add(pair.Key);
             yield return new LocalizedString(pair.Key, pair.Value, resourceNotFound: false);
@@ -58,7 +57,7 @@ internal sealed class LocalizerStringLocalizer : IStringLocalizer
         // A loaded override is a real (ICU) translation, so format it; on a miss, do NOT run the name through
         // the ICU formatter — the name is a ResourceManager-style key that may contain composite-format text
         // like "{0:C}". Fall through to the inner factory, then return the name verbatim / string.Format'd.
-        var overrideValue = Ambient.TranslateOverride(_category, name, ToNamedArguments(arguments));
+        var overrideValue = Localizer.TranslateOverride(_category, name, ToNamedArguments(arguments));
         if (overrideValue is not null)
         {
             return new LocalizedString(name, overrideValue, resourceNotFound: false);

@@ -34,29 +34,19 @@ public sealed class XliffTranslationFormat : ITranslationFormat
         | FormatCapabilities.PreviousSource;
 
     /// <inheritdoc />
-    public async Task<Catalog> ReadAsync(Stream input, CancellationToken cancellationToken)
+    public Catalog Read(Stream input)
     {
-        if (input is null)
-        {
-            throw new ArgumentNullException(nameof(input));
-        }
+        ArgumentNullException.ThrowIfNull(input);
 
-        XDocument document = await Task.Run(() => XDocument.Load(input), cancellationToken).ConfigureAwait(false);
+        var document = XDocument.Load(input);
         return Parse(document);
     }
 
     /// <inheritdoc />
-    public async Task WriteAsync(Stream output, Catalog catalog, CancellationToken cancellationToken, CatalogWriteOptions? options = null)
+    public async Task WriteAsync(Stream output, Catalog catalog, CatalogWriteOptions? options = null, CancellationToken cancellationToken = default)
     {
-        if (output is null)
-        {
-            throw new ArgumentNullException(nameof(output));
-        }
-
-        if (catalog is null)
-        {
-            throw new ArgumentNullException(nameof(catalog));
-        }
+        ArgumentNullException.ThrowIfNull(output);
+        ArgumentNullException.ThrowIfNull(catalog);
 
         var bytes = Serialize(catalog, options ?? CatalogWriteOptions.Default);
         await output.WriteAsync(bytes, 0, bytes.Length, cancellationToken).ConfigureAwait(false);

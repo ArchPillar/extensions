@@ -1,0 +1,59 @@
+using Mono.Cecil;
+
+namespace ArchPillar.Extensions.Localization.Tooling.Internal;
+
+/// <summary>
+/// Reads assembly modules for a batch scan, owning the one Cecil resolver and its probe directories so the shared
+/// dependency assemblies (ArchPillar.*, the framework) are loaded once for the whole run rather than once per
+/// assembly. Both extraction passes read the same module through here, so an assembly's IL metadata is parsed once.
+/// </summary>
+internal sealed class AssemblyModuleReader : IDisposable
+{
+    private readonly DefaultAssemblyResolver _resolver = new();
+    private readonly HashSet<string> _searchDirectories = new(StringComparer.OrdinalIgnoreCase);
+
+    public AssemblyModuleReader()
+    {
+        // The tool's own base directory carries the ArchPillar reference assemblies when running in-process.
+        AddSearchDirectory(AppContext.BaseDirectory);
+    }
+
+    /// <summary>
+    /// Reads the module at <paramref name="assemblyPath"/>. The assembly's own directory is added as a probe path
+    /// first, since resolving a call target to its definition (to read its parameter attributes) needs the
+    /// referenced ArchPillar assemblies that sit beside it in a real build output.
+    /// </summary>
+    public ModuleDefinition Read(string assemblyPath)
+    {
+        var fullPath = Path.GetFullPath(assemblyPath);
+        AddSearchDirectory(Path.GetDirectoryName(fullPath)!);
+        return ModuleDefinition.ReadModule(fullPath, new ReaderParameters { AssemblyResolver = _resolver });
+    }
+
+    /// <summary>Every type in the module, including nested types, depth-first.</summary>
+    public static IEnumerable<TypeDefinition> AllTypes(ModuleDefinition module) => Descend(module.Types);
+
+    private static IEnumerable<TypeDefinition> Descend(IEnumerable<TypeDefinition> types)
+    {
+        foreach (TypeDefinition type in types)
+        {
+            yield return type;
+            foreach (TypeDefinition nested in Descend(type.NestedTypes))
+            {
+                yield return nested;
+            }
+        }
+    }
+
+    // Adds a probe directory to the shared resolver once, so repeated scans over the same output tree do not pile
+    // up duplicate search paths.
+    private void AddSearchDirectory(string directory)
+    {
+        if (_searchDirectories.Add(directory))
+        {
+            _resolver.AddSearchDirectory(directory);
+        }
+    }
+
+    public void Dispose() => _resolver.Dispose();
+}

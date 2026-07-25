@@ -41,6 +41,24 @@ plural category can fall back to; without it a count with no matching selector h
 "{count, plural, one {# item} other {# items}}" // not just `one {…}`
 ```
 
+## Specify the currency code explicitly
+
+`{amount, number, ::currency/USD}` pins the currency to USD; the *formatting* (symbol, grouping,
+decimal separator, spacing) still follows the culture the value renders in. A bare `{amount, number,
+currency}` — like `ToString("C")` — takes its currency from that same culture, so a USD price could come
+out in euros. Inside a message, "the culture it renders in" is the target culture once a translation
+exists for that key, and the source culture otherwise — not simply whatever `CurrentUICulture` is set to.
+Always pass the ISO code. See
+[features — Number, currency & compact formatting](features.md#number-currency--compact-formatting).
+
+```csharp
+"Total: {amount, number, ::currency/USD}"      // USD everywhere; formatting is localized
+// not: "Total: {amount, number, currency}"    // currency follows the rendering culture
+```
+
+> The same rule applies to `value.ToLocalizedString("::currency/USD", culture)` for a value shown outside
+> a message — pass the code; the culture is explicit (or `CurrentUICulture` when omitted).
+
 ## Prefer files for trimming, single-file, and AOT
 
 The files-on-disk path uses loose catalogs parsed with DOM APIs and no reflection over assemblies, so
@@ -75,18 +93,18 @@ pin the two equal (or apply `[assembly: RootNamespace]`) so the legacy resources
 ## Prefer an isolated context (or localizer) in tests over the shared ambient store
 
 The ambient store is process-wide global state, so tests that touch it share it and cannot run in
-parallel safely. To avoid that, **construct a `LocalizationContext`** (or, for just the engine, a
-`DefaultLocalizer`) per test and read through it — it shares nothing with the ambient store or with another
-context, so tests stay isolated and parallelisable with no teardown.
+parallel safely. To avoid that, **construct a `LocalizationContext`** per test, seeded with an
+`InMemoryCatalogProvider` for a fixed set of catalogs, and read through it — it shares nothing with the
+ambient store or with another context, so tests stay isolated and parallelisable with no teardown.
 
-Reserve the shared ambient store (with `Localizer.Reset()` in setup/teardown) for the handful of tests
+Reserve the shared ambient store (with `Localizer.Ambient.Reset()` in setup/teardown) for the handful of tests
 that specifically cover ambient loading and discovery.
 
 ```csharp
-using var context = new LocalizationContext(new LocalizerOptions { SourceCulture = "en" });
-context.AddCatalog(catalog);                    // isolated — no shared state, safe in parallel
+var options = new LocalizerOptions { Providers = [_ => new InMemoryCatalogProvider([catalog])] };
+using var context = new LocalizationContext(options);   // isolated — no shared state, safe in parallel
 
-var localizer = new DefaultLocalizer(catalogs); // or just the engine over fixed catalogs
+string s = context.Default.Translate("home.title", "Home");
 ```
 
 ## Treat `IStringLocalizer` extraction as a bridge, not a source
@@ -125,7 +143,7 @@ public string Continue { get; set; } = "";
 
 ## Register the localizer as a singleton
 
-The `DefaultLocalizer` and the ambient store are built for concurrent use and cache their snapshot;
+The localizer and the ambient store are built for concurrent use and cache their snapshot;
 the DI registration is a singleton for this reason. Do not construct a `CatalogStore` per request —
 that re-parses catalogs and discards the cached snapshot on every call.
 
@@ -149,33 +167,52 @@ hand (e.g. from `Directory.Build.props`) — add a direct `<PackageReference>`, 
 ## Load catalogs over HTTP in Blazor WebAssembly — there is no file system
 
 A browser has no readable file system, so the directory source finds nothing: a WebAssembly client must fetch
-its catalogs over HTTP from the app's static web assets. Use `AddCatalogsFromManifestAsync`. When the package
-is referenced in a Blazor WebAssembly app, the build generates `apl-catalogs.json` and registers it as a static
-web asset through the Razor pipeline — gathering the app's own catalogs *and every referenced localized
-library's* (merged into one bundle per culture on publish) — so the loader discovers what to fetch with no
-hand-kept file list and nothing committed to the source tree. Call it before `RunAsync` so the first render is
-already localized.
+its catalogs over HTTP from the app's static web assets. Reference the `…Localization.WebAssembly` package and
+call `host.UseArchPillarLocalizationAsync(options)` on the built host, passing the same `LocalizerOptions`
+instance used to register localization in DI — it registers the build-emitted manifest as the catalog provider
+and preloads the active language now, so the first render is localized:
 
 ```csharp
-using var http = new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) };
-await Localizer.AddCatalogsFromManifestAsync(http);
+var options = new LocalizerOptions { SourceCulture = "en" };
+builder.Services.AddArchPillarLocalization(options);
 
-await builder.Build().RunAsync();
+WebAssemblyHost host = builder.Build();
+await host.UseArchPillarLocalizationAsync(options);
+
+await host.RunAsync();
 ```
+
+`options` is required and must match the DI registration: the call reconfigures the ambient store from scratch,
+so anything the DI options set (source culture, formats, hot reload, culture allow-list) is silently dropped if a
+different — or default — instance is passed here instead.
+
+When the package is referenced in a Blazor WebAssembly app, the build generates `apl-catalogs.json` and registers
+it as a static web asset through the Razor pipeline — gathering the app's own catalogs *and every referenced
+localized library's* (merged into one bundle per culture on publish) — so the loader discovers what to fetch with
+no hand-kept file list and nothing committed to the source tree.
+
+Because the manifest is *registered* (not loaded once and forgotten), the app loads any other language on demand
+when it selects one — instant from the PWA cache, no `HttpClient` to thread through your components. Loading
+catalogs is all this does; the active culture stays the app's concern:
+
+```csharp
+await Localizer.LoadCultureAsync(culture);   // load the picked language
+CultureInfo.CurrentUICulture = culture;      // the app sets the active culture
+```
+
+Because this runs inside the switch event handler, Blazor re-renders that component tree when it returns — the
+awaited load means the translations are already in place, so the live switch needs no reactive refresh. For the
+rarer *background* fill (a synchronous lookup of a culture nobody preloaded), the store raises
+`Localizer.CatalogsChanged`; Blazor has no global re-render hook, so subscribe at the app root and marshal with
+`InvokeAsync(StateHasChanged)` (the event fires off the background-load thread). Do not push this onto leaf
+components — it is an app-level refresh, not a per-component one.
 
 A missing manifest, a missing catalog, or a malformed one is skipped, so a partial deployment degrades to the
-in-code defaults rather than throwing. When you would rather name the catalogs than discover them, the
-primitive `AddCatalogsFromHttpAsync(http, ["Translations/App.de.arb"])` fetches exactly the URIs you pass.
-
-To download only the active language instead of every catalog, pass the culture — it fetches that culture, its
-parent chain, and the source language, and nothing else:
-
-```csharp
-await Localizer.AddCatalogsFromManifestAsync(http, CultureInfo.CurrentUICulture);
-```
-
-Call it again on a culture switch to pull the newly selected language in; an already-fetched one is simply
-re-layered, harmlessly.
+in-code defaults rather than throwing. To wire it yourself instead of using the host extension, create the
+provider with `ManifestCatalogProvider.CreateAsync(http)`, layer it in by reconfiguring —
+`Localizer.Ambient.Configure(options with { Providers = [.. options.Providers, _ => provider] })` — and load the active
+language with `Localizer.LoadCultureAsync`. To parse every culture the manifest lists up front — a host that
+shows several at once — call `Localizer.PreloadAllAsync()` after reconfiguring.
 
 ## Load cultures on demand in a single-user client
 
@@ -188,9 +225,11 @@ services.AddArchPillarLocalization(new LocalizerOptions { CultureLoading = Cultu
 ```
 
 A language switch loads the new culture on the fly and resolves it on the next lookup — **no restart** — and a
-culture loaded once is never re-read. Leave the default (`CultureLoading.Eager`) for servers, which cannot
-predict which culture a given request needs. (For a WebAssembly client there is no directory; achieve the same
-narrow download with the culture-scoped `AddCatalogsFromManifestAsync` above.)
+culture loaded once is never re-read. `CultureLoading` defaults by platform: on-demand in the browser (Blazor
+WebAssembly), eager elsewhere — so a server, which cannot predict which culture a given request needs, loads
+everything up front, and a client loads only the active language. Set it explicitly to override. (For a
+WebAssembly client there is no directory; the same narrow download is achieved with `LoadCultureAsync` per the
+HTTP section above.)
 
 ## Serve `.arb` catalogs from ASP.NET Core — register the content type
 

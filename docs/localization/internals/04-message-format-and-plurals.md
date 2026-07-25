@@ -17,7 +17,7 @@ Parse, validate, and render the message value grammar used by every format and t
 ## Out of scope
 
 - The Portable Object ↔ gettext plural index conversion (that lives in the Portable Object provider, spec 03; it consumes the plural-category data exposed here).
-- Locale-aware number/date formatting beyond delegating to `System.Globalization` (see "Formatters").
+- Locale-aware **date/time** formatting beyond delegating to `System.Globalization` (see "Formatters"), including ICU **`::`-skeleton** syntax for `date`/`time` beyond the named styles — still out of scope. Number/currency formatting is **in scope** and CLDR-faithful, skeletons included — see [07-number-formatting.md](07-number-formatting.md).
 
 ## Supported grammar subset
 
@@ -25,13 +25,13 @@ Implement the core ICU MessageFormat constructs:
 
 - **Plain text** with escaping. An apostrophe quotes special characters per ICU rules (`'{'` is a literal brace; `''` is a literal apostrophe). Implement ICU quoting exactly — it is the most common source of subtle bugs.
 - **Simple argument:** `{name}` — substitutes the argument's culture-formatted value.
-- **Typed argument:** `{name, type}` and `{name, type, style}` for `number`, `date`, `time` (delegated to `System.Globalization`). Recognize `{name, type}` even when a style is omitted.
+- **Typed argument:** `{name, type}` and `{name, type, style}`. `number` is formatted by the in-assembly CLDR number engine (named styles + ICU `::`-skeletons); `date`/`time` delegate to `System.Globalization`. Recognize `{name, type}` even when a style is omitted.
 - **`plural`:** `{count, plural, offset:n? one {…} other {…} =0 {…}}` with explicit-value selectors (`=0`, `=1`, …), keyword categories (`zero one two few many other`), the `#` token (the formatted number, minus offset), and a required `other` branch. Support nested constructs inside branches.
 - **`selectordinal`:** same shape as `plural`, resolved against **ordinal** plural rules.
 - **`select`:** `{gender, select, male {…} female {…} other {…}}` with a required `other` branch; arbitrary string keys.
 - **Nesting:** any branch body is itself a full message (arguments and sub-constructs allowed).
 
-Explicitly out of scope for v1 (validate-and-reject or pass-through, but document): `choice` (deprecated in ICU), and ICU `number`/`date` skeleton syntax beyond named styles. Note ARB's constraint that Flutter does not support plural `offset`; the parser supports `offset` generally, and the Portable Object/ARB providers may warn when targeting a consumer that does not.
+Explicitly out of scope for v1 (validate-and-reject or pass-through, but document): `choice` (deprecated in ICU). Note ARB's constraint that Flutter does not support plural `offset`; the parser supports `offset` generally, and the Portable Object/ARB providers may warn when targeting a consumer that does not.
 
 ## Abstract Syntax Tree
 
@@ -81,18 +81,18 @@ The parser reports errors with character offsets so the analyzer can place a pre
 ## Formatter
 
 ```csharp
-public static class MessageFormatter
+public sealed class MessageFormatter(MissingArgumentPolicy missingArguments = MissingArgumentPolicy.PassThrough)
 {
-    public static string Format(Message message, CultureInfo culture,
-        IReadOnlyDictionary<string, object?> arguments);
+    public string Format(string template, CultureInfo culture,
+        params (string Name, object? Value)[] arguments);
 }
 ```
 
 Rules:
 
-- **Plural/selectordinal resolution:** compute the operand set from the numeric argument, then resolve the CLDR category via the embedded rules (cardinal for `plural`, ordinal for `selectordinal`). An explicit `=N` selector wins over a category when the value matches exactly. `#` renders the number (minus `offset`) using `culture`'s number format.
+- **Plural/selectordinal resolution:** compute the operand set from the numeric argument, then resolve the CLDR category via the embedded rules (cardinal for `plural`, ordinal for `selectordinal`). An explicit `=N` selector wins over a category when the value matches exactly. `#` renders the number (minus `offset`) with the CLDR number engine in `culture`, and the plural **category is selected from the displayed digits** — so `1.0m` renders `1` and selects the category for `1`, not for a two-fraction-digit value.
 - **Select resolution:** exact string match on the argument's value, else `other`.
-- **Simple/typed arguments:** format with `culture` via `System.Globalization` (numbers, dates) or `ToString` honoring `IFormattable` with the requested style.
+- **Simple/typed arguments:** `number` formats via the CLDR number engine ([07-number-formatting.md](07-number-formatting.md)); `date`/`time` via `System.Globalization`; other values honor `IFormattable` with the requested style.
 - **Missing argument:** define one policy and keep it — recommended: render the placeholder name in braces unchanged and (in debug builds) surface a diagnostic, rather than throwing, so a missing runtime argument never crashes a user interface. Make the throw-vs-passthrough behavior a formatter option defaulting to passthrough.
 - **Performance:** parsing is the cost; rendering should not re-parse. The runtime (spec 05) caches parsed `Message` instances per (key, culture). The formatter itself allocates a single `StringBuilder` and is allocation-conscious on the common (literal + a few args) path.
 
@@ -124,7 +124,7 @@ public static class PluralRules
 - [ ] `ExtractPlaceholders` returns exactly the argument names used, including those used only inside nested branches and the `select`/`plural` argument itself.
 - [ ] Plural resolution matches the CLDR test data for a representative spread of languages (at minimum English, Polish, Czech, Russian, Arabic, Welsh, Japanese) across integers and fractional values, for both cardinal and ordinal.
 - [ ] Operand computation is correct for fractional values (e.g., distinguishes `1.0` from `1` where `v` matters).
-- [ ] The formatter renders `#` with the target culture's number formatting and applies `offset`.
+- [ ] The formatter renders `#` with the target culture's CLDR number formatting, applies `offset`, and selects the plural category from the displayed digits (MF-8).
 - [ ] A missing argument does not throw under the default policy.
 - [ ] No runtime dependency reads the CLDR Extensible Markup Language; all plural logic is in generated code, and the embedded CLDR version is recorded in the assembly.
 

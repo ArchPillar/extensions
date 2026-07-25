@@ -1,20 +1,20 @@
 using System.Globalization;
+using ArchPillar.Extensions.Localization.Providers;
 
 namespace ArchPillar.Extensions.Localization.Tests;
 
-public sealed class CategoryLocalizerTests
+public sealed class CategoryLocalizerTests : IDisposable
 {
     private static readonly CultureInfo _german = CultureInfo.GetCultureInfo("de");
+    private readonly List<LocalizationContext> _contexts = [];
 
     [Fact]
     public void TypedLocalizer_ResolvesWithinItsOwnCategory()
     {
-        var root = DefaultLocalizer.FromCatalogs(
-            [DeCatalog(("save", typeof(Save).FullName!, "Speichern"), ("save", typeof(Cancel).FullName!, "Abbrechen"))],
-            new LocalizerOptions { SourceCulture = "en" });
-        var factory = new LocalizerFactory(root);
-        ILocalizer<Save> save = factory.Create<Save>();
-        ILocalizer<Cancel> cancel = factory.Create<Cancel>();
+        LocalizationContext context = Over(
+            DeCatalog(("save", typeof(Save).FullName!, "Speichern"), ("save", typeof(Cancel).FullName!, "Abbrechen")));
+        ILocalizer<Save> save = context.For<Save>();
+        ILocalizer<Cancel> cancel = context.For<Cancel>();
 
         WithCulture(_german, () =>
         {
@@ -27,58 +27,40 @@ public sealed class CategoryLocalizerTests
     [Fact]
     public void TypedLocalizer_MissInCategory_FallsThroughToInCodeDefault()
     {
-        var root = DefaultLocalizer.FromCatalogs(
-            [DeCatalog(("save", typeof(Save).FullName!, "Speichern"))],
-            new LocalizerOptions { SourceCulture = "en" });
-        var factory = new LocalizerFactory(root);
+        LocalizationContext context = Over(DeCatalog(("save", typeof(Save).FullName!, "Speichern")));
 
         // "save" is not categorized under Cancel, so the in-code default wins.
-        WithCulture(_german, () => Assert.Equal("Save", factory.Create<Cancel>().Translate("save", "Save")));
+        WithCulture(_german, () => Assert.Equal("Save", context.For<Cancel>().Translate("save", "Save")));
+    }
+
+    [Fact]
+    public void TypedLocalizer_MalformedOverride_FallsBackToInCodeDefault()
+    {
+        // The category-scoped path (ILocalizer<T> / TranslateInCategory) must degrade the same way the
+        // global path does: a malformed override value never throws, it falls back to the in-code default.
+        LocalizationContext context = Over(DeCatalog(("greeting", typeof(Save).FullName!, "Hi {name")));
+
+        WithCulture(_german, () =>
+        {
+            Assert.Equal("Hi Ada", context.For<Save>().Translate("greeting", "Hi {name}", ("name", "Ada")));
+
+            // The category-scoped overrideFound-reporting overload (the one an adapter composes over) must
+            // report false on the malformed-override fallback too, symmetric with the global-path assertion.
+            var rendered = context.TranslateInCategory(
+                typeof(Save).FullName!, "greeting", "Hi {name}", [("name", "Ada")], out var overrideFound);
+            Assert.Equal("Hi Ada", rendered);
+            Assert.False(overrideFound);
+        });
     }
 
     [Fact]
     public void GlobalLocalizer_DoesNotSeeCategorizedOverrides()
     {
-        var root = DefaultLocalizer.FromCatalogs(
-            [DeCatalog(("save", typeof(Save).FullName!, "Speichern"))],
-            new LocalizerOptions { SourceCulture = "en" });
+        LocalizationContext context = Over(DeCatalog(("save", typeof(Save).FullName!, "Speichern")));
 
         // The bare ILocalizer looks up the global (empty) category, so a categorized override is invisible.
-        WithCulture(_german, () => Assert.Equal("Save", ((ILocalizer)root).Translate("save", "Save")));
+        WithCulture(_german, () => Assert.Equal("Save", context.Default.Translate("save", "Save")));
     }
-
-    [Fact]
-    public void Factory_CachesTypedLocalizerPerType()
-    {
-        var root = DefaultLocalizer.FromCatalogs([], new LocalizerOptions { SourceCulture = "en" });
-        var factory = new LocalizerFactory(root);
-
-        Assert.Same(factory.Create<Save>(), factory.Create<Save>());
-    }
-
-    [Fact]
-    public void Constructor_FromSingleCatalog_BuildsIsolatedLocalizer()
-    {
-        var root = new DefaultLocalizer(
-            DeCatalog(("save", typeof(Save).FullName!, "Speichern")),
-            new LocalizerOptions { SourceCulture = "en" });
-
-        WithCulture(_german, () => Assert.Equal("Speichern", new LocalizerFactory(root).Create<Save>().Translate("save", "Save")));
-    }
-
-    [Fact]
-    public void Constructor_FromCatalogs_BuildsIsolatedLocalizer()
-    {
-        var root = new DefaultLocalizer(
-            [DeCatalog(("save", typeof(Save).FullName!, "Speichern"))],
-            new LocalizerOptions { SourceCulture = "en" });
-
-        WithCulture(_german, () => Assert.Equal("Speichern", new LocalizerFactory(root).Create<Save>().Translate("save", "Save")));
-    }
-
-    [Fact]
-    public void Constructor_NullCatalog_Throws() =>
-        Assert.Throws<ArgumentNullException>(() => new DefaultLocalizer((Catalog)null!));
 
     [Fact]
     public void TypedLocalizer_GenericScopeType_ResolvesUnderTheOpenGenericCategory()
@@ -86,12 +68,33 @@ public sealed class CategoryLocalizerTests
         // The extractor files a generic scope type under its open-generic name (Box`1); the runtime must look
         // it up under the same name, not typeof(T).FullName, which includes the assembly-qualified type args.
         var openGeneric = typeof(Box<int>).GetGenericTypeDefinition().FullName!;
-        var root = DefaultLocalizer.FromCatalogs(
-            [DeCatalog(("save", openGeneric, "Speichern"))],
-            new LocalizerOptions { SourceCulture = "en" });
+        LocalizationContext context = Over(DeCatalog(("save", openGeneric, "Speichern")));
 
         WithCulture(_german, () =>
-            Assert.Equal("Speichern", new LocalizerFactory(root).Create<Box<int>>().Translate("save", "Save")));
+            Assert.Equal("Speichern", context.For<Box<int>>().Translate("save", "Save")));
+    }
+
+    // Builds an isolated context over the given in-memory catalogs — the same path a host takes with an
+    // InMemoryCatalogProvider configured through LocalizerOptions.Providers. The empty directory keeps the
+    // auto-wired directory provider from contributing; the context is tracked and disposed with the fixture.
+    private LocalizationContext Over(params Catalog[] catalogs)
+    {
+        var context = new LocalizationContext(new LocalizerOptions
+        {
+            TranslationsDirectory = Path.Combine(Path.GetTempPath(), "apl-empty-" + Guid.NewGuid().ToString("N")),
+            SourceCulture = "en",
+            Providers = [_ => new InMemoryCatalogProvider(catalogs)]
+        });
+        _contexts.Add(context);
+        return context;
+    }
+
+    public void Dispose()
+    {
+        foreach (LocalizationContext context in _contexts)
+        {
+            context.Dispose();
+        }
     }
 
     private static Catalog DeCatalog(params (string Key, string Category, string Message)[] entries) => new()

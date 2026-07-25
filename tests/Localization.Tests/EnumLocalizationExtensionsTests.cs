@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
+using ArchPillar.Extensions.Localization.Providers;
 
 namespace ArchPillar.Extensions.Localization.Tests;
 
@@ -47,21 +48,27 @@ public sealed class EnumLocalizationExtensionsTests
     [Fact]
     public void GetLocalizedDisplayName_LocalizedDisplayNameTwin_ResolvesOverrideUnderStableKey()
     {
-        using var context = new LocalizationContext(new LocalizerOptions { SourceCulture = "en" });
-        context.AddCatalog(new Catalog
+        using var context = new LocalizationContext(new LocalizerOptions
         {
-            Culture = "de",
-            Entries =
+            SourceCulture = "en",
+            Providers =
             [
-                new CatalogEntry
+                Layer(new Catalog
                 {
-                    Category = typeof(OrderStatus).FullName!,
-                    Key = "order.status.pending",
-                    SourceMessage = "Pending review",
-                    TranslatedMessage = "Zur Prüfung",
-                    SourceFingerprint = "",
-                    State = TranslationState.Translated,
-                },
+                    Culture = "de",
+                    Entries =
+                    [
+                        new CatalogEntry
+                        {
+                            Category = typeof(OrderStatus).FullName!,
+                            Key = "order.status.pending",
+                            SourceMessage = "Pending review",
+                            TranslatedMessage = "Zur Prüfung",
+                            SourceFingerprint = "",
+                            State = TranslationState.Translated,
+                        },
+                    ],
+                }),
             ],
         });
 
@@ -76,4 +83,7 @@ public sealed class EnumLocalizationExtensionsTests
             CultureInfo.CurrentUICulture = original;
         }
     }
+
+    private static Func<LocalizerOptions, ICatalogProvider> Layer(Catalog catalog) =>
+        _ => new InMemoryCatalogProvider([catalog]);
 }

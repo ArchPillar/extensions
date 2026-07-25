@@ -17,4 +17,9 @@
     <ProjectReference Include="..\Localization.MessageFormat\ArchPillar.Extensions.Localization.MessageFormat.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.Detection.Tests" />
+    <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.CodeFixes" />
+  </ItemGroup>
+
 </Project>

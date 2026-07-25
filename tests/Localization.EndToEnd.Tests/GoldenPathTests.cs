@@ -24,7 +24,7 @@ public sealed class GoldenPathTests : IDisposable
     {
         _translationsDirectory = Path.Combine(Path.GetTempPath(), "apl-e2e-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_translationsDirectory);
-        Ambient.Reset();
+        Localizer.Ambient.Reset();
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public sealed class GoldenPathTests : IDisposable
 
         // 2. The build runs the generator, which extracts the source strings into a template (here decoded
         //    from the assembly attribute the generator bakes — exactly what the tool reads at sync time).
-        Catalog template = await ReadArbAsync(GeneratorPipeline.ExtractTemplateArb(DeveloperCode));
+        Catalog template = ReadArb(GeneratorPipeline.ExtractTemplateArb(DeveloperCode));
         CatalogEntry source = Assert.Single(template.Entries);
         Assert.Equal("home.title", source.Key);
         Assert.Equal("Home", source.SourceMessage);
@@ -73,7 +73,7 @@ public sealed class GoldenPathTests : IDisposable
 
         // 5. The app loads translations from that directory and renders per request culture — with zero
         //    call-site changes from step 1.
-        Ambient.Configure(new LocalizerOptions { SourceCulture = "en", TranslationsDirectory = _translationsDirectory });
+        Ambient.Initialize(new LocalizerOptions { SourceCulture = "en", TranslationsDirectory = _translationsDirectory });
         ILocalizer localizer = Ambient.Default;
 
         Assert.Equal("Startseite", WithCulture(_german, () => localizer.Translate("home.title", "Home")));
@@ -106,7 +106,7 @@ public sealed class GoldenPathTests : IDisposable
             }
             """;
 
-        Catalog template = await ReadArbAsync(GeneratorPipeline.ExtractTemplateArb(DeveloperCode));
+        Catalog template = ReadArb(GeneratorPipeline.ExtractTemplateArb(DeveloperCode));
 
         Catalog handedBack = new()
         {
@@ -119,7 +119,7 @@ public sealed class GoldenPathTests : IDisposable
         };
         await WriteArbAsync(Path.Combine(_translationsDirectory, "de.arb"), handedBack);
 
-        Ambient.Configure(new LocalizerOptions { SourceCulture = "en", TranslationsDirectory = _translationsDirectory });
+        Ambient.Initialize(new LocalizerOptions { SourceCulture = "en", TranslationsDirectory = _translationsDirectory });
         ILocalizer localizer = Ambient.Default;
 
         const string Default = "{count, plural, one {# message} other {# messages}}";
@@ -133,22 +133,22 @@ public sealed class GoldenPathTests : IDisposable
 
     public void Dispose()
     {
-        Ambient.Reset();
+        Localizer.Ambient.Reset();
         Directory.Delete(_translationsDirectory, recursive: true);
     }
 
-    private static async Task<Catalog> ReadArbAsync(string arb)
+    private static Catalog ReadArb(string arb)
     {
         var format = new ArbTranslationFormat();
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(arb));
-        return await format.ReadAsync(stream, CancellationToken.None);
+        return format.Read(stream);
     }
 
     private static async Task WriteArbAsync(string path, Catalog catalog)
     {
         var format = new ArbTranslationFormat();
         using FileStream stream = File.Create(path);
-        await format.WriteAsync(stream, catalog, CancellationToken.None);
+        await format.WriteAsync(stream, catalog);
     }
 
     private static T WithCulture<T>(CultureInfo culture, Func<T> render)

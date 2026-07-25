@@ -52,11 +52,6 @@ public sealed class TranslationFormatRegistry
             ? format
             : null;
 
-    /// <summary>
-    /// Gets the registered providers.
-    /// </summary>
-    public IReadOnlyCollection<ITranslationFormat> Formats => _byId.Values;
-
     private static string Normalize(string extension) =>
         extension.StartsWith(".", StringComparison.Ordinal) ? extension : "." + extension;
 }

@@ -32,30 +32,20 @@ public sealed class PoTranslationFormat : ITranslationFormat
         | FormatCapabilities.PreviousSource;
 
     /// <inheritdoc />
-    public async Task<Catalog> ReadAsync(Stream input, CancellationToken cancellationToken)
+    public Catalog Read(Stream input)
     {
-        if (input is null)
-        {
-            throw new ArgumentNullException(nameof(input));
-        }
+        ArgumentNullException.ThrowIfNull(input);
 
-        using var reader = new StreamReader(input, _utf8NoBom);
-        var text = await reader.ReadToEndAsync(cancellationToken).ConfigureAwait(false);
+        using var reader = new StreamReader(input, _utf8NoBom, detectEncodingFromByteOrderMarks: true, bufferSize: 1024, leaveOpen: true);
+        var text = reader.ReadToEnd();
         return Parse(text);
     }
 
     /// <inheritdoc />
-    public async Task WriteAsync(Stream output, Catalog catalog, CancellationToken cancellationToken, CatalogWriteOptions? options = null)
+    public async Task WriteAsync(Stream output, Catalog catalog, CatalogWriteOptions? options = null, CancellationToken cancellationToken = default)
     {
-        if (output is null)
-        {
-            throw new ArgumentNullException(nameof(output));
-        }
-
-        if (catalog is null)
-        {
-            throw new ArgumentNullException(nameof(catalog));
-        }
+        ArgumentNullException.ThrowIfNull(output);
+        ArgumentNullException.ThrowIfNull(catalog);
 
         // Portable Object is line-oriented and already compact, and carries the source (msgid) and translation
         // (msgstr) natively, so there is no whitespace or redundant metadata to strip for a bundle. The options
@@ -343,10 +333,7 @@ public sealed class PoTranslationFormat : ITranslationFormat
 
         public CatalogEntry ToCatalogEntry(string culture)
         {
-            var composite = Msgctxt ?? string.Empty;
-            var separator = composite.IndexOf(TranslationKey.Separator);
-            var context = separator >= 0 ? composite[..separator] : null;
-            var key = separator >= 0 ? composite[(separator + 1)..] : composite;
+            (var key, var context) = TranslationKey.Decompose(Msgctxt ?? string.Empty);
 
             (var source, var translated) = ResolveMessages(culture, out var hasTranslation);
             return new CatalogEntry

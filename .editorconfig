@@ -653,6 +653,10 @@ dotnet_diagnostic.S2325.severity = none
 # S3881: Test classes implementing IDisposable don't need the full dispose pattern
 dotnet_diagnostic.S3881.severity = none
 
+# S1215: GC.Collect is intentional in finalization tests — forcing a discarded faulted Task through
+# finalization is the only way to observe (the absence of) TaskScheduler.UnobservedTaskException.
+dotnet_diagnostic.S1215.severity = none
+
 ###############################
 # Benchmark project overrides #
 ###############################

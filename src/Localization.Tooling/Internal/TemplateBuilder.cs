@@ -20,8 +20,7 @@ internal static class TemplateBuilder
     /// only the IL call sites. IL call sites take precedence over an annotation on the same (category, key, context).</summary>
     public static Catalog? Build(AssemblyStringExtractor extractor, string assemblyPath, string sourceLanguage, bool includeAnnotations = true)
     {
-        IReadOnlyList<RawCallSite> callSites = extractor.Extract(assemblyPath);
-        IReadOnlyList<RawCallSite> annotations = includeAnnotations ? extractor.ExtractAnnotations(assemblyPath) : [];
+        (IReadOnlyList<RawCallSite> callSites, IReadOnlyList<RawCallSite> annotations) = extractor.Extract(assemblyPath, includeAnnotations);
         if (callSites.Count == 0 && annotations.Count == 0)
         {
             return null;
@@ -32,8 +31,9 @@ internal static class TemplateBuilder
         foreach (RawCallSite site in callSites.Concat(annotations))
         {
             // One entry per distinct (category, key, context): the same key under a different context is a
-            // different string, exactly as the catalog model defines identity.
-            if (!seen.Add(site.Category + "\0" + site.Key + "\0" + (site.Context ?? string.Empty)))
+            // different string, exactly as the catalog model defines identity — the same composite the reconciler
+            // indexes by.
+            if (!seen.Add(TranslationKey.ComposeQualified(site.Category, site.Key, site.Context)))
             {
                 continue;
             }

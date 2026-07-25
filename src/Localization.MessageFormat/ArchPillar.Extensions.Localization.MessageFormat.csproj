@@ -30,6 +30,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Internal\CldrCurrencyData.bin">
+      <LogicalName>ArchPillar.Extensions.Localization.MessageFormat.Internal.CldrCurrencyData.bin</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="..\..\LICENSE" Pack="true" PackagePath="" />
     <None Include="PACKAGE.md" Pack="true" PackagePath="" />
   </ItemGroup>

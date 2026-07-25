@@ -71,13 +71,13 @@ public sealed class XliffTranslationFormatTests
     public async Task Write_IsByteStableAcrossReadWriteCyclesAsync()
     {
         var first = await WriteAsync(Translated("greeting", "Hallo"));
-        var second = await WriteAsync(await ReadAsync(first));
+        var second = await WriteAsync(Read(first));
 
         Assert.Equal(first, second);
     }
 
     [Fact]
-    public async Task Read_ParsesXliff21Async()
+    public void Read_ParsesXliff21()
     {
         const string Xliff = """
             <?xml version="1.0" encoding="utf-8"?>
@@ -93,7 +93,7 @@ public sealed class XliffTranslationFormatTests
             </xliff>
             """;
 
-        Catalog catalog = await ReadAsync(Encoding.UTF8.GetBytes(Xliff));
+        Catalog catalog = Read(Encoding.UTF8.GetBytes(Xliff));
 
         CatalogEntry entry = Assert.Single(catalog.Entries);
         Assert.Equal("de", catalog.Culture);
@@ -114,7 +114,7 @@ public sealed class XliffTranslationFormatTests
     }
 
     [Fact]
-    public async Task Read_Xliff20_ParsesInsteadOfReturningEmptyAsync()
+    public void Read_Xliff20_ParsesInsteadOfReturningEmpty()
     {
         // XLIFF 2.0 has the same shape as 2.1; only the namespace's final digit differs.
         const string Xliff = """
@@ -131,7 +131,7 @@ public sealed class XliffTranslationFormatTests
             </xliff>
             """;
 
-        Catalog catalog = await ReadAsync(Encoding.UTF8.GetBytes(Xliff));
+        Catalog catalog = Read(Encoding.UTF8.GetBytes(Xliff));
 
         CatalogEntry entry = Assert.Single(catalog.Entries);
         Assert.Equal("Hello", entry.SourceMessage);
@@ -139,7 +139,7 @@ public sealed class XliffTranslationFormatTests
     }
 
     [Fact]
-    public async Task Read_Xliff12_ThrowsRatherThanReturnEmptyAsync()
+    public void Read_Xliff12_ThrowsRatherThanReturnEmpty()
     {
         const string Xliff = """
             <?xml version="1.0" encoding="utf-8"?>
@@ -155,8 +155,7 @@ public sealed class XliffTranslationFormatTests
             </xliff>
             """;
 
-        await Assert.ThrowsAsync<NotSupportedException>(
-            async () => await ReadAsync(Encoding.UTF8.GetBytes(Xliff)));
+        Assert.Throws<NotSupportedException>(() => Read(Encoding.UTF8.GetBytes(Xliff)));
     }
 
     [Fact]
@@ -203,19 +202,33 @@ public sealed class XliffTranslationFormatTests
         ]
     };
 
+    [Fact]
+    public void Read_DoesNotDisposeTheCallerSuppliedStream()
+    {
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes("""
+            <xliff xmlns="urn:oasis:names:tc:xliff:document:2.1" version="2.1" srcLang="en" trgLang="de">
+              <file id="f1" />
+            </xliff>
+            """));
+
+        _format.Read(stream);
+
+        Assert.True(stream.CanRead);
+    }
+
     private static async Task<Catalog> RoundTripAsync(Catalog catalog) =>
-        await ReadAsync(await WriteAsync(catalog));
+        Read(await WriteAsync(catalog));
 
     private static async Task<byte[]> WriteAsync(Catalog catalog, CatalogWriteOptions? options = null)
     {
         using var stream = new MemoryStream();
-        await _format.WriteAsync(stream, catalog, CancellationToken.None, options);
+        await _format.WriteAsync(stream, catalog, options);
         return stream.ToArray();
     }
 
-    private static async Task<Catalog> ReadAsync(byte[] bytes)
+    private static Catalog Read(byte[] bytes)
     {
         using var stream = new MemoryStream(bytes);
-        return await _format.ReadAsync(stream, CancellationToken.None);
+        return _format.Read(stream);
     }
 }

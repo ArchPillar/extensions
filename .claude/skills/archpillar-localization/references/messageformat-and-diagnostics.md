@@ -7,7 +7,8 @@ translators already use — so a string carries its own grammar instead of relyi
 that breaks in other languages. The full surface is supported:
 
 - **Simple arguments:** `"Hello {name}"`.
-- **Typed formatting:** `"{amount, number, currency}"`, `"{when, date, short}"`, `"{t, time}"`.
+- **Typed formatting:** `"{amount, number, ::currency/USD}"` (explicit code — does not follow the UI
+  language), `"{when, date, short}"`, `"{t, time}"`. See the number & currency subsection below.
 - **`plural` / `selectordinal`:** with `offset`, `=N` exact-match selectors, and `#` for the
   formatted count.
 - **`select`:** arbitrary categories (e.g. gender).
@@ -34,10 +35,27 @@ and never throws, so a partial call still produces readable output. Switch
 > template, `PluralRules` for raw CLDR categories — but standalone use is a niche case, not part of
 > normal localization work.
 
+### Number & currency formatting
+
+`{arg, number, <style>}` takes a **named style** (`integer`/`currency`/`percent`) or an ICU
+**`::`-skeleton** — never a .NET format string. Prefer the skeleton for currency: it takes an
+**explicit ISO code**, `::currency/USD`, which does **not** follow the culture the message renders
+in — a bare `currency` style (like `ToString("C")`) does, so a USD price could render in euros once
+the string renders in German. Currency width is a separate stem
+(`unit-width-short`/`-narrow`/`-iso-code`/`-full-name`), and `::compact-short`/`::compact-long` add
+compact notation (stems combine, e.g. `::compact-short currency/USD`).
+
+For a numeric value shown outside a message, `value.ToLocalizedString("::currency/USD")`
+(namespace `ArchPillar.Extensions.Localization.MessageFormat`) runs the same engine and defaults to
+`CurrentUICulture`; pass an explicit `CultureInfo` to override it.
+
+See `docs/localization/features.md` ("Number, currency & compact formatting") and Context7
+(`archpillar/extensions`) for the full skeleton vocabulary and worked examples.
+
 ## Compile-time diagnostics
 
 A translatable call site is recognised by the `[Translatable]` / `[TranslationDefault]` parameter
-attributes (not by name), so `Translate(...)`, the indexer, `L(...)`, and your own wrapper methods
+attributes (not by name), so `Translate(...)`, `L(...)`, and your own wrappers — methods or indexers —
 are all checked the same way. The analyzer surfaces these in the editor as you type:
 
 | Diagnostic | Meaning |

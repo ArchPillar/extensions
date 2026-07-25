@@ -1,5 +1,6 @@
 using System.Globalization;
 using ArchPillar.Extensions.Localization.MessageFormat;
+using ArchPillar.Extensions.Localization.Providers;
 using Microsoft.Extensions.DependencyInjection;
 using Ambient = ArchPillar.Extensions.Localization.Localizer;
 
@@ -12,19 +13,19 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
     [Fact]
     public void Localizer_IsRegisteredAsSingleton()
     {
-        Ambient.Reset();
+        Ambient.ResetAmbientForTests();
         var services = new ServiceCollection();
         services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" });
         using ServiceProvider provider = services.BuildServiceProvider();
 
-        Assert.Same(provider.GetRequiredService<DefaultLocalizer>(), provider.GetRequiredService<DefaultLocalizer>());
+        Assert.Same(provider.GetRequiredService<ILocalizer>(), provider.GetRequiredService<ILocalizer>());
     }
 
     [Fact]
     public void TypedLocalizer_ReadsTheAmbientStore()
     {
-        Ambient.Reset();
-        Ambient.AddCatalog(new Catalog
+        Ambient.ResetAmbientForTests();
+        var catalog = new Catalog
         {
             Culture = "de",
             Entries =
@@ -39,10 +40,10 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
                     State = TranslationState.Translated
                 }
             ]
-        });
+        };
 
         var services = new ServiceCollection();
-        services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" });
+        services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en", Providers = [Layer(catalog)] });
         using ServiceProvider provider = services.BuildServiceProvider();
 
         ILocalizer<Buttons> localizer = provider.GetRequiredService<ILocalizer<Buttons>>();
@@ -50,11 +51,46 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
     }
 
     [Fact]
+    public void Factory_IsInjectable_AndCreatesCategoryLocalizersOverTheAmbientStore()
+    {
+        // ILocalizerFactory is the ILoggerFactory-shaped door (Decision D-H); it must be injectable and resolve
+        // through the same ambient store as ILocalizer<T> — the context itself is the factory.
+        Ambient.ResetAmbientForTests();
+        var catalog = new Catalog
+        {
+            Culture = "de",
+            Entries =
+            [
+                new CatalogEntry
+                {
+                    Category = typeof(Buttons).FullName!,
+                    Key = "save",
+                    SourceMessage = "Save",
+                    TranslatedMessage = "Speichern",
+                    SourceFingerprint = "fp",
+                    State = TranslationState.Translated
+                }
+            ]
+        };
+
+        var services = new ServiceCollection();
+        services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en", Providers = [Layer(catalog)] });
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        ILocalizerFactory factory = provider.GetRequiredService<ILocalizerFactory>();
+        WithCulture(_german, () =>
+        {
+            Assert.Equal("Speichern", factory.Create<Buttons>().Translate("save", "Save"));
+            Assert.Equal("Speichern", factory.Create(typeof(Buttons).FullName!).Translate("save", "Save"));
+        });
+    }
+
+    [Fact]
     public void AmbientInterface_HonorsTheConfiguredMissingArgumentPolicy()
     {
         // The injected interface goes through the ambient store; the Throw policy configured via options must
         // apply there too, not only on a directly constructed DefaultLocalizer.
-        Ambient.Reset();
+        Ambient.ResetAmbientForTests();
         var services = new ServiceCollection();
         services.AddArchPillarLocalization(new LocalizerOptions
         {
@@ -71,14 +107,14 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
     [Fact]
     public void AddArchPillarLocalization_CalledTwice_IsIdempotent()
     {
-        Ambient.Reset();
+        Ambient.ResetAmbientForTests();
         var services = new ServiceCollection();
         services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" });
         services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" });
 
-        // The second call is a no-op: the DefaultLocalizer marker is registered exactly once, so it does not stack a
-        // second set of native views.
-        Assert.Equal(1, services.Count(descriptor => descriptor.ServiceType == typeof(DefaultLocalizer)));
+        // The second call is a no-op: the LocalizationContext marker is registered exactly once, so it does not stack
+        // a second set of native views.
+        Assert.Equal(1, services.Count(descriptor => descriptor.ServiceType == typeof(LocalizationContext)));
 
         using ServiceProvider provider = services.BuildServiceProvider();
         Assert.NotNull(provider.GetRequiredService<ILocalizer>());
@@ -99,6 +135,9 @@ public sealed class ServiceCollectionExtensionsTests : IDisposable
             CultureInfo.CurrentUICulture = original;
         }
     }
+
+    private static Func<LocalizerOptions, ICatalogProvider> Layer(Catalog catalog) =>
+        _ => new InMemoryCatalogProvider([catalog]);
 
     private sealed class Buttons;
 }

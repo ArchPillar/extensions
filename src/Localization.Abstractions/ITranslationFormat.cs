@@ -17,23 +17,23 @@ public interface ITranslationFormat
     public FormatCapabilities Capabilities { get; }
 
     /// <summary>
-    /// Reads a <see cref="Catalog"/> from <paramref name="input"/>.
+    /// Reads a <see cref="Catalog"/> from <paramref name="input"/>. Parsing is CPU work over an in-hand stream,
+    /// so it is synchronous — the bytes are obtained (synchronously or asynchronously) before this is called.
     /// </summary>
     /// <param name="input">The stream to read from.</param>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>The parsed catalog.</returns>
-    public Task<Catalog> ReadAsync(Stream input, CancellationToken cancellationToken);
+    public Catalog Read(Stream input);
 
     /// <summary>
     /// Writes <paramref name="catalog"/> to <paramref name="output"/>.
     /// </summary>
     /// <param name="output">The stream to write to.</param>
     /// <param name="catalog">The catalog to serialize.</param>
-    /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <param name="options">
     /// How to serialize — the verbose development layout (the default) or the compact publish bundle. A
     /// <see langword="null"/> value is treated as <see cref="CatalogWriteOptions.Default"/>.
     /// </param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A task that completes when the catalog has been written.</returns>
-    public Task WriteAsync(Stream output, Catalog catalog, CancellationToken cancellationToken, CatalogWriteOptions? options = null);
+    public Task WriteAsync(Stream output, Catalog catalog, CatalogWriteOptions? options = null, CancellationToken cancellationToken = default);
 }

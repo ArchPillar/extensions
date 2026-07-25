@@ -1,6 +1,11 @@
 namespace ArchPillar.Extensions.Localization.Tooling.Internal;
 
-/// <summary>How a command was told which assemblies to operate on.</summary>
+/// <summary>
+/// How a command was told which scope to operate on — an explicit <c>Assembly</c>/<c>Input</c>, or a
+/// <c>Project</c>/<c>Solution</c> to discover. Shared by both resolvers: <see cref="ScopeResolver"/> reads the
+/// scope's built assemblies, <c>CatalogDirectoryResolver</c> reads its catalog directories (so the catalog-consuming
+/// commands ignore <c>Assembly</c>).
+/// </summary>
 internal sealed record ScopeOptions(string? Assembly, string? Input, string? Project, string? Solution, bool Recurse);
 
 /// <summary>
@@ -49,7 +54,7 @@ internal static class ScopeResolver
 
         return roots
             .Where(Directory.Exists)
-            .SelectMany(dir => Directory.EnumerateFiles(dir, "*.dll", SearchOption.AllDirectories))
+            .SelectMany(directory => Directory.EnumerateFiles(directory, "*.dll", SearchOption.AllDirectories))
             .Distinct(StringComparer.OrdinalIgnoreCase);
     }
 

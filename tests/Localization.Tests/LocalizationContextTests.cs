@@ -1,4 +1,5 @@
 using System.Globalization;
+using ArchPillar.Extensions.Localization.Providers;
 
 namespace ArchPillar.Extensions.Localization.Tests;
 
@@ -14,8 +15,7 @@ public sealed class LocalizationContextTests
     [Fact]
     public void Isolated_ResolvesWithoutTheAmbient()
     {
-        using var context = new LocalizationContext(new LocalizerOptions { SourceCulture = "en" });
-        context.AddCatalog(DeCatalog("greeting", "Hallo"));
+        using var context = new LocalizationContext(new LocalizerOptions { SourceCulture = "en", Providers = [Layer(DeCatalog("greeting", "Hallo"))] });
 
         WithCulture(_german, () =>
         {
@@ -27,9 +27,8 @@ public sealed class LocalizationContextTests
     [Fact]
     public void TwoContexts_DoNotShareState()
     {
-        using var a = new LocalizationContext(new LocalizerOptions { SourceCulture = "en" });
+        using var a = new LocalizationContext(new LocalizerOptions { SourceCulture = "en", Providers = [Layer(DeCatalog("greeting", "Hallo"))] });
         using var b = new LocalizationContext(new LocalizerOptions { SourceCulture = "en" });
-        a.AddCatalog(DeCatalog("greeting", "Hallo"));
 
         WithCulture(_german, () =>
         {
@@ -37,6 +36,9 @@ public sealed class LocalizationContextTests
             Assert.Equal("Hello", b.Default.Translate("greeting", "Hello"));
         });
     }
+
+    private static Func<LocalizerOptions, ICatalogProvider> Layer(Catalog catalog) =>
+        _ => new InMemoryCatalogProvider([catalog]);
 
     private static Catalog DeCatalog(string key, string message) => new()
     {

@@ -1,6 +1,7 @@
 // SKILL-GENERATED (archpillar-localization). Scenario: everyday surface — ILocalizer<T>
-// category scope, a Localized<T> partial bundle via DI, and ambient ICU plural. No catalogs
-// present, so every lookup renders the in-code default.
+// category scope, a Localized<T> partial bundle via DI, ambient ICU plural, and ICU
+// number/currency formatting (named skeleton + ToLocalizedString). No catalogs present, so
+// every lookup renders the in-code default.
 // Skill-oracle: everyday surface of ArchPillar.Extensions.Localization.
 // Three entry points: ILocalizer<T> (category-scoped), Localized<TSelf> (bundle),
 // and the receiver-less ambient Localizer.Translate. No catalogs present, so every
@@ -8,6 +9,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using ArchPillar.Extensions.Localization;
 using ArchPillar.Extensions.Localization.DependencyInjection;
+using ArchPillar.Extensions.Localization.MessageFormat;
 using static ArchPillar.Extensions.Localization.Localizer;
 
 namespace LocOracle;
@@ -18,7 +20,12 @@ public sealed class Checkout(ILocalizer<Checkout> localizer)
     public string Pay => localizer.Translate("pay", "Pay now");
 
     public string Total(decimal amount) =>
-        localizer.Translate("total", "Total due: {amount}", ("amount", amount));
+        localizer.Translate("total", "Total due: {amount, number, ::currency/USD}", ("amount", amount));
+
+    public string Revenue(decimal amount) =>
+        localizer.Translate("revenue", "Revenue: {amount, number, ::compact-short currency/USD}", ("amount", amount));
+
+    public static string Loose(decimal amount) => amount.ToLocalizedString("::currency/USD");
 }
 
 // A bundle of fixed labels: member name = key, deriving type = category.
@@ -51,10 +58,12 @@ public static class Demo
         var labels = scope.ServiceProvider.GetRequiredService<ButtonLabels>();
 
         Console.WriteLine("== Demo: defaults render with no catalogs ==");
-        Console.WriteLine("  checkout.Pay   : " + checkout.Pay);
-        Console.WriteLine("  checkout.Total : " + checkout.Total(42.50m));
-        Console.WriteLine("  labels.Save    : " + labels.Save);
-        Console.WriteLine("  labels.Cancel  : " + labels.Cancel);
+        Console.WriteLine("  checkout.Pay     : " + checkout.Pay);
+        Console.WriteLine("  checkout.Total   : " + checkout.Total(1234.56m));
+        Console.WriteLine("  checkout.Revenue : " + checkout.Revenue(1234.56m));
+        Console.WriteLine("  checkout.Loose   : " + Checkout.Loose(1234.56m));
+        Console.WriteLine("  labels.Save      : " + labels.Save);
+        Console.WriteLine("  labels.Cancel    : " + labels.Cancel);
 
         // Receiver-less ambient Translate with an ICU plural (same store as the injected views).
         Console.WriteLine("  ambient/1      : " + Translate(

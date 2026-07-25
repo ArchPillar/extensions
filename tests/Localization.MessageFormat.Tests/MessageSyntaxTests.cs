@@ -84,4 +84,36 @@ public sealed class MessageSyntaxTests
     [Fact]
     public void InsertMissingOtherBranches_Null_Throws() =>
         Assert.Throws<ArgumentNullException>(() => MessageSyntax.InsertMissingOtherBranches(null!));
+
+    [Fact]
+    public void RecognizeCardinalPlural_SimplePlural_ReturnsArgumentAndBranchBodies()
+    {
+        CardinalPlural? shape = MessageSyntax.RecognizeCardinalPlural("{count, plural, one {# item} other {# items}}");
+
+        Assert.NotNull(shape);
+        Assert.Equal("count", shape!.ArgumentName);
+        Assert.Equal("# item", shape.Branches[PluralCategory.One]);
+        Assert.Equal("# items", shape.Branches[PluralCategory.Other]);
+    }
+
+    [Theory]
+    [InlineData("{count, selectordinal, one {#st} other {#th}}")] // ordinal, not cardinal
+    [InlineData("{count, plural, offset:1 one {#} other {#}}")]   // offset
+    [InlineData("{count, plural, =0 {none} other {#}}")]          // explicit =N selector
+    [InlineData("You have {count, plural, one {#} other {#}}")]   // surrounding text
+    [InlineData("not a plural at all")]
+    [InlineData("{count, plural, one {#}")]                       // invalid syntax
+    public void RecognizeCardinalPlural_NonRepresentableShape_ReturnsNull(string text) =>
+        Assert.Null(MessageSyntax.RecognizeCardinalPlural(text));
+
+    [Fact]
+    public void RecognizeCardinalPlural_BranchWithQuotedSyntax_ReemitsEquivalentBody()
+    {
+        // A branch body with a literal brace must serialize back to ICU that re-parses to the same literal.
+        CardinalPlural? shape = MessageSyntax.RecognizeCardinalPlural("{n, plural, one {a '{' b} other {#}}");
+
+        Assert.NotNull(shape);
+        var body = shape!.Branches[PluralCategory.One];
+        Assert.Equal("{n, plural, one {a '{' b}}", MessageSyntax.BuildCardinalPlural("n", [(PluralCategory.One, body)]));
+    }
 }

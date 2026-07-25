@@ -43,8 +43,9 @@ Console.WriteLine(Greet("Ada"));                       // "Hallo Ada!" once a de
 `Translate` goes through the process-wide ambient store, reachable with no services (or call
 `Localizer.Default.Translate(...)` without the `using static`). Translations come from a
 `Translations/<App>.de.xliff` file beside the binary (loaded automatically — any of the three formats),
-an embedded catalog, or `Localizer.AddCatalog(...)`. Scope keys by category with `ILocalizer<T>` as an app
-grows — see [getting-started.md](getting-started.md).
+an embedded catalog, or an extra provider layered through `LocalizerOptions.Providers` and
+`Localizer.Initialize(...)`. Scope keys by category with `ILocalizer<T>` as an app grows — see
+[getting-started.md](getting-started.md).
 
 ## The workflow at a glance
 
@@ -72,13 +73,14 @@ lifecycle and commands are in [translation-workflow.md](translation-workflow.md)
 | The ambient store | One process-wide, layered, DI-free store (`IConfiguration` model) reachable from anywhere, including exception text. |
 | Instantiable context | `LocalizationContext` is the same environment as an object — construct, configure, dispose; build one directly for an isolated, static-free setup. |
 | Files / embedded / satellites | Loose files by default (trim/AOT-safe); opt-in embedding routes catalogs into culture satellite assemblies. |
+| Catalog providers | `ICatalogProvider` is the seam between where catalog bytes come from and how the store reads them — directory, embedded/satellite, and HTTP-manifest providers ship in the box, and a custom source plugs in the same way. |
 | Eager or on-demand loading | Load every culture up front (the server default), or `CultureLoading.OnDemand` to load each culture only when first requested — a single-user client switches language live, no restart. |
-| ICU MessageFormat | Arguments, `plural` / `selectordinal` / `select`, embedded CLDR plural data. |
+| ICU MessageFormat | Arguments, typed number/currency/compact formatting, `plural` / `selectordinal` / `select`, embedded CLDR plural + number data. |
 | Standard formats | XLIFF 2.1 (default), ARB, and Portable Object — round-tripped by the bundled providers. |
 | Dependency injection | `AddArchPillarLocalization` feeds the process-wide ambient context and registers injectable native localizers; the generated `AddArchPillarLocalizedBundles()` registers the assembly's `Localized<T>` bundles. |
 | `IStringLocalizer` interop + migration | A separate `…StringLocalizer` package (`AddArchPillarStringLocalizer`): a composing adapter, on-by-default extraction of indexer literals, and a no-op `L(...)` marker — droppable once migration is done. |
 | Display annotations | `[DisplayName]` / `[Display]` / `[Description]` extracted by default (opt-out, text-as-key); optional `[Localized…]` twins supply the source default when you key by a string id; `GetLocalizedDisplayName()` localizes enums; the `…AspNetCore` package routes MVC DataAnnotations through the localizer. |
-| Blazor WebAssembly / HTTP loading | Where there is no file system, `AddCatalogsFromManifestAsync` fetches catalogs over HTTP, discovering them via a build-emitted manifest; the separate `…AspNetCore` package serves the catalog formats as static files (`UseArchPillarTranslationFiles`). |
+| Blazor WebAssembly / HTTP loading | Where there is no file system, the separate `…WebAssembly` package's `host.UseArchPillarLocalizationAsync(options)` registers a build-emitted manifest as a catalog provider and loads the active language up front; the app loads any other language at runtime with `Localizer.LoadCultureAsync(culture)` inside the switch handler (which re-renders normally); `Localizer.CatalogsChanged` is exposed for the rarer background-fill refresh. The `…AspNetCore` package serves the catalog formats as static files (`UseArchPillarTranslationFiles`). |
 | Publishing | A publish-time merge to one bundle per culture; a documented trim / single-file / AOT matrix. |
 | Zero external dependencies | The runtime, formats, and ICU parser use only the BCL — no third-party packages. |
 
@@ -107,16 +109,19 @@ resolves with **zero allocations**, pinned by allocation tests, and tracked by
 Runnable examples under [`samples/Localization/`](../../samples/Localization/):
 
 - [Localization.ConsoleSample](../../samples/Localization/Localization.ConsoleSample/) — a generic
-  host resolving `ILocalizer` from DI: named arguments, ICU plurals, an English default, a German override.
+  host resolving `ILocalizer` from DI: named arguments, ICU plurals, an English default, a German
+  override — and locale-correct number/currency formatting (`::currency/USD`, a currency width,
+  compact notation) via `ToLocalizedString`, plus one translated in-message value showing a number
+  format in the culture the string is translated into.
 - [Localization.AspNetSample](../../samples/Localization/Localization.AspNetSample/) — a Minimal API
   with `UseRequestLocalization`; endpoints inject the native localizer and the `IStringLocalizer<T>` adapter.
 - [Localization.BlazorSample](../../samples/Localization/Localization.BlazorSample/) — a server-rendered
   Razor component injecting both, with culture-switch links.
 - [Localization.WasmSample](../../samples/Localization/Localization.WasmSample/) +
   [Localization.WasmLibrary](../../samples/Localization/Localization.WasmLibrary/) — Blazor WebAssembly: catalogs
-  are discovered through a build-emitted manifest and fetched over HTTP (`AddCatalogsFromManifestAsync`); the
-  build gathers the app's own and the referenced library's catalogs (merged into one bundle per culture on
-  publish), and culture switches in-process.
+  are discovered through a build-emitted manifest and fetched over HTTP (`ManifestCatalogProvider`, registered by
+  `host.UseArchPillarLocalizationAsync(options)`); the build gathers the app's own and the referenced library's catalogs
+  (merged into one bundle per culture on publish), and culture switches in-process.
 - [Localization.TodoSample](../../samples/Localization/Localization.TodoSample/) — a console to-do app
   with English + German/French and a pseudo-localization smoke test.
 - [Localization.GreetingLibrary](../../samples/Localization/Localization.GreetingLibrary/) +

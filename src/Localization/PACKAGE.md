@@ -37,8 +37,9 @@ Console.WriteLine(Greet("Ada"));                  // "Hallo Ada!" once a de cata
 
 `Translate` goes through the process-wide ambient store, reachable with no services (or call
 `Localizer.Default.Translate(...)` without the `using static`). Translations come from a
-`Translations/de.arb` file beside the binary (loaded automatically), an embedded catalog, or
-`Localizer.AddCatalog(...)`. Scope keys by category with `ILocalizer<T>` as an app grows.
+`Translations/de.arb` file beside the binary (loaded automatically), an embedded catalog, or an extra
+provider layered through `LocalizerOptions.Providers` and `Localizer.Initialize(...)`. Scope keys by
+category with `ILocalizer<T>` as an app grows.
 
 ## Dependency injection and IStringLocalizer
 
@@ -57,7 +58,7 @@ services.AddArchPillarLocalization(new LocalizerOptions { SourceCulture = "en" }
 - **Categories** — `ILocalizer<T>` scopes keys by `typeof(T)`, the `ILogger<T>` model; no namespaces to manage.
 - **The ambient store** — one process-wide, layered, DI-free store reachable from anywhere, or an
   instantiable `LocalizationContext` constructed directly for a fully static-free setup.
-- **ICU MessageFormat** — arguments, `plural`/`selectordinal`/`select`, embedded CLDR plural data.
+- **ICU MessageFormat** — arguments, typed number/currency/compact formatting, `plural`/`selectordinal`/`select`, embedded CLDR plural + number data.
 - **Standard formats** — XLIFF 2.1 (default), ARB, Portable Object, bundled (no extra packages).
 - **Files / embedded / satellites** — loose files by default (trim/AOT-safe); opt-in satellite embedding.
 - **Tooling** — a source generator, the `APL` analyzer diagnostics, and the `dotnet apl` CLI, all bundled.

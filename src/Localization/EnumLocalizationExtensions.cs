@@ -34,10 +34,7 @@ public static class EnumLocalizationExtensions
     /// <exception cref="ArgumentNullException"><paramref name="context"/> is <see langword="null"/>.</exception>
     public static string GetLocalizedDisplayName(this Enum value, LocalizationContext context)
     {
-        if (context is null)
-        {
-            throw new ArgumentNullException(nameof(context));
-        }
+        ArgumentNullException.ThrowIfNull(context);
 
         return Resolve(value, context);
     }
@@ -54,7 +51,7 @@ public static class EnumLocalizationExtensions
             return name;
         }
 
-        return context.TranslateInCategory(type.FullName ?? type.Name, annotation.Key, annotation.Default, [], out _);
+        return context.TranslateInCategory(CategoryName.Of(type), annotation.Key, annotation.Default, [], out _);
     }
 
     // The (key, default) the member's display annotation carries: the [Display(Name = …)] value is the key (the

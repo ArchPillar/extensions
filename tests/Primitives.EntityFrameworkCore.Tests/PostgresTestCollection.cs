@@ -35,7 +35,7 @@ public sealed class PostgresFixture : IAsyncLifetime
             return;
         }
 
-        // Fallback: host-local PostgreSQL (cloud environments without Docker).
+        // Fallback: host-local PostgreSQL (cloud environments without Podman).
         _baseConnectionString = string.Format(LocalConnectionTemplate, "postgres");
     }
 

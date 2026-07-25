@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Globalization;
+using ArchPillar.Extensions.Localization.Providers;
 using Microsoft.AspNetCore.Mvc.DataAnnotations;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -93,28 +94,33 @@ public sealed class DataAnnotationsLocalizationTests
     public void AddArchPillarDataAnnotationsLocalization_NullBuilder_Throws() =>
         Assert.Throws<ArgumentNullException>(() => ((IMvcBuilder)null!).AddArchPillarDataAnnotationsLocalization());
 
-    private static LocalizationContext ContextWith(string key, string germanTranslation)
-    {
-        var context = new LocalizationContext(new LocalizerOptions { SourceCulture = "en" });
-        context.AddCatalog(new Catalog
+    private static LocalizationContext ContextWith(string key, string germanTranslation) =>
+        new(new LocalizerOptions
         {
-            Culture = "de",
-            Entries =
+            SourceCulture = "en",
+            Providers =
             [
-                new CatalogEntry
+                Layer(new Catalog
                 {
-                    Category = _category,
-                    Key = key,
-                    SourceMessage = key,
-                    TranslatedMessage = germanTranslation,
-                    SourceFingerprint = "",
-                    State = TranslationState.Translated,
-                },
+                    Culture = "de",
+                    Entries =
+                    [
+                        new CatalogEntry
+                        {
+                            Category = _category,
+                            Key = key,
+                            SourceMessage = key,
+                            TranslatedMessage = germanTranslation,
+                            SourceFingerprint = "",
+                            State = TranslationState.Translated,
+                        },
+                    ],
+                }),
             ],
         });
 
-        return context;
-    }
+    private static Func<LocalizerOptions, ICatalogProvider> Layer(Catalog catalog) =>
+        _ => new InMemoryCatalogProvider([catalog]);
 
     private static string InCulture(string culture, Func<string> action)
     {

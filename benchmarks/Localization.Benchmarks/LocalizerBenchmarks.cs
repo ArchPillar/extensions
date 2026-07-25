@@ -1,4 +1,5 @@
 using System.Globalization;
+using ArchPillar.Extensions.Localization.Catalogs;
 using BenchmarkDotNet.Attributes;
 
 namespace ArchPillar.Extensions.Localization.Benchmarks;
@@ -31,12 +32,13 @@ public class LocalizerBenchmarks
               "@inbox.count": { "x-state": "Translated", "x-source-fingerprint": "b" }
             }
             """);
-        _store = new CatalogStore(new LocalizerOptions
+        var options = new LocalizerOptions
         {
             TranslationsDirectory = _directory,
             SourceCulture = "en"
-        });
-        _localizer = new DefaultLocalizer(_store);
+        };
+        _store = new CatalogStore(options);
+        _localizer = new DefaultLocalizer(_store, RenderingContext.For(options.SourceCulture, options.MissingArguments));
     }
 
     [GlobalCleanup]

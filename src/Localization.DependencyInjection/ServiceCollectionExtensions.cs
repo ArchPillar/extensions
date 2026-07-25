@@ -10,9 +10,9 @@ public static class ServiceCollectionExtensions
 {
     /// <summary>
     /// Configures the ambient <see cref="Localizer"/> store from <paramref name="options"/> and registers
-    /// the native localization views — <see cref="ILocalizer"/>, <see cref="ILocalizer{T}"/>, and a concrete
-    /// <see cref="DefaultLocalizer"/> for direct injection — over it, so an injected localizer, a non-DI caller, and
-    /// an exception text all read the same store (Decision D-I). For <c>IStringLocalizer</c> interop while
+    /// the native localization views — <see cref="ILocalizer"/>, <see cref="ILocalizer{T}"/>, and
+    /// <see cref="ILocalizerFactory"/> — over it, so an injected localizer, a non-DI caller, and an exception text
+    /// all read the same store (Decision D-I). For <c>IStringLocalizer</c> interop while
     /// migrating an existing codebase, add the <c>ArchPillar.Extensions.Localization.StringLocalizer</c>
     /// package and call <c>AddArchPillarStringLocalizer</c> instead (Decision D-J).
     /// </summary>
@@ -22,10 +22,7 @@ public static class ServiceCollectionExtensions
     /// <exception cref="ArgumentNullException"><paramref name="services"/> is <see langword="null"/>.</exception>
     public static IServiceCollection AddArchPillarLocalization(this IServiceCollection services, LocalizerOptions? options = null)
     {
-        if (services is null)
-        {
-            throw new ArgumentNullException(nameof(services));
-        }
+        ArgumentNullException.ThrowIfNull(services);
 
         // Idempotent per collection: a second call (a common double-registration footgun) is a no-op rather
         // than stacking duplicate registrations. The first registration's options win.
@@ -39,13 +36,14 @@ public static class ServiceCollectionExtensions
         // Feed and register the single process-wide ambient context, so DI, a non-DI caller, and an exception
         // text all read one store. Registered as an instance, so the container does not dispose the
         // process-global ambient.
-        Localizer.Configure(resolved);
+        Localizer.Initialize(resolved);
         services.AddSingleton(Localizer.Ambient);
 
-        // The native views over the ambient context.
+        // The native views over the ambient context. The context is itself the ILocalizerFactory (the
+        // ILoggerFactory-shaped door), so it is registered as that view rather than a separate factory type.
         services.AddSingleton<ILocalizer>(provider => provider.GetRequiredService<LocalizationContext>().Default);
-        services.AddSingleton(typeof(ILocalizer<>), typeof(AmbientLocalizer<>));
-        services.AddSingleton(provider => provider.GetRequiredService<LocalizationContext>().Engine);
+        services.AddSingleton(typeof(ILocalizer<>), typeof(InjectedLocalizer<>));
+        services.AddSingleton<ILocalizerFactory>(provider => provider.GetRequiredService<LocalizationContext>());
         return services;
     }
 }

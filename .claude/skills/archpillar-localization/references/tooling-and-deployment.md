@@ -35,8 +35,8 @@ project) in the current directory.
 
 Catalogs round-trip through three bundled formats: **XLIFF 2.1** (default), **ARB** (JSON), and
 **Portable Object** (`.po`). Author in whichever your pipeline prefers (`--format arb|po`); the
-runtime loads all three side by side. When the same culture+key appears in more than one file the
-higher-fidelity format wins (`xliff` > `arb` > `po`, configurable via `FormatPrecedence`).
+runtime loads all three side by side. When one catalog exists in more than one format the
+higher-fidelity file wins (`xliff` > `arb` > `po`, a fixed tie-breaker) and the loser is never loaded.
 
 Files are named `{AssemblyName}.{culture}.{ext}` so independent libraries never collide, and the
 build copies them beside the binary.

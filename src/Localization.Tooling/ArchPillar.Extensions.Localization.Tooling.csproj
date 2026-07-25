@@ -31,6 +31,8 @@
   <ItemGroup>
     <!-- IL reading for assembly-based extraction (Decision D-K). Tool-only; the runtime stays dependency-free. -->
     <PackageReference Include="Mono.Cecil" />
+    <!-- CLI command framework + rich terminal output. Tool-only, like Mono.Cecil — never in a consumer's product. -->
+    <PackageReference Include="Spectre.Console.Cli" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,6 +1,16 @@
+using System.Text;
 using ArchPillar.Extensions.Localization.MessageFormat.Internal;
 
 namespace ArchPillar.Extensions.Localization.MessageFormat;
+
+/// <summary>
+/// A message recognized as exactly one top-level ICU cardinal <c>plural</c> with category-keyword branches — the
+/// shape a gettext <c>Plural-Forms</c> catalog can represent. <see cref="Branches"/> maps each present category to
+/// its branch body as ICU source text.
+/// </summary>
+/// <param name="ArgumentName">The numeric argument that selects the branch.</param>
+/// <param name="Branches">Each present category mapped to its branch body (ICU source text).</param>
+public sealed record CardinalPlural(string ArgumentName, IReadOnlyDictionary<PluralCategory, string> Branches);
 
 /// <summary>
 /// The public syntax surface over ICU MessageFormat strings: validation and placeholder extraction.
@@ -64,6 +74,60 @@ public static class MessageSyntax
             throw new ArgumentNullException(nameof(text));
         }
 
-        return MessageParser.TryParse(text, out _, out _) ? OtherBranchInserter.Insert(text) : text;
+        return MessageParser.InsertMissingOtherBranches(text);
+    }
+
+    /// <summary>
+    /// Recognizes <paramref name="text"/> as exactly one top-level ICU cardinal <c>plural</c> with
+    /// category-keyword branches (no <c>selectordinal</c>, no <c>offset</c>, no explicit <c>=N</c> selectors, no
+    /// surrounding text), returning its argument name and each branch's ICU body. Anything else — including
+    /// invalid syntax — returns <see langword="null"/>, so the caller keeps the message as opaque ICU. Replaces a
+    /// hand-rolled grammar scan: this runs the real parser and re-emits each branch with
+    /// <see cref="MessageSyntax"/>'s own serializer.
+    /// </summary>
+    /// <param name="text">The ICU MessageFormat source.</param>
+    /// <returns>The recognized cardinal plural, or <see langword="null"/> when the text is not that shape.</returns>
+    public static CardinalPlural? RecognizeCardinalPlural(string text)
+    {
+        if (!MessageParser.TryParse(text, out Message? message, out _)
+            || message!.Parts.Count != 1
+            || message.Parts[0] is not PluralPart { Ordinal: false, Offset: 0 } plural)
+        {
+            return null;
+        }
+
+        var branches = new Dictionary<PluralCategory, string>();
+        foreach (KeyValuePair<PluralSelector, Message> branch in plural.Branches)
+        {
+            if (branch.Key.Category is not { } category)
+            {
+                return null;
+            }
+
+            branches[category] = MessageWriter.Write(branch.Value);
+        }
+
+        return new CardinalPlural(plural.ArgumentName, branches);
+    }
+
+    /// <summary>
+    /// Builds a top-level ICU cardinal <c>plural</c> from an argument name and its category branch bodies — the
+    /// inverse of <see cref="RecognizeCardinalPlural"/>, used to reconstruct ICU from a gettext catalog. Each body
+    /// is inserted as-is (it is already the branch's source text).
+    /// </summary>
+    /// <param name="argumentName">The numeric argument that selects the branch.</param>
+    /// <param name="branches">The branch bodies in the order they should appear.</param>
+    /// <returns>The ICU MessageFormat <c>plural</c> string.</returns>
+    public static string BuildCardinalPlural(string argumentName, IReadOnlyList<(PluralCategory Category, string Body)> branches)
+    {
+        var builder = new StringBuilder();
+        builder.Append('{').Append(argumentName).Append(", plural,");
+        foreach ((PluralCategory category, var body) in branches)
+        {
+            builder.Append(' ').Append(category.Keyword()).Append(" {").Append(body).Append('}');
+        }
+
+        builder.Append('}');
+        return builder.ToString();
     }
 }

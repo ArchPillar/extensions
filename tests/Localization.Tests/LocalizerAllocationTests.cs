@@ -8,7 +8,7 @@ public sealed class LocalizerAllocationTests : IDisposable
     private static readonly CultureInfo _german = CultureInfo.GetCultureInfo("de");
 
     private readonly string _directory;
-    private readonly CatalogStore _store;
+    private readonly LocalizationContext _context;
     private readonly DefaultLocalizer _localizer;
     private readonly ILocalizer<LocalizerAllocationTests> _typed;
 
@@ -23,13 +23,15 @@ public sealed class LocalizerAllocationTests : IDisposable
               "@app.title": { "x-state": "Translated", "x-source-fingerprint": "b" }
             }
             """);
-        _store = new CatalogStore(new LocalizerOptions
+        _context = new LocalizationContext(new LocalizerOptions
         {
             TranslationsDirectory = _directory,
             SourceCulture = "en"
         });
-        _localizer = new DefaultLocalizer(_store);
-        _typed = new LocalizerFactory(_localizer).Create<LocalizerAllocationTests>();
+        // The typed view is the real injected path (context.For<T>), so this now also guards that the
+        // per-lookup EnsureCulture on that wrapper stays allocation-free once the culture is loaded.
+        _localizer = _context.Engine;
+        _typed = _context.For<LocalizerAllocationTests>();
     }
 
     [Fact]
@@ -79,7 +81,7 @@ public sealed class LocalizerAllocationTests : IDisposable
 
     public void Dispose()
     {
-        _store.Dispose();
+        _context.Dispose();
         Directory.Delete(_directory, recursive: true);
     }
 

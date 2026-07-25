@@ -58,7 +58,7 @@ internal static class GeneratorPipeline
     private static string ToArb(Catalog catalog)
     {
         using var stream = new MemoryStream();
-        new ArbTranslationFormat().WriteAsync(stream, catalog, CancellationToken.None).GetAwaiter().GetResult();
+        new ArbTranslationFormat().WriteAsync(stream, catalog).GetAwaiter().GetResult();
         return Encoding.UTF8.GetString(stream.ToArray());
     }
 
