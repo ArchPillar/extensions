@@ -55,7 +55,7 @@ See `docs/localization/features.md` ("Number, currency & compact formatting") an
 ## Compile-time diagnostics
 
 A translatable call site is recognised by the `[Translatable]` / `[TranslationDefault]` parameter
-attributes (not by name), so `Translate(...)`, the indexer, `L(...)`, and your own wrapper methods
+attributes (not by name), so `Translate(...)`, `L(...)`, and your own wrappers — methods or indexers —
 are all checked the same way. The analyzer surfaces these in the editor as you type:
 
 | Diagnostic | Meaning |

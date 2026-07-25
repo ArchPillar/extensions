@@ -120,11 +120,11 @@ internal static class TranslationSiteDetector
         return Build(arguments, keyArgument, symbols, node, ReceiverType(operation));
     }
 
-    // An indexer site. Our own ILocalizer indexer carries [Translatable] / [TranslationDefault], so it is
-    // detected exactly like a translatable method call — the editor flags a non-constant key, invalid ICU, or a
-    // placeholder mismatch just as it does for Translate. The BCL IStringLocalizer indexer cannot carry the
-    // attributes, so it is recognised by symbol and only when extracting the whole compilation, never in the
-    // editor.
+    // An indexer site. The library ships no indexer, but a consumer's own indexer carrying [Translatable] /
+    // [TranslationDefault] is detected exactly like a translatable method call — the editor flags a non-constant
+    // key, invalid ICU, or a placeholder mismatch just as it does for Translate. The BCL IStringLocalizer indexer
+    // cannot carry the attributes, so it is recognised by symbol and only when extracting the whole compilation,
+    // never in the editor.
     private static TranslationSiteResult? DetectIndexer(
         IPropertyReferenceOperation reference,
         AttributeSymbols symbols,

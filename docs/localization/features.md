@@ -24,16 +24,6 @@ The optional **context** is a disambiguator: the same key and default can mean d
 different places (a "Post" button versus a blog "Post"), and a distinct `context` keeps their
 translations separate without inventing two keys.
 
-The identical lookup is also exposed as an **indexer**, for callers who prefer the `IStringLocalizer`
-shape — `loc["key", "default"]`, with arguments passed as a `(name, value)` array. It is purely a
-matter of taste; the analyzer and extractor treat both the same. Settle on one style per codebase (see
-[getting started](getting-started.md#2-translate-a-string)).
-
-```csharp
-string title = localizer["home.title", "Home"];
-string greet = localizer["greeting", "Hello {name}", [("name", "Ada")]];
-```
-
 ## Categories — the `ILogger<T>` model
 
 There are no user-managed namespaces to design, register, or keep unique. Every key is implicitly
@@ -477,8 +467,8 @@ A Roslyn source generator extracts every translatable call site into a source-la
 real build (never at design time, so editing never churns files), and emits a strongly-typed key
 registry so call sites and the analyzer share rename-safe keys. "Translatable call site" is not a name
 match — it is driven by the `[Translatable]` / `[TranslationDefault]` parameter attributes on the API,
-which is why `Translate(...)`, the indexer, an `L(...)` marker, and even your own wrapper methods are all
-recognised the same way. The shared analyzer then surfaces, in the editor as you type, what would
+which is why `Translate(...)`, an `L(...)` marker, and even your own wrappers — methods or indexers — are
+all recognised the same way. The shared analyzer then surfaces, in the editor as you type, what would
 otherwise be a silent runtime bug:
 
 | Diagnostic | Meaning |

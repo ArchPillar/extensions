@@ -130,7 +130,7 @@ dotnet apl sync --output Translations          # reconcile all languages after c
 
 | Need | API / command | Notes |
 | --- | --- | --- |
-| Translate a string | `Translate(key, default, (name, value)…)` | Or instance `loc.Translate(...)` / indexer `loc[key, default]` |
+| Translate a string | `Translate(key, default, (name, value)…)` | Or instance `loc.Translate(...)`; there is no indexer form |
 | No-DI / static access | `using static …Localizer;` → `Translate(...)` | Ambient store; also `Localizer.Default`, `Localizer.For<T>()` |
 | Scope keys | inject `ILocalizer<T>` | `T`'s full name is the category; no namespaces to manage |
 | Disambiguate same key | `Translate(key, default, context: "menu")` | Keeps two meanings of one key/text separate |

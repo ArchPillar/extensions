@@ -44,21 +44,18 @@ a service, a static helper, even an exception thrown before any container exists
 register and no constructor to thread.
 
 **Calling on a localizer instance.** Once you have an `ILocalizer` receiver — `Localizer.Default`, or
-(as the app grows) an injected `ILocalizer<T>` — there are two interchangeable styles: the
-`.Translate(...)` method, and a `loc["key", "default"]` indexer that teams coming from `IStringLocalizer`
-already know.
+(as the app grows) an injected `ILocalizer<T>` — call `.Translate(...)` on it. That is the one call
+shape, receiver-less or not.
 
 ```csharp
 string a = Localizer.Default.Translate("home.title", "Home");
-string b = Localizer.Default["home.title", "Home"];                 // identical lookup, indexer style
-string c = Localizer.Default["greeting", "Hello {name}!", [("name", "Ada")]]; // arguments as a (name, value) array
+string b = Localizer.Default.Translate("greeting", "Hello {name}!", ("name", "Ada"));
 ```
 
-> **Pick one convention.** The two are the same call — the analyzer and the extractor recognise both — so
-> it is purely your team's taste, but settle on one; mixing `Translate(...)` and `["…"]` only makes call
-> sites harder to scan. Note the indexer is an *instance* feature (C# has no static indexers), so the
-> receiver-less free-function form above is always the `Translate` method — `Localizer["…"]` does not
-> exist, only `Localizer.Default["…"]` on the instance.
+> **Coming from `IStringLocalizer`?** Keep using it — the `…StringLocalizer` package adapts it onto this
+> store (composing over your existing `.resx`), so you migrate call sites when you choose rather than
+> learning a lookalike syntax with different argument semantics. See
+> [features.md](features.md#istringlocalizer-interop).
 
 > **As your app grows**, scope keys by *category* so two components can both use `"title"` without
 > colliding — call `Localizer.For<T>()`, or inject `ILocalizer<T>` (the `ILogger<T>` model). A set of

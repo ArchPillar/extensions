@@ -36,7 +36,7 @@ public sealed class TranslationAnalyzerTests
     [Fact]
     public async Task Analyzer_IndexerSyntax_FlagsNonConstantAndInvalidMessageAsync()
     {
-        // The optional indexer form is a first-class translation site: a non-constant key (APL0001) and invalid
+        // A consumer's own indexer is a first-class translation site: a non-constant key (APL0001) and invalid
         // ICU (APL0002) are real bugs whichever syntax is used, so the editor must flag them here too.
         const string Source = """
             using ArchPillar.Extensions.Localization;

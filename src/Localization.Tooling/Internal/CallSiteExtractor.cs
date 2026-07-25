@@ -9,7 +9,7 @@ namespace ArchPillar.Extensions.Localization.Tooling.Internal;
 /// by the same attribute contract the source-level detector uses: a call binding a constant to a
 /// <c>[Translatable]</c> parameter, with the <c>[TranslationDefault]</c> parameter as the in-code default. Reading
 /// the attributes off the resolved method — rather than hardcoding type or method names — means the native
-/// <c>Translate</c>, the <c>loc["key", "default"]</c> indexer, the <c>L(...)</c> marker, and any user wrapper are
+/// <c>Translate</c>, the <c>L(...)</c> marker, and any user wrapper (a method or an indexer) are
 /// all found by one rule. The BCL <c>IStringLocalizer</c> indexer is the single exception, matched by symbol
 /// because its fixed shape cannot carry the attributes. A lightweight evaluation-stack simulation recovers the
 /// constant string each call consumes and the static type of the receiver (whose generic argument is the category).
@@ -162,7 +162,7 @@ internal sealed class CallSiteExtractor
 
     // Decides translatability by the same rule the source-level detector applies: a parameter carrying
     // [Translatable] is the key and one carrying [TranslationDefault] is the in-code default. Reading those off
-    // the resolved definition finds the native Translate, the loc["key", "default"] indexer, the L(...) marker
+    // the resolved definition finds the native Translate, the L(...) marker
     // (one parameter carries both), and any user wrapper — without naming a single type or method. A translatable
     // method is never declared in the framework, so a System.* / Microsoft.* method is rejected by scope without
     // resolving (and thus loading) that assembly.
