@@ -19,7 +19,11 @@
     <PropertyGroup>
       <_ArchPillarExtractAnnotationsArg Condition="'$(ArchPillarLocalizationExtractAnnotations)' == 'false'">--no-annotations</_ArchPillarExtractAnnotationsArg>
     </PropertyGroup>
-    <Exec Command="$(ArchPillarLocalizationToolCommand) extract --assembly &quot;$(TargetPath)&quot; --output &quot;$([MSBuild]::NormalizePath('$(ArchPillarLocalizationOutputPath)'))&quot; --source $(ArchPillarLocalizationSourceLanguage) --format $(ArchPillarLocalizationFormat) $(_ArchPillarExtractAnnotationsArg)"
+    <!-- The tool's output option, not its catalog-path option: this target already runs once per project and
+         NormalizePath has resolved ArchPillarLocalizationCatalogPath to one exact directory, so there is nothing
+         left for the tool to scope. The catalog-path option is for the tool discovering a scope itself; here
+         MSBuild has already done that. -->
+    <Exec Command="$(ArchPillarLocalizationToolCommand) extract --assembly &quot;$(TargetPath)&quot; --output &quot;$([MSBuild]::NormalizePath('$(ArchPillarLocalizationCatalogPath)'))&quot; --source $(ArchPillarLocalizationSourceLanguage) --format $(ArchPillarLocalizationFormat) $(_ArchPillarExtractAnnotationsArg)"
           ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)"
           StandardOutputImportance="low" />
   </Target>
@@ -33,9 +37,9 @@
     Only the language-neutral Portable Object template (messages.pot) is excluded. Set
     ArchPillarLocalizationCopyTargetsToOutput=false to opt out (e.g. when embedding or merging at publish).
   -->
-  <ItemGroup Condition="'$(ArchPillarLocalizationCopyTargetsToOutput)' == 'true' and '$(ArchPillarLocalizationEmbedTargets)' != 'true' and Exists('$(ArchPillarLocalizationOutputPath)')">
-    <Content Include="$(ArchPillarLocalizationOutputPath)\**\*.arb;$(ArchPillarLocalizationOutputPath)\**\*.xliff;$(ArchPillarLocalizationOutputPath)\**\*.xlf;$(ArchPillarLocalizationOutputPath)\**\*.po"
-             Exclude="$(ArchPillarLocalizationOutputPath)\messages.pot"
+  <ItemGroup Condition="'$(ArchPillarLocalizationCopyTargetsToOutput)' == 'true' and '$(ArchPillarLocalizationEmbedTargets)' != 'true' and Exists('$(ArchPillarLocalizationCatalogPath)')">
+    <Content Include="$(ArchPillarLocalizationCatalogPath)\**\*.arb;$(ArchPillarLocalizationCatalogPath)\**\*.xliff;$(ArchPillarLocalizationCatalogPath)\**\*.xlf;$(ArchPillarLocalizationCatalogPath)\**\*.po"
+             Exclude="$(ArchPillarLocalizationCatalogPath)\messages.pot"
              CopyToOutputDirectory="PreserveNewest"
              Link="Translations\%(Filename)%(Extension)" />
   </ItemGroup>
@@ -50,8 +54,8 @@
     un-edited echoes are inert at runtime. For trimmed/AOT apps prefer the file (copy) path; embedded resources
     and satellites must be rooted against the trimmer.
   -->
-  <ItemGroup Condition="'$(ArchPillarLocalizationEmbedTargets)' == 'true' and Exists('$(ArchPillarLocalizationOutputPath)')">
-    <EmbeddedResource Include="$(ArchPillarLocalizationOutputPath)\*.arb;$(ArchPillarLocalizationOutputPath)\*.xliff;$(ArchPillarLocalizationOutputPath)\*.xlf"
+  <ItemGroup Condition="'$(ArchPillarLocalizationEmbedTargets)' == 'true' and Exists('$(ArchPillarLocalizationCatalogPath)')">
+    <EmbeddedResource Include="$(ArchPillarLocalizationCatalogPath)\*.arb;$(ArchPillarLocalizationCatalogPath)\*.xliff;$(ArchPillarLocalizationCatalogPath)\*.xlf"
                       Culture="$([System.Text.RegularExpressions.Regex]::Replace('%(Filename)', '^.*\.', ''))"
                       Link="%(Filename)%(Extension)" />
     <AssemblyAttribute Include="ArchPillar.Extensions.Localization.LocalizationSatelliteCatalogsAttribute" />
@@ -146,7 +150,7 @@
   <!-- Reusable globs for a project's own loose catalogs. The source-language catalog is included (it carries
        edited source wording as overrides; its echoes are inert), so only the neutral PO template is excluded. -->
   <PropertyGroup Condition="'$(ArchPillarLocalizationEmitManifest)' == 'true'">
-    <_ArchPillarCatalogRoot>$([MSBuild]::NormalizeDirectory('$(ArchPillarLocalizationOutputPath)'))</_ArchPillarCatalogRoot>
+    <_ArchPillarCatalogRoot>$([MSBuild]::NormalizeDirectory('$(ArchPillarLocalizationCatalogPath)'))</_ArchPillarCatalogRoot>
     <_ArchPillarCatalogInclude>$(_ArchPillarCatalogRoot)*.arb;$(_ArchPillarCatalogRoot)*.xliff;$(_ArchPillarCatalogRoot)*.xlf;$(_ArchPillarCatalogRoot)*.po</_ArchPillarCatalogInclude>
     <_ArchPillarCatalogExclude>$(_ArchPillarCatalogRoot)messages.pot</_ArchPillarCatalogExclude>
   </PropertyGroup>
@@ -157,7 +161,7 @@
     authors it. Skipped on the authority (the WebAssembly app gathers its own catalogs directly below).
   -->
   <Target Name="_ArchPillarLocalizationContributeCatalogs"
-          Condition="'$(ArchPillarLocalizationEmitManifest)' == 'true' and '$(_ArchPillarIsCatalogAuthority)' != 'true' and '$(OutputType)' == 'Library' and Exists('$(ArchPillarLocalizationOutputPath)')">
+          Condition="'$(ArchPillarLocalizationEmitManifest)' == 'true' and '$(_ArchPillarIsCatalogAuthority)' != 'true' and '$(OutputType)' == 'Library' and Exists('$(ArchPillarLocalizationCatalogPath)')">
     <ItemGroup>
       <_ArchPillarOwnCatalogRaw Include="$(_ArchPillarCatalogInclude)" Exclude="$(_ArchPillarCatalogExclude)" />
       <_ArchPillarOwnCatalog Include="@(_ArchPillarOwnCatalogRaw)">
@@ -197,7 +201,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <_ArchPillarOwnCatalogFile Condition="Exists('$(ArchPillarLocalizationOutputPath)')" Include="$(_ArchPillarCatalogInclude)" Exclude="$(_ArchPillarCatalogExclude)" />
+      <_ArchPillarOwnCatalogFile Condition="Exists('$(ArchPillarLocalizationCatalogPath)')" Include="$(_ArchPillarCatalogInclude)" Exclude="$(_ArchPillarCatalogExclude)" />
       <_ArchPillarReferencedCatalog Include="@(StaticWebAsset)" Condition="'%(StaticWebAsset.AssetTraitName)' == 'ArchPillarLocalizationCatalog'" />
     </ItemGroup>
 
@@ -272,7 +276,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <_ArchPillarOwnCatalogFile Condition="Exists('$(ArchPillarLocalizationOutputPath)')" Include="$(_ArchPillarCatalogInclude)" Exclude="$(_ArchPillarCatalogExclude)" />
+      <_ArchPillarOwnCatalogFile Condition="Exists('$(ArchPillarLocalizationCatalogPath)')" Include="$(_ArchPillarCatalogInclude)" Exclude="$(_ArchPillarCatalogExclude)" />
       <_ArchPillarReferencedCatalog Include="@(StaticWebAsset)" Condition="'%(StaticWebAsset.AssetTraitName)' == 'ArchPillarLocalizationCatalog'" />
     </ItemGroup>
 

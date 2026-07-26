@@ -15,7 +15,7 @@ All properties use the `ArchPillarLocalization` prefix and are surfaced to the g
 | `ArchPillarLocalizationFormat` | `xliff` | template/catalog **authoring** format: `arb` \| `xliff` \| `po` |
 | `ArchPillarLocalizationBundleFormat` | `arb` | the **published bundle** format (the publish-time merge output), independent of the authoring format: a runtime bundle needs only the translation, so the most compact, compressible container wins — `arb` (JSON) \| `xliff` \| `po` |
 | `ArchPillarLocalizationSourceLanguage` | `en` | the language the in-code defaults are written in (BCP-47) |
-| `ArchPillarLocalizationOutputPath` | `$(MSBuildProjectDirectory)\Translations` | directory where the **template** is written and where target files live once added (source tree, version-controlled) |
+| `ArchPillarLocalizationCatalogPath` | `$(MSBuildProjectDirectory)\Translations` | directory where the **template** is written and where target files live once added (source tree, version-controlled) |
 | `ArchPillarLocalizationEmit` | `true` | master switch for the build-time template extraction (the tool's `extract`); `false` disables it (the generated key registry, the analyzer, and the runtime still work) |
 | `ArchPillarLocalizationExtractAnnotations` | `true` | extract display text carried by attributes (`[DisplayName]`, `[Display(Name/Description)]`, `[Description]`, and the `[Localized…]` twins); `false` passes `--no-annotations` to `extract`, leaving only the in-code call sites in the template |
 | `ArchPillarLocalizationExtractTransitively` | `false` | extraction runs only where the package is referenced **directly** (the project that authors the strings); set `true` to also extract in a project that references the package transitively or wires the build assets in by hand — see [Reference scope](#reference-scope-direct-vs-transitive) |
@@ -30,7 +30,7 @@ Example consumer configuration — note there is no language list:
 <PropertyGroup>
   <ArchPillarLocalizationFormat>xliff</ArchPillarLocalizationFormat>
   <ArchPillarLocalizationSourceLanguage>en</ArchPillarLocalizationSourceLanguage>
-  <ArchPillarLocalizationOutputPath>$(MSBuildProjectDirectory)\Localization</ArchPillarLocalizationOutputPath>
+  <ArchPillarLocalizationCatalogPath>$(MSBuildProjectDirectory)\Localization</ArchPillarLocalizationCatalogPath>
 </PropertyGroup>
 ```
 
@@ -107,6 +107,6 @@ The package `.targets` bridges 1+2→3. When `ArchPillarLocalizationCopyTargetsT
 - [ ] `ArchPillarLocalizationEmit=false` stops the build-time template extraction while leaving the generated key registry, analyzer diagnostics, and runtime lookup functional.
 - [ ] Adding a language with the tool (or Poedit, for Portable Object) creates a target file in `OutputPath` with no build or project edit; a subsequent build does not remove or rewrite it, and a re-extract merges into (does not overwrite) the source catalog, preserving any edited source wording.
 - [ ] The source catalog and target catalogs are copied to the application output (or embedded) and the runtime finds them; only the language-neutral `messages.pot` is held back.
-- [ ] Changing `ArchPillarLocalizationOutputPath` relocates the source and target files together, and the runtime still finds them.
+- [ ] Changing `ArchPillarLocalizationCatalogPath` relocates the source and target files together, and the runtime still finds them.
 - [ ] With `ArchPillarLocalizationEmbedTargets=true` and a single-file publish, the runtime loads target catalogs from embedded resources with no loose files present.
 - [ ] A fresh project that references the package and sets a format produces a template on build; running `tool add de` then yields a working German-capable app after the German file is translated — all without touching the project or rebuilding to "enable" German.

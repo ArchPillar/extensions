@@ -122,8 +122,8 @@ Generate and reconcile translator files (run from the app folder; it finds the s
 
 ```bash
 dotnet build                                  # also auto-extracts {Assembly}.en.xliff into Translations/
-dotnet apl add de --output Translations       # create a German file, every entry NeedsTranslation
-dotnet apl sync --output Translations          # reconcile all languages after code changes (--check in CI)
+dotnet apl add de                              # create a German file, every entry NeedsTranslation
+dotnet apl sync                                # reconcile all languages after code changes (--check in CI)
 ```
 
 ## Feature cheat-sheet

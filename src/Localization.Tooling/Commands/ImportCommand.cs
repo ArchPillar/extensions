@@ -26,8 +26,12 @@ internal sealed class ImportCommand : AsyncCommand<ImportCommand.Settings>
         [Description("A solution (.sln/.slnx or its directory) whose catalog directory to write into.")]
         public FlagValue<string> Solution { get; init; } = new();
 
-        [CommandOption("--output <PROJECT_SUBPATH>")]
-        [Description("The catalog folder inside each project to write into (absolute: used as-is; default: Translations).")]
+        [CommandOption("--catalog-path <PROJECT_SUBPATH>")]
+        [Description("The catalog folder inside each project to write into (default: Translations).")]
+        public string? CatalogPath { get; init; }
+
+        [CommandOption("--output <DIR>")]
+        [Description("Write every catalog into this one directory instead, relative to the current directory; wins over --catalog-path.")]
         public string? Output { get; init; }
     }
 
@@ -35,22 +39,22 @@ internal sealed class ImportCommand : AsyncCommand<ImportCommand.Settings>
     {
         var zipPath = ScopeInput.Require(settings.Input, "--input");
 
-        // --input here is the zip to read, not a catalog directory, so the scope carries no Input. The write
-        // directory is the catalog folder (--output, default Translations) resolved per entry: an absolute folder
-        // is used as-is (one flat directory); a relative one routes back to the project that owns the assembly the
-        // entry names — matching where the authoring commands wrote it — and falls back to the scope's base
-        // directory for an entry with no matching project. The project map and base are resolved lazily, so an
-        // absolute --output needs no scope discovery at all.
+        // --input here is the zip to read, not a catalog directory, so the scope carries no Input. With --output
+        // every entry lands in that one directory. Otherwise --catalog-path routes each entry back to the project
+        // that owns the assembly it names — matching where the authoring commands wrote it — and falls back to the
+        // scope's base directory for an entry with no matching project. The project map and base are resolved
+        // lazily, so --output needs no scope discovery at all.
         var scope = new ScopeOptions(null, null, ScopeInput.Optional(settings.Project), ScopeInput.Optional(settings.Solution), Recurse: false);
-        var folder = string.IsNullOrEmpty(settings.Output) ? "Translations" : settings.Output;
+        var flat = string.IsNullOrEmpty(settings.Output) ? null : Path.GetFullPath(settings.Output);
+        var folder = string.IsNullOrEmpty(settings.CatalogPath) ? CatalogDirectoryResolver.CatalogFolderName : settings.CatalogPath;
         IReadOnlyDictionary<string, string>? projectDirectories = null;
         string? scopeBase = null;
 
         string DirectoryFor(string assemblyName)
         {
-            if (Path.IsPathRooted(folder))
+            if (flat is not null)
             {
-                return folder;
+                return flat;
             }
 
             projectDirectories ??= CatalogDirectoryResolver.ProjectDirectoriesByName(scope);

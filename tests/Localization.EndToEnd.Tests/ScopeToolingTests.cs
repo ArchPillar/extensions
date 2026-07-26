@@ -138,6 +138,64 @@ public sealed class ScopeToolingTests : IDisposable
     }
 
     [Fact]
+    public async Task CatalogPath_WritesInsideTheProjectRatherThanTheCurrentDirectoryAsync()
+    {
+        File.WriteAllText(Path.Combine(_root, "App.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
+
+        Assert.Equal(0, await ToolApplication.RunAsync(["extract", "--project", _root, "--catalog-path", "Catalogs"]));
+
+        Assert.True(File.Exists(Path.Combine(_root, "Catalogs", "LibA.en.xliff")));
+        Assert.True(File.Exists(Path.Combine(_root, "Catalogs", "LibB.en.xliff")));
+    }
+
+    [Fact]
+    public async Task CatalogPath_DefaultsToTranslationsAsync()
+    {
+        File.WriteAllText(Path.Combine(_root, "App.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
+
+        Assert.Equal(0, await ToolApplication.RunAsync(["extract", "--project", _root]));
+
+        Assert.True(File.Exists(Path.Combine(_catalogs, "LibA.en.xliff")));
+    }
+
+    [Fact]
+    public async Task Output_WinsOverCatalogPathAsync()
+    {
+        // The two say different things; the explicit single destination is the more specific instruction.
+        File.WriteAllText(Path.Combine(_root, "App.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
+        var flat = Path.Combine(_root, "flat");
+
+        Assert.Equal(0, await ToolApplication.RunAsync(["extract", "--project", _root, "--catalog-path", "Catalogs", "--output", flat]));
+
+        Assert.True(File.Exists(Path.Combine(flat, "LibA.en.xliff")));
+        Assert.False(Directory.Exists(Path.Combine(_root, "Catalogs")));
+    }
+
+    [Fact]
+    public async Task Output_RelativeIsCurrentDirectoryRelativeNotProjectRelativeAsync()
+    {
+        // Matches the dotnet CLI's own --output, and is the whole reason the project-relative form needed its own
+        // name: the same relative string means different places under the two options.
+        File.WriteAllText(Path.Combine(_root, "App.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
+        var working = Path.Combine(_root, "cwd");
+        Directory.CreateDirectory(working);
+
+        var original = Directory.GetCurrentDirectory();
+        try
+        {
+            Directory.SetCurrentDirectory(working);
+            Assert.Equal(0, await ToolApplication.RunAsync(["extract", "--project", _root, "--output", "out"]));
+        }
+        finally
+        {
+            Directory.SetCurrentDirectory(original);
+        }
+
+        Assert.True(File.Exists(Path.Combine(working, "out", "LibA.en.xliff")));
+        Assert.False(Directory.Exists(Path.Combine(_root, "out")));
+    }
+
+    [Fact]
     public async Task ScopedCommands_AssemblyFileNameWithBrackets_RenderLiterallyInsteadOfAsMarkupAsync()
     {
         // The assembly's file name becomes both the progress label and a status-table cell, and Spectre parses

@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using System.Globalization;
 using ArchPillar.Extensions.Localization.Tooling.Internal;
 using Spectre.Console;
@@ -6,23 +5,15 @@ using Spectre.Console.Cli;
 
 namespace ArchPillar.Extensions.Localization.Tooling.Commands;
 
-/// <summary>Reports the extractable strings per in-scope assembly, and (with a catalog directory) the per-language translation coverage.</summary>
-internal sealed class StatusCommand : AsyncCommand<StatusCommand.Settings>
+/// <summary>Reports the extractable strings per in-scope assembly, and (where catalogs exist) the per-language translation coverage.</summary>
+internal sealed class StatusCommand : AsyncCommand<AuthoringScopeSettings>
 {
-    /// <summary>Options for <c>status</c>.</summary>
-    internal sealed class Settings : AuthoringScopeSettings
-    {
-        [CommandOption("--output <PROJECT_SUBPATH>")]
-        [Description("The catalog folder inside each project to also report per-language translation counts from (default: Translations).")]
-        public string? Output { get; init; }
-    }
-
-    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    public override async Task<int> ExecuteAsync(CommandContext context, AuthoringScopeSettings settings)
     {
         var sourceLanguage = settings.Source;
         var rows = new List<(string Name, int Keys, string Languages)>();
         var totalKeys = 0;
-        await ScopeRunner.ForEachTemplateAsync(settings, settings.Output, "Scanning", (name, catalogDirectory, template) =>
+        await ScopeRunner.ForEachTemplateAsync(settings, "Scanning", (name, catalogDirectory, template) =>
         {
             totalKeys += template.Entries.Count;
             var languages = Directory.Exists(catalogDirectory)

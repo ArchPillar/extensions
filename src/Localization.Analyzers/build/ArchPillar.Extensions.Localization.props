@@ -7,7 +7,7 @@
 
     The analyzer reads ArchPillarLocalizationKeyPattern (the one CompilerVisibleProperty). The on-disk
     source-language template is produced by the tool's `extract` from the built assembly's IL (Decision D-K),
-    invoked from the package .targets and written to ArchPillarLocalizationOutputPath.
+    invoked from the package .targets and written to ArchPillarLocalizationCatalogPath.
   -->
   <PropertyGroup>
     <!-- The format the on-disk dev/source catalogs are authored in. XLIFF by default: source and translation are
@@ -19,7 +19,10 @@
          compressible container wins (JSON beats XML/PO once the redundant source is dropped). -->
     <ArchPillarLocalizationBundleFormat Condition="'$(ArchPillarLocalizationBundleFormat)' == ''">arb</ArchPillarLocalizationBundleFormat>
     <ArchPillarLocalizationSourceLanguage Condition="'$(ArchPillarLocalizationSourceLanguage)' == ''">en</ArchPillarLocalizationSourceLanguage>
-    <ArchPillarLocalizationOutputPath Condition="'$(ArchPillarLocalizationOutputPath)' == ''">$(MSBuildProjectDirectory)/Translations</ArchPillarLocalizationOutputPath>
+    <!-- Where this project's catalogs live: the build's equivalent of the tool's catalog-path option, resolved
+         here against the project directory so each project keeps its own (never one folder shared across
+         projects). -->
+    <ArchPillarLocalizationCatalogPath Condition="'$(ArchPillarLocalizationCatalogPath)' == ''">$(MSBuildProjectDirectory)/Translations</ArchPillarLocalizationCatalogPath>
     <ArchPillarLocalizationEmit Condition="'$(ArchPillarLocalizationEmit)' == ''">true</ArchPillarLocalizationEmit>
     <!-- Display names, descriptions, and validation messages carried by attributes ([DisplayName], [Display],
          [Description] and the [Localized…] twins) are genuine display values, so they are extracted by default.
