@@ -10,7 +10,7 @@ internal sealed class AddCommand : AsyncCommand<AddCommand.Settings>
     /// <summary>Options for <c>add</c>.</summary>
     internal sealed class Settings : AuthoringScopeSettings
     {
-        [CommandArgument(0, "<lang>")]
+        [CommandArgument(0, "<CULTURE>")]
         [Description("The language (culture) to add.")]
         public string Language { get; init; } = string.Empty;
 
@@ -21,10 +21,6 @@ internal sealed class AddCommand : AsyncCommand<AddCommand.Settings>
         [CommandOption("--template <FILE>")]
         [Description("A single source template to add the language beside, instead of a scope.")]
         public string? Template { get; init; }
-
-        [CommandOption("--output <PATH>")]
-        [Description("The directory to write to (with --template), or the catalog folder inside each project (scope mode; default: Translations).")]
-        public string? Output { get; init; }
 
         [CommandOption("--force")]
         [Description("Overwrite an existing language catalog instead of skipping it.")]
@@ -57,7 +53,7 @@ internal sealed class AddCommand : AsyncCommand<AddCommand.Settings>
         ITranslationFormat scopeProvider = CatalogIo.FormatOrDefault(settings.Format);
         var created = 0;
         var skipped = 0;
-        await ScopeRunner.ForEachTemplateAsync(settings, settings.Output, $"Adding {language}", async (name, catalogDirectory, template) =>
+        await ScopeRunner.ForEachTemplateAsync(settings, $"Adding {language}", async (name, catalogDirectory, template) =>
         {
             var target = Path.Combine(catalogDirectory, CatalogNaming.FileName(name, language, scopeProvider));
 

@@ -47,8 +47,8 @@ assembly, and fans out over every in-scope assembly that actually has strings:
 | `--assembly <dll>` | a single assembly (the low-level form) |
 
 With **no scope at all**, the tool defaults to the current directory like `dotnet build` — a lone solution
-wins, else a lone project. So from your app's folder you can just run `dotnet apl add de --output
-Translations`. `--project` and `--solution` also accept a **folder** or no value, finding the single file in
+wins, else a lone project. So from your app's folder you can just run `dotnet apl add de`.
+`--project` and `--solution` also accept a **folder** or no value, finding the single file in
 that folder (or the current directory). An ambiguous folder (more than one project/solution) is an error
 rather than a guess.
 
@@ -72,7 +72,8 @@ dotnet apl status --solution App.sln
 # 2 assembly(ies), 59 string(s) total.
 ```
 
-Add `--output Translations` to also report per-language progress (`de: 31/42 translated`).
+Per-language progress (`de: 31/42 translated`) is reported wherever catalogs are found; pass
+`--catalog-path <folder>` if yours do not live in the default `Translations`.
 
 ## 2. Extract — the source template
 
@@ -82,8 +83,12 @@ overwrites the file, so the source catalog is a stable artifact you keep in git 
 tracked over time. To run it by hand over a scope:
 
 ```bash
-dotnet apl extract --solution App.sln --output Translations
+dotnet apl extract --solution App.sln
 ```
+
+Each project's catalogs land in its own `Translations/` folder. `--catalog-path <folder>` renames that
+folder; `--output <dir>` overrides it entirely, gathering every catalog into one directory (relative to the
+current directory, like the `dotnet` CLI's own `--output`).
 
 This is the source side. You usually leave it alone — the in-code default is the terminal fallback, so an
 un-edited source entry (an *echo* of the default) is inert and ships nothing. But the source language **is**
@@ -94,7 +99,7 @@ preserves your edits (and flags one for review if the in-code default later drif
 ## 3. Add a language
 
 ```bash
-dotnet apl add de --solution App.sln --output Translations
+dotnet apl add de --solution App.sln
 # -> Translations/App.Web.de.xliff, Translations/App.Core.de.xliff  (all NeedsTranslation)
 ```
 
@@ -121,7 +126,7 @@ dotnet apl export --solution App.sln --output ./kits
 ```
 
 Send the zip. When it comes back translated, import it — each file is routed back to its origin assembly's
-catalog by its name, into the scope's `Translations` folder (or an explicit `--output`):
+catalog by its name, into each project's `Translations` folder (or an explicit `--catalog-path`/`--output`):
 
 ```bash
 dotnet apl import --input kit-de.zip --solution App.sln
@@ -139,7 +144,7 @@ extracted templates:
 
 ```bash
 dotnet build
-dotnet apl sync --solution App.sln --output Translations
+dotnet apl sync --solution App.sln
 ```
 
 New keys arrive as `NeedsTranslation`; an edited source flips its entry to `NeedsReview` (the old
@@ -147,7 +152,7 @@ translation is kept, not lost); a removed key is dropped. In CI, make it a gate 
 drift:
 
 ```bash
-dotnet apl sync --solution App.sln --output Translations --check
+dotnet apl sync --solution App.sln --check
 ```
 
 ## Deployment

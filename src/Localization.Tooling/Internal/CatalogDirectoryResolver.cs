@@ -6,10 +6,10 @@ namespace ArchPillar.Extensions.Localization.Tooling.Internal;
 /// <c>import</c>, <c>merge</c>, <c>manifest</c>), so they too work over a whole app at once instead of one
 /// catalog folder at a time.
 /// <para>
-/// Catalogs live by convention in a <c>Translations</c> folder beside each project (the folder every doc and
-/// sample authors to with <c>--output Translations</c>), so a project resolves to <c>&lt;projectdir&gt;/Translations</c>.
-/// That default is overridable: pass <c>--input &lt;dir&gt;</c> to point at an explicit catalog folder (a project
-/// that authored to a different <c>--output</c> folder passes <c>--input</c>).
+/// Catalogs live by convention in a <c>Translations</c> folder beside each project (the default of
+/// <c>--catalog-path</c>), so a project resolves to <c>&lt;projectdir&gt;/Translations</c>. That default is
+/// overridable: pass <c>--input &lt;dir&gt;</c> to point at an explicit catalog folder (a project that authored to a
+/// different <c>--catalog-path</c>, or to a flat <c>--output</c> directory, passes <c>--input</c>).
 /// </para>
 /// <para>
 /// <c>--assembly</c> does not apply here: there is no IL to read off a catalog, so these commands take
@@ -18,7 +18,9 @@ namespace ArchPillar.Extensions.Localization.Tooling.Internal;
 /// </summary>
 internal static class CatalogDirectoryResolver
 {
-    private const string CatalogFolderName = "Translations";
+    /// <summary>The conventional folder catalogs live in beside a project, and the default for
+    /// <c>--catalog-path</c>. The one owner of that name.</summary>
+    public const string CatalogFolderName = "Translations";
 
     /// <summary>The catalog directories to read for the gather-many commands (<c>export</c>, <c>merge</c>,
     /// <c>manifest</c>), deduplicated (OrdinalIgnoreCase) and stably ordered. Only directories that exist are
@@ -152,8 +154,8 @@ internal static class CatalogDirectoryResolver
     /// catalogs into: the <paramref name="folder"/> subfolder of the project that built it (found by walking up to
     /// the nearest <c>.csproj</c>) so a whole app's catalogs stay beside their own projects; or, for a loose
     /// <c>--assembly</c>/<c>--input</c> path with no project, the same subfolder beside the input base. Never one
-    /// shared flat folder across separate projects. (An absolute <paramref name="folder"/> from an explicit
-    /// <c>--output</c> wins, the low-level escape.)
+    /// shared flat folder across separate projects — that is <c>--output</c>'s job, and the caller applies it
+    /// before reaching here.
     /// </summary>
     public static string CatalogDirectoryFor(string assemblyPath, ScopeOptions scope, string folder) =>
         ProjectCatalogDirectoryOf(assemblyPath, folder) ?? Path.Combine(InputBase(scope, assemblyPath), folder);

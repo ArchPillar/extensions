@@ -23,8 +23,8 @@ internal static class ScopeInput
 /// <summary>
 /// The options every scoped command shares: a project/solution to discover (or the current directory by default),
 /// whether to recurse into referenced projects, and the source language. The two concrete scopes add the piece that
-/// differs — the authoring commands an <c>--assembly</c> and <c>--no-annotations</c>, each with its own
-/// <c>--input</c> meaning (a build-output directory vs a catalog directory).
+/// differs — the authoring commands an <c>--assembly</c>, <c>--no-annotations</c> and the destination pair, each
+/// with its own <c>--input</c> meaning (a build-output directory vs a catalog directory).
 /// </summary>
 internal abstract class ScopeSettings : CommandSettings
 {
@@ -63,20 +63,39 @@ internal abstract class ScopeSettings : CommandSettings
 /// </summary>
 internal class AuthoringScopeSettings : ScopeSettings
 {
-    [CommandOption("--assembly <PATH>")]
+    [CommandOption("--assembly <FILE>")]
     [Description("A single built assembly to read, instead of discovering a scope.")]
     public string? Assembly { get; init; }
 
-    [CommandOption("--input <PATH>")]
+    [CommandOption("--input <DIR>")]
     [Description("A directory of built assemblies to read.")]
     public string? Input { get; init; }
 
     [CommandOption("--no-annotations")]
-    [Description("Extract only IL call sites, omitting the [Localized…] attribute strings.")]
+    [Description("Extract only IL call sites, omitting the [[Localized…]] attribute strings.")]
     public bool NoAnnotations { get; init; }
+
+    [CommandOption("--catalog-path <PROJECT_SUBPATH>")]
+    [Description("The catalog folder inside each project (default: Translations).")]
+    public string? CatalogPath { get; init; }
+
+    [CommandOption("--output <DIR>")]
+    [Description("Write every catalog into this one directory instead, relative to the current directory; wins over --catalog-path.")]
+    public string? Output { get; init; }
 
     /// <summary>Whether attribute-carried strings are extracted (on unless <c>--no-annotations</c>).</summary>
     public bool IncludeAnnotations => !NoAnnotations;
+
+    /// <summary>
+    /// The single directory every catalog is written to, or null when each project keeps its own. This is
+    /// <c>--output</c>, resolved against the current directory like the dotnet CLI's own <c>--output</c> — MSBuild's
+    /// project-relative <c>OutputPath</c> behaviour is <see cref="CatalogPath"/> instead. Set, it wins: the two say
+    /// different things and the explicit destination is the more specific instruction.
+    /// </summary>
+    public string? FlatDirectory => string.IsNullOrEmpty(Output) ? null : Path.GetFullPath(Output);
+
+    /// <summary>The folder inside each project, defaulted.</summary>
+    public string CatalogFolder => string.IsNullOrEmpty(CatalogPath) ? CatalogDirectoryResolver.CatalogFolderName : CatalogPath;
 
     protected override string? InputPath => Input;
 
@@ -89,7 +108,7 @@ internal class AuthoringScopeSettings : ScopeSettings
 /// </summary>
 internal class CatalogScopeSettings : ScopeSettings
 {
-    [CommandOption("--input <PATH>")]
+    [CommandOption("--input <DIR>")]
     [Description("A catalog directory to read.")]
     public string? Input { get; init; }
 

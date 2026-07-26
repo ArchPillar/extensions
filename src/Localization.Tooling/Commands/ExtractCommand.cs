@@ -13,10 +13,6 @@ internal sealed class ExtractCommand : AsyncCommand<ExtractCommand.Settings>
         [CommandOption("--format <FORMAT>")]
         [Description("The catalog format to write (arb, xliff, po; default: xliff).")]
         public string? Format { get; init; }
-
-        [CommandOption("--output <FOLDER>")]
-        [Description("The catalog folder inside each project to write into (default: Translations).")]
-        public string? Output { get; init; }
     }
 
     public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
@@ -24,7 +20,7 @@ internal sealed class ExtractCommand : AsyncCommand<ExtractCommand.Settings>
         var sourceLanguage = settings.Source;
         ITranslationFormat provider = CatalogIo.FormatOrDefault(settings.Format);
         var count = 0;
-        await ScopeRunner.ForEachTemplateAsync(settings, settings.Output, "Extracting", async (name, catalogDirectory, template) =>
+        await ScopeRunner.ForEachTemplateAsync(settings, "Extracting", async (name, catalogDirectory, template) =>
         {
             var sourcePath = Path.Combine(catalogDirectory, CatalogNaming.FileName(name, sourceLanguage, provider));
 

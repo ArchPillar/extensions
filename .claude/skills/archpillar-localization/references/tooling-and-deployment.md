@@ -17,8 +17,8 @@ project) in the current directory.
 | --- | --- |
 | `dotnet apl status` | Which assemblies have strings, and how many |
 | `extract` | Emit the source-language catalog (`{Assembly}.en.xliff`). **Runs automatically after each real build** when the package is referenced |
-| `add <culture> --output Translations` | Create a target file (`{Assembly}.<culture>.xliff`), every entry `NeedsTranslation` |
-| `sync --output Translations` | Reconcile every language file after code changes; **`sync --check` is the CI gate** |
+| `add <culture>` | Create a target file (`{Assembly}.<culture>.xliff`), every entry `NeedsTranslation` |
+| `sync` | Reconcile every language file after code changes; **`sync --check` is the CI gate** |
 | `export [--lang de] --output kit.zip` | Bundle catalogs for a translator (one zip, or one `<culture>.zip` per language into a folder); the source language is never handed off |
 | `import --input kit.zip` | Route returned files back to the right catalog by name |
 | `merge --input <dir> --output <dir> --format arb` | Flatten per-library files into one bundle per culture; **runs automatically on `dotnet publish`** |

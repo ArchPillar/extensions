@@ -22,10 +22,6 @@ internal sealed class SyncCommand : AsyncCommand<SyncCommand.Settings>
         [Description("The language catalog to reconcile (single-target mode).")]
         public string? Target { get; init; }
 
-        [CommandOption("--output <FOLDER>")]
-        [Description("The catalog folder inside each project to reconcile (scope mode; default: Translations).")]
-        public string? Output { get; init; }
-
         [CommandOption("--check")]
         [Description("Report drift (exit 1) without writing, for a CI gate.")]
         public bool Check { get; init; }
@@ -55,7 +51,7 @@ internal sealed class SyncCommand : AsyncCommand<SyncCommand.Settings>
         var driftedTargets = new List<string>();
         var synced = 0;
         var any = false;
-        await ScopeRunner.ForEachTemplateAsync(settings, settings.Output, "Syncing", async (name, catalogDirectory, template) =>
+        await ScopeRunner.ForEachTemplateAsync(settings, "Syncing", async (name, catalogDirectory, template) =>
         {
             any = true;
             foreach (var targetPath in CatalogNaming.TargetCatalogsFor(catalogDirectory, name, sourceLanguage))

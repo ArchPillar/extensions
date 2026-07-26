@@ -129,22 +129,23 @@ The tool writes the source-language template (the `.pot`-equivalent / source `.a
 ```
 dotnet apl extract   [scope: --solution|--project|--input|--assembly, default cwd]   # template from IL
                          --format <arb|xliff|po, default xliff> --source <bcp47, default en>
-                         --output <dir, default ./Translations>
+                         --catalog-path <PROJECT_SUBPATH, default Translations> | --output <DIR>
 
-dotnet apl add       <lang>                                  # create a target file from the template
-                         --output <dir> [--force]
+dotnet apl add       <CULTURE>                               # create a target file from the template
+                         [--catalog-path <PROJECT_SUBPATH> | --output <DIR>] [--force]
 
-dotnet apl sync      --output <dir>                          # reconcile every existing target file
+dotnet apl sync      [--catalog-path <PROJECT_SUBPATH>]      # reconcile every existing target file
                          [--check] [--report <path>]
 
 dotnet apl convert   (--template | --lang <lang>) --to <po|xliff|arb>
-                         --output <dir>
+                         --output <FILE>
 ```
 
 - `--check` (on `sync`) is the continuous-integration gate: run in memory, write nothing, and use diff-style exit codes — `0` up to date, `1` drift detected (re-run `sync` to fix), `2` an error (bad invocation, missing or malformed file). A gate that only needs pass/fail still treats any nonzero as failure; one that wants to retry on drift but stop on error can tell them apart. Diagnostics (drift and errors alike) go to stderr.
 - `add` refuses to overwrite an existing target file unless `--force`; this is the only way a *new* language enters, and it is explicit and human-driven.
 - `--report` drives dashboards (per-language counts of new, stale, removed, untranslated).
 - `extract` produces the same template (byte-identical) for the same built assembly across runs and platforms; this is a test gate.
+- The two destination options are distinct and `--output` wins when both are given: `--catalog-path` is a folder **inside each project** (MSBuild's `OutputPath` semantics, and what the build's `ArchPillarLocalizationCatalogPath` resolves to), while `--output` is one directory for every catalog, resolved against the current directory like the `dotnet` CLI's own `--output`.
 
 ## Acceptance criteria
 

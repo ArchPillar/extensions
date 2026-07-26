@@ -1,7 +1,6 @@
 using System.ComponentModel;
 using ArchPillar.Extensions.Localization.Catalogs;
 using ArchPillar.Extensions.Localization.Tooling.Internal;
-using Spectre.Console;
 using Spectre.Console.Cli;
 
 namespace ArchPillar.Extensions.Localization.Tooling.Commands;
@@ -47,11 +46,11 @@ internal sealed class MergeCommand : AsyncCommand<MergeCommand.Settings>
         // Reuse the runtime's load (precedence, skip untranslated, source loaded as overrides), then dump one bundle
         // per culture, minified — the published bundle is a runtime artifact, not a translator's working file.
         IReadOnlyList<Catalog> merged = CatalogFlattener.Flatten(catalogs);
-        await AnsiConsole.Status().StartAsync("Merging…", async ctx =>
+        await ToolConsole.StatusAsync("Merging…", async ctx =>
         {
             foreach (Catalog catalog in merged)
             {
-                ctx.Status($"Merging {catalog.Culture}…");
+                ToolConsole.Status(ctx, $"Merging {catalog.Culture}…");
                 await CatalogIo.WriteFileAsync(outputProvider, Path.Combine(output, catalog.Culture + CatalogNaming.Extension(outputProvider)), catalog, new CatalogWriteOptions { Minify = true });
             }
         });

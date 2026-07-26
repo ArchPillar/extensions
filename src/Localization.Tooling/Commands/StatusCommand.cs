@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using System.Globalization;
 using ArchPillar.Extensions.Localization.Tooling.Internal;
 using Spectre.Console;
@@ -6,23 +5,15 @@ using Spectre.Console.Cli;
 
 namespace ArchPillar.Extensions.Localization.Tooling.Commands;
 
-/// <summary>Reports the extractable strings per in-scope assembly, and (with a catalog directory) the per-language translation coverage.</summary>
-internal sealed class StatusCommand : AsyncCommand<StatusCommand.Settings>
+/// <summary>Reports the extractable strings per in-scope assembly, and (where catalogs exist) the per-language translation coverage.</summary>
+internal sealed class StatusCommand : AsyncCommand<AuthoringScopeSettings>
 {
-    /// <summary>Options for <c>status</c>.</summary>
-    internal sealed class Settings : AuthoringScopeSettings
-    {
-        [CommandOption("--output <DIR>")]
-        [Description("A catalog directory to also report per-language translation counts from.")]
-        public string? Output { get; init; }
-    }
-
-    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    public override async Task<int> ExecuteAsync(CommandContext context, AuthoringScopeSettings settings)
     {
         var sourceLanguage = settings.Source;
         var rows = new List<(string Name, int Keys, string Languages)>();
         var totalKeys = 0;
-        await ScopeRunner.ForEachTemplateAsync(settings, settings.Output, "Scanning", (name, catalogDirectory, template) =>
+        await ScopeRunner.ForEachTemplateAsync(settings, "Scanning", (name, catalogDirectory, template) =>
         {
             totalKeys += template.Entries.Count;
             var languages = Directory.Exists(catalogDirectory)
@@ -49,14 +40,16 @@ internal sealed class StatusCommand : AsyncCommand<StatusCommand.Settings>
 
         foreach ((var name, var keys, var languages) in rows)
         {
+            // Text, not the string overload: a cell is parsed as markup, so an assembly named e.g. "App[1]" would
+            // throw on render. Text renders it literally.
             var count = keys.ToString(CultureInfo.InvariantCulture);
             if (showTranslations)
             {
-                table.AddRow(name, count, languages);
+                table.AddRow(new Text(name), new Text(count), new Text(languages));
             }
             else
             {
-                table.AddRow(name, count);
+                table.AddRow(new Text(name), new Text(count));
             }
         }
 

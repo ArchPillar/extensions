@@ -9,6 +9,7 @@ namespace ArchPillar.Extensions.Localization.EndToEnd.Tests;
 /// the catalog is in sync and fails when a developer adds a string without re-syncing — and that a translator
 /// can move a file between ARB, XLIFF, and PO without losing the content they care about.
 /// </summary>
+[Collection(ToolInvocationCollection.Name)]
 public sealed class ToolGateTests : IDisposable
 {
     private const string OneString = """

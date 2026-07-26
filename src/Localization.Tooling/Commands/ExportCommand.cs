@@ -1,6 +1,5 @@
 using System.ComponentModel;
 using ArchPillar.Extensions.Localization.Tooling.Internal;
-using Spectre.Console;
 using Spectre.Console.Cli;
 
 namespace ArchPillar.Extensions.Localization.Tooling.Commands;
@@ -58,7 +57,7 @@ internal sealed class ExportCommand : AsyncCommand<ExportCommand.Settings>
                 Directory.CreateDirectory(parent!);
             }
 
-            var written = await AnsiConsole.Status().StartAsync(
+            var written = await ToolConsole.StatusAsync(
                 $"Exporting {language}…",
                 _ => CatalogIo.WriteCatalogZipAsync(output, matched, target));
             ToolConsole.Success($"Exported {written} '{language}' catalog(s) to {output}");
@@ -68,11 +67,11 @@ internal sealed class ExportCommand : AsyncCommand<ExportCommand.Settings>
         Directory.CreateDirectory(output);
         var total = 0;
         var languages = 0;
-        await AnsiConsole.Status().StartAsync("Exporting…", async ctx =>
+        await ToolConsole.StatusAsync("Exporting…", async ctx =>
         {
             foreach (IGrouping<string, string> group in matched.GroupBy(CatalogNaming.CultureOf, StringComparer.OrdinalIgnoreCase).OrderBy(g => g.Key, StringComparer.Ordinal))
             {
-                ctx.Status($"Exporting {group.Key}…");
+                ToolConsole.Status(ctx, $"Exporting {group.Key}…");
                 total += await CatalogIo.WriteCatalogZipAsync(Path.Combine(output, group.Key + ".zip"), group, target);
                 languages++;
             }

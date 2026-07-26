@@ -89,7 +89,7 @@ Build, then create a language file for the translator:
 dotnet build
 # Run from your app folder. Like `dotnet build`, the tool finds the solution (or lone project)
 # in the current directory — add German across everything in it that has strings:
-dotnet apl add de --output Translations
+dotnet apl add de
 #   -> Translations/YourApp.de.xliff  (every entry state: NeedsTranslation)
 ```
 
@@ -101,13 +101,14 @@ in another format — the runtime loads all three.)
 > **Pointing it elsewhere:** the cwd default covers the common case; pass a scope only to override it —
 > `--solution YourApp.sln` (when the folder has more than one), `--project YourApp.csproj` (add `--recurse`
 > to include its project dependencies), or `--input bin/Debug/net10.0`. Run `dotnet apl status` to see which
-> assemblies have strings and how many.
+> assemblies have strings and how many. Catalogs go in each project's `Translations/`; `--catalog-path`
+> renames that folder, and `--output <dir>` collects every project's catalogs into one directory instead.
 
 > When you reference the package, the build also runs `extract` for you after each real build, so the
 > source-language catalog (`{AssemblyName}.en.xliff`) appears in `Translations/` without you asking. It is
 > *merged*, not overwritten, so you can keep it in git and even edit the source wording in place (a typo or
 > tone fix loads as an override without a recompile); your edits survive the next extract. As code
-> changes, `dotnet apl sync --output Translations` reconciles every language file
+> changes, `dotnet apl sync` reconciles every language file
 > (and `--check` is your CI gate). The full lifecycle — including handing files to translators as a zip and
 > shipping for production — is in [translation-workflow.md](translation-workflow.md).
 
