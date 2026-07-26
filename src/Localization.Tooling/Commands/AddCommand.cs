@@ -10,7 +10,7 @@ internal sealed class AddCommand : AsyncCommand<AddCommand.Settings>
     /// <summary>Options for <c>add</c>.</summary>
     internal sealed class Settings : AuthoringScopeSettings
     {
-        [CommandArgument(0, "<lang>")]
+        [CommandArgument(0, "<CULTURE>")]
         [Description("The language (culture) to add.")]
         public string Language { get; init; } = string.Empty;
 

@@ -129,16 +129,16 @@ The tool writes the source-language template (the `.pot`-equivalent / source `.a
 ```
 dotnet apl extract   [scope: --solution|--project|--input|--assembly, default cwd]   # template from IL
                          --format <arb|xliff|po, default xliff> --source <bcp47, default en>
-                         --output <dir, default ./Translations>
+                         --output <PROJECT_SUBPATH, default Translations>
 
-dotnet apl add       <lang>                                  # create a target file from the template
-                         --output <dir> [--force]
+dotnet apl add       <CULTURE>                               # create a target file from the template
+                         --output <PROJECT_SUBPATH> [--force]
 
-dotnet apl sync      --output <dir>                          # reconcile every existing target file
+dotnet apl sync      --output <PROJECT_SUBPATH>              # reconcile every existing target file
                          [--check] [--report <path>]
 
 dotnet apl convert   (--template | --lang <lang>) --to <po|xliff|arb>
-                         --output <dir>
+                         --output <FILE>
 ```
 
 - `--check` (on `sync`) is the continuous-integration gate: run in memory, write nothing, and use diff-style exit codes — `0` up to date, `1` drift detected (re-run `sync` to fix), `2` an error (bad invocation, missing or malformed file). A gate that only needs pass/fail still treats any nonzero as failure; one that wants to retry on drift but stop on error can tell them apart. Diagnostics (drift and errors alike) go to stderr.

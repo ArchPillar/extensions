@@ -4,6 +4,7 @@ using ArchPillar.Extensions.Localization.Formats;
 
 namespace ArchPillar.Extensions.Localization.Tooling.Tests;
 
+[Collection(ToolInvocationCollection.Name)]
 public sealed class ToolApplicationTests : IDisposable
 {
     private static readonly ArbTranslationFormat _arb = new();

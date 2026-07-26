@@ -63,16 +63,16 @@ internal abstract class ScopeSettings : CommandSettings
 /// </summary>
 internal class AuthoringScopeSettings : ScopeSettings
 {
-    [CommandOption("--assembly <PATH>")]
+    [CommandOption("--assembly <FILE>")]
     [Description("A single built assembly to read, instead of discovering a scope.")]
     public string? Assembly { get; init; }
 
-    [CommandOption("--input <PATH>")]
+    [CommandOption("--input <DIR>")]
     [Description("A directory of built assemblies to read.")]
     public string? Input { get; init; }
 
     [CommandOption("--no-annotations")]
-    [Description("Extract only IL call sites, omitting the [Localized…] attribute strings.")]
+    [Description("Extract only IL call sites, omitting the [[Localized…]] attribute strings.")]
     public bool NoAnnotations { get; init; }
 
     /// <summary>Whether attribute-carried strings are extracted (on unless <c>--no-annotations</c>).</summary>
@@ -89,7 +89,7 @@ internal class AuthoringScopeSettings : ScopeSettings
 /// </summary>
 internal class CatalogScopeSettings : ScopeSettings
 {
-    [CommandOption("--input <PATH>")]
+    [CommandOption("--input <DIR>")]
     [Description("A catalog directory to read.")]
     public string? Input { get; init; }
 

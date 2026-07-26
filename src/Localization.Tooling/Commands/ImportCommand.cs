@@ -1,7 +1,6 @@
 using System.ComponentModel;
 using System.IO.Compression;
 using ArchPillar.Extensions.Localization.Tooling.Internal;
-using Spectre.Console;
 using Spectre.Console.Cli;
 
 namespace ArchPillar.Extensions.Localization.Tooling.Commands;
@@ -27,8 +26,8 @@ internal sealed class ImportCommand : AsyncCommand<ImportCommand.Settings>
         [Description("A solution (.sln/.slnx or its directory) whose catalog directory to write into.")]
         public FlagValue<string> Solution { get; init; } = new();
 
-        [CommandOption("--output <PATH>")]
-        [Description("Write into this directory (absolute: as-is; relative: per project); omit for each project's Translations folder.")]
+        [CommandOption("--output <PROJECT_SUBPATH>")]
+        [Description("The catalog folder inside each project to write into (absolute: used as-is; default: Translations).")]
         public string? Output { get; init; }
     }
 
@@ -61,7 +60,7 @@ internal sealed class ImportCommand : AsyncCommand<ImportCommand.Settings>
         }
 
         var imported = 0;
-        await AnsiConsole.Status().StartAsync("Importing…", async ctx =>
+        await ToolConsole.StatusAsync("Importing…", async ctx =>
         {
             using ZipArchive archive = ZipFile.OpenRead(zipPath);
             foreach (ZipArchiveEntry entry in archive.Entries)
@@ -72,7 +71,7 @@ internal sealed class ImportCommand : AsyncCommand<ImportCommand.Settings>
                     continue;
                 }
 
-                ctx.Status($"Importing {entry.Name}…");
+                ToolConsole.Status(ctx, $"Importing {entry.Name}…");
                 Catalog catalog;
                 using (Stream entryStream = entry.Open())
                 using (var buffer = new MemoryStream())

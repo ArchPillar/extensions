@@ -1,5 +1,4 @@
 using ArchPillar.Extensions.Localization.Tooling.Internal;
-using Spectre.Console;
 
 namespace ArchPillar.Extensions.Localization.Tooling.Commands;
 
@@ -21,13 +20,13 @@ internal static class ScopeRunner
     {
         var folder = string.IsNullOrEmpty(outputFolder) ? "Translations" : outputFolder;
         ScopeOptions scope = settings.ToScope();
-        return AnsiConsole.Status().StartAsync($"{verb}…", async ctx =>
+        return ToolConsole.StatusAsync($"{verb}…", async ctx =>
         {
             using var extractor = new AssemblyStringExtractor();
             foreach (var path in ScopeResolver.Resolve(scope))
             {
                 var name = Path.GetFileNameWithoutExtension(path);
-                ctx.Status($"{verb} {name}…");
+                ToolConsole.Status(ctx, $"{verb} {name}…");
                 Catalog? template = TemplateBuilder.Build(extractor, path, settings.Source, settings.IncludeAnnotations);
                 if (template is not null)
                 {

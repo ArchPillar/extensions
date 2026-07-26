@@ -22,7 +22,7 @@ internal sealed class SyncCommand : AsyncCommand<SyncCommand.Settings>
         [Description("The language catalog to reconcile (single-target mode).")]
         public string? Target { get; init; }
 
-        [CommandOption("--output <FOLDER>")]
+        [CommandOption("--output <PROJECT_SUBPATH>")]
         [Description("The catalog folder inside each project to reconcile (scope mode; default: Translations).")]
         public string? Output { get; init; }
 

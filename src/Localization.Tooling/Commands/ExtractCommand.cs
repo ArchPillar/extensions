@@ -14,7 +14,7 @@ internal sealed class ExtractCommand : AsyncCommand<ExtractCommand.Settings>
         [Description("The catalog format to write (arb, xliff, po; default: xliff).")]
         public string? Format { get; init; }
 
-        [CommandOption("--output <FOLDER>")]
+        [CommandOption("--output <PROJECT_SUBPATH>")]
         [Description("The catalog folder inside each project to write into (default: Translations).")]
         public string? Output { get; init; }
     }
