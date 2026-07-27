@@ -192,6 +192,29 @@ public sealed class TranslationSiteDetectorTests
         Assert.DoesNotContain(DetectStringLocalizer(), r => r.Site?.Key == "Price: {0:C}");
 
     [Fact]
+    public void Detect_StringLocalizerNullConditionalIndexer_IsExtracted()
+    {
+        // A defensive loc?["key"] is a null-conditional indexer (an element binding, not a plain element
+        // access); it must still be detected.
+        const string NullConditional = """
+            using Microsoft.Extensions.Localization;
+
+            public sealed class Home;
+
+            public sealed class Consumer(IStringLocalizer<Home>? loc)
+            {
+                public string? Title() => loc?["Email is required"];
+            }
+            """;
+
+        var results = TranslationSiteDetector.Detect(RoslynTestHost.CreateCompilation(NullConditional), CancellationToken.None).ToList();
+
+        TranslationSite site = Single(results, "Email is required");
+        Assert.Equal("Email is required", site.Key);
+        Assert.Equal("Home", site.Category);
+    }
+
+    [Fact]
     public void Detect_GenericScopeType_UsesTheOpenGenericNameWithArity()
     {
         const string Scoped = """

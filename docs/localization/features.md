@@ -461,12 +461,11 @@ loser is never opened. Each provider (`ArbTranslationFormat`, `XliffTranslationF
 embedded resource, an HTTP response, a database column — and you can build a custom `ICatalogProvider`
 on top of one.
 
-## Compile-time extraction and the typed key registry
+## Compile-time extraction and the analyzer
 
-A Roslyn source generator extracts every translatable call site into a source-language template on a
-real build (never at design time, so editing never churns files), and emits a strongly-typed key
-registry so call sites and the analyzer share rename-safe keys. "Translatable call site" is not a name
-match — it is driven by the `[Translatable]` / `[TranslationDefault]` parameter attributes on the API,
+On a real build (never at design time, so editing never churns files), the build extracts every
+translatable call site into a source-language template from the compiled assembly's IL. "Translatable
+call site" is not a name match — it is driven by the `[Translatable]` / `[TranslationDefault]` parameter attributes on the API,
 which is why `Translate(...)`, an `L(...)` marker, and even your own wrappers — methods or indexers — are
 all recognised the same way. The shared analyzer then surfaces, in the editor as you type, what would
 otherwise be a silent runtime bug:
