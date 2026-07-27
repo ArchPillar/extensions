@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <xliff version="2.1" srcLang="en" trgLang="de" xmlns="urn:oasis:names:tc:xliff:document:2.1">
   <file id="Localization.ConsoleSample">
-    <unit id="cart.total">
+    <unit id="udbb485f2771a167c" name="cart.total">
       <notes>
         <note category="fingerprint">172853dfbbc988bf23bff89cb5fcf0f9</note>
       </notes>
@@ -10,7 +10,7 @@
         <target xml:space="preserve">Gesamt: {amount, number, ::currency/USD}</target>
       </segment>
     </unit>
-    <unit id="home.greeting">
+    <unit id="u98e7f9838ef106e9" name="home.greeting">
       <notes>
         <note category="fingerprint">6ef7c2f7178bed7959f90d6c7a8118da</note>
       </notes>
@@ -19,7 +19,7 @@
         <target xml:space="preserve">Hallo {name}</target>
       </segment>
     </unit>
-    <unit id="inbox.count">
+    <unit id="u135c5af618fb73f1" name="inbox.count">
       <notes>
         <note category="fingerprint">33d740a03a271da0833cd7b0f3837870</note>
       </notes>

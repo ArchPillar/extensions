@@ -6,10 +6,14 @@ part of an entry's on-disk identity and is never dropped** — but it is seriali
 needs it, not as a universal key prefix.
 
 ## Wire format (category as on-disk identity)
-- The category qualifies the identity only where a format requires it. The structured formats keep the
-  **bare key** and carry the category in a separate field — XLIFF in a `<note category="x-category">`, PO
-  in an `#. x-category=` comment. Only **ARB** must fold it into the JSON member name, because its flat
-  object holds one member per entry.
+- The category qualifies the identity only where a format requires it, and each format serializes it where
+  that format's own rules demand. **PO** keeps the bare key and carries the category in an `#. x-category=`
+  comment. **ARB** folds it into the JSON member name, because its flat object holds one member per entry.
+  **XLIFF** wraps a category's entries in a `<group name="<category>">` and puts the *key* in `unit/@name`,
+  while `unit/@id` is a stable hash of the identity `(category, key, context)` — required because XLIFF
+  types `@id` as an `NMTOKEN` that must be unique within the `<file>` (spec §4.3.1.21), which a bare
+  text-as-key key, or the same key under two categories, would violate. (Superseded an earlier plan to keep
+  the bare key in `unit/@id` with the category in an `x-category` note.)
 - ARB `Qualify(category, key)` (see `QualifiedKey`): a global (empty-category) entry is its **bare key**
   (`home.greeting`), matching standard ARB and what translation tools expect; a categorized entry is
   `category + "::" + key` (`Acme.Greeter::greeting`); a global key beginning with `@` is escaped as
