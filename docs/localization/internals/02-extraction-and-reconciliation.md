@@ -1,21 +1,21 @@
 # 02 — Extraction, Template Emission & Reconciliation
 
-> Assemblies: the compile-time `IIncrementalGenerator` that emits the **typed key registry** (and the `Localized<T>` constructor and DI-registration sources) ships inside `ArchPillar.Extensions.Localization.Analyzers` (consolidated with detection and the analyzer — see spec 01), and `ArchPillar.Extensions.Localization.Tooling` is the `dotnet` tool that extracts the **template** (from IL) and adds/syncs/converts **target** files on demand (it carries the extract/merge core). References the detection core (spec 01), the `Catalog` model and provider interface (spec 03), and `MessageFormat` (spec 04).
+> Assemblies: the compile-time `IIncrementalGenerator` that emits the `Localized<T>` constructor and DI-registration sources ships inside `ArchPillar.Extensions.Localization.Analyzers` (consolidated with detection and the analyzer — see spec 01), and `ArchPillar.Extensions.Localization.Tooling` is the `dotnet` tool that extracts the **template** (from IL) and adds/syncs/converts **target** files on demand (it carries the extract/merge core). References the detection core (spec 01), the `Catalog` model and provider interface (spec 03), and `MessageFormat` (spec 04).
 
 ## Purpose
 
 Two separable jobs, deliberately assigned to different hosts so that **target languages are never a build or developer decision** (Decision D-12):
 
-1. **Template extraction (tool, build-time or on demand).** Recover the call sites from a **built assembly's IL** (Decision D-K) into the language-neutral **template**: a `Catalog` with the source language, every key, source text, and metadata, no target translations. The build runs this for you (spec 06). The generator's compile-time output is in-assembly source — the typed key registry and the `Localized<T>` constructor and DI-registration sources — never a file or template.
+1. **Template extraction (tool, build-time or on demand).** Recover the call sites from a **built assembly's IL** (Decision D-K) into the language-neutral **template**: a `Catalog` with the source language, every key, source text, and metadata, no target translations. The build runs this for you (spec 06). The generator's compile-time output is in-assembly source — the `Localized<T>` constructor and DI-registration sources — never a file or template.
 2. **Target operations (tool, on demand).** From the template, create a new target-language file (`add`), reconcile existing target files against the current template (`sync`), or re-serialize into another format (`convert`). None of this is a build input; it happens when localization is wanted, run by whoever owns it.
 
-Reconciliation — adding new keys, **deleting** keys that no longer exist in code (Decision D-11), and flagging keys whose source default changed while keeping the translation — is the gettext `xgettext` (extract → template) + `msgmerge` (sync) pair, rebuilt to our model. Both extraction (from IL) and merge live in the tool; the generator emits no template — only in-assembly source.
+Reconciliation — adding new keys, **deleting** keys that no longer exist in code (Decision D-11), and flagging keys whose source default changed while keeping the translation — is the gettext `xgettext` (extract → template) + `msgmerge` (sync) pair, rebuilt to our model. Both extraction (from IL) and merge live in the tool; the generator emits no template — only the `Localized<T>` in-assembly source.
 
 The merge is the hardest engineering in the library. The parser and the runtime are bounded; reconciliation is where the real design lives. Budget accordingly.
 
 ## In scope
 
-- Building the template from a built assembly's IL (tool); the typed key registry from detection (generator).
+- Building the template from a built assembly's IL (tool); the `Localized<T>` constructor and DI-registration sources from detection (generator).
 - Fingerprinting for staleness detection.
 - The reconcile/merge algorithm and its state transitions, including delete-on-removal (tool `sync`).
 - New target-file creation (tool `add`) and format conversion (tool `convert`).
