@@ -1,25 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <xliff version="2.1" srcLang="en" trgLang="de" xmlns="urn:oasis:names:tc:xliff:document:2.1">
   <file id="MigrationSample">
-    <unit id="Goodbye">
-      <notes>
-        <note category="x-category">MigrationSample.Greeting</note>
-        <note category="fingerprint">41b75c4e66f5e627eb441ba9b32b445e</note>
-      </notes>
-      <segment state="initial" subState="archpillar:NeedsTranslation">
-        <source xml:space="preserve">Goodbye</source>
-      </segment>
-    </unit>
-    <unit id="Help">
-      <notes>
-        <note category="x-category">MigrationSample.Greeting</note>
-        <note category="fingerprint">1279c64fa245d75c6a9faf945e0c933b</note>
-      </notes>
-      <segment state="initial" subState="archpillar:NeedsTranslation">
-        <source xml:space="preserve">Help</source>
-      </segment>
-    </unit>
-    <unit id="Migration complete.">
+    <unit id="u8497209a90cd2f28" name="Migration complete.">
       <notes>
         <note category="fingerprint">dab0f20fcae3d79ca1025afc6d62cbc2</note>
       </notes>
@@ -27,15 +9,32 @@
         <source xml:space="preserve">Migration complete.</source>
       </segment>
     </unit>
-    <unit id="Welcome">
-      <notes>
-        <note category="x-category">MigrationSample.Greeting</note>
-        <note category="fingerprint">2cb04305df4250d5b243dff9d605954b</note>
-      </notes>
-      <segment state="translated" subState="archpillar:Translated">
-        <source xml:space="preserve">Welcome</source>
-        <target xml:space="preserve">Willkommen (neu, aus ArchPillar)</target>
-      </segment>
-    </unit>
+    <group id="g49a49af7706c577d" name="MigrationSample.Greeting">
+      <unit id="uc045f1697768564d" name="Goodbye">
+        <notes>
+          <note category="fingerprint">41b75c4e66f5e627eb441ba9b32b445e</note>
+        </notes>
+        <segment state="initial" subState="archpillar:NeedsTranslation">
+          <source xml:space="preserve">Goodbye</source>
+        </segment>
+      </unit>
+      <unit id="uc441ec26bb4b41c4" name="Help">
+        <notes>
+          <note category="fingerprint">1279c64fa245d75c6a9faf945e0c933b</note>
+        </notes>
+        <segment state="initial" subState="archpillar:NeedsTranslation">
+          <source xml:space="preserve">Help</source>
+        </segment>
+      </unit>
+      <unit id="u81c9334d85d62a62" name="Welcome">
+        <notes>
+          <note category="fingerprint">2cb04305df4250d5b243dff9d605954b</note>
+        </notes>
+        <segment state="translated" subState="archpillar:Translated">
+          <source xml:space="preserve">Welcome</source>
+          <target xml:space="preserve">Willkommen (neu, aus ArchPillar)</target>
+        </segment>
+      </unit>
+    </group>
   </file>
 </xliff>

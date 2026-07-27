@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
@@ -5,12 +6,16 @@ using System.Xml.Linq;
 namespace ArchPillar.Extensions.Localization.Formats;
 
 /// <summary>
-/// The XLIFF 2.1 container-format provider. Each entry is a <c>&lt;unit&gt;</c> whose <c>id</c> is the
-/// symbolic key, with the source default in <c>&lt;source&gt;</c> and the translation in
-/// <c>&lt;target&gt;</c>. The segment <c>state</c> carries the translation state natively; the exact
-/// <see cref="TranslationState"/> is preserved in <c>subState</c>, and context, comments, references,
-/// previous-source, and the source fingerprint are carried as categorized <c>&lt;note&gt;</c> elements.
-/// ICU MessageFormat values are stored verbatim.
+/// The XLIFF 2.1 container-format provider. Each entry is a <c>&lt;unit&gt;</c> whose <c>name</c> is the
+/// symbolic key and whose <c>id</c> is a stable hash of the entry's identity (category, key, context) — a
+/// valid, unique <c>NMTOKEN</c> as the standard requires, which a bare key is not: text-as-key keys carry
+/// spaces and punctuation, and the same key recurs across categories. Entries of a category are wrapped in a
+/// <c>&lt;group&gt;</c> whose <c>name</c> is the category, so a translator tool shows the category as
+/// structure. The source default is in <c>&lt;source&gt;</c> and the translation in <c>&lt;target&gt;</c>.
+/// The segment <c>state</c> carries the translation state natively; the exact <see cref="TranslationState"/>
+/// is preserved in <c>subState</c>, and context, comments, references, previous-source, and the source
+/// fingerprint are carried as categorized <c>&lt;note&gt;</c> elements. ICU MessageFormat values are stored
+/// verbatim.
 /// </summary>
 public sealed class XliffTranslationFormat : ITranslationFormat
 {
@@ -88,10 +93,12 @@ public sealed class XliffTranslationFormat : ITranslationFormat
         Notes notes = ReadNotes(unit, ns);
         return new CatalogEntry
         {
-            Key = (string?)unit.Attribute("id") ?? string.Empty,
+            // The key is the human-readable name; an older or foreign file without a name falls back to the id.
+            Key = (string?)unit.Attribute("name") ?? (string?)unit.Attribute("id") ?? string.Empty,
             SourceMessage = (string?)segment?.Element(ns + "source") ?? string.Empty,
             TranslatedMessage = (string?)segment?.Element(ns + "target"),
-            Category = notes.Category ?? string.Empty,
+            // The category is owned by the enclosing <group>; older files carried it in an x-category note.
+            Category = CategoryOf(unit, ns) ?? notes.Category ?? string.Empty,
             Context = notes.Context,
             Comment = notes.Comment,
             PreviousSource = notes.PreviousSource,
@@ -100,6 +107,14 @@ public sealed class XliffTranslationFormat : ITranslationFormat
             SourceFingerprint = notes.Fingerprint ?? string.Empty,
             State = ParseState(segment)
         };
+    }
+
+    // The category a unit belongs to is its enclosing <group>'s name, or null when the unit sits directly in
+    // the file (the global category). An empty name is treated as no category rather than a named empty one.
+    private static string? CategoryOf(XElement unit, XNamespace ns)
+    {
+        var name = (string?)unit.Ancestors(ns + "group").FirstOrDefault()?.Attribute("name");
+        return string.IsNullOrEmpty(name) ? null : name;
     }
 
     private static Notes ReadNotes(XElement unit, XNamespace ns)
@@ -195,7 +210,7 @@ public sealed class XliffTranslationFormat : ITranslationFormat
             new XAttribute("version", "2.1"),
             new XAttribute("srcLang", string.IsNullOrEmpty(sourceLanguage) ? "en" : sourceLanguage!),
             new XAttribute("trgLang", catalog.Culture),
-            new XElement(_ns + "file", new XAttribute("id", FileId(options)), BuildUnits(catalog)));
+            new XElement(_ns + "file", new XAttribute("id", FileId(options)), BuildFileContent(catalog)));
 
         var document = new XDocument(new XDeclaration("1.0", "utf-8", null), root);
         return Render(document, options.Minify);
@@ -206,16 +221,49 @@ public sealed class XliffTranslationFormat : ITranslationFormat
     private static string FileId(CatalogWriteOptions options) =>
         string.IsNullOrEmpty(options.SourceName) ? "f1" : options.SourceName!;
 
-    private static IEnumerable<XElement> BuildUnits(Catalog catalog)
+    // Groups entries by category, deterministically: the global (empty) category's units sit directly in the
+    // file; each named category is a <group name="{category}"> so a translator tool shows it as structure.
+    private static IEnumerable<XElement> BuildFileContent(Catalog catalog)
     {
-        foreach (CatalogEntry entry in catalog.Entries)
+        // The unit id is a hash keyed on the full identity; a collision would mean two entries share an
+        // identity — a caller bug surfaced here rather than emitted as a duplicate id the standard forbids.
+        var seenUnitIds = new HashSet<string>(StringComparer.Ordinal);
+        IEnumerable<IGrouping<string, CatalogEntry>> categories = catalog.Entries
+            .GroupBy(entry => entry.Category ?? string.Empty, StringComparer.Ordinal)
+            .OrderBy(category => category.Key, StringComparer.Ordinal);
+        foreach (IGrouping<string, CatalogEntry> category in categories)
         {
-            yield return BuildUnit(entry);
+            IEnumerable<XElement> units = category
+                .OrderBy(entry => entry.Key, StringComparer.Ordinal)
+                .ThenBy(entry => entry.Context ?? string.Empty, StringComparer.Ordinal)
+                .Select(entry => BuildUnit(entry, seenUnitIds));
+            if (category.Key.Length == 0)
+            {
+                foreach (XElement unit in units)
+                {
+                    yield return unit;
+                }
+            }
+            else
+            {
+                yield return new XElement(
+                    _ns + "group",
+                    new XAttribute("id", GroupId(category.Key)),
+                    new XAttribute("name", category.Key),
+                    units);
+            }
         }
     }
 
-    private static XElement BuildUnit(CatalogEntry entry)
+    private static XElement BuildUnit(CatalogEntry entry, HashSet<string> seenUnitIds)
     {
+        var id = UnitId(entry);
+        if (!seenUnitIds.Add(id))
+        {
+            throw new InvalidOperationException(
+                $"Two catalog entries share the identity (category '{entry.Category}', key '{entry.Key}', context '{entry.Context}') and would emit the duplicate XLIFF unit id '{id}'.");
+        }
+
         // xml:space="preserve" keeps whitespace-only or whitespace-edge content from being replaced by the
         // writer's indentation under Indent=true.
         XAttribute preserve = new(XNamespace.Xml + "space", "preserve");
@@ -229,13 +277,34 @@ public sealed class XliffTranslationFormat : ITranslationFormat
             segment.Add(new XElement(_ns + "target", new XAttribute(preserve), entry.TranslatedMessage));
         }
 
-        return new XElement(_ns + "unit", new XAttribute("id", entry.Key), BuildNotes(entry), segment);
+        // name carries the human-readable key (the standard's "resource name"); id is the machine handle.
+        return new XElement(
+            _ns + "unit",
+            new XAttribute("id", id),
+            new XAttribute("name", entry.Key),
+            BuildNotes(entry),
+            segment);
+    }
+
+    // A unit's id is a valid NMTOKEN derived from the full identity: the same key under two categories, or the
+    // same key with two contexts, are distinct entries that MUST get distinct ids within the file.
+    private static string UnitId(CatalogEntry entry) =>
+        "u" + ShortHash(string.Join('\u001f', entry.Category, entry.Key, entry.Context));
+
+    // A category's <group> id, unique per category (categories are distinct type names).
+    private static string GroupId(string category) => "g" + ShortHash(category);
+
+    // A stable, process-independent 64-bit hash rendered as 16 lowercase hex characters — a valid NMTOKEN.
+    // SHA-256, not string.GetHashCode (which is randomized per process and would break round-trip stability).
+    private static string ShortHash(string value)
+    {
+        var digest = SHA256.HashData(Encoding.UTF8.GetBytes(value));
+        return Convert.ToHexString(digest.AsSpan(0, 8)).ToLowerInvariant();
     }
 
     private static XElement? BuildNotes(CatalogEntry entry)
     {
         var notes = new List<XElement>();
-        AddNote(notes, "x-category", entry.Category);
         AddNote(notes, "context", entry.Context);
         AddNote(notes, "comment", entry.Comment);
         AddNote(notes, "previous-source", entry.PreviousSource);
@@ -267,7 +336,7 @@ public sealed class XliffTranslationFormat : ITranslationFormat
     private static byte[] Render(XDocument document, bool minify)
     {
         // The publish bundle drops the insignificant indentation; the XLIFF structure (source/target, the
-        // category note the reader needs) is kept, since it is all semantically meaningful.
+        // group/name the reader needs to recover the category and key) is kept, since it is all meaningful.
         var settings = new XmlWriterSettings
         {
             Indent = !minify,

@@ -1,4 +1,5 @@
 using System.Text;
+using System.Xml.Linq;
 using ArchPillar.Extensions.Localization.Formats;
 
 namespace ArchPillar.Extensions.Localization.Tests;
@@ -6,6 +7,7 @@ namespace ArchPillar.Extensions.Localization.Tests;
 public sealed class XliffTranslationFormatTests
 {
     private static readonly XliffTranslationFormat _format = new();
+    private static readonly XNamespace _ns = "urn:oasis:names:tc:xliff:document:2.1";
 
     [Fact]
     public void Metadata_DescribesXliff()
@@ -184,6 +186,130 @@ public sealed class XliffTranslationFormatTests
 
         Assert.Contains("<file id=\"f1\"", xml, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public async Task Write_SameKeyInTwoCategories_ProducesDistinctUnitIdsAsync()
+    {
+        // The reason the fix exists: a bare key as the unit id would emit two <unit id="Active"> in one
+        // <file>, which XLIFF 2.1 (§4.3.1.21) forbids. The identity hash keeps them distinct.
+        var catalog = new Catalog
+        {
+            Culture = "de",
+            Headers = new Dictionary<string, string> { ["srcLang"] = "en" },
+            Entries =
+            [
+                Entry("Active", "Acme.Orders"),
+                Entry("Active", "Acme.Users")
+            ]
+        };
+
+        XDocument document = await WriteDocumentAsync(catalog);
+        var ids = document.Descendants(_ns + "unit").Select(unit => unit.Attribute("id")!.Value).ToList();
+        Assert.Equal(2, ids.Count);
+        Assert.Equal(2, ids.Distinct(StringComparer.Ordinal).Count());
+
+        Catalog roundTripped = Read(await WriteAsync(catalog));
+        Assert.Equal(2, roundTripped.Entries.Count);
+        Assert.Contains(roundTripped.Entries, entry => entry.Category == "Acme.Orders");
+        Assert.Contains(roundTripped.Entries, entry => entry.Category == "Acme.Users");
+        Assert.All(roundTripped.Entries, entry => Assert.Equal("Active", entry.Key));
+    }
+
+    [Fact]
+    public async Task Write_TextAsKeyWithSpaces_ProducesValidNmtokenIdAndKeepsKeyInNameAsync()
+    {
+        // Text-as-key keys carry spaces and punctuation, none of which are valid in an NMTOKEN id. The id is
+        // a hash; the raw key rides in name (the standard's "resource name").
+        Catalog catalog = Categorized("Email address!", "Acme.Account");
+
+        XDocument document = await WriteDocumentAsync(catalog);
+        XElement unit = Assert.Single(document.Descendants(_ns + "unit"));
+        Assert.Matches("^u[0-9a-f]{16}$", unit.Attribute("id")!.Value);
+        Assert.Equal("Email address!", unit.Attribute("name")!.Value);
+
+        Catalog roundTripped = await RoundTripAsync(catalog);
+        Assert.Equal("Email address!", roundTripped.Entries[0].Key);
+        Assert.Equal("Acme.Account", roundTripped.Entries[0].Category);
+    }
+
+    [Fact]
+    public async Task Write_NamedCategory_WrapsUnitsInGroupNamedByCategoryAsync()
+    {
+        XDocument document = await WriteDocumentAsync(Categorized("save", "Acme.Labels"));
+
+        XElement group = Assert.Single(document.Descendants(_ns + "group"));
+        Assert.Equal("Acme.Labels", group.Attribute("name")!.Value);
+        Assert.Matches("^g[0-9a-f]{16}$", group.Attribute("id")!.Value);
+        Assert.Equal("save", Assert.Single(group.Elements(_ns + "unit")).Attribute("name")!.Value);
+    }
+
+    [Fact]
+    public async Task Write_GlobalCategory_PlacesUnitsDirectlyInFileWithoutAGroupAsync()
+    {
+        XDocument document = await WriteDocumentAsync(Translated("greeting", "Hallo"));
+
+        Assert.Empty(document.Descendants(_ns + "group"));
+        Assert.Single(Assert.Single(document.Descendants(_ns + "file")).Elements(_ns + "unit"));
+    }
+
+    [Fact]
+    public async Task Write_DuplicateIdentity_ThrowsRatherThanEmitADuplicateIdAsync()
+    {
+        var catalog = new Catalog
+        {
+            Culture = "de",
+            Headers = new Dictionary<string, string> { ["srcLang"] = "en" },
+            Entries = [Entry("Active", "Acme.Orders"), Entry("Active", "Acme.Orders")]
+        };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => WriteAsync(catalog));
+    }
+
+    [Fact]
+    public async Task Write_UnitId_IsStableWhenOnlyTheDefaultChangesAsync()
+    {
+        // The id hashes the identity (category, key, context), never the default — so editing a source string
+        // does not change the id and orphan its translations (design decision D-2).
+        var before = await UnitIdOfAsync(Categorized("save", "Acme.Labels") with
+        {
+            Entries = [Categorized("save", "Acme.Labels").Entries[0] with { SourceMessage = "Save" }]
+        });
+        var after = await UnitIdOfAsync(Categorized("save", "Acme.Labels") with
+        {
+            Entries = [Categorized("save", "Acme.Labels").Entries[0] with { SourceMessage = "Save changes" }]
+        });
+
+        Assert.Equal(before, after);
+    }
+
+    private static async Task<string> UnitIdOfAsync(Catalog catalog)
+    {
+        XDocument document = await WriteDocumentAsync(catalog);
+        return Assert.Single(document.Descendants(_ns + "unit")).Attribute("id")!.Value;
+    }
+
+    private static async Task<XDocument> WriteDocumentAsync(Catalog catalog)
+    {
+        using var stream = new MemoryStream(await WriteAsync(catalog));
+        return XDocument.Load(stream);
+    }
+
+    private static CatalogEntry Entry(string key, string category) => new()
+    {
+        Key = key,
+        Category = category,
+        SourceMessage = key,
+        TranslatedMessage = "Aktiv",
+        SourceFingerprint = "fp",
+        State = TranslationState.Translated
+    };
+
+    private static Catalog Categorized(string key, string category) => new()
+    {
+        Culture = "de",
+        Headers = new Dictionary<string, string> { ["srcLang"] = "en" },
+        Entries = [Entry(key, category)]
+    };
 
     private static Catalog Translated(string key, string message) => new()
     {
