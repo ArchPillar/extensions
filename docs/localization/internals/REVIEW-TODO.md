@@ -13,8 +13,7 @@ needs it, not as a universal key prefix.
   while `unit/@id` is a stable hash of the identity `(category, key, context)` — required because XLIFF
   types `@id` as an `NMTOKEN` that must be unique within the `<file>` (spec §4.3.1.21), which a bare
   text-as-key key, or the same key under two categories, would violate. (Superseded an earlier plan to keep
-  the bare key in `unit/@id` with the category in an `x-category` note; the reader still accepts that legacy
-  note.)
+  the bare key in `unit/@id` with the category in an `x-category` note.)
 - ARB `Qualify(category, key)` (see `QualifiedKey`): a global (empty-category) entry is its **bare key**
   (`home.greeting`), matching standard ARB and what translation tools expect; a categorized entry is
   `category + "::" + key` (`Acme.Greeter::greeting`); a global key beginning with `@` is escaped as

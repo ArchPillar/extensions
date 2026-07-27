@@ -93,12 +93,12 @@ public sealed class XliffTranslationFormat : ITranslationFormat
         Notes notes = ReadNotes(unit, ns);
         return new CatalogEntry
         {
-            // The key is the human-readable name; an older or foreign file without a name falls back to the id.
+            // The key is the human-readable name; a foreign file without a name falls back to the id.
             Key = (string?)unit.Attribute("name") ?? (string?)unit.Attribute("id") ?? string.Empty,
             SourceMessage = (string?)segment?.Element(ns + "source") ?? string.Empty,
             TranslatedMessage = (string?)segment?.Element(ns + "target"),
-            // The category is owned by the enclosing <group>; older files carried it in an x-category note.
-            Category = CategoryOf(unit, ns) ?? notes.Category ?? string.Empty,
+            // The category is the enclosing <group>'s name, or empty for a unit directly in the file.
+            Category = CategoryOf(unit, ns) ?? string.Empty,
             Context = notes.Context,
             Comment = notes.Comment,
             PreviousSource = notes.PreviousSource,
@@ -138,9 +138,6 @@ public sealed class XliffTranslationFormat : ITranslationFormat
     {
         switch (category)
         {
-            case "x-category":
-                notes.Category = value;
-                break;
             case "context":
                 notes.Context = value;
                 break;
@@ -357,8 +354,6 @@ public sealed class XliffTranslationFormat : ITranslationFormat
 
     private sealed class Notes
     {
-        public string? Category { get; set; }
-
         public string? Context { get; set; }
 
         public string? Comment { get; set; }

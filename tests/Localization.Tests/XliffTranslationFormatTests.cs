@@ -102,6 +102,10 @@ public sealed class XliffTranslationFormatTests
         Assert.Equal("Hello", entry.SourceMessage);
         Assert.Equal("Hallo", entry.TranslatedMessage);
         Assert.Equal(TranslationState.Translated, entry.State);
+        // A foreign unit carries no name and no enclosing group: the key falls back to the id, and the
+        // absence of a group means the global (empty) category.
+        Assert.Equal("greeting", entry.Key);
+        Assert.Equal(string.Empty, entry.Category);
     }
 
     [Fact]
