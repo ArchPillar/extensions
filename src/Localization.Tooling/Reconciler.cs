@@ -70,7 +70,7 @@ internal static class Reconciler
         // still hashes to it, the value is an un-customized echo (possibly of an older default) — re-base it
         // onto the current default. If it differs, a human edited the source wording, so keep it as an override.
         var customized = !string.Equals(
-            TemplateBuilder.Fingerprint(onDisk, source.Context),
+            TemplateBuilder.Fingerprint(onDisk),
             existing.SourceFingerprint,
             StringComparison.Ordinal);
         if (!customized)
@@ -111,7 +111,6 @@ internal static class Reconciler
     {
         Key = source.Key,
         Category = source.Category,
-        Context = source.Context,
         SourceMessage = source.SourceMessage,
         TranslatedMessage = null,
         Comment = source.Comment,
@@ -190,5 +189,5 @@ internal static class Reconciler
     // Identity includes the category: the same key under two categories is two distinct entries (matching
     // the template, the runtime snapshot, and the on-disk qualified member), reconciled independently.
     private static string Composite(CatalogEntry entry) =>
-        TranslationKey.ComposeQualified(entry.Category, entry.Key, entry.Context);
+        TranslationKey.ComposeQualified(entry.Category, entry.Key);
 }

@@ -109,9 +109,9 @@ covered by the tool, not the editor.
   compact, compressible container wins (a minified ARB bundle gzips to ~60% of the XLIFF equivalent,
   which still carries the redundant source). The runtime still loads mixed formats and prefers by
   fidelity (D-14).
-- **Composite key convention:** `Key` and `Context` combine as `context + "\u0004" + key`
-  (the gettext `EOT` convention), defined once in `Abstractions` and shared by every provider
-  and the runtime lookup.
+- **Qualified-identity convention:** `Category` and `Key` combine as `category + "\u0004" + key`
+  (the gettext `EOT` convention), defined once in `Abstractions` (`TranslationKey.ComposeQualified`)
+  and shared by extraction, reconciliation, and the analyzer so they dedupe identically.
 
 ### D-H — Namespacing follows the `ILogger<T>` model; users never manage namespaces.
 Keys live in one global lookup, but every key is implicitly scoped by a **category** equal to the

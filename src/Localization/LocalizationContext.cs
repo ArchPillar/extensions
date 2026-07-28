@@ -83,20 +83,6 @@ public sealed class LocalizationContext : IDisposable, ILocalizerFactory
         params (string Name, object? Value)[] arguments) =>
         Default.Translate(key, defaultMessage, arguments);
 
-    /// <summary>Translates <paramref name="key"/> with a disambiguation <paramref name="context"/> through this
-    /// context's global bucket.</summary>
-    /// <param name="key">The stable symbolic key.</param>
-    /// <param name="defaultMessage">The in-code source default (ICU MessageFormat).</param>
-    /// <param name="context">The disambiguation context.</param>
-    /// <param name="arguments">The message arguments as <c>(name, value)</c> tuples.</param>
-    /// <returns>The rendered string.</returns>
-    public string Translate(
-        [Translatable] string key,
-        [TranslationDefault] string defaultMessage,
-        [TranslationContext] string context,
-        params (string Name, object? Value)[] arguments) =>
-        Default.Translate(key, defaultMessage, context, arguments);
-
     /// <summary>Applies the configuration — source culture, missing-argument policy, translations directory, format
     /// precedence, culture loading, hot reload, the culture allow-list, providers, and dynamic sources — in one
     /// rebuild. This is the only way to add catalogs, providers, or sources: build new options and reconfigure.</summary>
@@ -173,14 +159,14 @@ public sealed class LocalizationContext : IDisposable, ILocalizerFactory
     {
         CultureInfo culture = CultureInfo.CurrentUICulture;
         EnsureCulture(culture);
-        return Engine.TranslateInCategory(category, key, defaultMessage, context: null, out overrideFound, arguments);
+        return Engine.TranslateInCategory(category, key, defaultMessage, out overrideFound, arguments);
     }
 
     // The override-or-null lookup the IStringLocalizer adapter uses so a miss never renders the name.
     internal string? TranslateOverride(string category, string key, (string Name, object? Value)[] arguments)
     {
         EnsureCulture(CultureInfo.CurrentUICulture);
-        return Engine.TranslateOverride(category, key, context: null, arguments);
+        return Engine.TranslateOverride(category, key, arguments);
     }
 
     // The loaded overrides for a category, so the IStringLocalizer adapter's GetAllStrings includes them.

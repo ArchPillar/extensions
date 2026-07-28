@@ -10,7 +10,7 @@ needs it, not as a universal key prefix.
   that format's own rules demand. **PO** keeps the bare key and carries the category in an `#. x-category=`
   comment. **ARB** folds it into the JSON member name, because its flat object holds one member per entry.
   **XLIFF** wraps a category's entries in a `<group name="<category>">` and puts the *key* in `unit/@name`,
-  while `unit/@id` is a stable hash of the identity `(category, key, context)` — required because XLIFF
+  while `unit/@id` is a stable hash of the identity `(category, key)` — required because XLIFF
   types `@id` as an `NMTOKEN` that must be unique within the `<file>` (spec §4.3.1.21), which a bare
   text-as-key key, or the same key under two categories, would violate. (Superseded an earlier plan to keep
   the bare key in `unit/@id` with the category in an `x-category` note.)
@@ -19,8 +19,8 @@ needs it, not as a universal key prefix.
   `category + "::" + key` (`Acme.Greeter::greeting`); a global key beginning with `@` is escaped as
   `"::" + key` so it is never read as ARB `@`-metadata. `Unqualify` is given the entry's category (from
   `x-category`/`@@x-category`) and strips the prefix, so it is fully reversible.
-- Context stays an annotation (ARB `context` / XLIFF note / PO msgctxt); the reconciler identity is
-  `(category, composite(key, context))`.
+- The reconciler identity is `(category, key)` — the same category-qualified identity every format and the
+  runtime lookup dedupe by. (There is no separate disambiguation-context dimension.)
 
 ## RED
 - [x] P-R1  Generator never extracts IStringLocalizer indexer sites (predicate lacks ElementAccessExpression; whole-compilation Detect() unused). + relax DetectAt guard. — FIXED.

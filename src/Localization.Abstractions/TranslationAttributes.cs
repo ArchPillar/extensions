@@ -19,15 +19,6 @@ public sealed class TranslationDefaultAttribute : Attribute
 }
 
 /// <summary>
-/// Marks the parameter carrying disambiguation context, distinguishing two otherwise-identical keys
-/// or giving a translator extra meaning.
-/// </summary>
-[AttributeUsage(AttributeTargets.Parameter, AllowMultiple = false)]
-public sealed class TranslationContextAttribute : Attribute
-{
-}
-
-/// <summary>
 /// Marks the parameter carrying a translator comment, or is applied to a method to supply a constant
 /// comment for all of its call sites.
 /// </summary>

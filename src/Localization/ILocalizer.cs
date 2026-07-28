@@ -21,21 +21,6 @@ public interface ILocalizer
         [Translatable] string key,
         [TranslationDefault] string defaultMessage,
         params (string Name, object? Value)[] arguments);
-
-    /// <summary>
-    /// Translates <paramref name="key"/> with a disambiguation <paramref name="context"/> for the current
-    /// UI culture, falling back to <paramref name="defaultMessage"/>.
-    /// </summary>
-    /// <param name="key">The stable symbolic key.</param>
-    /// <param name="defaultMessage">The in-code source default (ICU MessageFormat).</param>
-    /// <param name="context">The disambiguation context.</param>
-    /// <param name="arguments">The message arguments as <c>(name, value)</c> tuples.</param>
-    /// <returns>The rendered string.</returns>
-    public string Translate(
-        [Translatable] string key,
-        [TranslationDefault] string defaultMessage,
-        [TranslationContext] string context,
-        params (string Name, object? Value)[] arguments);
 }
 
 /// <summary>

@@ -29,7 +29,6 @@ public sealed class ArbTranslationFormatTests
                     Key = "home.greeting",
                     SourceMessage = "Hello {name}",
                     TranslatedMessage = "Hallo {name}",
-                    Context = "home page",
                     Comment = "A greeting",
                     PreviousSource = "Hi {name}",
                     Placeholders = ["name"],
@@ -48,7 +47,6 @@ public sealed class ArbTranslationFormatTests
         Assert.Equal("Hallo {name}", entry.TranslatedMessage);
         // The source text survives translation (preserved under source_text), so the translator keeps the original.
         Assert.Equal("Hello {name}", entry.SourceMessage);
-        Assert.Equal("home page", entry.Context);
         Assert.Equal("A greeting", entry.Comment);
         Assert.Equal("Hi {name}", entry.PreviousSource);
         Assert.Equal(["name"], entry.Placeholders);
@@ -262,7 +260,7 @@ public sealed class ArbTranslationFormatTests
     }
 
     [Fact]
-    public async Task Write_Minified_KeepsCategoryAndContextSoTheKeyRoundTripsAsync()
+    public async Task Write_Minified_KeepsCategorySoTheKeyRoundTripsAsync()
     {
         var catalog = new Catalog
         {
@@ -273,7 +271,6 @@ public sealed class ArbTranslationFormatTests
                 {
                     Key = "save",
                     Category = "Acme.Buttons",
-                    Context = "verb",
                     SourceMessage = "Save",
                     TranslatedMessage = "Speichern",
                     SourceFingerprint = "x",
@@ -287,7 +284,6 @@ public sealed class ArbTranslationFormatTests
         CatalogEntry entry = Assert.Single(roundTripped.Entries);
         Assert.Equal("save", entry.Key);
         Assert.Equal("Acme.Buttons", entry.Category);
-        Assert.Equal("verb", entry.Context);
         Assert.Equal("Speichern", entry.TranslatedMessage);
         // The bundle drops x-state, so the reader must treat the absent state as a usable translation.
         Assert.Equal(TranslationState.Translated, entry.State);

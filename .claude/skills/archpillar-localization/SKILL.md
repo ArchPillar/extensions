@@ -107,7 +107,9 @@ string Inbox(int count) => Translate(
 public sealed class Checkout(ILocalizer<Checkout> localizer)
 {
     public string Pay => localizer.Translate("pay", "Pay now");
-    public string Post => localizer.Translate("post", "Post", context: "menu"); // context disambiguates
+    // Two meanings of the same word are two distinct keys (you own the keys):
+    public string PostVerb => localizer.Translate("post.submit", "Post");
+    public string PostNoun => localizer.Translate("post.entry", "Post");
 }
 
 // A bundle of fixed labels: member name = key, deriving type = category.
@@ -133,7 +135,7 @@ dotnet apl sync                                # reconcile all languages after c
 | Translate a string | `Translate(key, default, (name, value)…)` | Or instance `loc.Translate(...)`; there is no indexer form |
 | No-DI / static access | `using static …Localizer;` → `Translate(...)` | Ambient store; also `Localizer.Default`, `Localizer.For<T>()` |
 | Scope keys | inject `ILocalizer<T>` | `T`'s full name is the category; no namespaces to manage |
-| Disambiguate same key | `Translate(key, default, context: "menu")` | Keeps two meanings of one key/text separate |
+| Disambiguate same word | use two distinct keys (e.g. `post.submit` / `post.entry`) | You own the keys; category already separates components |
 | Bundle of fixed labels | `class X : Localized<X>` (`partial` for DI) | Member name = key; typo = compile error |
 | Plural / gender | ICU `{n, plural, one {…} other {…}}`, `select`, `selectordinal` | Needs `other`; resolves by target-culture CLDR |
 | Format money / numbers | ICU `{x, number, ::currency/USD}` (widths: `unit-width-full-name`…); `::compact-short`, `::percent` | Explicit ISO code — does **not** follow the UI language |

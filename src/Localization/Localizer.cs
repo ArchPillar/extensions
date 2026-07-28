@@ -78,22 +78,6 @@ public static class Localizer
         params (string Name, object? Value)[] arguments) =>
         Ambient.Translate(key, defaultMessage, arguments);
 
-    /// <summary>
-    /// Translates <paramref name="key"/> with a disambiguation <paramref name="context"/> through the global
-    /// ambient store, falling back to <paramref name="defaultMessage"/>.
-    /// </summary>
-    /// <param name="key">The stable symbolic key.</param>
-    /// <param name="defaultMessage">The in-code source default (ICU MessageFormat).</param>
-    /// <param name="context">The disambiguation context.</param>
-    /// <param name="arguments">The message arguments as <c>(name, value)</c> tuples.</param>
-    /// <returns>The rendered string.</returns>
-    public static string Translate(
-        [Translatable] string key,
-        [TranslationDefault] string defaultMessage,
-        [TranslationContext] string context,
-        params (string Name, object? Value)[] arguments) =>
-        Ambient.Translate(key, defaultMessage, context, arguments);
-
     /// <summary>Raised after any commit that changed the ambient store's merged snapshot — a background
     /// asynchronous load landing, a watched catalog reloading. A UI layer subscribes to re-render.</summary>
     public static event Action? CatalogsChanged

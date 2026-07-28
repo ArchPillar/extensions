@@ -83,7 +83,7 @@ with no translation files still runs correctly.
 | `LocalizationContext` | The instantiable environment behind the facade (catalogs + config + localizers); the ambient context is one of these. Construct one directly for an isolated, static-free setup. |
 | `DefaultLocalizer` | The pure resolution engine over a `CatalogStore` snapshot; `internal` constructor — built only by a `LocalizationContext` (or the ambient `Localizer`) over its own store, never directly by a consumer. |
 | `CatalogStore` | `internal`. Owns the layered catalogs, the directory watcher, and assembly discovery; produces the snapshot the engine resolves against. |
-| `TranslatableAttribute` / `TranslationDefaultAttribute` / `TranslationContextAttribute` / `TranslationCommentAttribute` / `TranslationScopeAttribute` | Mark the parameters/type-parameters detection reads. |
+| `TranslatableAttribute` / `TranslationDefaultAttribute` / `TranslationCommentAttribute` / `TranslationScopeAttribute` | Mark the parameters/type-parameters detection reads. |
 | `TranslationMarkers.L` | No-op extraction marker for off-localizer strings. |
 | `Catalog` / `CatalogEntry` / `ITranslationFormat` | The catalog model and the format extension point. |
 | `IStringLocalizer*` adapters (DI package) | Interop over the ambient store, composing over a prior factory. |

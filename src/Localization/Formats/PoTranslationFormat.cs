@@ -25,8 +25,7 @@ public sealed class PoTranslationFormat : ITranslationFormat
 
     /// <inheritdoc />
     public FormatCapabilities Capabilities =>
-        FormatCapabilities.Context
-        | FormatCapabilities.Comments
+        FormatCapabilities.Comments
         | FormatCapabilities.SourceReferences
         | FormatCapabilities.NativePlural
         | FormatCapabilities.PreviousSource;
@@ -161,7 +160,7 @@ public sealed class PoTranslationFormat : ITranslationFormat
             builder.Append("#, fuzzy\n");
         }
 
-        AppendString(builder, "msgctxt", TranslationKey.Compose(entry.Key, entry.Context));
+        AppendString(builder, "msgctxt", entry.Key);
         if (plural is null)
         {
             WriteSingular(builder, entry);
@@ -333,14 +332,13 @@ public sealed class PoTranslationFormat : ITranslationFormat
 
         public CatalogEntry ToCatalogEntry(string culture)
         {
-            (var key, var context) = TranslationKey.Decompose(Msgctxt ?? string.Empty);
+            var key = Msgctxt ?? string.Empty;
 
             (var source, var translated) = ResolveMessages(culture, out var hasTranslation);
             return new CatalogEntry
             {
                 Key = key,
                 Category = Category,
-                Context = context,
                 SourceMessage = source,
                 TranslatedMessage = translated,
                 Comment = _comments.Count == 0 ? null : string.Join("\n", _comments),

@@ -153,8 +153,8 @@ public sealed class TranslationAnalyzer : DiagnosticAnalyzer
 
         // Duplicate-key and identical-text are decided over the whole compilation, so record the site for the
         // end action. Identity is scoped by category: the same key under two categories is a different string.
-        var composite = TranslationKey.ComposeQualified(site.Category, site.Key, site.Context);
-        var textKey = TranslationKey.ComposeQualified(site.Category, site.DefaultMessage, site.Context);
+        var composite = TranslationKey.ComposeQualified(site.Category, site.Key);
+        var textKey = TranslationKey.ComposeQualified(site.Category, site.DefaultMessage);
         sites.Add(new RecordedSite(composite, textKey, site.Key, site.DefaultMessage, location));
     }
 

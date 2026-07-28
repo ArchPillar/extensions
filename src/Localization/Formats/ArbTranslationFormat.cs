@@ -37,8 +37,7 @@ public sealed class ArbTranslationFormat : ITranslationFormat
 
     /// <inheritdoc />
     public FormatCapabilities Capabilities =>
-        FormatCapabilities.Context
-        | FormatCapabilities.Comments
+        FormatCapabilities.Comments
         | FormatCapabilities.SourceReferences
         | FormatCapabilities.ExplicitState
         | FormatCapabilities.IcuPlural
@@ -128,11 +127,10 @@ public sealed class ArbTranslationFormat : ITranslationFormat
     {
         metadata.TryGetValue(member, out JsonElement meta);
         var category = GetString(meta, "x-category") ?? defaultCategory;
-        var context = GetString(meta, "context");
         var stateText = GetString(meta, "x-state");
         return new CatalogEntry
         {
-            Key = ArbMemberKey.Unqualify(member, category, context),
+            Key = ArbMemberKey.Unqualify(member, category),
             // ARB stores one value per key, so a translated entry's value is the translation. The source text
             // is preserved separately under the spec's source_text attribute (written on save when it differs
             // from the value), so the original stays visible to translation tools and round-trips; a file
@@ -145,7 +143,6 @@ public sealed class ArbTranslationFormat : ITranslationFormat
                 ? null
                 : value,
             Category = category,
-            Context = context,
             Comment = GetString(meta, "description"),
             PreviousSource = GetString(meta, "x-previous-source"),
             Placeholders = GetPlaceholders(meta),
@@ -244,7 +241,7 @@ public sealed class ArbTranslationFormat : ITranslationFormat
         // The member name is the category-qualified identity, so entries from different categories (or with
         // different contexts) never collide as JSON members, and a key beginning with "@" becomes a member
         // beginning with the category (or "::"), never mistaken for metadata.
-        var member = ArbMemberKey.Qualify(entry.Category, entry.Key, entry.Context);
+        var member = ArbMemberKey.Qualify(entry.Category, entry.Key);
         var value = entry.TranslatedMessage ?? entry.SourceMessage;
         writer.WriteString(member, value);
 
@@ -257,7 +254,6 @@ public sealed class ArbTranslationFormat : ITranslationFormat
         writer.WritePropertyName("@" + member);
         writer.WriteStartObject();
         WriteOptionalString(writer, "description", entry.Comment);
-        WriteOptionalString(writer, "context", entry.Context);
         WriteOptionalString(writer, "x-category", entry.Category);
         WritePlaceholders(writer, entry.Placeholders);
         writer.WriteString("x-state", entry.State.ToString());
@@ -284,14 +280,13 @@ public sealed class ArbTranslationFormat : ITranslationFormat
     // need no metadata object at all, so it is omitted entirely.
     private static void WriteMinifiedMetadata(Utf8JsonWriter writer, string member, CatalogEntry entry)
     {
-        if (string.IsNullOrEmpty(entry.Category) && string.IsNullOrEmpty(entry.Context))
+        if (string.IsNullOrEmpty(entry.Category))
         {
             return;
         }
 
         writer.WritePropertyName("@" + member);
         writer.WriteStartObject();
-        WriteOptionalString(writer, "context", entry.Context);
         WriteOptionalString(writer, "x-category", entry.Category);
         writer.WriteEndObject();
     }

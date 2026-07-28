@@ -62,7 +62,7 @@ public sealed class LocalizerAllocationTests : IDisposable
         {
             for (var i = 0; i < Invocations; i++)
             {
-                _localizer.Translate(_german, "app.missing", "OK", context: null);
+                _localizer.Translate(_german, "app.missing", "OK");
             }
         });
     }
@@ -74,7 +74,7 @@ public sealed class LocalizerAllocationTests : IDisposable
         {
             for (var i = 0; i < Invocations; i++)
             {
-                _localizer.Translate(_german, "app.title", "Title", context: null);
+                _localizer.Translate(_german, "app.title", "Title");
             }
         });
     }

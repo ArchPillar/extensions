@@ -176,7 +176,7 @@ internal static class TranslationSiteDetector
 
         var category = StringLocalizerCategory(reference.Instance?.Type as INamedTypeSymbol, symbols.GenericStringLocalizer);
         IReadOnlyList<string> placeholders = [.. MessageSyntax.ExtractPlaceholders(name)];
-        var site = new TranslationSite(name, name, null, category, null, placeholders, ToReference(node));
+        var site = new TranslationSite(name, name, category, null, placeholders, ToReference(node));
         return new TranslationSiteResult(site, []);
     }
 
@@ -235,7 +235,6 @@ internal static class TranslationSiteDetector
         var key = Constant(keyArgument, problems);
         IArgumentOperation? defaultArgument = FindArgument(arguments, symbols.Default);
         var defaultMessage = Constant(defaultArgument, problems);
-        var context = Constant(FindArgument(arguments, symbols.Context), problems);
         var comment = ResolveComment(arguments, symbols, problems);
 
         if (key is null || defaultMessage is null || defaultArgument is null)
@@ -249,7 +248,7 @@ internal static class TranslationSiteDetector
         AddMissingOtherProblems(defaultMessage, defaultArgument, problems);
 
         var category = CategoryFrom(receiver, symbols.Scope);
-        var site = new TranslationSite(key, defaultMessage, context, category, comment, placeholders, ToReference(node));
+        var site = new TranslationSite(key, defaultMessage, category, comment, placeholders, ToReference(node));
         return new TranslationSiteResult(site, problems);
     }
 
@@ -572,7 +571,6 @@ internal static class TranslationSiteDetector
         private AttributeSymbols(
             INamedTypeSymbol? translatable,
             INamedTypeSymbol? defaultMessage,
-            INamedTypeSymbol? context,
             INamedTypeSymbol? comment,
             INamedTypeSymbol? scope,
             INamedTypeSymbol? stringLocalizer,
@@ -580,7 +578,6 @@ internal static class TranslationSiteDetector
         {
             Translatable = translatable;
             Default = defaultMessage;
-            Context = context;
             Comment = comment;
             Scope = scope;
             StringLocalizer = stringLocalizer;
@@ -590,8 +587,6 @@ internal static class TranslationSiteDetector
         public INamedTypeSymbol? Translatable { get; }
 
         public INamedTypeSymbol? Default { get; }
-
-        public INamedTypeSymbol? Context { get; }
 
         public INamedTypeSymbol? Comment { get; }
 
@@ -604,7 +599,6 @@ internal static class TranslationSiteDetector
         public static AttributeSymbols From(Compilation compilation) => new(
             compilation.GetTypeByMetadataName("ArchPillar.Extensions.Localization.TranslatableAttribute"),
             compilation.GetTypeByMetadataName("ArchPillar.Extensions.Localization.TranslationDefaultAttribute"),
-            compilation.GetTypeByMetadataName("ArchPillar.Extensions.Localization.TranslationContextAttribute"),
             compilation.GetTypeByMetadataName("ArchPillar.Extensions.Localization.TranslationCommentAttribute"),
             compilation.GetTypeByMetadataName("ArchPillar.Extensions.Localization.TranslationScopeAttribute"),
             compilation.GetTypeByMetadataName("Microsoft.Extensions.Localization.IStringLocalizer"),

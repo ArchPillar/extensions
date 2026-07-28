@@ -30,10 +30,9 @@ internal static class TemplateBuilder
         var entries = new List<CatalogEntry>();
         foreach (RawCallSite site in callSites.Concat(annotations))
         {
-            // One entry per distinct (category, key, context): the same key under a different context is a
-            // different string, exactly as the catalog model defines identity — the same composite the reconciler
+            // One entry per distinct (category, key) — the same category-qualified identity the reconciler
             // indexes by.
-            if (!seen.Add(TranslationKey.ComposeQualified(site.Category, site.Key, site.Context)))
+            if (!seen.Add(TranslationKey.ComposeQualified(site.Category, site.Key)))
             {
                 continue;
             }
@@ -42,9 +41,8 @@ internal static class TemplateBuilder
             {
                 Key = site.Key,
                 Category = site.Category,
-                Context = site.Context,
                 SourceMessage = site.Default,
-                SourceFingerprint = Fingerprint(site.Default, site.Context),
+                SourceFingerprint = Fingerprint(site.Default),
                 State = TranslationState.NeedsTranslation
             });
         }
@@ -52,11 +50,11 @@ internal static class TemplateBuilder
         return new Catalog { Culture = sourceLanguage, Entries = entries };
     }
 
-    // The same stable source fingerprint the generator writes: a truncated SHA-256 over the NFC-normalized
-    // source message and context, so a target reconciled against an IL-built template detects drift identically.
-    internal static string Fingerprint(string source, string? context)
+    // A stable source fingerprint: a truncated SHA-256 over the NFC-normalized source message, so a target
+    // reconciled against an IL-built template detects drift identically.
+    internal static string Fingerprint(string source)
     {
-        var normalized = source.Normalize(NormalizationForm.FormC) + "\0" + (context ?? string.Empty);
+        var normalized = source.Normalize(NormalizationForm.FormC);
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(normalized));
         var builder = new StringBuilder(32);
         for (var index = 0; index < 16; index++)

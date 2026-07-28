@@ -27,7 +27,7 @@ The in-code default message is the **terminal fallback** for every language, inc
 ```
                          ArchPillar.Localization.Detection        (netstandard2.0, pure)
                           - finds translatable call sites
-                          - resolves key / default / context / placeholders
+                          - resolves key / default / placeholders
                           - the ONLY place "what is translatable" is defined
                                    |                |                 |
             consumed by           |                |                 |   consumed by
@@ -62,7 +62,7 @@ The in-code default message is the **terminal fallback** for every language, inc
          - renders via MessageFormat
 
         ArchPillar.Localization.Abstractions  (netstandard2.0)
-         - the [Translatable] / [TranslationDefault] / [TranslationContext] attributes
+         - the [Translatable] / [TranslationDefault] attributes
          - the format provider interface + the Catalog model
          - referenced by everything; depends on nothing
 ```
@@ -96,7 +96,6 @@ A call is translatable when an argument is bound to a parameter marked `[Transla
 |---|---|---|
 | `Key` | constant argument bound to the `[Translatable]` parameter | yes |
 | `DefaultMessage` | constant argument bound to the `[TranslationDefault]` parameter | yes |
-| `Context` | constant argument bound to the `[TranslationContext]` parameter | optional |
 | `Comment` | leading comment trivia / `[TranslationComment]` constant | optional |
 | `Placeholders` | parsed from `DefaultMessage` (ICU MessageFormat) | derived |
 | `SourceReference` | file path + line of the call | yes |
@@ -138,7 +137,7 @@ Each decision uses: **Context → Decision → Consequence**.
 
 **D-1 — Source-language ownership.** *Decision (resolved; amended by D-L in `DECISIONS.md`):* the in-code default is the terminal fallback, so the runtime never *needs* a file for the source language. *Amendment (D-L):* the source language is nonetheless editable — its catalog loads as an override layer above the in-code default and is a merged, git-tracked artifact rather than a disposable compile-time output. *Consequence:* a render never depends on a file existing, yet source wording can be corrected without a recompile, and only genuine source overrides (not echoes of the default) load and ship.
 
-**D-2 — Key model.** *Context:* gettext uses source-text-as-key; that orphans translations on any source edit and collapses identical strings across contexts. *Decision:* stable symbolic key + separate in-code default + optional context. *Consequence:* editing the default does not change the key; it marks existing translations *stale* (a recoverable, detectable state) rather than losing them. Fingerprinting (spec 02) implements staleness.
+**D-2 — Key model.** *Context:* gettext uses source-text-as-key; that orphans translations on any source edit and collapses identical strings across contexts. *Decision:* stable symbolic key + separate in-code default. *Consequence:* editing the default does not change the key; it marks existing translations *stale* (a recoverable, detectable state) rather than losing them. Fingerprinting (spec 02) implements staleness.
 
 **D-3 — Detection mechanism.** *Decision:* attribute-driven (`[Translatable]` et al.) via the semantic model, not method-name matching. *Consequence:* consumers can wrap the call API; the constant-argument requirement is enforced by an analyzer diagnostic.
 

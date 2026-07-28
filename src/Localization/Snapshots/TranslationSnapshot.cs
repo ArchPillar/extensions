@@ -116,7 +116,7 @@ internal sealed class TranslationSnapshot(
                 categoryMap[entry.Category] = map = new();
             }
 
-            map[TranslationKey.Compose(entry.Key, entry.Context)] = entry.TranslatedMessage!;
+            map[entry.Key] = entry.TranslatedMessage!;
         }
     }
 }

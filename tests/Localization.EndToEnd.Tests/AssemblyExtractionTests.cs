@@ -32,7 +32,6 @@ public sealed class AssemblyExtractionTests : IDisposable
             {
                 loc.Translate("home.title", "Inbox");                                            // empty params -> Array.Empty
                 loc.Translate("inbox.count", "{count, plural, other {# msgs}}", ("count", 3));    // tuple arg -> newobj
-                loc.Translate("menu.file", "File", "menubar");                                   // with disambiguation context
                 _ = strings["inbox.summary", 3];                                                 // IStringLocalizer indexer
                 _ = custom["greeting", "Hello"];                                                 // a user-defined indexer
                 _ = Localizer.Translate("tagline", "Welcome");                                // static using-static form, global
@@ -89,13 +88,6 @@ public sealed class AssemblyExtractionTests : IDisposable
         RawCallSite marker = Assert.Single(sites, s => s.Key == "Email is required");
         Assert.Equal("Email is required", marker.Default);
         Assert.Equal(string.Empty, marker.Category);
-        Assert.Null(marker.Context);
-
-        // The [TranslationContext] argument is recovered from the IL, so a context-disambiguated key is a
-        // distinct entry rather than a collision.
-        RawCallSite file = Assert.Single(sites, s => s.Key == "menu.file");
-        Assert.Equal("File", file.Default);
-        Assert.Equal("menubar", file.Context);
     }
 
     public void Dispose() => Directory.Delete(_directory, recursive: true);

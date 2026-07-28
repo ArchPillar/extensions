@@ -1,17 +1,14 @@
 namespace ArchPillar.Extensions.Localization;
 
 /// <summary>
-/// A single entry in a <see cref="Catalog"/>: one distinct <c>(Key, Context)</c> pair, its source
-/// default, and (in a target catalog) its translation and state. Format providers convert between this
-/// model and their on-disk representation.
+/// A single entry in a <see cref="Catalog"/>: one distinct <c>Key</c>, its source default, and (in a
+/// target catalog) its translation and state. Format providers convert between this model and their
+/// on-disk representation.
 /// </summary>
 public sealed record CatalogEntry
 {
     /// <summary>The stable symbolic key.</summary>
     public required string Key { get; init; }
-
-    /// <summary>The optional disambiguation context.</summary>
-    public string? Context { get; init; }
 
     /// <summary>
     /// The translation category (namespace) — the full type name of the scope the key belongs to. Empty

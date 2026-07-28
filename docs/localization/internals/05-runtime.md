@@ -34,16 +34,10 @@ internal sealed class DefaultLocalizer : ILocalizer
         [TranslationDefault] string defaultMessage,
         params (string Name, object? Value)[] arguments);
 
-    public string Translate(
-        [Translatable] string key,
-        [TranslationDefault] string defaultMessage,
-        [TranslationContext] string context,
-        params (string Name, object? Value)[] arguments);
-
     // Culture is taken from CultureInfo.CurrentUICulture by default;
     // an explicit overload allows passing a CultureInfo for server scenarios.
     public string Translate(CultureInfo culture, string key, string defaultMessage,
-        string? context, params (string Name, object? Value)[] arguments);
+        params (string Name, object? Value)[] arguments);
 }
 ```
 
@@ -52,7 +46,7 @@ internal sealed class DefaultLocalizer : ILocalizer
 
 ## Lookup and the fallback chain
 
-Resolution order for `(culture, key, context)`:
+Resolution order for `(culture, category, key)`:
 
 1. The override entry for the **exact requested culture** in the loaded snapshot.
 2. Each **parent culture** in turn (`de-AT` → `de` → invariant), using `CultureInfo.Parent`.

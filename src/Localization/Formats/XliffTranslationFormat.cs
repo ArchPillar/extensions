@@ -31,8 +31,7 @@ public sealed class XliffTranslationFormat : ITranslationFormat
 
     /// <inheritdoc />
     public FormatCapabilities Capabilities =>
-        FormatCapabilities.Context
-        | FormatCapabilities.Comments
+        FormatCapabilities.Comments
         | FormatCapabilities.SourceReferences
         | FormatCapabilities.ExplicitState
         | FormatCapabilities.IcuPlural
@@ -99,7 +98,6 @@ public sealed class XliffTranslationFormat : ITranslationFormat
             TranslatedMessage = (string?)segment?.Element(ns + "target"),
             // The category is the enclosing <group>'s name, or empty for a unit directly in the file.
             Category = CategoryOf(unit, ns) ?? string.Empty,
-            Context = notes.Context,
             Comment = notes.Comment,
             PreviousSource = notes.PreviousSource,
             References = notes.References,
@@ -138,9 +136,6 @@ public sealed class XliffTranslationFormat : ITranslationFormat
     {
         switch (category)
         {
-            case "context":
-                notes.Context = value;
-                break;
             case "comment":
                 notes.Comment = value;
                 break;
@@ -232,7 +227,6 @@ public sealed class XliffTranslationFormat : ITranslationFormat
         {
             IEnumerable<XElement> units = category
                 .OrderBy(entry => entry.Key, StringComparer.Ordinal)
-                .ThenBy(entry => entry.Context ?? string.Empty, StringComparer.Ordinal)
                 .Select(entry => BuildUnit(entry, seenUnitIds));
             if (category.Key.Length == 0)
             {
@@ -258,7 +252,7 @@ public sealed class XliffTranslationFormat : ITranslationFormat
         if (!seenUnitIds.Add(id))
         {
             throw new InvalidOperationException(
-                $"Two catalog entries share the identity (category '{entry.Category}', key '{entry.Key}', context '{entry.Context}') and would emit the duplicate XLIFF unit id '{id}'.");
+                $"Two catalog entries share the identity (category '{entry.Category}', key '{entry.Key}') and would emit the duplicate XLIFF unit id '{id}'.");
         }
 
         // xml:space="preserve" keeps whitespace-only or whitespace-edge content from being replaced by the
@@ -283,10 +277,10 @@ public sealed class XliffTranslationFormat : ITranslationFormat
             segment);
     }
 
-    // A unit's id is a valid NMTOKEN derived from the full identity: the same key under two categories, or the
-    // same key with two contexts, are distinct entries that MUST get distinct ids within the file.
+    // A unit's id is a valid NMTOKEN derived from the identity: the same key under two categories are
+    // distinct entries that MUST get distinct ids within the file.
     private static string UnitId(CatalogEntry entry) =>
-        "u" + ShortHash(string.Join('\u001f', entry.Category, entry.Key, entry.Context));
+        "u" + ShortHash(string.Join('\u001f', entry.Category, entry.Key));
 
     // A category's <group> id, unique per category (categories are distinct type names).
     private static string GroupId(string category) => "g" + ShortHash(category);
@@ -302,7 +296,6 @@ public sealed class XliffTranslationFormat : ITranslationFormat
     private static XElement? BuildNotes(CatalogEntry entry)
     {
         var notes = new List<XElement>();
-        AddNote(notes, "context", entry.Context);
         AddNote(notes, "comment", entry.Comment);
         AddNote(notes, "previous-source", entry.PreviousSource);
         foreach (SourceReference reference in entry.References)
@@ -354,8 +347,6 @@ public sealed class XliffTranslationFormat : ITranslationFormat
 
     private sealed class Notes
     {
-        public string? Context { get; set; }
-
         public string? Comment { get; set; }
 
         public string? PreviousSource { get; set; }

@@ -27,7 +27,6 @@ public sealed class PoTranslationFormatTests
                 new CatalogEntry
                 {
                     Key = "greeting",
-                    Context = "home",
                     SourceMessage = "Hello {name}",
                     TranslatedMessage = "Hallo {name}",
                     Comment = "A greeting",
@@ -43,7 +42,6 @@ public sealed class PoTranslationFormatTests
 
         CatalogEntry entry = Assert.Single(roundTripped.Entries);
         Assert.Equal("greeting", entry.Key);
-        Assert.Equal("home", entry.Context);
         Assert.Equal("Hello {name}", entry.SourceMessage);
         Assert.Equal("Hallo {name}", entry.TranslatedMessage);
         Assert.Equal("A greeting", entry.Comment);

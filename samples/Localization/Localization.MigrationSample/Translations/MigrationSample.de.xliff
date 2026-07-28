@@ -1,34 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
 <xliff version="2.1" srcLang="en" trgLang="de" xmlns="urn:oasis:names:tc:xliff:document:2.1">
   <file id="MigrationSample">
-    <unit id="u8497209a90cd2f28" name="Migration complete.">
+    <unit id="ua2c1314ac7b676b2" name="Migration complete.">
       <notes>
-        <note category="fingerprint">dab0f20fcae3d79ca1025afc6d62cbc2</note>
+        <note category="fingerprint">d57c5c154b1e13cd64270de73a941c6d</note>
       </notes>
       <segment state="initial" subState="archpillar:NeedsTranslation">
         <source xml:space="preserve">Migration complete.</source>
       </segment>
     </unit>
     <group id="g49a49af7706c577d" name="MigrationSample.Greeting">
-      <unit id="uc045f1697768564d" name="Goodbye">
+      <unit id="uf4af31709f05fe30" name="Goodbye">
         <notes>
-          <note category="fingerprint">41b75c4e66f5e627eb441ba9b32b445e</note>
+          <note category="fingerprint">c015ad6ddaf8bb50689d2d7cbf1539df</note>
         </notes>
         <segment state="initial" subState="archpillar:NeedsTranslation">
           <source xml:space="preserve">Goodbye</source>
         </segment>
       </unit>
-      <unit id="uc441ec26bb4b41c4" name="Help">
+      <unit id="u23d1e83c41b5ca7a" name="Help">
         <notes>
-          <note category="fingerprint">1279c64fa245d75c6a9faf945e0c933b</note>
+          <note category="fingerprint">b79cac926e0b2e347e72cc91d5174037</note>
         </notes>
         <segment state="initial" subState="archpillar:NeedsTranslation">
           <source xml:space="preserve">Help</source>
         </segment>
       </unit>
-      <unit id="u81c9334d85d62a62" name="Welcome">
+      <unit id="u32abc27bd2973cdc" name="Welcome">
         <notes>
-          <note category="fingerprint">2cb04305df4250d5b243dff9d605954b</note>
+          <note category="fingerprint">0e2226b5235f0ff94a276eb4d07a3bfe</note>
         </notes>
         <segment state="translated" subState="archpillar:Translated">
           <source xml:space="preserve">Welcome</source>

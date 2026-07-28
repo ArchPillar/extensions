@@ -50,14 +50,14 @@ public class LocalizerBenchmarks
 
     // No override and no arguments: resolves to the in-code default literal (the fast path).
     [Benchmark(Baseline = true)]
-    public string DefaultLiteral() => _localizer.Translate(_german, "app.ok", "OK", context: null);
+    public string DefaultLiteral() => _localizer.Translate(_german, "app.ok", "OK");
 
     // Loaded override, literal, no arguments: also the fast path.
     [Benchmark]
-    public string OverrideLiteral() => _localizer.Translate(_german, "app.title", "Title", context: null);
+    public string OverrideLiteral() => _localizer.Translate(_german, "app.title", "Title");
 
     // Loaded override with a plural and one argument: the dynamic path.
     [Benchmark]
     public string OverridePluralWithArgument() =>
-        _localizer.Translate(_german, "inbox.count", PluralDefault, context: null, ("count", 5));
+        _localizer.Translate(_german, "inbox.count", PluralDefault, ("count", 5));
 }

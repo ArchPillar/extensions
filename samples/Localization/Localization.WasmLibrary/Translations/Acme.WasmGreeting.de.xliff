@@ -2,9 +2,9 @@
 <xliff version="2.1" srcLang="en" trgLang="de" xmlns="urn:oasis:names:tc:xliff:document:2.1">
   <file id="Acme.WasmGreeting">
     <group id="g18ce37c08701a7c4" name="!!0">
-      <unit id="u113fb38c49b472c0" name="greeting">
+      <unit id="ufe5719931d46ffce" name="greeting">
         <notes>
-          <note category="fingerprint">11334bc9b6431fdd09063735ad05af96</note>
+          <note category="fingerprint">95192c66c6831791c8af612928f54cb4</note>
         </notes>
         <segment state="translated" subState="archpillar:Translated">
           <source xml:space="preserve">Hello from the shared library</source>

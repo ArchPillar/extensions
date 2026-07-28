@@ -67,7 +67,7 @@ internal static class AnnotationExtractor
             return;
         }
 
-        sites.Add(new RawCallSite(systemKey, LiteralFromConstructor(member, twinAttribute) ?? systemKey, category, Context: null));
+        sites.Add(new RawCallSite(systemKey, LiteralFromConstructor(member, twinAttribute) ?? systemKey, category));
     }
 
     // Emits a site per [LocalizedMessage<TValidation>] twin — a member may carry one per validator. The twin
@@ -84,7 +84,7 @@ internal static class AnnotationExtractor
                 && attribute.ConstructorArguments[0].Value is string defaultMessage
                 && NamedArgument(member, generic.GenericArguments[0].FullName, "ErrorMessage") is { } key)
             {
-                sites.Add(new RawCallSite(key, defaultMessage, category, Context: null));
+                sites.Add(new RawCallSite(key, defaultMessage, category));
             }
         }
     }

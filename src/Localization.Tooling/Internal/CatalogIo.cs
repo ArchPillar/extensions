@@ -161,11 +161,6 @@ internal static class CatalogIo
 
     private static IEnumerable<string> DescribeLosses(FormatCapabilities lost, Catalog catalog)
     {
-        if (lost.HasFlag(FormatCapabilities.Context) && catalog.Entries.Any(entry => !string.IsNullOrEmpty(entry.Context)))
-        {
-            yield return "target format cannot store a disambiguation context; it will be dropped.";
-        }
-
         if (lost.HasFlag(FormatCapabilities.Comments) && catalog.Entries.Any(entry => !string.IsNullOrEmpty(entry.Comment) || !string.IsNullOrEmpty(entry.TranslatorComment)))
         {
             yield return "target format cannot store comments; developer and translator comments will be dropped.";

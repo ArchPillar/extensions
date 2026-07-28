@@ -54,10 +54,5 @@ public sealed class LocalizedTests
             LastArguments = arguments;
             return $"{key}|{defaultMessage}";
         }
-
-        public string Translate(string key, string defaultMessage, string context, params (string Name, object? Value)[] arguments)
-        {
-            return Translate(key, defaultMessage, arguments);
-        }
     }
 }
