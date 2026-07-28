@@ -14,15 +14,7 @@ internal sealed class AmbientLocalizer(LocalizationContext environment) : ILocal
     {
         CultureInfo culture = CultureInfo.CurrentUICulture;
         environment.EnsureCulture(culture);
-        return environment.Engine.Translate(culture, key, defaultMessage, context: null, arguments);
-    }
-
-    /// <inheritdoc />
-    public string Translate(string key, string defaultMessage, string context, params (string Name, object? Value)[] arguments)
-    {
-        CultureInfo culture = CultureInfo.CurrentUICulture;
-        environment.EnsureCulture(culture);
-        return environment.Engine.Translate(culture, key, defaultMessage, context, arguments);
+        return environment.Engine.Translate(culture, key, defaultMessage, arguments);
     }
 }
 
@@ -39,14 +31,7 @@ internal class AmbientCategoryLocalizer(LocalizationContext environment, string 
     public string Translate(string key, string defaultMessage, params (string Name, object? Value)[] arguments)
     {
         environment.EnsureCulture(CultureInfo.CurrentUICulture);
-        return environment.Engine.TranslateInCategory(category, key, defaultMessage, context: null, arguments);
-    }
-
-    /// <inheritdoc />
-    public string Translate(string key, string defaultMessage, string context, params (string Name, object? Value)[] arguments)
-    {
-        environment.EnsureCulture(CultureInfo.CurrentUICulture);
-        return environment.Engine.TranslateInCategory(category, key, defaultMessage, context, arguments);
+        return environment.Engine.TranslateInCategory(category, key, defaultMessage, arguments);
     }
 }
 

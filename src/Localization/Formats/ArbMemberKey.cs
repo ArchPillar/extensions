@@ -15,35 +15,30 @@ internal static class ArbMemberKey
     private const string CategorySeparator = "::";
     private const string MetadataPrefix = "@";
 
-    // Qualifies a key with its category (and context when present) into the on-disk member identity — for
-    // example Acme.Labels::save, greeting (global), or Acme.Menu::post (#verb). A global key beginning with
-    // "@" is escaped as ::@key. Throws ArgumentNullException when key is null.
-    public static string Qualify(string category, string key, string? context)
+    // Qualifies a key with its category into the on-disk member identity — for example Acme.Labels::save,
+    // or greeting (global). A global key beginning with "@" is escaped as ::@key. Throws
+    // ArgumentNullException when key is null.
+    public static string Qualify(string category, string key)
     {
         if (key is null)
         {
             throw new ArgumentNullException(nameof(key));
         }
 
-        string member;
         if (string.IsNullOrEmpty(category))
         {
             // Global namespace: the bare key is the member, except a key beginning with "@" is escaped with
             // the separator so it is never read back as an ARB "@"-metadata member.
-            member = key.StartsWith(MetadataPrefix, StringComparison.Ordinal) ? CategorySeparator + key : key;
-        }
-        else
-        {
-            member = category + CategorySeparator + key;
+            return key.StartsWith(MetadataPrefix, StringComparison.Ordinal) ? CategorySeparator + key : key;
         }
 
-        return string.IsNullOrEmpty(context) ? member : member + " (#" + context + ")";
+        return category + CategorySeparator + key;
     }
 
-    // Recovers the bare key from a qualified identity, given the entry's known category and context (read
-    // from the entry's own metadata). The known prefix and suffix are stripped exactly once, so the key is
-    // recovered regardless of its content.
-    public static string Unqualify(string qualified, string category, string? context)
+    // Recovers the bare key from a qualified identity, given the entry's known category (read from the
+    // entry's own metadata). The known prefix is stripped exactly once, so the key is recovered regardless
+    // of its content.
+    public static string Unqualify(string qualified, string category)
     {
         var key = qualified ?? string.Empty;
 
@@ -51,15 +46,6 @@ internal static class ArbMemberKey
         if (key.StartsWith(prefix, StringComparison.Ordinal))
         {
             key = key[prefix.Length..];
-        }
-
-        if (!string.IsNullOrEmpty(context))
-        {
-            var suffix = " (#" + context + ")";
-            if (key.Length >= suffix.Length && key.EndsWith(suffix, StringComparison.Ordinal))
-            {
-                key = key[..^suffix.Length];
-            }
         }
 
         return key;

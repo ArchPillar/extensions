@@ -34,16 +34,10 @@ internal sealed class DefaultLocalizer : ILocalizer
         [TranslationDefault] string defaultMessage,
         params (string Name, object? Value)[] arguments);
 
-    public string Translate(
-        [Translatable] string key,
-        [TranslationDefault] string defaultMessage,
-        [TranslationContext] string context,
-        params (string Name, object? Value)[] arguments);
-
     // Culture is taken from CultureInfo.CurrentUICulture by default;
     // an explicit overload allows passing a CultureInfo for server scenarios.
     public string Translate(CultureInfo culture, string key, string defaultMessage,
-        string? context, params (string Name, object? Value)[] arguments);
+        params (string Name, object? Value)[] arguments);
 }
 ```
 
@@ -52,7 +46,7 @@ internal sealed class DefaultLocalizer : ILocalizer
 
 ## Lookup and the fallback chain
 
-Resolution order for `(culture, key, context)`:
+Resolution order for `(culture, category, key)`:
 
 1. The override entry for the **exact requested culture** in the loaded snapshot.
 2. Each **parent culture** in turn (`de-AT` → `de` → invariant), using `CultureInfo.Parent`.
@@ -76,7 +70,7 @@ internal sealed class TranslationSnapshot
 }
 ```
 
-- `compositeKey` combines `Key` and `Context` with the same convention the providers use (spec 03), so lookup matches storage exactly.
+- Lookups are tiered `culture` → `category` → bare `Key`, matching exactly how the providers store each entry.
 - The live snapshot is held in a single field published with `Volatile.Write` / read with `Volatile.Read` (or `Interlocked.Exchange` on swap). Readers never lock and never observe a half-built table.
 - **Reload builds a brand-new `TranslationSnapshot` fully in memory, then swaps the reference in one operation.** In-flight reads continue against the old snapshot; subsequent reads see the new one. No reader-side synchronization, no torn state.
 - The parsed-message cache lives on the snapshot so a reload naturally discards stale parses; within a snapshot it is populated lazily and is safe for concurrent readers.

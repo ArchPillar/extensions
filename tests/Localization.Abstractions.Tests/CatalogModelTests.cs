@@ -36,7 +36,6 @@ public sealed class CatalogModelTests
     [Theory]
     [InlineData(typeof(TranslatableAttribute), AttributeTargets.Parameter)]
     [InlineData(typeof(TranslationDefaultAttribute), AttributeTargets.Parameter)]
-    [InlineData(typeof(TranslationContextAttribute), AttributeTargets.Parameter)]
     [InlineData(typeof(TranslationCommentAttribute), AttributeTargets.Parameter | AttributeTargets.Method)]
     public void Attributes_TargetExpectedSymbols(Type attributeType, AttributeTargets expectedTargets)
     {
@@ -49,9 +48,9 @@ public sealed class CatalogModelTests
     [Fact]
     public void Capabilities_CombineAsFlags()
     {
-        const FormatCapabilities Combined = FormatCapabilities.Context | FormatCapabilities.IcuPlural;
+        const FormatCapabilities Combined = FormatCapabilities.Comments | FormatCapabilities.IcuPlural;
 
-        Assert.True(Combined.HasFlag(FormatCapabilities.Context));
+        Assert.True(Combined.HasFlag(FormatCapabilities.Comments));
         Assert.True(Combined.HasFlag(FormatCapabilities.IcuPlural));
         Assert.False(Combined.HasFlag(FormatCapabilities.NativePlural));
     }

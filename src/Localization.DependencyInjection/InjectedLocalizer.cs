@@ -14,7 +14,4 @@ internal sealed class InjectedLocalizer<T>(LocalizationContext context) : ILocal
 
     public string Translate(string key, string defaultMessage, params (string Name, object? Value)[] arguments) =>
         _inner.Translate(key, defaultMessage, arguments);
-
-    public string Translate(string key, string defaultMessage, string context, params (string Name, object? Value)[] arguments) =>
-        _inner.Translate(key, defaultMessage, context, arguments);
 }

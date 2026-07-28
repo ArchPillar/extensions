@@ -20,7 +20,7 @@ public sealed class LocalizerTests : IDisposable
     {
         DefaultLocalizer localizer = Make(NewDirectory());
 
-        Assert.Equal("Hello Ada", localizer.Translate(_de, "greeting", "Hello {name}", null, ("name", "Ada")));
+        Assert.Equal("Hello Ada", localizer.Translate(_de, "greeting", "Hello {name}", ("name", "Ada")));
     }
 
     [Fact]
@@ -30,7 +30,7 @@ public sealed class LocalizerTests : IDisposable
         WriteArb(directory, "de", Entry("greeting", "Hallo {name}"));
         DefaultLocalizer localizer = Make(directory);
 
-        Assert.Equal("Hallo Ada", localizer.Translate(_de, "greeting", "Hello {name}", null, ("name", "Ada")));
+        Assert.Equal("Hallo Ada", localizer.Translate(_de, "greeting", "Hello {name}", ("name", "Ada")));
     }
 
     [Fact]
@@ -40,7 +40,7 @@ public sealed class LocalizerTests : IDisposable
         WriteArb(directory, "de", Entry("greeting", "Hallo"));
         DefaultLocalizer localizer = Make(directory);
 
-        Assert.Equal("Hallo", localizer.Translate(_deAt, "greeting", "Hello", null));
+        Assert.Equal("Hallo", localizer.Translate(_deAt, "greeting", "Hello"));
     }
 
     [Fact]
@@ -51,8 +51,8 @@ public sealed class LocalizerTests : IDisposable
         WriteArb(directory, "de-AT", Entry("greeting", "Servus"));
         DefaultLocalizer localizer = Make(directory);
 
-        Assert.Equal("Servus", localizer.Translate(_deAt, "greeting", "Hello", null));
-        Assert.Equal("Hallo", localizer.Translate(_de, "greeting", "Hello", null));
+        Assert.Equal("Servus", localizer.Translate(_deAt, "greeting", "Hello"));
+        Assert.Equal("Hallo", localizer.Translate(_de, "greeting", "Hello"));
     }
 
     [Fact]
@@ -62,8 +62,8 @@ public sealed class LocalizerTests : IDisposable
         WriteArb(directory, "de", Entry("greeting", "Hallo"));
         DefaultLocalizer localizer = Make(directory);
 
-        Assert.Equal("Hallo", localizer.Translate(_de, "greeting", "Hello", null));
-        Assert.Equal("Hello", localizer.Translate(_fr, "greeting", "Hello", null));
+        Assert.Equal("Hallo", localizer.Translate(_de, "greeting", "Hello"));
+        Assert.Equal("Hello", localizer.Translate(_fr, "greeting", "Hello"));
     }
 
     [Fact]
@@ -73,7 +73,7 @@ public sealed class LocalizerTests : IDisposable
         WriteArb(directory, "de", Entry("greeting", string.Empty, "NeedsTranslation"));
         DefaultLocalizer localizer = Make(directory);
 
-        Assert.Equal("Hello", localizer.Translate(_de, "greeting", "Hello", null));
+        Assert.Equal("Hello", localizer.Translate(_de, "greeting", "Hello"));
     }
 
     [Fact]
@@ -85,7 +85,7 @@ public sealed class LocalizerTests : IDisposable
         WriteArb(directory, "en", Entry("greeting", "FROM FILE"));
         DefaultLocalizer localizer = Make(directory);
 
-        Assert.Equal("FROM FILE", localizer.Translate(_en, "greeting", "Hello", null));
+        Assert.Equal("FROM FILE", localizer.Translate(_en, "greeting", "Hello"));
     }
 
     [Fact]
@@ -97,7 +97,7 @@ public sealed class LocalizerTests : IDisposable
         WriteArb(directory, "en", Entry("greeting", "Hello", "NeedsTranslation"));
         DefaultLocalizer localizer = Make(directory);
 
-        Assert.Equal("Hello", localizer.Translate(_en, "greeting", "Hello", null));
+        Assert.Equal("Hello", localizer.Translate(_en, "greeting", "Hello"));
     }
 
     [Fact]
@@ -108,8 +108,8 @@ public sealed class LocalizerTests : IDisposable
         DefaultLocalizer localizer = Make(directory);
 
         const string Default = "{count, plural, one {# file} other {# files}}";
-        Assert.Equal("1 Datei", localizer.Translate(_de, "items", Default, null, ("count", 1)));
-        Assert.Equal("2 Dateien", localizer.Translate(_de, "items", Default, null, ("count", 2)));
+        Assert.Equal("1 Datei", localizer.Translate(_de, "items", Default, ("count", 1)));
+        Assert.Equal("2 Dateien", localizer.Translate(_de, "items", Default, ("count", 2)));
     }
 
     [Fact]
@@ -121,8 +121,8 @@ public sealed class LocalizerTests : IDisposable
         var japanese = CultureInfo.GetCultureInfo("ja");
 
         const string Default = "{count, plural, one {# file} other {# files}}";
-        Assert.Equal("1 file", localizer.Translate(japanese, "inbox", Default, null, ("count", 1)));
-        Assert.Equal("3 files", localizer.Translate(japanese, "inbox", Default, null, ("count", 3)));
+        Assert.Equal("1 file", localizer.Translate(japanese, "inbox", Default, ("count", 1)));
+        Assert.Equal("3 files", localizer.Translate(japanese, "inbox", Default, ("count", 3)));
     }
 
     [Fact]
@@ -138,20 +138,8 @@ public sealed class LocalizerTests : IDisposable
             SourceCulture = "de"
         });
 
-        Assert.Equal("FROM FILE", localizer.Translate(_de, "greeting", "Hallo", null));
-        Assert.Equal("Tschüss", localizer.Translate(_de, "farewell", "Tschüss", null));
-    }
-
-    [Fact]
-    public void Translate_Context_DisambiguatesKey()
-    {
-        var directory = NewDirectory();
-        WriteArb(directory, "de", ContextEntry("post", "Posten", "menu"));
-        DefaultLocalizer localizer = Make(directory);
-
-        // Same key, different context: only the "menu" context is overridden.
-        Assert.Equal("Posten", localizer.Translate(_de, "post", "Post", "menu"));
-        Assert.Equal("Post", localizer.Translate(_de, "post", "Post", "verb"));
+        Assert.Equal("FROM FILE", localizer.Translate(_de, "greeting", "Hallo"));
+        Assert.Equal("Tschüss", localizer.Translate(_de, "farewell", "Tschüss"));
     }
 
     [Fact]
@@ -159,7 +147,7 @@ public sealed class LocalizerTests : IDisposable
     {
         DefaultLocalizer localizer = Make(NewDirectory());
 
-        Assert.Equal("Hi {name}", localizer.Translate(_de, "greeting", "Hi {name}", null));
+        Assert.Equal("Hi {name}", localizer.Translate(_de, "greeting", "Hi {name}"));
     }
 
     [Fact]
@@ -170,7 +158,7 @@ public sealed class LocalizerTests : IDisposable
         WriteCatalog(new XliffTranslationFormat(), directory, "de.xliff", DeCatalog("greeting", "from xliff"));
         DefaultLocalizer localizer = Make(directory);
 
-        Assert.Equal("from xliff", localizer.Translate(_de, "greeting", "Hello", null));
+        Assert.Equal("from xliff", localizer.Translate(_de, "greeting", "Hello"));
     }
 
     [Fact]
@@ -180,8 +168,8 @@ public sealed class LocalizerTests : IDisposable
             new LocalizerOptions { SourceCulture = "en" },
             DeCatalog("greeting", "Hallo"));
 
-        Assert.Equal("Hallo", localizer.Translate(_de, "greeting", "Hello", null));
-        Assert.Equal("Hello", localizer.Translate(_fr, "greeting", "Hello", null));
+        Assert.Equal("Hallo", localizer.Translate(_de, "greeting", "Hello"));
+        Assert.Equal("Hello", localizer.Translate(_fr, "greeting", "Hello"));
     }
 
     [Fact]
@@ -206,8 +194,8 @@ public sealed class LocalizerTests : IDisposable
         DefaultLocalizer localizer = OverCatalogs(new LocalizerOptions { SourceCulture = "en" }, enCatalog);
 
         // The source override is loaded above the in-code default; a key without one still falls back.
-        Assert.Equal("FROM CATALOG", localizer.Translate(_en, "greeting", "Hello", null));
-        Assert.Equal("Hello", localizer.Translate(_en, "missing", "Hello", null));
+        Assert.Equal("FROM CATALOG", localizer.Translate(_en, "greeting", "Hello"));
+        Assert.Equal("Hello", localizer.Translate(_en, "missing", "Hello"));
     }
 
     [Fact]
@@ -220,7 +208,7 @@ public sealed class LocalizerTests : IDisposable
             new LocalizerOptions { SourceCulture = "en" },
             DeCatalog("greeting", "Hi {name"));
 
-        Assert.Equal("Hi Ada", localizer.Translate(_de, "greeting", "Hi {name}", null, ("name", "Ada")));
+        Assert.Equal("Hi Ada", localizer.Translate(_de, "greeting", "Hi {name}", ("name", "Ada")));
     }
 
     [Fact]
@@ -232,7 +220,7 @@ public sealed class LocalizerTests : IDisposable
             new LocalizerOptions { SourceCulture = "en" },
             DeCatalog("greeting", "Hi {name"));
 
-        var rendered = localizer.Translate(_de, "greeting", "Hi {name}", null, out var overrideFound, ("name", "Ada"));
+        var rendered = localizer.Translate(_de, "greeting", "Hi {name}", out var overrideFound, ("name", "Ada"));
 
         Assert.Equal("Hi Ada", rendered);
         Assert.False(overrideFound);
@@ -314,7 +302,7 @@ public sealed class LocalizerTests : IDisposable
         // deterministically rather than depending on the file system's enumeration order.
         Assert.Equal(
             "fromB",
-            localizer.Translate(System.Globalization.CultureInfo.GetCultureInfo("de"), "k", "k", context: null));
+            localizer.Translate(System.Globalization.CultureInfo.GetCultureInfo("de"), "k", "k"));
     }
 
     private static void WriteArbFile(string directory, string fileName, string culture, string entriesJson)
@@ -343,11 +331,5 @@ public sealed class LocalizerTests : IDisposable
         $$"""
               "{{key}}": "{{message}}",
               "@{{key}}": { "x-state": "{{state}}", "x-source-fingerprint": "fp" }
-        """;
-
-    private static string ContextEntry(string key, string message, string context) =>
-        $$"""
-              "{{key}}": "{{message}}",
-              "@{{key}}": { "context": "{{context}}", "x-state": "Translated", "x-source-fingerprint": "fp" }
         """;
 }

@@ -44,23 +44,7 @@ internal sealed class DefaultLocalizer : ILocalizer
         [Translatable] string key,
         [TranslationDefault] string defaultMessage,
         params (string Name, object? Value)[] arguments) =>
-        TranslateCore(CultureInfo.CurrentUICulture, key, defaultMessage, context: null, arguments);
-
-    /// <summary>
-    /// Translates <paramref name="key"/> with a disambiguation <paramref name="context"/> for the current
-    /// UI culture, falling back to <paramref name="defaultMessage"/>.
-    /// </summary>
-    /// <param name="key">The stable symbolic key.</param>
-    /// <param name="defaultMessage">The in-code source default (ICU MessageFormat).</param>
-    /// <param name="context">The disambiguation context.</param>
-    /// <param name="arguments">The message arguments as <c>(name, value)</c> tuples.</param>
-    /// <returns>The rendered string.</returns>
-    public string Translate(
-        [Translatable] string key,
-        [TranslationDefault] string defaultMessage,
-        [TranslationContext] string context,
-        params (string Name, object? Value)[] arguments) =>
-        TranslateCore(CultureInfo.CurrentUICulture, key, defaultMessage, context, arguments);
+        TranslateCore(CultureInfo.CurrentUICulture, key, defaultMessage, arguments);
 
     /// <summary>
     /// Translates <paramref name="key"/> for an explicit <paramref name="culture"/>, falling back through
@@ -69,7 +53,6 @@ internal sealed class DefaultLocalizer : ILocalizer
     /// <param name="culture">The culture to translate for.</param>
     /// <param name="key">The stable symbolic key.</param>
     /// <param name="defaultMessage">The in-code source default (ICU MessageFormat).</param>
-    /// <param name="context">The optional disambiguation context.</param>
     /// <param name="arguments">The message arguments as <c>(name, value)</c> tuples.</param>
     /// <returns>The rendered string.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="culture"/> is <see langword="null"/>.</exception>
@@ -77,9 +60,8 @@ internal sealed class DefaultLocalizer : ILocalizer
         CultureInfo culture,
         [Translatable] string key,
         [TranslationDefault] string defaultMessage,
-        [TranslationContext] string? context,
         params (string Name, object? Value)[] arguments) =>
-        TranslateCore(culture, key, defaultMessage, context, arguments);
+        TranslateCore(culture, key, defaultMessage, arguments);
 
     /// <summary>
     /// Translates for an explicit culture and additionally reports whether a loaded override was used
@@ -88,7 +70,6 @@ internal sealed class DefaultLocalizer : ILocalizer
     /// <param name="culture">The culture to translate for.</param>
     /// <param name="key">The stable symbolic key.</param>
     /// <param name="defaultMessage">The fallback rendered when no override exists.</param>
-    /// <param name="context">The optional disambiguation context.</param>
     /// <param name="overrideFound">Set to <see langword="true"/> when a loaded override was used.</param>
     /// <param name="arguments">The message arguments as <c>(name, value)</c> tuples.</param>
     /// <returns>The rendered string.</returns>
@@ -97,14 +78,12 @@ internal sealed class DefaultLocalizer : ILocalizer
         CultureInfo culture,
         string key,
         string defaultMessage,
-        string? context,
         out bool overrideFound,
         params (string Name, object? Value)[] arguments)
     {
         ArgumentNullException.ThrowIfNull(culture);
 
-        var composite = TranslationKey.Compose(key, context);
-        var message = _store.Lookup(culture, category: string.Empty, composite);
+        var message = _store.Lookup(culture, category: string.Empty, key);
 
         // An override was authored for the requested culture, so render it with that culture's rules.
         // The in-code default is source-language text, so render it with the source culture's rules —
@@ -117,15 +96,13 @@ internal sealed class DefaultLocalizer : ILocalizer
 
     // The category-scoped core used by ILocalizer<T> (via the factory). It looks the key up within the
     // localizer's category for the current UI culture, falling back to the in-code default. A literal
-    // lookup with no context allocates nothing: the composite key is the key itself and the tiered
-    // dictionary reads do not allocate.
+    // lookup allocates nothing: the tiered dictionary reads do not allocate.
     internal string TranslateInCategory(
         string category,
         string key,
         string defaultMessage,
-        string? context,
         (string Name, object? Value)[] arguments) =>
-        TranslateInCategory(category, key, defaultMessage, context, out _, arguments);
+        TranslateInCategory(category, key, defaultMessage, out _, arguments);
 
     // The found-aware, category-scoped core used by the IStringLocalizer adapter so it can compose: a hit
     // resolves from the store, a miss is reported so the adapter can fall through to a previously-registered
@@ -134,13 +111,11 @@ internal sealed class DefaultLocalizer : ILocalizer
         string category,
         string key,
         string defaultMessage,
-        string? context,
         out bool overrideFound,
         (string Name, object? Value)[] arguments)
     {
         CultureInfo culture = CultureInfo.CurrentUICulture;
-        var composite = TranslationKey.Compose(key, context);
-        var message = _store.Lookup(culture, category, composite);
+        var message = _store.Lookup(culture, category, key);
         RenderingContext rendering = CurrentContext();
         var rendered = TryRenderOverride(message, culture, rendering, arguments);
         overrideFound = rendered is not null;
@@ -154,16 +129,14 @@ internal sealed class DefaultLocalizer : ILocalizer
     internal string? TranslateOverride(
         string category,
         string key,
-        string? context,
         (string Name, object? Value)[] arguments)
     {
         CultureInfo culture = CultureInfo.CurrentUICulture;
-        var composite = TranslationKey.Compose(key, context);
-        var message = _store.Lookup(culture, category, composite);
+        var message = _store.Lookup(culture, category, key);
         return TryRenderOverride(message, culture, CurrentContext(), arguments);
     }
 
-    // Enumerates the loaded overrides for a category in the given culture as (compositeKey, message) pairs — the
+    // Enumerates the loaded overrides for a category in the given culture as (key, message) pairs — the
     // IStringLocalizer adapter's GetAllStrings reads this so ambient entries are listed, not just the inner factory's.
     // Delegates to the store, which owns the snapshot; parents merge most-specific-wins when included.
     internal IReadOnlyList<KeyValuePair<string, string>> EnumerateCategory(CultureInfo culture, string category, bool includeParentCultures) =>
@@ -175,9 +148,8 @@ internal sealed class DefaultLocalizer : ILocalizer
         CultureInfo culture,
         string key,
         string defaultMessage,
-        string? context,
         (string Name, object? Value)[] arguments) =>
-        Translate(culture, key, defaultMessage, context, out _, arguments);
+        Translate(culture, key, defaultMessage, out _, arguments);
 
     // Renders a loaded override, or returns null when there is none, or when it fails to render. A catalog can
     // ship a well-formed file whose message VALUE is invalid ICU (an unbalanced brace, a bad plural clause); a

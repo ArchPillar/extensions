@@ -35,7 +35,7 @@ On a real build the package's MSBuild target runs the tool's `extract` for the p
 
 ### The annotation pass
 
-A second pass, `AssemblyStringExtractor.ExtractAnnotations`, recovers display text carried by attributes rather than call sites — the strings ASP.NET model metadata and reflection consumers render. It walks the assembly's own types, properties, and fields (enum members), reading `[DisplayName]`, `[Display(Name)]`/`[Display(Description)]`, and `[Description]`; the category is the **declaring type's full name** (Cecil's `/` nested-type separator normalized to reflection's `+` so a catalog key matches the runtime lookup). The **system attribute's value is the key** — its own text in the text-as-key default, or a string id when the author prefers one — because that value is what the framework looks the string up by. An optional `[Localized…]` twin (`[LocalizedDisplayName]`, `[LocalizedDescription]`) supplies the source default for that key instead of reusing the key as its own default; with no twin, key and default are the same value. The generic `[LocalizedMessage<TValidation>]` is the validation form: its key is the `ErrorMessage` of the validator named by the type argument (skipped when that validator sets none), so a member can carry one twin per validator. Unlike the call-site pass, it does not early-out on a localizer reference — an annotated model need not touch `ILocalizer`. `TemplateBuilder.Build` folds the pass in by default (`includeAnnotations`), call sites taking precedence on a shared `(category, key, context)`; the consumer opts out with `ArchPillarLocalizationExtractAnnotations=false`, which passes `--no-annotations` (spec 06). The runtime counterparts that read the same attributes by reflection are the enum helper `GetLocalizedDisplayName()` (spec 05) and the ASP.NET DataAnnotations integration (the `…AspNetCore` package).
+A second pass, `AssemblyStringExtractor.ExtractAnnotations`, recovers display text carried by attributes rather than call sites — the strings ASP.NET model metadata and reflection consumers render. It walks the assembly's own types, properties, and fields (enum members), reading `[DisplayName]`, `[Display(Name)]`/`[Display(Description)]`, and `[Description]`; the category is the **declaring type's full name** (Cecil's `/` nested-type separator normalized to reflection's `+` so a catalog key matches the runtime lookup). The **system attribute's value is the key** — its own text in the text-as-key default, or a string id when the author prefers one — because that value is what the framework looks the string up by. An optional `[Localized…]` twin (`[LocalizedDisplayName]`, `[LocalizedDescription]`) supplies the source default for that key instead of reusing the key as its own default; with no twin, key and default are the same value. The generic `[LocalizedMessage<TValidation>]` is the validation form: its key is the `ErrorMessage` of the validator named by the type argument (skipped when that validator sets none), so a member can carry one twin per validator. Unlike the call-site pass, it does not early-out on a localizer reference — an annotated model need not touch `ILocalizer`. `TemplateBuilder.Build` folds the pass in by default (`includeAnnotations`), call sites taking precedence on a shared `(category, key)`; the consumer opts out with `ArchPillarLocalizationExtractAnnotations=false`, which passes `--no-annotations` (spec 06). The runtime counterparts that read the same attributes by reflection are the enum helper `GetLocalizedDisplayName()` (spec 05) and the ASP.NET DataAnnotations integration (the `…AspNetCore` package).
 
 ## Generator: the typed key registry (compile-time)
 
@@ -52,13 +52,12 @@ The `IIncrementalGenerator` runs inside the compiler and emits in-assembly sourc
 
 ## The template and the catalog model
 
-The template is the canonical extraction output: a `Catalog` (spec 03) with `Culture = <source language>` and one `CatalogEntry` per distinct `(Key, Context)`. Target files share the same model with `TranslatedMessage` and `State` filled in.
+The template is the canonical extraction output: a `Catalog` (spec 03) with `Culture = <source language>` and one `CatalogEntry` per distinct `(Category, Key)`. Target files share the same model with `TranslatedMessage` and `State` filled in.
 
 ```csharp
 public sealed record CatalogEntry
 {
     public required string Key { get; init; }
-    public string? Context { get; init; }
     public required string SourceMessage { get; init; }   // the in-code default (ICU)
     public string? TranslatedMessage { get; init; }       // null/empty in the template
     public string? Comment { get; init; }
@@ -81,11 +80,11 @@ public enum TranslationState
 
 ### Merging duplicate sites
 
-Multiple call sites can share a `(Key, Context)`. Merge them into one entry by unioning `References`. If their `SourceMessage` differs, that is diagnostic `APL0006` (spec 01); the extractor must surface it as a build warning and pick a deterministic winner (first by source location) so output is stable.
+Multiple call sites can share a `(Category, Key)`. Merge them into one entry by unioning `References`. If their `SourceMessage` differs, that is diagnostic `APL0006` (spec 01); the extractor must surface it as a build warning and pick a deterministic winner (first by source location) so output is stable.
 
 ## Fingerprinting
 
-`SourceFingerprint = stable_hash(normalize(SourceMessage) + "\u0000" + (Context ?? ""))`.
+`SourceFingerprint = stable_hash(normalize(SourceMessage))`.
 
 - Use a stable, explicit hash (for example SHA-256 over UTF-8, hex-encoded, truncated to 16 bytes). Do **not** use `string.GetHashCode()` — it is not stable across runs or runtimes.
 - `normalize` must be deterministic: fixed Unicode normalization form (NFC), no trimming that would change meaning. Define it once and use the identical function in analyzer `APL0009` so live and tooling staleness agree.
@@ -95,11 +94,11 @@ Multiple call sites can share a `(Key, Context)`. Merge them into one entry by u
 
 The reconcile algorithm is the body of the tool's `sync` (per existing target file) and `add` (starting from an empty target). It is never run by the generator and never driven by a declared language list.
 
-Inputs: the current template `T` (keyed by `(Key, Context)`, read from `OutputPath`); one target catalog `L` — for `sync`, each existing target file discovered in `OutputPath`; for `add`, an empty `L` with the requested culture and a freshly written per-language header. Output: an updated `L'` written back via the provider.
+Inputs: the current template `T` (keyed by `(Category, Key)`, read from `OutputPath`); one target catalog `L` — for `sync`, each existing target file discovered in `OutputPath`; for `add`, an empty `L` with the requested culture and a freshly written per-language header. Output: an updated `L'` written back via the provider.
 
 For each target catalog:
 
-1. **Index** `L` by `(Key, Context)`.
+1. **Index** `L` by `(Category, Key)`.
 2. **For each template entry `t` in `T`:**
    - **New key** (`t` not in `L`): create `l'` with `SourceMessage = t.SourceMessage`, `TranslatedMessage = empty`, `SourceFingerprint = t.SourceFingerprint`, `State = NeedsTranslation`, `References = t.References`, `Comment = t.Comment`, `Placeholders = t.Placeholders`.
    - **Existing key** (`t` matches `l` in `L`):
@@ -160,4 +159,4 @@ dotnet apl convert   (--template | --lang <lang>) --to <po|xliff|arb>
 - [ ] `extract` produces a byte-identical template for the same built assembly across runs and platforms.
 - [ ] `--check` exits nonzero when and only when a write would change a file.
 - [ ] Fingerprints are identical across operating systems and .NET versions (cross-platform determinism test).
-- [ ] A `(Key, Context)` used at five call sites produces one entry with five ordered references.
+- [ ] A `(Category, Key)` used at five call sites produces one entry with five ordered references.

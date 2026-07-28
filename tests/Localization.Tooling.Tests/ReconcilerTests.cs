@@ -102,7 +102,7 @@ public sealed class ReconcilerTests
         Assert.Equal(first.SourceFingerprint, second.SourceFingerprint);
     }
 
-    private static string Fp(string source) => TemplateBuilder.Fingerprint(source, null);
+    private static string Fp(string source) => TemplateBuilder.Fingerprint(source);
 
     [Fact]
     public void Reconcile_NewKey_IsAddedAsNeedsTranslation()

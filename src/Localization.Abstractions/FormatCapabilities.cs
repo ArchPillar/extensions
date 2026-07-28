@@ -10,9 +10,6 @@ public enum FormatCapabilities
     /// <summary>No optional capabilities.</summary>
     None = 0,
 
-    /// <summary>Disambiguation context distinct from the key.</summary>
-    Context = 1 << 0,
-
     /// <summary>Translator comments.</summary>
     Comments = 1 << 1,
 

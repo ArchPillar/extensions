@@ -35,7 +35,6 @@ public sealed class AnnotationExtractionTests : IDisposable
         Assert.Equal("Email address", site.Key);
         Assert.Equal("Email address", site.Default);
         Assert.Equal("Demo.RegisterModel", site.Category);
-        Assert.Null(site.Context);
     }
 
     [Fact]

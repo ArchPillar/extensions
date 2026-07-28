@@ -19,7 +19,6 @@ internal sealed class CallSiteExtractor
     private const string StringLocalizerNamespace = "Microsoft.Extensions.Localization";
     private const string TranslatableAttribute = "ArchPillar.Extensions.Localization.TranslatableAttribute";
     private const string TranslationDefaultAttribute = "ArchPillar.Extensions.Localization.TranslationDefaultAttribute";
-    private const string TranslationContextAttribute = "ArchPillar.Extensions.Localization.TranslationContextAttribute";
     private const string TranslationScopeAttribute = "ArchPillar.Extensions.Localization.TranslationScopeAttribute";
 
     // One method-binding cache for the whole batch: a method called across many assemblies (ILocalizer.Translate
@@ -31,8 +30,8 @@ internal sealed class CallSiteExtractor
     // receiver), either of which may be unknown.
     private readonly record struct Slot(string? Constant, TypeReference? Type);
 
-    // Where a translatable method carries its key, default, and (optional, -1 when absent) context arguments.
-    private readonly record struct Binding(int KeyIndex, int DefaultIndex, int ContextIndex);
+    // Where a translatable method carries its key and default arguments.
+    private readonly record struct Binding(int KeyIndex, int DefaultIndex);
 
     public IReadOnlyList<RawCallSite> Extract(ModuleDefinition module)
     {
@@ -119,7 +118,7 @@ internal sealed class CallSiteExtractor
             && args.Count >= receiver + 1
             && args[receiver].Constant is { } name)
         {
-            sites.Add(new RawCallSite(name, name, CategoryOf(args, receiver), Context: null));
+            sites.Add(new RawCallSite(name, name, CategoryOf(args, receiver)));
             return;
         }
 
@@ -130,7 +129,7 @@ internal sealed class CallSiteExtractor
             return;
         }
 
-        // Whether this method is translatable (and which parameters are the key/default/context) is resolved
+        // Whether this method is translatable (and which parameters are the key/default) is resolved
         // once per distinct method and cached, so the resolve does not repeat across its many call sites.
         if (BindingFor(target, bindings) is not { } binding)
         {
@@ -139,8 +138,7 @@ internal sealed class CallSiteExtractor
 
         if (ConstantAt(args, receiver, binding.KeyIndex) is { } key && ConstantAt(args, receiver, binding.DefaultIndex) is { } def)
         {
-            var context = binding.ContextIndex >= 0 ? ConstantAt(args, receiver, binding.ContextIndex) : null;
-            sites.Add(new RawCallSite(key, def, CategoryOf(args, receiver), context));
+            sites.Add(new RawCallSite(key, def, CategoryOf(args, receiver)));
         }
     }
 
@@ -183,7 +181,7 @@ internal sealed class CallSiteExtractor
         var defaultIndex = IndexOfParameterWith(definition, TranslationDefaultAttribute);
         return keyIndex < 0 || defaultIndex < 0
             ? null
-            : new Binding(keyIndex, defaultIndex, IndexOfParameterWith(definition, TranslationContextAttribute));
+            : new Binding(keyIndex, defaultIndex);
     }
 
     // The constant a parameter received at the call site: argument <paramref name="parameterIndex"/> sits after

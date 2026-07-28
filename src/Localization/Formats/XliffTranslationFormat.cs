@@ -7,15 +7,14 @@ namespace ArchPillar.Extensions.Localization.Formats;
 
 /// <summary>
 /// The XLIFF 2.1 container-format provider. Each entry is a <c>&lt;unit&gt;</c> whose <c>name</c> is the
-/// symbolic key and whose <c>id</c> is a stable hash of the entry's identity (category, key, context) — a
-/// valid, unique <c>NMTOKEN</c> as the standard requires, which a bare key is not: text-as-key keys carry
+/// symbolic key and whose <c>id</c> is a stable hash of the entry's identity (category, key) — a valid,
+/// unique <c>NMTOKEN</c> as the standard requires, which a bare key is not: text-as-key keys carry
 /// spaces and punctuation, and the same key recurs across categories. Entries of a category are wrapped in a
 /// <c>&lt;group&gt;</c> whose <c>name</c> is the category, so a translator tool shows the category as
 /// structure. The source default is in <c>&lt;source&gt;</c> and the translation in <c>&lt;target&gt;</c>.
 /// The segment <c>state</c> carries the translation state natively; the exact <see cref="TranslationState"/>
-/// is preserved in <c>subState</c>, and context, comments, references, previous-source, and the source
-/// fingerprint are carried as categorized <c>&lt;note&gt;</c> elements. ICU MessageFormat values are stored
-/// verbatim.
+/// is preserved in <c>subState</c>, and comments, references, previous-source, and the source fingerprint
+/// are carried as categorized <c>&lt;note&gt;</c> elements. ICU MessageFormat values are stored verbatim.
 /// </summary>
 public sealed class XliffTranslationFormat : ITranslationFormat
 {
@@ -31,8 +30,7 @@ public sealed class XliffTranslationFormat : ITranslationFormat
 
     /// <inheritdoc />
     public FormatCapabilities Capabilities =>
-        FormatCapabilities.Context
-        | FormatCapabilities.Comments
+        FormatCapabilities.Comments
         | FormatCapabilities.SourceReferences
         | FormatCapabilities.ExplicitState
         | FormatCapabilities.IcuPlural
@@ -99,7 +97,6 @@ public sealed class XliffTranslationFormat : ITranslationFormat
             TranslatedMessage = (string?)segment?.Element(ns + "target"),
             // The category is the enclosing <group>'s name, or empty for a unit directly in the file.
             Category = CategoryOf(unit, ns) ?? string.Empty,
-            Context = notes.Context,
             Comment = notes.Comment,
             PreviousSource = notes.PreviousSource,
             References = notes.References,
@@ -138,9 +135,6 @@ public sealed class XliffTranslationFormat : ITranslationFormat
     {
         switch (category)
         {
-            case "context":
-                notes.Context = value;
-                break;
             case "comment":
                 notes.Comment = value;
                 break;
@@ -232,7 +226,6 @@ public sealed class XliffTranslationFormat : ITranslationFormat
         {
             IEnumerable<XElement> units = category
                 .OrderBy(entry => entry.Key, StringComparer.Ordinal)
-                .ThenBy(entry => entry.Context ?? string.Empty, StringComparer.Ordinal)
                 .Select(entry => BuildUnit(entry, seenUnitIds));
             if (category.Key.Length == 0)
             {
@@ -258,7 +251,7 @@ public sealed class XliffTranslationFormat : ITranslationFormat
         if (!seenUnitIds.Add(id))
         {
             throw new InvalidOperationException(
-                $"Two catalog entries share the identity (category '{entry.Category}', key '{entry.Key}', context '{entry.Context}') and would emit the duplicate XLIFF unit id '{id}'.");
+                $"Two catalog entries share the identity (category '{entry.Category}', key '{entry.Key}') and would emit the duplicate XLIFF unit id '{id}'.");
         }
 
         // xml:space="preserve" keeps whitespace-only or whitespace-edge content from being replaced by the
@@ -283,10 +276,10 @@ public sealed class XliffTranslationFormat : ITranslationFormat
             segment);
     }
 
-    // A unit's id is a valid NMTOKEN derived from the full identity: the same key under two categories, or the
-    // same key with two contexts, are distinct entries that MUST get distinct ids within the file.
+    // A unit's id is a valid NMTOKEN derived from the identity: the same key under two categories are
+    // distinct entries that MUST get distinct ids within the file.
     private static string UnitId(CatalogEntry entry) =>
-        "u" + ShortHash(string.Join('\u001f', entry.Category, entry.Key, entry.Context));
+        "u" + ShortHash(string.Join('\u001f', entry.Category, entry.Key));
 
     // A category's <group> id, unique per category (categories are distinct type names).
     private static string GroupId(string category) => "g" + ShortHash(category);
@@ -302,7 +295,6 @@ public sealed class XliffTranslationFormat : ITranslationFormat
     private static XElement? BuildNotes(CatalogEntry entry)
     {
         var notes = new List<XElement>();
-        AddNote(notes, "context", entry.Context);
         AddNote(notes, "comment", entry.Comment);
         AddNote(notes, "previous-source", entry.PreviousSource);
         foreach (SourceReference reference in entry.References)
@@ -354,8 +346,6 @@ public sealed class XliffTranslationFormat : ITranslationFormat
 
     private sealed class Notes
     {
-        public string? Context { get; set; }
-
         public string? Comment { get; set; }
 
         public string? PreviousSource { get; set; }

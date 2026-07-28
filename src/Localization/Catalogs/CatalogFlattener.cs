@@ -31,12 +31,10 @@ internal static class CatalogFlattener
             {
                 foreach (KeyValuePair<string, string> entry in category.Value)
                 {
-                    (var key, var context) = TranslationKey.Decompose(entry.Key);
                     entries.Add(new CatalogEntry
                     {
                         Category = category.Key,
-                        Key = key,
-                        Context = context,
+                        Key = entry.Key,
                         SourceMessage = entry.Value,
                         TranslatedMessage = entry.Value,
                         SourceFingerprint = string.Empty,
@@ -54,8 +52,7 @@ internal static class CatalogFlattener
 
             IEnumerable<CatalogEntry> ordered = entries
                 .OrderBy(entry => entry.Category, StringComparer.Ordinal)
-                .ThenBy(entry => entry.Key, StringComparer.Ordinal)
-                .ThenBy(entry => entry.Context ?? string.Empty, StringComparer.Ordinal);
+                .ThenBy(entry => entry.Key, StringComparer.Ordinal);
             result.Add(new Catalog { Culture = culture.Key, Entries = [.. ordered] });
         }
 

@@ -1,27 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <xliff version="2.1" srcLang="en" trgLang="de" xmlns="urn:oasis:names:tc:xliff:document:2.1">
   <file id="Localization.ConsoleSample">
-    <unit id="udbb485f2771a167c" name="cart.total">
+    <unit id="u27aeb712cb86f2ed" name="cart.total">
       <notes>
-        <note category="fingerprint">172853dfbbc988bf23bff89cb5fcf0f9</note>
+        <note category="fingerprint">e397c1e75ec3fa087eca384cd882e02c</note>
       </notes>
       <segment state="translated" subState="archpillar:Translated">
         <source xml:space="preserve">Total: {amount, number, ::currency/USD}</source>
         <target xml:space="preserve">Gesamt: {amount, number, ::currency/USD}</target>
       </segment>
     </unit>
-    <unit id="u98e7f9838ef106e9" name="home.greeting">
+    <unit id="uea020c0aac8ab66b" name="home.greeting">
       <notes>
-        <note category="fingerprint">6ef7c2f7178bed7959f90d6c7a8118da</note>
+        <note category="fingerprint">833583c574131c1ec81313e982643b9f</note>
       </notes>
       <segment state="translated" subState="archpillar:Translated">
         <source xml:space="preserve">Hello {name}</source>
         <target xml:space="preserve">Hallo {name}</target>
       </segment>
     </unit>
-    <unit id="u135c5af618fb73f1" name="inbox.count">
+    <unit id="u2162200347870e0b" name="inbox.count">
       <notes>
-        <note category="fingerprint">33d740a03a271da0833cd7b0f3837870</note>
+        <note category="fingerprint">d8acd899155c6f68a445830e8e4bf278</note>
       </notes>
       <segment state="translated" subState="archpillar:Translated">
         <source xml:space="preserve">{count, plural, =0 {No messages} one {# message} other {# messages}}</source>

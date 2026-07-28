@@ -33,7 +33,6 @@ public sealed class XliffTranslationFormatTests
                     Key = "home.greeting",
                     SourceMessage = "Hello {name}",
                     TranslatedMessage = "Hallo {name}",
-                    Context = "home page",
                     Comment = "A greeting",
                     PreviousSource = "Hi {name}",
                     References = [new SourceReference("Home.cs", 12, 5)],
@@ -51,7 +50,6 @@ public sealed class XliffTranslationFormatTests
         Assert.Equal("home.greeting", entry.Key);
         Assert.Equal("Hello {name}", entry.SourceMessage);
         Assert.Equal("Hallo {name}", entry.TranslatedMessage);
-        Assert.Equal("home page", entry.Context);
         Assert.Equal("A greeting", entry.Comment);
         Assert.Equal("Hi {name}", entry.PreviousSource);
         Assert.Equal("abc123", entry.SourceFingerprint);
@@ -272,7 +270,7 @@ public sealed class XliffTranslationFormatTests
     [Fact]
     public async Task Write_UnitId_IsStableWhenOnlyTheDefaultChangesAsync()
     {
-        // The id hashes the identity (category, key, context), never the default — so editing a source string
+        // The id hashes the identity (category, key), never the default — so editing a source string
         // does not change the id and orphan its translations (design decision D-2).
         var before = await UnitIdOfAsync(Categorized("save", "Acme.Labels") with
         {

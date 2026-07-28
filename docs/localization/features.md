@@ -17,12 +17,11 @@ its own and there is never a "missing resource" state — only "no override yet"
 ```csharp
 string title = localizer.Translate("home.title", "Home");
 string greet = localizer.Translate("greeting", "Hello {name}", ("name", "Ada"));
-string menu  = localizer.Translate("post", "Post", context: "menu"); // context disambiguates same key
 ```
 
-The optional **context** is a disambiguator: the same key and default can mean different things in
-different places (a "Post" button versus a blog "Post"), and a distinct `context` keeps their
-translations separate without inventing two keys.
+The same word meaning different things in different places (a "Post" button versus a blog "Post") is
+just two keys — `post.submit` and `post.entry`. You own the keys, and the category already separates
+components, so there is no separate disambiguation dimension to manage.
 
 ## Categories — the `ILogger<T>` model
 

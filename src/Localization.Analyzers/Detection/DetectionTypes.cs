@@ -9,7 +9,6 @@ namespace ArchPillar.Extensions.Localization.Detection;
 /// </summary>
 /// <param name="Key">The stable symbolic key.</param>
 /// <param name="DefaultMessage">The in-code source default (ICU MessageFormat).</param>
-/// <param name="Context">The optional disambiguation context.</param>
 /// <param name="Category">The translation category — the full name of the receiver's <c>[TranslationScope]</c> type argument, or empty for the global namespace.</param>
 /// <param name="Comment">The optional translator comment.</param>
 /// <param name="Placeholders">The argument names the default message references.</param>
@@ -17,7 +16,6 @@ namespace ArchPillar.Extensions.Localization.Detection;
 internal sealed record TranslationSite(
     string Key,
     string DefaultMessage,
-    string? Context,
     string Category,
     string? Comment,
     IReadOnlyList<string> Placeholders,

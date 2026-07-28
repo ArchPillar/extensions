@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <xliff version="2.1" srcLang="en" trgLang="en" xmlns="urn:oasis:names:tc:xliff:document:2.1">
   <file id="TrimSample">
-    <unit id="ue45399299aa30957" name="fromMain">
+    <unit id="u26b20b3cf8da6ffb" name="fromMain">
       <notes>
-        <note category="fingerprint">c39d25433ba37c4ec89ea4264b6fb84c</note>
+        <note category="fingerprint">a70ec653e7015afadd8d0a5270e6db81</note>
       </notes>
       <segment state="initial" subState="archpillar:NeedsTranslation">
         <source xml:space="preserve">from main (default)</source>
       </segment>
     </unit>
-    <unit id="ue9ab8ee1a7e44cd8" name="fromSatellite">
+    <unit id="u558a184b2cf450fd" name="fromSatellite">
       <notes>
-        <note category="fingerprint">bbd832af1785efad698a0549c235c887</note>
+        <note category="fingerprint">6c6378b7e783f6a78a5eb1ad6d9fefd2</note>
       </notes>
       <segment state="initial" subState="archpillar:NeedsTranslation">
         <source xml:space="preserve">from satellite (default)</source>
