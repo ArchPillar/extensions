@@ -70,7 +70,7 @@ internal sealed class TranslationSnapshot
 }
 ```
 
-- `compositeKey` combines `Key` and `Context` with the same convention the providers use (spec 03), so lookup matches storage exactly.
+- Lookups are tiered `culture` → `category` → bare `Key`, matching exactly how the providers store each entry.
 - The live snapshot is held in a single field published with `Volatile.Write` / read with `Volatile.Read` (or `Interlocked.Exchange` on swap). Readers never lock and never observe a half-built table.
 - **Reload builds a brand-new `TranslationSnapshot` fully in memory, then swaps the reference in one operation.** In-flight reads continue against the old snapshot; subsequent reads see the new one. No reader-side synchronization, no torn state.
 - The parsed-message cache lives on the snapshot so a reload naturally discards stale parses; within a snapshot it is populated lazily and is safe for concurrent readers.

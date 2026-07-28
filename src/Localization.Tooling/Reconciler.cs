@@ -122,7 +122,7 @@ internal static class Reconciler
 
     private static CatalogEntry Merge(CatalogEntry source, CatalogEntry current)
     {
-        // The fingerprint is computed from the source message (and context), and the placeholder set is
+        // The fingerprint is computed from the source message, and the placeholder set is
         // derived from that same source message, so any placeholder change is already a fingerprint change.
         // Comparing placeholders separately is redundant — and actively harmful for formats that do not
         // persist them (PO, XLIFF), whose targets read back with no placeholders and would otherwise be

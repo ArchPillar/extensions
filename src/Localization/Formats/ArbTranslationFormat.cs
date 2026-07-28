@@ -238,9 +238,9 @@ public sealed class ArbTranslationFormat : ITranslationFormat
 
     private static void WriteEntry(Utf8JsonWriter writer, CatalogEntry entry, CatalogWriteOptions options)
     {
-        // The member name is the category-qualified identity, so entries from different categories (or with
-        // different contexts) never collide as JSON members, and a key beginning with "@" becomes a member
-        // beginning with the category (or "::"), never mistaken for metadata.
+        // The member name is the category-qualified identity, so entries from different categories never
+        // collide as JSON members, and a key beginning with "@" becomes a member beginning with the category
+        // (or "::"), never mistaken for metadata.
         var member = ArbMemberKey.Qualify(entry.Category, entry.Key);
         var value = entry.TranslatedMessage ?? entry.SourceMessage;
         writer.WriteString(member, value);
@@ -274,10 +274,10 @@ public sealed class ArbTranslationFormat : ITranslationFormat
     }
 
     // The publish bundle keeps only what the runtime needs to resolve an entry: the value (already written) and
-    // the category and context, which the reader uses to recover the bare key from the member name. State,
-    // fingerprint, source text, comments, references and placeholders are all translator/tooling metadata and
-    // are dropped — an absent x-state reads back as a usable translation. Entries with no category or context
-    // need no metadata object at all, so it is omitted entirely.
+    // the category, which the reader uses to recover the bare key from the member name. State, fingerprint,
+    // source text, comments, references and placeholders are all translator/tooling metadata and are dropped
+    // — an absent x-state reads back as a usable translation. Entries with no category need no metadata
+    // object at all, so it is omitted entirely.
     private static void WriteMinifiedMetadata(Utf8JsonWriter writer, string member, CatalogEntry entry)
     {
         if (string.IsNullOrEmpty(entry.Category))

@@ -62,7 +62,7 @@ The asymmetry that drives complexity: Portable Object has the richest *metadata*
 
 ## Portable Object provider (`Formats.Po`)
 
-`Capabilities = Context | Comments | SourceReferences | NativePlural | PreviousSource`.
+`Capabilities = Comments | SourceReferences | NativePlural | PreviousSource`.
 
 - **Parser:** hand-rolled line-oriented reader. Handle `msgid`, `msgstr`, `msgctxt`, `msgid_plural`, `msgstr[n]`, multi-line continuation (adjacent quoted strings), C-style escapes, comment markers `#`, `#.`, `#:`, `#,` (flags including `fuzzy`), `#~` (obsolete), `#| msgid` (previous source). Parse the header entry (empty `msgid`) into `Catalog.Headers`, including `Plural-Forms`. **On read, discard any `#~` obsolete entries** (a file hand-edited in another tool may contain them; we do not carry them forward). **On write, never emit `#~`** — removed keys are simply absent (Decision D-11).
 - **Key model:** our key is symbolic, but Portable Object's identity is `(msgctxt, msgid)`. **Store our `Key` in `msgctxt`.** Put the **source default** in `msgid` so Poedit shows readable source text. This preserves Poedit's expectation that `msgid` is the source string while keeping our stable key addressable. *(Document this convention prominently; it is the one place the Portable Object mapping is non-obvious.)*
@@ -73,7 +73,7 @@ The asymmetry that drives complexity: Portable Object has the richest *metadata*
 
 ## XLIFF 2.1 provider (`Formats.Xliff`)
 
-`Capabilities = Context | Comments | SourceReferences | ExplicitState | IcuPlural | PreviousSource`.
+`Capabilities = Comments | SourceReferences | ExplicitState | IcuPlural | PreviousSource`.
 
 - **Parser/writer:** use `System.Xml` (`XmlReader`/`XmlWriter`) from the Base Class Library; do not hand-roll Extensible Markup Language tokenization. Respect namespaces and `xml:space`.
 - **Structure:** `<xliff version="2.1" srcLang=... trgLang=...>` → `<file>` → a `<group name="<category>">` per category → one `<unit>` per entry → `<segment state=...>` with `<source>` and `<target>`. The **key** rides in `unit/@name` (the standard's "resource name", §4.3.1.23, value type *Text* — free of the NMTOKEN restriction), **not** in `@id`. `unit/@id` is a stable 16-hex-char hash of the entry's identity `(category, key)`, prefixed `u`; the `<group>` `@id` is the same hash of the category, prefixed `g`. This is not decoration — §4.3.1.21 types `@id` as `NMTOKEN` (no spaces/punctuation) and requires it *"unique among all `<unit>` id attribute values within the enclosing `<file>`"*. A bare key satisfies neither: text-as-key keys carry spaces and punctuation, and the same key legitimately recurs across categories (two enums with a `Save` member), which would emit duplicate ids in one `<file>`. Hashing the **identity** (never the source default) keeps the id stable across copy edits, honouring the symbolic-key decision D-2. Global-category entries have no natural group name and sit directly under `<file>`. Carry `Comment`, `References`, and previous-source as `<note>` elements with a category attribute (`category="comment|reference|previous-source"`); the category itself is the enclosing `<group>`'s name. A collision of two identities on one id is surfaced as a write-time error rather than emitted.
@@ -84,7 +84,7 @@ The asymmetry that drives complexity: Portable Object has the richest *metadata*
 
 ## Application Resource Bundle provider (`Formats.Arb`)
 
-`Capabilities = Context | Comments | IcuPlural` plus custom-attribute-backed `ExplicitState | SourceReferences | PreviousSource` (see below).
+`Capabilities = Comments | IcuPlural` plus custom-attribute-backed `ExplicitState | SourceReferences | PreviousSource` (see below).
 
 - **Format:** a single JavaScript Object Notation object per locale. Non-`@`-prefixed keys are translatable entries whose value is an ICU MessageFormat string. Each entry `"key"` has an optional metadata sibling `"@key"` carrying `description` (our `Comment`) and `placeholders`. File-level metadata uses `@@`-prefixed keys: `@@locale` (our `Culture`), and `@@last_modified`. Use `System.Text.Json` from the Base Class Library.
 - **Key model:** the JSON member is the **category-qualified identity** (`ArbMemberKey`), because ARB's flat object holds one member per entry and a key alone is not unique across categories. A global (uncategorized) entry is its **bare key** (`"home.greeting"`) — standard ARB, what translation tools pair on; a categorized entry is `"{category}::{key}"` (`"Acme.Greeter::greeting"`) with the category also in `"@key"`'s `x-category`; a global key beginning with `@` is escaped `"::@key"` so it is never mistaken for metadata. `Unqualify` strips the prefix using the entry's known category, so it round-trips. Source text is the value in the source-locale `.arb`; translations are the values in per-locale `.arb` files.
@@ -110,7 +110,7 @@ The asymmetry that drives complexity: Portable Object has the richest *metadata*
 
 ## Acceptance criteria
 
-- [ ] A catalog written by any provider and read back yields an equal `Catalog` (entry-by-entry), including state, context, comments, references, and fingerprint (within each format's capabilities).
+- [ ] A catalog written by any provider and read back yields an equal `Catalog` (entry-by-entry), including state, comments, references, and fingerprint (within each format's capabilities).
 - [ ] Read→Write of a file authored by the respective external tool (a Poedit `.po`, a real XLIFF 2.1 file, a Flutter `.arb`) preserves the file's meaningful content and does not corrupt tool-specific structure.
 - [ ] A message containing `{count, plural, one {...} other {...}}` round-trips through XLIFF and ARB unchanged, and through Portable Object as a correct `msgid_plural`/`msgstr[n]` pair for the locale's plural form count, converting back to an equivalent ICU plural.
 - [ ] A `select`/nested-plural message that gettext cannot represent is preserved (not lost) by the Portable Object provider and flagged.

@@ -10,7 +10,7 @@ namespace ArchPillar.Extensions.Localization.Detection;
 /// <summary>
 /// The single definition of "what is translatable". Given a compilation (or one node), it recognizes
 /// calls that bind a compile-time constant to a <c>[Translatable]</c> parameter and resolves the key,
-/// default, context, comment, and placeholders. The analyzer, the generator, and the tool all use this
+/// default, comment, and placeholders. The analyzer, the generator, and the tool all use this
 /// so they agree byte-for-byte.
 /// </summary>
 internal static class TranslationSiteDetector
@@ -507,7 +507,7 @@ internal static class TranslationSiteDetector
                 return constant.Value as string;
             }
 
-            // A non-constant comment cannot be baked into the catalog — report it like the key/default/context
+            // A non-constant comment cannot be baked into the catalog — report it like the key/default
             // arguments do, rather than dropping it silently, then fall back to any method-level comment.
             problems.Add(new DetectionProblem(
                 DetectionCause.NonConstantArgument,

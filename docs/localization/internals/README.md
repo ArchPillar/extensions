@@ -41,7 +41,7 @@ XLIFF), so the choice to hand-roll is deliberate. The reasons, graded honestly:
   outright; a managed dependency would still have to be verified trim/AOT-safe across `net8`–`net10` and
   `netstandard2.0`, and then owned anyway.
 - **Control over the data model.** `Catalog`/`CatalogEntry` carry the source fingerprint, translation
-  state, previous-source, category, and context that drive reconcile/drift. The libraries' models do not,
+  state, previous-source, and category that drive reconcile/drift. The libraries' models do not,
   so we would adapt at the boundary regardless — capturing the parsing but re-implementing the semantics.
 
 **The honest caveat.** "Justified to build" is not "justified to ship as proven." The justification is

@@ -30,7 +30,7 @@ internal sealed class CallSiteExtractor
     // receiver), either of which may be unknown.
     private readonly record struct Slot(string? Constant, TypeReference? Type);
 
-    // Where a translatable method carries its key, default, and (optional, -1 when absent) context arguments.
+    // Where a translatable method carries its key and default arguments.
     private readonly record struct Binding(int KeyIndex, int DefaultIndex);
 
     public IReadOnlyList<RawCallSite> Extract(ModuleDefinition module)
@@ -129,7 +129,7 @@ internal sealed class CallSiteExtractor
             return;
         }
 
-        // Whether this method is translatable (and which parameters are the key/default/context) is resolved
+        // Whether this method is translatable (and which parameters are the key/default) is resolved
         // once per distinct method and cached, so the resolve does not repeat across its many call sites.
         if (BindingFor(target, bindings) is not { } binding)
         {

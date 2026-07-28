@@ -68,7 +68,6 @@ The detection output is a pure record:
 public sealed record TranslationSite(
     string Key,
     string DefaultMessage,
-    string? Context,
     string? Comment,
     IReadOnlyList<MessagePlaceholder> Placeholders, // parsed from DefaultMessage via MessageFormat
     SourceReference Reference);                       // file path + line/column span
@@ -110,8 +109,8 @@ Identifier prefix `APL` (ArchPillar Localization). Default severities chosen so 
 | `APL0003` | Warning | A placeholder appears in `DefaultMessage` but no matching runtime argument name is supplied at the call site (when argument names are statically known via the params-tuple form). | Placeholder '{name}' has no supplied argument. |
 | `APL0004` | Info | A runtime argument name is supplied that does not appear in `DefaultMessage`. | Argument '{name}' is not used by the message. |
 | `APL0005` | Warning | A `plural`/`selectordinal` construct is missing the required `other` branch. | A plural/selectordinal must include an 'other' branch. |
-| `APL0006` | Warning | Two translation sites share the same `Key` (and `Context`) but different `DefaultMessage`. | Duplicate key '{key}' with conflicting default text. |
-| `APL0007` | Info | Two translation sites share the same `DefaultMessage` and `Context` but different `Key`. | Identical text under different keys; consider sharing a key. |
+| `APL0006` | Warning | Two translation sites share the same `Key` but different `DefaultMessage`. | Duplicate key '{key}' with conflicting default text. |
+| `APL0007` | Info | Two translation sites share the same `DefaultMessage` but different `Key`. | Identical text under different keys; consider sharing a key. |
 | `APL0008` | Warning | `Key` does not match the configured key-naming pattern (only when a pattern is configured). | Key '{key}' does not match the required pattern '{pattern}'. |
 | `APL0009` | Hidden/Info | The configured "stale source" sidecar (if the analyzer is given catalog files as `AdditionalText`) shows the on-disk source fingerprint differs from the current default. | The default text has changed since translations were made; re-extract to mark them for review. |
 | `APL0010` | Warning | The compilation references `IServiceCollection` and a top-level, constructor-less `Localized<TSelf>` class is not `partial`, so the generator cannot synthesize its constructor or DI registration. | Mark '{type}' partial so its localizer constructor and dependency-injection registration are generated. |

@@ -3,7 +3,7 @@
 Shared abstractions for the `ArchPillar.Extensions.Localization` family, depending on nothing
 beyond the Base Class Library:
 
-- The `[Translatable]` / `[TranslationDefault]` / `[TranslationContext]` / `[TranslationComment]`
+- The `[Translatable]` / `[TranslationDefault]` / `[TranslationComment]`
   attributes that mark a translatable call.
 - The format-neutral `Catalog` / `CatalogEntry` model and `TranslationState`.
 - The `ITranslationFormat` provider interface and `FormatCapabilities`.

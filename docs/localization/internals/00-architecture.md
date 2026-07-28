@@ -104,7 +104,7 @@ Because detection keys off attributes through the semantic model (not a hardcode
 
 ## The format-neutral Catalog model (summary; full detail in spec 03)
 
-The reconciler and the runtime never touch a file format directly. They operate on an in-memory `Catalog` (a culture plus an ordered set of `CatalogEntry`). Each format provider serializes/deserializes that model and **declares its capabilities** (does it support obsolete entries, an explicit translation-state, native vs ICU plurals, context, comments, source references). The reconciler reads capability flags to decide how to represent state in each format. This is the single abstraction that lets Portable Object, XLIFF, and ARB coexist behind one pipeline.
+The reconciler and the runtime never touch a file format directly. They operate on an in-memory `Catalog` (a culture plus an ordered set of `CatalogEntry`). Each format provider serializes/deserializes that model and **declares its capabilities** (does it support obsolete entries, an explicit translation-state, native vs ICU plurals, comments, source references). The reconciler reads capability flags to decide how to represent state in each format. This is the single abstraction that lets Portable Object, XLIFF, and ARB coexist behind one pipeline.
 
 ## Glossary (acronyms spelled out)
 

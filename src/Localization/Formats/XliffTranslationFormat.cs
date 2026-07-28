@@ -7,15 +7,14 @@ namespace ArchPillar.Extensions.Localization.Formats;
 
 /// <summary>
 /// The XLIFF 2.1 container-format provider. Each entry is a <c>&lt;unit&gt;</c> whose <c>name</c> is the
-/// symbolic key and whose <c>id</c> is a stable hash of the entry's identity (category, key, context) — a
-/// valid, unique <c>NMTOKEN</c> as the standard requires, which a bare key is not: text-as-key keys carry
+/// symbolic key and whose <c>id</c> is a stable hash of the entry's identity (category, key) — a valid,
+/// unique <c>NMTOKEN</c> as the standard requires, which a bare key is not: text-as-key keys carry
 /// spaces and punctuation, and the same key recurs across categories. Entries of a category are wrapped in a
 /// <c>&lt;group&gt;</c> whose <c>name</c> is the category, so a translator tool shows the category as
 /// structure. The source default is in <c>&lt;source&gt;</c> and the translation in <c>&lt;target&gt;</c>.
 /// The segment <c>state</c> carries the translation state natively; the exact <see cref="TranslationState"/>
-/// is preserved in <c>subState</c>, and context, comments, references, previous-source, and the source
-/// fingerprint are carried as categorized <c>&lt;note&gt;</c> elements. ICU MessageFormat values are stored
-/// verbatim.
+/// is preserved in <c>subState</c>, and comments, references, previous-source, and the source fingerprint
+/// are carried as categorized <c>&lt;note&gt;</c> elements. ICU MessageFormat values are stored verbatim.
 /// </summary>
 public sealed class XliffTranslationFormat : ITranslationFormat
 {
