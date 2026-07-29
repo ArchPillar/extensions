@@ -41,6 +41,15 @@ higher-fidelity file wins (`xliff` > `arb` > `po`, a fixed tie-breaker) and the 
 Files are named `{AssemblyName}.{culture}.{ext}` so independent libraries never collide, and the
 build copies them beside the binary.
 
+**Translator comments.** A note you write beside a string in code — inside the call or attribute
+parens, `Translate("k", "d" /* keep under 12 chars */)` — is extracted into the catalog as the
+developer comment every format has a slot for: Portable Object `#.`, ARB `description`, XLIFF
+`<note>`. So it shows up right next to the string in POEditor, Crowdin, or a plain editor, giving the
+translator the context the string alone can't. It is recovered by a source scan (comments can't live
+in the built assembly), so it needs the project's source present at extract time; when the source
+isn't there (a `/pathmap` CI build), `sync` **keeps** any comment already in the file rather than
+dropping it. Comments on the line *above* a call are not extracted — write the note in the parens.
+
 ## Delivery and deployment
 
 - **Files (default).** Catalogs copy to `Translations/<Assembly>.<culture>.<ext>`; the store reads
