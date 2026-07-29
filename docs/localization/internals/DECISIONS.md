@@ -252,9 +252,10 @@ among them), and arguments that the generator never saw.
 
 **Consequences:**
 - The baked `[GeneratedLocalizationTemplate]` attribute is **superseded and removed** — it was only an
-  intermediate the tool read; nothing at runtime ever used it. The generator keeps only the typed key registry
-  (IDE autocomplete, C# keys). The runtime is unchanged: in-code defaults remain the source language and the
-  terminal fallback (D-1), and translation *delivery* (loose files or embedded satellites) is untouched.
+  intermediate the tool read; nothing at runtime ever used it. The generator keeps only the `Localized<T>`
+  bundle sources (constructors + DI registration). The runtime is unchanged: in-code defaults remain the source
+  language and the terminal fallback (D-1), and translation *delivery* (loose files or embedded satellites) is
+  untouched.
 - Extraction stays a **post-build** step (the `AfterBuild` MSBuild target already is one), so there is no
   IDE/keystroke cost. Scanning one assembly's own method bodies is tens of milliseconds — dwarfed by tool
   startup and the build; assemblies that do not reference the localizer types are skipped via the
@@ -303,6 +304,41 @@ excluded). This **amends D-1** (source is no longer code-only; the catalog is a 
 **D-12** (the source catalog is now also a shippable override surface, though target *languages* are still added
 on demand), and **D-D** / spec 05 / spec 06 wherever they said the source file is never loaded, shipped, or
 edited. The doc-XML analogy in D-1 no longer holds for the source catalog — it is authored, not purely generated.
+
+### D-M — Translation comments are written inline (in the argument list) and recovered by a source scan; there is no comment attribute.
+A developer comment for translators (the gettext `#.`, the ARB `description`, the XLIFF `<note>`) has to come
+from *somewhere* the tool can read. The prior design carried a `[TranslationComment]` attribute, but it was dead
+weight: only the analyzer read it (for a diagnostic), the IL extractor never did, so a comment authored that way
+**never reached the catalog**. And the natural fix — read the comment from the binary — is impossible: the
+compiler strips `//` and `/* */` from IL entirely, and a PDB only carries sequence points for **method bodies**,
+so it has no source location for a field (an enum member) or an attribute application at all. Comments live only
+in source.
+
+**Decision:** drop `TranslationCommentAttribute` (a public-API removal, pure subtraction — no shipped method even
+declared a comment parameter, so nothing that worked stops working) and recover comments from a **syntax-only
+source scan** joined to the extracted entries **by identity**:
+
+- **Authoring convention.** A comment is written *inside the argument list* — of the call, indexer, or annotation
+  (`Translate("k", "d" /* note */)`, `[Display(Name = "Active" /* note */)]`). This is novel (C# has no
+  established translation-comment convention at the call site) but unambiguous, and it survives `dotnet format`
+  and the repo's analyzers. Leading trivia (a comment on the line above) is deferred: ambiguous on a call, and
+  unreachable on an annotation without the PDB it does not have.
+- **One identity join for both call sites and annotations.** `SourceCommentScanner` (a `Microsoft.CodeAnalysis.CSharp`
+  syntax parse — no compilation, no semantic model) associates each in-paren comment with the nearest string
+  literal and indexes it by that literal; `TemplateBuilder` looks a comment up by the entry's key **or** its
+  source default. No per-call-site precision is needed because the catalog holds one entry per `(category, key)`,
+  so comments from several sites merge into that entry — which is why this needs **no PDB**. Recovering `References`
+  (source locations) is the separate concern that would justify a PDB pass (D-K implementation item 3); it is
+  deliberately **not** bundled here.
+- **Never in the binary; never wiped.** Comments stay out of the shipped assembly (the win: a translator note is
+  not runtime payload, and the public surface shrinks). Because a source-less extract (a `/pathmap` CI build, a
+  loose `--assembly`) yields no comment, the reconciler **preserves** an existing comment rather than overwriting
+  it, so a git-tracked catalog is never churned.
+
+This **supersedes** the `[TranslationComment]` attribute in spec 01 and the "leading comment trivia" source in
+spec 00 (which was never implemented); the `Comment` field and the formats' comment channels (spec 03) are
+unchanged — only where the comment *comes from* changed. The scan cost is linear and small — roughly 60 µs per source file, so a
+1,000-file project scans in ~60 ms, a rounding error against a build (benchmarked in `Localization.Benchmarks`).
 
 ## What is unchanged from the specs
 

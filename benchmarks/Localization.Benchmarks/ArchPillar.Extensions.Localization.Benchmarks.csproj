@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Localization\ArchPillar.Extensions.Localization.csproj" />
+    <ProjectReference Include="..\..\src\Localization.Tooling\ArchPillar.Extensions.Localization.Tooling.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -164,11 +164,19 @@ internal static class CatalogDirectoryResolver
     /// project tree.</summary>
     public static string? ProjectCatalogDirectoryOf(string assemblyPath, string folder)
     {
+        var root = ProjectRootOf(assemblyPath);
+        return root is null ? null : Path.Combine(root, folder);
+    }
+
+    /// <summary>The assembly's own project directory — the nearest ancestor holding a <c>.csproj</c>, which is the
+    /// source root scanned for translation comments — or null when the assembly is not in a project tree.</summary>
+    public static string? ProjectRootOf(string assemblyPath)
+    {
         for (var directory = Path.GetDirectoryName(Path.GetFullPath(assemblyPath)); directory is not null; directory = Path.GetDirectoryName(directory))
         {
             if (Directory.EnumerateFiles(directory, "*.csproj").Any())
             {
-                return Path.Combine(directory, folder);
+                return directory;
             }
         }
 

@@ -36,7 +36,7 @@ public sealed class CatalogModelTests
     [Theory]
     [InlineData(typeof(TranslatableAttribute), AttributeTargets.Parameter)]
     [InlineData(typeof(TranslationDefaultAttribute), AttributeTargets.Parameter)]
-    [InlineData(typeof(TranslationCommentAttribute), AttributeTargets.Parameter | AttributeTargets.Method)]
+    [InlineData(typeof(TranslationScopeAttribute), AttributeTargets.GenericParameter)]
     public void Attributes_TargetExpectedSymbols(Type attributeType, AttributeTargets expectedTargets)
     {
         AttributeUsageAttribute? usage = attributeType.GetCustomAttribute<AttributeUsageAttribute>();

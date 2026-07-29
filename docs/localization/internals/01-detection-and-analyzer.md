@@ -29,17 +29,11 @@ public sealed class TranslatableAttribute : Attribute { }
 // Marks the parameter whose argument is the source-language default (ICU MessageFormat).
 [AttributeUsage(AttributeTargets.Parameter, AllowMultiple = false)]
 public sealed class TranslationDefaultAttribute : Attribute { }
-
-// Optional: marks the parameter carrying a translator comment, OR may be applied
-// to the method to supply a constant comment for all its call sites.
-[AttributeUsage(AttributeTargets.Parameter | AttributeTargets.Method, AllowMultiple = false)]
-public sealed class TranslationCommentAttribute : Attribute
-{
-    public TranslationCommentAttribute() { }
-    public TranslationCommentAttribute(string comment) => Comment = comment;
-    public string? Comment { get; }
-}
 ```
+
+There is **no comment attribute**. A translation comment is written inline, in the call's (or an
+annotation's) argument list, and recovered from source by a separate scan (spec [02](02-extraction-and-reconciliation.md)) —
+never carried in the binary.
 
 The library's own ergonomic surface (defined in the runtime spec 05) is a small set of methods whose parameters carry these attributes, for example:
 
@@ -60,7 +54,7 @@ For each translation site, resolve the arguments bound to the attributed paramet
 
 - **Positional and named arguments**, and parameters with default values.
 - **`params` collections** (the trailing arguments are runtime values; they are not extracted).
-- **Constant folding.** The `[Translatable]` and `[TranslationDefault]` (and `[TranslationComment]`) arguments must be **compile-time constants**. Use `SemanticModel.GetConstantValue`. Accept string literals, `const` references, and `nameof(...)`. Accept constant concatenation of constants. A `string`-typed compile-time constant is valid; anything non-constant is **not extractable** and triggers diagnostic `APL0001`.
+- **Constant folding.** The `[Translatable]` and `[TranslationDefault]` arguments must be **compile-time constants**. Use `SemanticModel.GetConstantValue`. Accept string literals, `const` references, and `nameof(...)`. Accept constant concatenation of constants. A `string`-typed compile-time constant is valid; anything non-constant is **not extractable** and triggers diagnostic `APL0001`.
 
 The detection output is a pure record:
 
@@ -68,7 +62,6 @@ The detection output is a pure record:
 public sealed record TranslationSite(
     string Key,
     string DefaultMessage,
-    string? Comment,
     IReadOnlyList<MessagePlaceholder> Placeholders, // parsed from DefaultMessage via MessageFormat
     SourceReference Reference);                       // file path + line/column span
 
@@ -104,7 +97,7 @@ Identifier prefix `APL` (ArchPillar Localization). Default severities chosen so 
 
 | Id | Severity | Condition | Message (paraphrased) |
 |---|---|---|---|
-| `APL0001` | Error | An argument to `[Translatable]`/`[TranslationDefault]`/`[TranslationComment]` is not a compile-time constant. | The argument must be a compile-time constant string so it can be extracted. |
+| `APL0001` | Error | An argument to `[Translatable]`/`[TranslationDefault]` is not a compile-time constant. | The argument must be a compile-time constant string so it can be extracted. |
 | `APL0002` | Warning | `DefaultMessage` fails to parse as ICU MessageFormat (delegated to the spec-04 parser). | The default message is not valid message-format syntax: {detail}. |
 | `APL0003` | Warning | A placeholder appears in `DefaultMessage` but no matching runtime argument name is supplied at the call site (when argument names are statically known via the params-tuple form). | Placeholder '{name}' has no supplied argument. |
 | `APL0004` | Info | A runtime argument name is supplied that does not appear in `DefaultMessage`. | Argument '{name}' is not used by the message. |
