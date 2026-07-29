@@ -4,6 +4,7 @@
     <group id="g546b4ebb5507ae10" name="Localization.TodoSample.TodoStrings">
       <unit id="u1491dc60ac456379" name="AddHint">
         <notes>
+          <note category="comment">shown under the input box; keep it brief</note>
           <note category="fingerprint">3a3744253f7003db96ce01697984aff6</note>
         </notes>
         <segment state="translated" subState="archpillar:Translated">

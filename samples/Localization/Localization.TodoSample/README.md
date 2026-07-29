@@ -7,6 +7,7 @@ Demonstrates ArchPillar.Extensions.Localization in a no-DI console app using a s
 - A self-scoped `Localized<T>` string bundle where the member name is the key and the type is the category
 - In-code English overridden by German and French `.xliff` catalogs beside the binary
 - ICU plurals (`{count, plural, ...}`) resolved per culture
+- A **translator comment** written inline beside a string (`Translate("…" /* note */)` on `AddHint`), extracted into every catalog as an XLIFF `<note>`
 - A pseudo-localization QA culture (`qps-ploc`) that X's translatable strings, so anything still readable is not going through the localizer
 
 ## Running
