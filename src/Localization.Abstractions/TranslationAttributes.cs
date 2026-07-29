@@ -19,37 +19,6 @@ public sealed class TranslationDefaultAttribute : Attribute
 }
 
 /// <summary>
-/// Marks the parameter carrying a translator comment, or is applied to a method to supply a constant
-/// comment for all of its call sites.
-/// </summary>
-[AttributeUsage(AttributeTargets.Parameter | AttributeTargets.Method, AllowMultiple = false)]
-public sealed class TranslationCommentAttribute : Attribute
-{
-    /// <summary>
-    /// Initializes a new instance of the <see cref="TranslationCommentAttribute"/> class with no
-    /// constant comment (used on a parameter).
-    /// </summary>
-    public TranslationCommentAttribute()
-    {
-    }
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="TranslationCommentAttribute"/> class with a
-    /// constant comment (used on a method).
-    /// </summary>
-    /// <param name="comment">The translator comment applied to every call site of the method.</param>
-    public TranslationCommentAttribute(string comment)
-    {
-        Comment = comment;
-    }
-
-    /// <summary>
-    /// Gets the constant comment, when supplied on a method.
-    /// </summary>
-    public string? Comment { get; }
-}
-
-/// <summary>
 /// Marks the generic type parameter that supplies the translation category. When a translatable call's
 /// receiver is a constructed generic type whose parameter carries this attribute, extraction and the
 /// runtime both take the category from that type argument's full name — the <c>ILogger&lt;T&gt;</c>

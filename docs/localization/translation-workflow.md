@@ -137,6 +137,31 @@ dotnet apl import --input kit-de.zip --solution App.sln
 in ARB stays ARB); a catalog with no existing file lands in the authoring default (XLIFF). Use `--format po`
 on `export` to hand off Portable Object instead of XLIFF.
 
+### Give translators context — a note beside the string
+
+A string on its own is often ambiguous ("Post" the verb or the noun? how long can this label be?). Add a
+note for the translator by writing a comment **inside the call's parentheses**, right next to the string:
+
+```csharp
+loc.Translate("post.submit", "Post" /* the submit button, a verb */);
+loc.Translate("home.title", "Home" /* shown in the top nav; keep under 12 chars */);
+
+// It works on display annotations too:
+[Display(Name = "Active" /* the running state, not the verb */)]
+public Status Status { get; set; }
+```
+
+Extraction carries the note into every catalog as the format's translator comment — XLIFF `<note>`, ARB
+`description`, Portable Object `#.` — so it appears right beside the string in POEditor, Crowdin, or a
+plain editor. Two things to know:
+
+- **Write it in the parens, not on the line above.** A comment on the preceding line is ordinary code
+  commentary and is not extracted; only a comment inside the argument list is a translator note.
+- **It lives only in source, and is never wiped.** The note is recovered by scanning your source at extract
+  time (comments can't be read from a compiled assembly), so it never ships in your binary. If a build can't
+  see the source — a deterministic `/pathmap` CI build, for instance — `sync` simply **keeps** the note
+  already in the catalog rather than dropping it.
+
 ## 5. Sync — keep catalogs current as code changes
 
 When source strings are added, edited, or removed, reconcile every language file against the freshly

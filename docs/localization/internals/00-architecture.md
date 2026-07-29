@@ -96,11 +96,12 @@ A call is translatable when an argument is bound to a parameter marked `[Transla
 |---|---|---|
 | `Key` | constant argument bound to the `[Translatable]` parameter | yes |
 | `DefaultMessage` | constant argument bound to the `[TranslationDefault]` parameter | yes |
-| `Comment` | leading comment trivia / `[TranslationComment]` constant | optional |
 | `Placeholders` | parsed from `DefaultMessage` (ICU MessageFormat) | derived |
 | `SourceReference` | file path + line of the call | yes |
 
 Because detection keys off attributes through the semantic model (not a hardcoded method name), any consumer can build an ergonomic wrapper API; as long as the wrapper forwards constants to attributed parameters, the tooling follows it.
+
+A translation **comment** is not part of this record: comments live only in source (the compiler strips them from IL and the PDB), so the tool recovers them in a separate syntax-only source scan and joins them to entries by identity — see [02](02-extraction-and-reconciliation.md).
 
 ## The format-neutral Catalog model (summary; full detail in spec 03)
 

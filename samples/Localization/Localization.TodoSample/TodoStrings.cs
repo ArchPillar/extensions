@@ -11,7 +11,9 @@ public sealed class TodoStrings(ILocalizer<TodoStrings> localizer) : Localized<T
 {
     public string Title => Translate("My Tasks");
 
-    public string AddHint => Translate("Type a task and press Enter to add it.");
+    // A note for translators, written beside the string: it rides into every catalog as a comment
+    // (XLIFF <note>, PO #., ARB description) and never ships in the binary.
+    public string AddHint => Translate("Type a task and press Enter to add it." /* shown under the input box; keep it brief */);
 
     public string Empty => Translate("Nothing to do — add your first task!");
 

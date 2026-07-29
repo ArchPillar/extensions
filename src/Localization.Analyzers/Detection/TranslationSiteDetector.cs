@@ -176,7 +176,7 @@ internal static class TranslationSiteDetector
 
         var category = StringLocalizerCategory(reference.Instance?.Type as INamedTypeSymbol, symbols.GenericStringLocalizer);
         IReadOnlyList<string> placeholders = [.. MessageSyntax.ExtractPlaceholders(name)];
-        var site = new TranslationSite(name, name, category, null, placeholders, ToReference(node));
+        var site = new TranslationSite(name, name, category, placeholders, ToReference(node));
         return new TranslationSiteResult(site, []);
     }
 
@@ -235,7 +235,6 @@ internal static class TranslationSiteDetector
         var key = Constant(keyArgument, problems);
         IArgumentOperation? defaultArgument = FindArgument(arguments, symbols.Default);
         var defaultMessage = Constant(defaultArgument, problems);
-        var comment = ResolveComment(arguments, symbols, problems);
 
         if (key is null || defaultMessage is null || defaultArgument is null)
         {
@@ -248,7 +247,7 @@ internal static class TranslationSiteDetector
         AddMissingOtherProblems(defaultMessage, defaultArgument, problems);
 
         var category = CategoryFrom(receiver, symbols.Scope);
-        var site = new TranslationSite(key, defaultMessage, category, comment, placeholders, ToReference(node));
+        var site = new TranslationSite(key, defaultMessage, category, placeholders, ToReference(node));
         return new TranslationSiteResult(site, problems);
     }
 
@@ -496,53 +495,6 @@ internal static class TranslationSiteDetector
         return null;
     }
 
-    private static string? ResolveComment(ImmutableArray<IArgumentOperation> arguments, AttributeSymbols symbols, List<DetectionProblem> problems)
-    {
-        IArgumentOperation? commentArgument = FindArgument(arguments, symbols.Comment);
-        if (commentArgument is not null)
-        {
-            Optional<object?> constant = commentArgument.Value.ConstantValue;
-            if (constant.HasValue)
-            {
-                return constant.Value as string;
-            }
-
-            // A non-constant comment cannot be baked into the catalog — report it like the key/default
-            // arguments do, rather than dropping it silently, then fall back to any method-level comment.
-            problems.Add(new DetectionProblem(
-                DetectionCause.NonConstantArgument,
-                null,
-                commentArgument.Value.Syntax.GetLocation()));
-        }
-
-        return MethodComment(arguments, symbols);
-    }
-
-    private static string? MethodComment(ImmutableArray<IArgumentOperation> arguments, AttributeSymbols symbols)
-    {
-        if (symbols.Comment is null || arguments.IsDefaultOrEmpty)
-        {
-            return null;
-        }
-
-        ISymbol? method = arguments[0].Parameter?.ContainingSymbol;
-        if (method is null)
-        {
-            return null;
-        }
-
-        foreach (AttributeData data in method.GetAttributes())
-        {
-            if (SymbolEqualityComparer.Default.Equals(data.AttributeClass, symbols.Comment)
-                && data.ConstructorArguments.Length == 1)
-            {
-                return data.ConstructorArguments[0].Value as string;
-            }
-        }
-
-        return null;
-    }
-
     private static IReadOnlyList<string> ResolvePlaceholders(
         string defaultMessage,
         IArgumentOperation defaultArgument,
@@ -571,14 +523,12 @@ internal static class TranslationSiteDetector
         private AttributeSymbols(
             INamedTypeSymbol? translatable,
             INamedTypeSymbol? defaultMessage,
-            INamedTypeSymbol? comment,
             INamedTypeSymbol? scope,
             INamedTypeSymbol? stringLocalizer,
             INamedTypeSymbol? genericStringLocalizer)
         {
             Translatable = translatable;
             Default = defaultMessage;
-            Comment = comment;
             Scope = scope;
             StringLocalizer = stringLocalizer;
             GenericStringLocalizer = genericStringLocalizer;
@@ -587,8 +537,6 @@ internal static class TranslationSiteDetector
         public INamedTypeSymbol? Translatable { get; }
 
         public INamedTypeSymbol? Default { get; }
-
-        public INamedTypeSymbol? Comment { get; }
 
         public INamedTypeSymbol? Scope { get; }
 
@@ -599,7 +547,6 @@ internal static class TranslationSiteDetector
         public static AttributeSymbols From(Compilation compilation) => new(
             compilation.GetTypeByMetadataName("ArchPillar.Extensions.Localization.TranslatableAttribute"),
             compilation.GetTypeByMetadataName("ArchPillar.Extensions.Localization.TranslationDefaultAttribute"),
-            compilation.GetTypeByMetadataName("ArchPillar.Extensions.Localization.TranslationCommentAttribute"),
             compilation.GetTypeByMetadataName("ArchPillar.Extensions.Localization.TranslationScopeAttribute"),
             compilation.GetTypeByMetadataName("Microsoft.Extensions.Localization.IStringLocalizer"),
             compilation.GetTypeByMetadataName("Microsoft.Extensions.Localization.IStringLocalizer`1"));

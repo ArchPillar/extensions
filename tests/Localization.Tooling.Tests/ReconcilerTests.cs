@@ -269,6 +269,36 @@ public sealed class ReconcilerTests
         Assert.Equal("new dev note", entry.Comment);
     }
 
+    [Fact]
+    public void Reconcile_TemplateWithoutComment_PreservesTheExistingComment()
+    {
+        // A source-less extract (CI/pathmap build, stripped or absent PDB) yields a null comment; it must not wipe
+        // a comment already in this git-tracked target.
+        Catalog template = MakeCatalog("en", Entry("home", "Home", "fp1"));
+        Catalog target = MakeCatalog(
+            "de",
+            Entry("home", "Home", "fp1", "Startseite", TranslationState.Translated) with { Comment = "hand-kept note" });
+
+        CatalogEntry entry = Single(Reconciler.Reconcile(template, target));
+
+        Assert.Equal("hand-kept note", entry.Comment);
+    }
+
+    [Fact]
+    public void ReconcileSource_TemplateWithoutComment_PreservesTheExistingComment()
+    {
+        // The same guarantee on the extract (source-catalog) path: an override entry keeps its comment when the
+        // freshly-extracted template carries none.
+        Catalog template = MakeCatalog("en", Entry("home", "Hello", Fp("Hello")));
+        Catalog existing = MakeCatalog(
+            "en",
+            Entry("home", "Howdy", Fp("Home"), "Howdy", TranslationState.Translated) with { Comment = "hand-kept note" });
+
+        CatalogEntry entry = Single(Reconciler.ReconcileSource(template, existing));
+
+        Assert.Equal("hand-kept note", entry.Comment);
+    }
+
     private static CatalogEntry Entry(
         string key,
         string source,

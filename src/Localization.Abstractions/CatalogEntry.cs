@@ -24,8 +24,9 @@ public sealed record CatalogEntry
     public string? TranslatedMessage { get; init; }
 
     /// <summary>
-    /// The developer-facing comment extracted from source (the gettext <c>#.</c> extracted comment, the
-    /// ARB <c>description</c>, the XLIFF <c>note</c>). Refreshed from the template on reconciliation.
+    /// The developer-facing comment authored beside the string in source (the gettext <c>#.</c> extracted comment,
+    /// the ARB <c>description</c>, the XLIFF <c>note</c>). Refreshed from the template on reconciliation when the
+    /// source scan found one; otherwise the existing comment is preserved, so a source-less extract never wipes it.
     /// </summary>
     public string? Comment { get; init; }
 

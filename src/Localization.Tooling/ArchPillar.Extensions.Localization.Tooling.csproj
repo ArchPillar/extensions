@@ -31,6 +31,9 @@
   <ItemGroup>
     <!-- IL reading for assembly-based extraction (Decision D-K). Tool-only; the runtime stays dependency-free. -->
     <PackageReference Include="Mono.Cecil" />
+    <!-- Syntax-only C# parsing to recover in-paren translation comments from source (no Workspaces/MSBuild, no
+         semantic model). Tool-only, like Mono.Cecil — never in a consumer's product. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
     <!-- CLI command framework + rich terminal output. Tool-only, like Mono.Cecil — never in a consumer's product. -->
     <PackageReference Include="Spectre.Console.Cli" />
   </ItemGroup>
@@ -38,6 +41,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.Tooling.Tests" />
     <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.EndToEnd.Tests" />
+    <InternalsVisibleTo Include="ArchPillar.Extensions.Localization.Benchmarks" />
   </ItemGroup>
 
   <ItemGroup>

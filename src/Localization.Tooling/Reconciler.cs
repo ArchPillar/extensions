@@ -88,7 +88,9 @@ internal static class Reconciler
         {
             SourceMessage = source.SourceMessage,
             TranslatedMessage = onDisk,
-            Comment = source.Comment,
+            // Preserve the existing comment when the template has none (see Merge) so a source-less extract never
+            // wipes it; when the scan found one, it wins.
+            Comment = string.IsNullOrEmpty(source.Comment) ? existing.Comment : source.Comment,
             // Preserve existing references when the template has none (see Merge) so a re-extract never wipes them.
             References = source.References.Count > 0 ? source.References : existing.References,
             Placeholders = source.Placeholders,
@@ -138,7 +140,11 @@ internal static class Reconciler
             // recover source locations, so overwriting would wipe references a translator (or an earlier
             // syntax-aware extraction) added. When the template does carry references, they win.
             References = source.References.Count > 0 ? source.References : current.References,
-            Comment = source.Comment,
+            // Keep the target's existing comment when the template carries none: comments are scanned from source
+            // (never the binary), so a source-less extract — a CI/pathmap build, a stripped or absent PDB — yields
+            // a null comment that must not wipe a comment already in this git-tracked catalog. When the scan found
+            // one, it wins.
+            Comment = string.IsNullOrEmpty(source.Comment) ? current.Comment : source.Comment,
             Placeholders = source.Placeholders,
             SourceFingerprint = source.SourceFingerprint,
             // Record the prior source on drift so a translator can diff; never blank the translation. ARB

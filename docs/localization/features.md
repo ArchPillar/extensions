@@ -483,6 +483,23 @@ The `dotnet apl` tool turns the emitted template into per-language files (`add`,
 `sync --check` as a CI gate) and merges them at publish time. Nothing touches a translator's files as
 a build side effect.
 
+### Translator comments
+
+Give a translator context by writing a comment **inside the argument list**, beside the string — in a
+call, an indexer, or a display annotation:
+
+```csharp
+loc.Translate("post.submit", "Post" /* the submit button, a verb */);
+[Display(Name = "Active" /* the running state */)]
+```
+
+Extraction carries it into every catalog as the format's translator comment (XLIFF `<note>`, ARB
+`description`, Portable Object `#.`), so it shows up beside the string in any translation tool. The note is
+recovered by scanning source (comments are not in the compiled assembly), so it **never ships in your
+binary**; a comment on the line *above* a call is ordinary code commentary and is not extracted; and when a
+build cannot see source (a `/pathmap` CI build), `sync` keeps a note already in the catalog rather than
+dropping it.
+
 ## Display annotations — DataAnnotations and enums
 
 `[DisplayName]`, `[Display(Name = …)]`, `[Display(Description = …)]`, and `[Description]` carry genuine
