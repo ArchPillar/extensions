@@ -171,25 +171,15 @@ internal static class Reconciler
         return index;
     }
 
+    // Entries are ordered by their category-qualified identity alone — never by a source reference. Identity is
+    // the one property of an entry that does not move when code does: ordering by file would let moving a call to
+    // another file reshuffle the whole catalog, turning an unrelated edit into a wholesale diff of a git-tracked
+    // artifact.
     private static List<CatalogEntry> Ordered(IReadOnlyList<CatalogEntry> entries)
     {
         var ordered = new List<CatalogEntry>(entries);
-        ordered.Sort(static (left, right) => CompareReference(left, right));
+        ordered.Sort(static (left, right) => string.CompareOrdinal(Composite(left), Composite(right)));
         return ordered;
-    }
-
-    private static int CompareReference(CatalogEntry left, CatalogEntry right)
-    {
-        SourceReference? leftReference = left.References.Count > 0 ? left.References[0] : null;
-        SourceReference? rightReference = right.References.Count > 0 ? right.References[0] : null;
-        var byPath = string.CompareOrdinal(leftReference?.FilePath ?? string.Empty, rightReference?.FilePath ?? string.Empty);
-        if (byPath != 0)
-        {
-            return byPath;
-        }
-
-        var byLine = (leftReference?.Line ?? 0).CompareTo(rightReference?.Line ?? 0);
-        return byLine != 0 ? byLine : string.CompareOrdinal(left.Key, right.Key);
     }
 
     // Identity includes the category: the same key under two categories is two distinct entries (matching

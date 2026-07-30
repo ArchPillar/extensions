@@ -4,6 +4,7 @@
     <group id="g798d3dbf1a76ebd7" name="Acme.Greeting.Greeter">
       <unit id="u00798bdea92033eb" name="greeting">
         <notes>
+          <note category="reference">Greeter.cs</note>
           <note category="fingerprint">87566760931a5ef4989d26b03391c56d</note>
         </notes>
         <segment state="translated" subState="archpillar:Translated">
@@ -15,6 +16,7 @@
     <group id="g701ed815a1485ea4" name="Acme.Greeting.Validator">
       <unit id="udc05cd5e117eb225" name="required">
         <notes>
+          <note category="reference">Validator.cs</note>
           <note category="fingerprint">d00e5b6dc60676f34834e27157b430e3</note>
         </notes>
         <segment state="translated" subState="archpillar:Translated">

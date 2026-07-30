@@ -50,6 +50,13 @@ in the built assembly), so it needs the project's source present at extract time
 isn't there (a `/pathmap` CI build), `sync` **keeps** any comment already in the file rather than
 dropping it. Comments on the line *above* a call are not extracted — write the note in the parens.
 
+**Source references.** Entries also carry the **files** the string is used in (gettext `#:`, XLIFF
+`<note category="reference">`), read from the PDB and recorded project-relative. Files, not lines —
+the catalog is git-tracked and rewritten every build, so line numbers would churn it constantly, and
+a translator has no source tree to look a line up in. Blazor `.razor` components resolve correctly;
+MVC/Razor Pages `.cshtml` markup expressions and display annotations have no debug location and get
+no reference. No PDB simply means no references, and existing ones are preserved.
+
 ## Delivery and deployment
 
 - **Files (default).** Catalogs copy to `Translations/<Assembly>.<culture>.<ext>`; the store reads

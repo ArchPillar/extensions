@@ -3,6 +3,7 @@
   <file id="MigrationSample">
     <unit id="ua2c1314ac7b676b2" name="Migration complete.">
       <notes>
+        <note category="reference">Program.cs</note>
         <note category="fingerprint">d57c5c154b1e13cd64270de73a941c6d</note>
       </notes>
       <segment state="initial" subState="archpillar:NeedsTranslation">
@@ -12,6 +13,7 @@
     <group id="g49a49af7706c577d" name="MigrationSample.Greeting">
       <unit id="uf4af31709f05fe30" name="Goodbye">
         <notes>
+          <note category="reference">Program.cs</note>
           <note category="fingerprint">c015ad6ddaf8bb50689d2d7cbf1539df</note>
         </notes>
         <segment state="initial" subState="archpillar:NeedsTranslation">
@@ -20,6 +22,7 @@
       </unit>
       <unit id="u23d1e83c41b5ca7a" name="Help">
         <notes>
+          <note category="reference">Program.cs</note>
           <note category="fingerprint">b79cac926e0b2e347e72cc91d5174037</note>
         </notes>
         <segment state="initial" subState="archpillar:NeedsTranslation">
@@ -28,6 +31,7 @@
       </unit>
       <unit id="u32abc27bd2973cdc" name="Welcome">
         <notes>
+          <note category="reference">Program.cs</note>
           <note category="fingerprint">0e2226b5235f0ff94a276eb4d07a3bfe</note>
         </notes>
         <segment state="translated" subState="archpillar:Translated">

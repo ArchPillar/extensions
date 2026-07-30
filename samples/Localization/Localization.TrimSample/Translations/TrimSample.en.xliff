@@ -3,6 +3,7 @@
   <file id="TrimSample">
     <unit id="u26b20b3cf8da6ffb" name="fromMain">
       <notes>
+        <note category="reference">Program.cs</note>
         <note category="fingerprint">a70ec653e7015afadd8d0a5270e6db81</note>
       </notes>
       <segment state="initial" subState="archpillar:NeedsTranslation">
@@ -11,6 +12,7 @@
     </unit>
     <unit id="u558a184b2cf450fd" name="fromSatellite">
       <notes>
+        <note category="reference">Program.cs</note>
         <note category="fingerprint">6c6378b7e783f6a78a5eb1ad6d9fefd2</note>
       </notes>
       <segment state="initial" subState="archpillar:NeedsTranslation">

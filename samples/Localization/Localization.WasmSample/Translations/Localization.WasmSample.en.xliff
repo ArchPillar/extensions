@@ -3,6 +3,7 @@
   <file id="Localization.WasmSample">
     <unit id="u9038a78c9d27d279" name="home.title">
       <notes>
+        <note category="reference">Pages/Home.razor</note>
         <note category="fingerprint">94835ea2fcf775cd77cb9c9cee01b5cb</note>
       </notes>
       <segment state="initial" subState="archpillar:NeedsTranslation">
@@ -11,6 +12,7 @@
     </unit>
     <unit id="u2162200347870e0b" name="inbox.count">
       <notes>
+        <note category="reference">Pages/Home.razor</note>
         <note category="fingerprint">d8acd899155c6f68a445830e8e4bf278</note>
       </notes>
       <segment state="initial" subState="archpillar:NeedsTranslation">
@@ -20,6 +22,7 @@
     <group id="gf49c3e944604c72b" name="Localization.WasmSample.Pages.Home">
       <unit id="u9684ffcc22b8166f" name="inbox.summary">
         <notes>
+          <note category="reference">Pages/Home.razor</note>
           <note category="fingerprint">4e3f70441d707ef98aa1fa347563eb09</note>
         </notes>
         <segment state="initial" subState="archpillar:NeedsTranslation">

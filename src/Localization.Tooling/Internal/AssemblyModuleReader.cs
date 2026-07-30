@@ -1,4 +1,5 @@
 using Mono.Cecil;
+using Mono.Cecil.Cil;
 
 namespace ArchPillar.Extensions.Localization.Tooling.Internal;
 
@@ -22,12 +23,22 @@ internal sealed class AssemblyModuleReader : IDisposable
     /// Reads the module at <paramref name="assemblyPath"/>. The assembly's own directory is added as a probe path
     /// first, since resolving a call target to its definition (to read its parameter attributes) needs the
     /// referenced ArchPillar assemblies that sit beside it in a real build output.
+    /// <para>
+    /// Symbols are read when a PDB is present, so a call site can be attributed to the source file it was written
+    /// in (<see cref="CatalogEntry.References"/>). A missing or stripped PDB is not an error — the read succeeds
+    /// with <c>HasSymbols</c> false and the scan simply recovers no file references.
+    /// </para>
     /// </summary>
     public ModuleDefinition Read(string assemblyPath)
     {
         var fullPath = Path.GetFullPath(assemblyPath);
         AddSearchDirectory(Path.GetDirectoryName(fullPath)!);
-        return ModuleDefinition.ReadModule(fullPath, new ReaderParameters { AssemblyResolver = _resolver });
+        return ModuleDefinition.ReadModule(fullPath, new ReaderParameters
+        {
+            AssemblyResolver = _resolver,
+            ReadSymbols = true,
+            SymbolReaderProvider = new DefaultSymbolReaderProvider(throwIfNoSymbol: false)
+        });
     }
 
     /// <summary>Every type in the module, including nested types, depth-first.</summary>

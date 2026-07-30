@@ -500,6 +500,20 @@ binary**; a comment on the line *above* a call is ordinary code commentary and i
 build cannot see source (a `/pathmap` CI build), `sync` keeps a note already in the catalog rather than
 dropping it.
 
+### Source references
+
+Each entry also records the **files** its string is used in — the gettext `#:` channel (XLIFF
+`<note category="reference">`, ARB metadata), so a translator can see that a string lives in
+`Components/Pages/Checkout.razor` rather than guessing from the key. Paths are project-relative, so the catalog
+is identical on every machine.
+
+Deliberately **files, not lines**: the catalog is a git-tracked artifact rewritten on every build, so line
+numbers would churn it on any edit that shifts a line — and a translator, who has no source tree, cannot use a
+line anyway. Blazor `.razor` components resolve correctly; MVC/Razor Pages `.cshtml` markup expressions and
+display annotations carry no debug location and so get no reference. A reference already in the file (including
+a `file:line` one imported from a foreign PO catalog) is preserved, never overwritten by an extract that found
+none.
+
 ## Display annotations — DataAnnotations and enums
 
 `[DisplayName]`, `[Display(Name = …)]`, `[Display(Description = …)]`, and `[Description]` carry genuine

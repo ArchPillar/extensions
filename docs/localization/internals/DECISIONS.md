@@ -262,7 +262,9 @@ among them), and arguments that the generator never saw.
   `TypeRef`/`MemberRef` tables.
 - Implementation surface: (1) stack-aware association of constant operands to each call; (2) the category from
   the `ILocalizer<T>`/`IStringLocalizer<T>` generic instantiation in metadata; (3) source locations from the
-  PDB (Razor's `#line` maps sequence points back to the `.razor`); (4) identify translate methods by their
+  PDB — **for Blazor components only**; see the correction in D-N, which implemented this: Razor's `#line`
+  does map a `.razor` component's sequence points back to the component, but an MVC/Razor Pages `.cshtml`
+  markup expression gets no usable sequence point at all; (4) identify translate methods by their
   `[Translatable]`/`[TranslationDefault]` parameter attributes, so any wrapper works, not hard-coded names.
 
 This is a sizeable engine and is tracked as its own work item; it does not change the `extract` command's
@@ -339,6 +341,45 @@ This **supersedes** the `[TranslationComment]` attribute in spec 01 and the "lea
 spec 00 (which was never implemented); the `Comment` field and the formats' comment channels (spec 03) are
 unchanged — only where the comment *comes from* changed. The scan cost is linear and small — roughly 60 µs per source file, so a
 1,000-file project scans in ~60 ms, a rounding error against a build (benchmarked in `Localization.Benchmarks`).
+
+### D-N — Source references record the *files* a string is used in, never the lines.
+`CatalogEntry.References` and all three formats' reference channels shipped from the start, but nothing ever
+produced into them — the "plumbed but never filled" smell. D-K item (3) planned to fill them from the PDB. Two
+findings shaped how:
+
+**The Razor claim is half true.** Probing the samples' PDBs directly: a **Blazor** component's translatable
+calls resolve to the `.razor` itself with exact lines (`Components/Pages/Home.razor`), because that generator
+wraps whole statements in a `#line` span mapping back to the component. An **MVC/Razor Pages `.cshtml`** markup
+expression does not: the view type's methods carry an empty sequence-point blob, and reading *through* the
+hidden points around the generated writer produces a **wrong** line. So the producer stops at a hidden sequence
+point and emits nothing — for a generated view, no attribution beats a confident lie. D-K item (3) is amended
+accordingly. (A call never carries a sequence point of its own — points sit at statement starts — so the
+governing one is always the nearest preceding by IL offset.)
+
+**Line numbers cannot live in this catalog.** The catalog is git-tracked (D-L) and rewritten by `extract` on
+every build, `sync --check` compares it byte-for-byte in CI, and entry order was itself derived from the first
+reference. Line-bearing references would therefore turn *any* edit that shifts a line into a catalog rewrite
+across every language, and could fail the CI gate on pure line drift. The value lost is small: a translator
+receives the catalog **without the source tree**, so a line number is dead weight to them, while the file
+("Pages/Checkout.razor") is real context; a developer greps the symbolic key. gettext reached the same place
+from the same pressure — `--add-location=file`.
+
+**Decision:** references are recorded as the **project-relative file path only**, `/`-separated, sorted and
+deduplicated, unioned across every call site of a `(category, key)`. Consequences:
+
+- Symbols are read with `throwIfNoSymbol: false`; a missing or stripped PDB is not an error, it just yields no
+  references. A path that will not relativize against the project root (a deterministic `/pathmap` build, a
+  loose `--assembly`) is **dropped rather than recorded absolute** — a machine-specific path would make the
+  catalog differ per checkout.
+- The reconciler **preserves** existing references when the template carries none (the rule already in place for
+  comments), so a source-less or PDB-less extract never wipes them — including `file:line` references imported
+  from a foreign PO file, which round-trip untouched.
+- **Entry ordering no longer depends on references** (it is the category-qualified identity alone). Ordering by
+  file would let moving a call to another file reshuffle the whole catalog.
+- Annotations (`[Display]`, `[DisplayName]`, the `[Localized…]` twins) get **no** references: a field or an
+  attribute application has no debug location at all — the same wall D-M hit for annotation comments.
+
+Reading symbols costs well under a millisecond per assembly, so D-K's "tens of milliseconds" claim stands.
 
 ## What is unchanged from the specs
 
