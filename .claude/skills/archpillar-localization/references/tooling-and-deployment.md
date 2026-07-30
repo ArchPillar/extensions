@@ -15,7 +15,7 @@ project) in the current directory.
 
 | Command | Purpose |
 | --- | --- |
-| `dotnet apl status` | Translation coverage — how much of the app is translated (and, before any language exists, which assemblies have strings). `--detail overall\|language\|project\|matrix` chooses how far it aggregates; default `project` |
+| `dotnet apl status` | Translation coverage — how much of the app is translated (and, before any language exists, which assemblies have strings). `--detail overall\|language\|project\|matrix` chooses how far it aggregates; default `overall` |
 | `extract` | Emit the source-language catalog (`{Assembly}.en.xliff`). **Runs automatically after each real build** when the package is referenced |
 | `add <culture>` | Create a target file (`{Assembly}.<culture>.xliff`), every entry `NeedsTranslation` |
 | `sync` | Reconcile every language file after code changes; **`sync --check` is the CI gate** |

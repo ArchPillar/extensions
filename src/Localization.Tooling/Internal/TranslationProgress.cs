@@ -69,7 +69,7 @@ internal sealed record TranslationProgressRow(string Project, string Culture, Tr
 /// <summary>How much of the status report to show: the whole app, per language, per project, or every pair.</summary>
 internal enum StatusDetail
 {
-    /// <summary>One line for the whole app, across every project and language.</summary>
+    /// <summary>One line for the whole app, across every project and language. The default — the headline number.</summary>
     Overall,
 
     /// <summary>One row per target language, across every project.</summary>

@@ -144,7 +144,7 @@ dotnet apl sync                                # reconcile all languages after c
 | Number outside a message | `x.ToLocalizedString("::currency/USD")` (`using …MessageFormat;`) | Same engine/syntax; defaults to `CurrentUICulture` |
 | Mark a non-localizer string | `L("text")` (`using static …TranslationMarkers;`) | Extracts an exception/log literal; no runtime change |
 | Note for a translator | inline comment in the parens: `Translate("k", "d" /* note */)`, or `[Display(Name = "…" /* note */)]` | Extracted to PO `#.` / ARB `description` / XLIFF `<note>`; write it **beside the string, inside the parens** — a comment on the line *above* is not extracted. Never in the binary |
-| How translated are we? | `dotnet apl status --detail overall\|language\|project\|matrix` | Same measurement, four aggregations (default `project`); `Final` counts as translated, `NeedsReview` is its own column |
+| How translated are we? | `dotnet apl status --detail overall\|language\|project\|matrix` | Same measurement, four aggregations (default `overall`); `Final` counts as translated, `NeedsReview` is its own column |
 | Configure | `Localizer.Initialize(new LocalizerOptions { SourceCulture = "en", TranslationsDirectory = "Translations" })` | One options surface; add `eager: true` to load at startup (else lazy on first use) |
 | DI registration | `services.AddArchPillarLocalization(options)` | `…DependencyInjection` package; chain `.AddArchPillarLocalizedBundles()` |
 | Isolated / test scope | `new LocalizationContext(options)` or `Localizer.Ambient.Reset()` | Context shares nothing with the ambient store |

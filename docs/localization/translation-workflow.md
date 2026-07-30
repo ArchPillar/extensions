@@ -187,9 +187,9 @@ dotnet apl sync --solution App.sln --check
 project's extracted template, and `--detail` chooses only how far the result is aggregated before it is shown:
 
 ```bash
-dotnet apl status --solution App.sln --detail overall    # one line for the whole app
+dotnet apl status --solution App.sln                     # one line for the whole app (the default)
 dotnet apl status --solution App.sln --detail language   # one row per language
-dotnet apl status --solution App.sln --detail project    # one row per project (the default)
+dotnet apl status --solution App.sln --detail project    # one row per project
 dotnet apl status --solution App.sln --detail matrix     # every project × language pair
 ```
 

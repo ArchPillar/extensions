@@ -18,7 +18,7 @@ internal sealed class StatusCommand : AsyncCommand<StatusCommand.Settings>
     internal sealed class Settings : AuthoringScopeSettings
     {
         [CommandOption("--detail <LEVEL>")]
-        [Description("How far to aggregate: overall, language, project (default), or matrix.")]
+        [Description("How far to aggregate: overall (default), language, project, or matrix.")]
         public string? Detail { get; init; }
     }
 
@@ -80,21 +80,23 @@ internal sealed class StatusCommand : AsyncCommand<StatusCommand.Settings>
         return 0;
     }
 
+    // The default is the headline number — "how much of the app is translated?" — which is the question status is
+    // usually asked. The narrower levels say where the remainder is.
     private static StatusDetail ParseDetail(string? detail) => detail?.ToLowerInvariant() switch
     {
-        null or "" or "project" => StatusDetail.Project,
-        "overall" => StatusDetail.Overall,
+        null or "" or "overall" => StatusDetail.Overall,
         "language" => StatusDetail.Language,
+        "project" => StatusDetail.Project,
         "matrix" => StatusDetail.Matrix,
         _ => throw new ArgumentException($"Unknown detail level '{detail}'. Use overall, language, project, or matrix.")
     };
 
     private static Table Render(StatusDetail detail, List<TranslationProgressRow> rows, Dictionary<string, int> stringsByProject) => detail switch
     {
-        StatusDetail.Overall => Overall(rows, stringsByProject),
         StatusDetail.Language => ByLanguage(rows),
+        StatusDetail.Project => ByProject(rows, stringsByProject),
         StatusDetail.Matrix => Matrix(rows),
-        _ => ByProject(rows, stringsByProject)
+        _ => Overall(rows, stringsByProject)
     };
 
     // One line for the whole app. The total is translation *units* — every string once per language — since that

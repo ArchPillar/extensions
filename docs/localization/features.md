@@ -487,7 +487,7 @@ a build side effect.
 
 `dotnet apl status` reports how much of the app is translated. Each project's catalogs are measured against
 that project's template, and `--detail` chooses how far the result is aggregated — `overall` (one line for the
-app), `language`, `project` (the default), or `matrix` (every project × language pair):
+app — the default), `language`, `project`, or `matrix` (every project × language pair):
 
 ```bash
 dotnet apl status --solution App.sln --detail language
