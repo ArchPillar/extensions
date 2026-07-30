@@ -211,6 +211,36 @@ public sealed class PoTranslationFormatTests
     }
 
     [Fact]
+    public async Task Write_ReferenceWithoutALine_EmitsTheBarePathAsync()
+    {
+        // Extraction records the files a string is used in, not the lines, so the reference is written as gettext's
+        // path-only form and reads back unchanged.
+        var catalog = new Catalog
+        {
+            Culture = "de",
+            Entries =
+            [
+                new CatalogEntry
+                {
+                    Key = "k",
+                    SourceMessage = "src",
+                    TranslatedMessage = "t",
+                    References = [new SourceReference("Components/Pages/Home.razor", 0, 0)],
+                    SourceFingerprint = "f"
+                }
+            ]
+        };
+
+        var text = Encoding.UTF8.GetString(await WriteAsync(catalog));
+        Assert.Contains("#: Components/Pages/Home.razor\n", text, StringComparison.Ordinal);
+
+        Catalog roundTripped = await RoundTripAsync(catalog);
+        Assert.Equal(
+            new SourceReference("Components/Pages/Home.razor", 0, 0),
+            Assert.Single(Assert.Single(roundTripped.Entries).References));
+    }
+
+    [Fact]
     public void Read_MultipleReferencesOnOneLine_ParsesEach()
     {
         const string Po = """

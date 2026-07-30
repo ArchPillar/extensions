@@ -270,6 +270,43 @@ public sealed class ReconcilerTests
     }
 
     [Fact]
+    public void Reconcile_TemplateWithoutReferences_PreservesTheExistingOnes()
+    {
+        // A PO file authored elsewhere carries file:line references; an extract that could not attribute the call
+        // (no PDB, a generated view) must not drop them.
+        Catalog template = MakeCatalog("en", Entry("home", "Home", "fp1"));
+        Catalog target = MakeCatalog(
+            "de",
+            Entry("home", "Home", "fp1", "Startseite", TranslationState.Translated) with
+            {
+                References = [new SourceReference("Home.cs", 12, 5)]
+            });
+
+        CatalogEntry entry = Single(Reconciler.Reconcile(template, target));
+
+        Assert.Equal(new SourceReference("Home.cs", 12, 5), Assert.Single(entry.References));
+    }
+
+    [Fact]
+    public void Reconcile_TemplateWithReferences_ReplacesTheExistingOnes()
+    {
+        Catalog template = MakeCatalog("en", Entry("home", "Home", "fp1") with
+        {
+            References = [new SourceReference("Ui/Home.razor", 0, 0)]
+        });
+        Catalog target = MakeCatalog(
+            "de",
+            Entry("home", "Home", "fp1", "Startseite", TranslationState.Translated) with
+            {
+                References = [new SourceReference("Old.cs", 3, 1)]
+            });
+
+        CatalogEntry entry = Single(Reconciler.Reconcile(template, target));
+
+        Assert.Equal(new SourceReference("Ui/Home.razor", 0, 0), Assert.Single(entry.References));
+    }
+
+    [Fact]
     public void Reconcile_TemplateWithoutComment_PreservesTheExistingComment()
     {
         // A source-less extract (CI/pathmap build, stripped or absent PDB) yields a null comment; it must not wipe

@@ -25,13 +25,22 @@ internal static class ScopeRunner
         {
             using var extractor = new AssemblyStringExtractor();
             // Translation comments cannot be read from the binary, so scan the project's source once per root and
-            // reuse it for every assembly it built (multi-targeting produces several).
+            // reuse it for every assembly it built (multi-targeting produces several). The same root is what file
+            // references are recorded relative to, so the catalog carries no machine-specific path.
             var commentsByRoot = new Dictionary<string, CommentIndex>(StringComparer.OrdinalIgnoreCase);
             foreach (var path in ScopeResolver.Resolve(scope))
             {
                 var name = Path.GetFileNameWithoutExtension(path);
                 ToolConsole.Status(ctx, $"{verb} {name}…");
-                Catalog? template = TemplateBuilder.Build(extractor, path, settings.Source, CommentsFor(path, commentsByRoot), settings.IncludeAnnotations);
+                var root = CatalogDirectoryResolver.ProjectRootOf(path);
+                // References are opt-in (--references): with no root to record them against, none are recorded.
+                Catalog? template = TemplateBuilder.Build(
+                    extractor,
+                    path,
+                    settings.Source,
+                    CommentsFor(root, commentsByRoot),
+                    settings.IncludeReferences ? root : null,
+                    settings.IncludeAnnotations);
                 if (template is not null)
                 {
                     await perAssembly(name, flat ?? CatalogDirectoryResolver.CatalogDirectoryFor(path, scope, settings.CatalogFolder), template);
@@ -42,9 +51,8 @@ internal static class ScopeRunner
 
     // The comments scanned from the assembly's project source, one scan per project root shared across its
     // assemblies. An assembly with no project tree (a loose --assembly/--input path) has no source root to scan.
-    private static CommentIndex CommentsFor(string assemblyPath, Dictionary<string, CommentIndex> cache)
+    private static CommentIndex CommentsFor(string? root, Dictionary<string, CommentIndex> cache)
     {
-        var root = CatalogDirectoryResolver.ProjectRootOf(assemblyPath);
         if (root is null)
         {
             return CommentIndex.Empty;

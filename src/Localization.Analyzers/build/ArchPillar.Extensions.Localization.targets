@@ -18,12 +18,17 @@
          set ArchPillarLocalizationExtractAnnotations=false, leaving only the in-code call sites in the template. -->
     <PropertyGroup>
       <_ArchPillarExtractAnnotationsArg Condition="'$(ArchPillarLocalizationExtractAnnotations)' == 'false'">--no-annotations</_ArchPillarExtractAnnotationsArg>
+      <!-- Opt IN to source-file references (which files each string is used in) with
+           ArchPillarLocalizationExtractReferences=true. Off by default: a reference is a convenience for
+           translators, not part of a string's identity, and it ties this git-tracked catalog to where the code
+           happens to live — moving a call then rewrites the catalog for every language. Needs a PDB. -->
+      <_ArchPillarExtractReferencesArg Condition="'$(ArchPillarLocalizationExtractReferences)' == 'true'">--references</_ArchPillarExtractReferencesArg>
     </PropertyGroup>
     <!-- The tool's output option, not its catalog-path option: this target already runs once per project and
          NormalizePath has resolved ArchPillarLocalizationCatalogPath to one exact directory, so there is nothing
          left for the tool to scope. The catalog-path option is for the tool discovering a scope itself; here
          MSBuild has already done that. -->
-    <Exec Command="$(ArchPillarLocalizationToolCommand) extract --assembly &quot;$(TargetPath)&quot; --output &quot;$([MSBuild]::NormalizePath('$(ArchPillarLocalizationCatalogPath)'))&quot; --source $(ArchPillarLocalizationSourceLanguage) --format $(ArchPillarLocalizationFormat) $(_ArchPillarExtractAnnotationsArg)"
+    <Exec Command="$(ArchPillarLocalizationToolCommand) extract --assembly &quot;$(TargetPath)&quot; --output &quot;$([MSBuild]::NormalizePath('$(ArchPillarLocalizationCatalogPath)'))&quot; --source $(ArchPillarLocalizationSourceLanguage) --format $(ArchPillarLocalizationFormat) $(_ArchPillarExtractAnnotationsArg) $(_ArchPillarExtractReferencesArg)"
           ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)"
           StandardOutputImportance="low" />
   </Target>

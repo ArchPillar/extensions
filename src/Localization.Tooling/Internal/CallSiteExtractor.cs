@@ -76,7 +76,7 @@ internal sealed class CallSiteExtractor
             {
                 var argCount = target.Parameters.Count + (target.HasThis ? 1 : 0);
                 IReadOnlyList<Slot> args = Pop(stack, argCount);
-                Recognize(target, args, sites, bindings);
+                Recognize(target, args, sites, bindings, method, instruction);
                 if (target.ReturnType.FullName != "System.Void")
                 {
                     stack.Add(new Slot(null, target.ReturnType));
@@ -107,7 +107,13 @@ internal sealed class CallSiteExtractor
         }
     }
 
-    private static void Recognize(MethodReference target, IReadOnlyList<Slot> args, List<RawCallSite> sites, Dictionary<string, Binding?> bindings)
+    private static void Recognize(
+        MethodReference target,
+        IReadOnlyList<Slot> args,
+        List<RawCallSite> sites,
+        Dictionary<string, Binding?> bindings,
+        MethodDefinition method,
+        Instruction instruction)
     {
         var receiver = target.HasThis ? 1 : 0; // arg 0 is the localizer instance for an instance call
 
@@ -118,7 +124,7 @@ internal sealed class CallSiteExtractor
             && args.Count >= receiver + 1
             && args[receiver].Constant is { } name)
         {
-            sites.Add(new RawCallSite(name, name, CategoryOf(args, receiver)));
+            sites.Add(new RawCallSite(name, name, CategoryOf(args, receiver), FileOf(method, instruction)));
             return;
         }
 
@@ -138,8 +144,39 @@ internal sealed class CallSiteExtractor
 
         if (ConstantAt(args, receiver, binding.KeyIndex) is { } key && ConstantAt(args, receiver, binding.DefaultIndex) is { } def)
         {
-            sites.Add(new RawCallSite(key, def, CategoryOf(args, receiver)));
+            sites.Add(new RawCallSite(key, def, CategoryOf(args, receiver), FileOf(method, instruction)));
         }
+    }
+
+    // The source file a call was written in, from the sequence point in effect at it, or null when the PDB cannot
+    // attribute it. A call instruction never carries a sequence point of its own — points sit at statement starts —
+    // so the governing one is the nearest preceding by IL offset.
+    //
+    // A hidden point (0xFEEFEE) means "this IL maps to no source", which is exactly what a Razor/MVC view emits
+    // around the code it generates between markup expressions. Reading through it to an earlier point would
+    // attribute the call to an unrelated line, so a hidden point yields no reference at all: for a generated view,
+    // no attribution is correct where a guess would be wrong. Blazor components, whose generator maps whole
+    // statements back to the .razor, resolve cleanly through this path.
+    private static string? FileOf(MethodDefinition method, Instruction instruction)
+    {
+        MethodDebugInformation debug = method.DebugInformation;
+        if (debug?.HasSequencePoints != true)
+        {
+            return null;
+        }
+
+        SequencePoint? governing = null;
+        foreach (SequencePoint point in debug.SequencePoints)
+        {
+            if (point.Offset > instruction.Offset)
+            {
+                break;
+            }
+
+            governing = point;
+        }
+
+        return governing?.IsHidden == false ? governing.Document?.Url : null;
     }
 
     // The translation binding for a distinct method, computed once and cached (null = not a translation method).
