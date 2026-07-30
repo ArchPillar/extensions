@@ -118,11 +118,13 @@ public sealed class ReferenceExtractionTests : IDisposable
     }
 
     [Fact]
-    public void Extract_NoSourceRoot_DropsTheReference()
+    public void Extract_ReferencesNotOptedIn_RecordsNone()
     {
+        // References are opt-in (--references / ArchPillarLocalizationExtractReferences): with no root to record
+        // them against, none are recorded, even though the PDB could attribute every call.
         var assembly = Compile(withPdb: true, ("Ui/Banner.cs", Banner("home.title", "Home")));
 
-        CatalogEntry entry = Single(BuildTemplateWithRoot(assembly, sourceRoot: null));
+        CatalogEntry entry = Single(BuildTemplateWithRoot(assembly, referenceRoot: null));
 
         Assert.Empty(entry.References);
     }
@@ -163,11 +165,11 @@ public sealed class ReferenceExtractionTests : IDisposable
 
     private Catalog BuildTemplate(string assemblyPath) => BuildTemplateWithRoot(assemblyPath, _root);
 
-    private static Catalog BuildTemplateWithRoot(string assemblyPath, string? sourceRoot)
+    private static Catalog BuildTemplateWithRoot(string assemblyPath, string? referenceRoot)
     {
         using var extractor = new AssemblyStringExtractor();
         return Assert.IsType<Catalog>(
-            TemplateBuilder.Build(extractor, assemblyPath, "en", comments: null, sourceRoot: sourceRoot));
+            TemplateBuilder.Build(extractor, assemblyPath, "en", comments: null, referenceRoot: referenceRoot));
     }
 
     private static CatalogEntry Single(Catalog catalog) => Assert.Single(catalog.Entries);

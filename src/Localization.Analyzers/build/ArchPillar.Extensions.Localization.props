@@ -28,6 +28,11 @@
          [Description] and the [Localized…] twins) are genuine display values, so they are extracted by default.
          Set false to opt out, leaving only the in-code call sites in the template. -->
     <ArchPillarLocalizationExtractAnnotations Condition="'$(ArchPillarLocalizationExtractAnnotations)' == ''">true</ArchPillarLocalizationExtractAnnotations>
+    <!-- Record which source files each string is used in (the gettext #: channel), read from the PDB. OFF by
+         default, opted into per project: a reference helps a translator but is not part of a string's identity,
+         and it ties this git-tracked catalog to where the code happens to live — moving a call would then rewrite
+         the catalog for every language. Set true when the file context is worth that to your translators. -->
+    <ArchPillarLocalizationExtractReferences Condition="'$(ArchPillarLocalizationExtractReferences)' == ''">false</ArchPillarLocalizationExtractReferences>
     <!-- Template extraction runs only where the package is referenced directly (the project that authors the
          strings). Set true to also extract in a project that references the package transitively, or that wires
          these build assets in by hand (e.g. via Directory.Build) — the escape hatch. The publish-time merge

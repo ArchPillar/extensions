@@ -5,7 +5,6 @@
       <unit id="u1491dc60ac456379" name="AddHint">
         <notes>
           <note category="comment">shown under the input box; keep it brief</note>
-          <note category="reference">TodoStrings.cs</note>
           <note category="fingerprint">3a3744253f7003db96ce01697984aff6</note>
         </notes>
         <segment state="initial" subState="archpillar:NeedsTranslation">
@@ -14,7 +13,6 @@
       </unit>
       <unit id="u8cd875b4dfd67c44" name="Empty">
         <notes>
-          <note category="reference">TodoStrings.cs</note>
           <note category="fingerprint">b07107ac1af673ce750ac9f861208e03</note>
         </notes>
         <segment state="initial" subState="archpillar:NeedsTranslation">
@@ -23,7 +21,6 @@
       </unit>
       <unit id="u57c016492c5527ad" name="Remaining">
         <notes>
-          <note category="reference">TodoStrings.cs</note>
           <note category="fingerprint">3b131f58788070dca6938fc1d9265c97</note>
         </notes>
         <segment state="initial" subState="archpillar:NeedsTranslation">
@@ -32,7 +29,6 @@
       </unit>
       <unit id="u75bc3218efb0ab9a" name="Title">
         <notes>
-          <note category="reference">TodoStrings.cs</note>
           <note category="fingerprint">faf87355035004de81e4e01e86b29ad5</note>
         </notes>
         <segment state="initial" subState="archpillar:NeedsTranslation">

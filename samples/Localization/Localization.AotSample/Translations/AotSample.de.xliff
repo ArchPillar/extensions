@@ -3,7 +3,6 @@
   <file id="AotSample">
     <unit id="u5f16628e72912d20" name="fromFiles">
       <notes>
-        <note category="reference">Program.cs</note>
         <note category="fingerprint">c8d03fdb304a320ec189380c6dd7faf9</note>
       </notes>
       <segment state="translated" subState="archpillar:Translated">
@@ -13,7 +12,6 @@
     </unit>
     <unit id="u9a467811aad3b542" name="fromMainEmbed">
       <notes>
-        <note category="reference">Program.cs</note>
         <note category="fingerprint">986c3c5339fdc904286060e3d5a20cf5</note>
       </notes>
       <segment state="initial" subState="archpillar:NeedsTranslation">

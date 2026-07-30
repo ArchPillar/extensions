@@ -37,9 +37,12 @@ On a real build the package's MSBuild target runs the tool's `extract` for the p
 
 A second pass, `AssemblyStringExtractor.ExtractAnnotations`, recovers display text carried by attributes rather than call sites — the strings ASP.NET model metadata and reflection consumers render. It walks the assembly's own types, properties, and fields (enum members), reading `[DisplayName]`, `[Display(Name)]`/`[Display(Description)]`, and `[Description]`; the category is the **declaring type's full name** (Cecil's `/` nested-type separator normalized to reflection's `+` so a catalog key matches the runtime lookup). The **system attribute's value is the key** — its own text in the text-as-key default, or a string id when the author prefers one — because that value is what the framework looks the string up by. An optional `[Localized…]` twin (`[LocalizedDisplayName]`, `[LocalizedDescription]`) supplies the source default for that key instead of reusing the key as its own default; with no twin, key and default are the same value. The generic `[LocalizedMessage<TValidation>]` is the validation form: its key is the `ErrorMessage` of the validator named by the type argument (skipped when that validator sets none), so a member can carry one twin per validator. Unlike the call-site pass, it does not early-out on a localizer reference — an annotated model need not touch `ILocalizer`. `TemplateBuilder.Build` folds the pass in by default (`includeAnnotations`), call sites taking precedence on a shared `(category, key)`; the consumer opts out with `ArchPillarLocalizationExtractAnnotations=false`, which passes `--no-annotations` (spec 06). The runtime counterparts that read the same attributes by reflection are the enum helper `GetLocalizedDisplayName()` (spec 05) and the ASP.NET DataAnnotations integration (the `…AspNetCore` package).
 
-### Source references (from the PDB)
+### Source references (from the PDB, opt-in)
 
-An entry records the **files** its string is used in — never the lines (Decision D-N). Symbols are read alongside
+An entry can record the **files** its string is used in — never the lines (Decision D-N). It is **off by
+default**, opted into per project with `ArchPillarLocalizationExtractReferences=true` (the tool's `--references`):
+a reference is a convenience for translators, not part of a string's identity, and it binds a git-tracked catalog
+to where the code lives. Symbols are read alongside
 the IL (`throwIfNoSymbol: false`, so a missing PDB is not an error); for each recognised call the governing
 sequence point is the nearest preceding one by IL offset, since a call instruction never carries one of its own.
 A **hidden** point (`0xFEEFEE`) yields no reference: that is what a generated view emits around the code between

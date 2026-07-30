@@ -33,8 +33,14 @@ internal static class ScopeRunner
                 var name = Path.GetFileNameWithoutExtension(path);
                 ToolConsole.Status(ctx, $"{verb} {name}…");
                 var root = CatalogDirectoryResolver.ProjectRootOf(path);
+                // References are opt-in (--references): with no root to record them against, none are recorded.
                 Catalog? template = TemplateBuilder.Build(
-                    extractor, path, settings.Source, CommentsFor(root, commentsByRoot), root, settings.IncludeAnnotations);
+                    extractor,
+                    path,
+                    settings.Source,
+                    CommentsFor(root, commentsByRoot),
+                    settings.IncludeReferences ? root : null,
+                    settings.IncludeAnnotations);
                 if (template is not null)
                 {
                     await perAssembly(name, flat ?? CatalogDirectoryResolver.CatalogDirectoryFor(path, scope, settings.CatalogFolder), template);

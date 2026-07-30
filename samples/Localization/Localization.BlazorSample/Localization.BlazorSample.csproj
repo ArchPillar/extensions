@@ -6,6 +6,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <NoWarn>$(NoWarn);IDE0005</NoWarn>
     <RootNamespace>Localization.BlazorSample</RootNamespace>
+    <!-- Opt in to source-file references (off by default) so the catalogs show which file each string comes
+         from. This sample is where that is most worth seeing: the strings are written in .razor markup, and a
+         Blazor component's sequence points map back to the component itself. -->
+    <ArchPillarLocalizationExtractReferences>true</ArchPillarLocalizationExtractReferences>
   </PropertyGroup>
 
   <ItemGroup>

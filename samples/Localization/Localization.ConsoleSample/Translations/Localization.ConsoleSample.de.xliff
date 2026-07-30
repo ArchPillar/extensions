@@ -3,7 +3,6 @@
   <file id="Localization.ConsoleSample">
     <unit id="u27aeb712cb86f2ed" name="cart.total">
       <notes>
-        <note category="reference">Program.cs</note>
         <note category="fingerprint">e397c1e75ec3fa087eca384cd882e02c</note>
       </notes>
       <segment state="translated" subState="archpillar:Translated">
@@ -13,7 +12,6 @@
     </unit>
     <unit id="uea020c0aac8ab66b" name="home.greeting">
       <notes>
-        <note category="reference">Program.cs</note>
         <note category="fingerprint">833583c574131c1ec81313e982643b9f</note>
       </notes>
       <segment state="translated" subState="archpillar:Translated">
@@ -23,7 +21,6 @@
     </unit>
     <unit id="u2162200347870e0b" name="inbox.count">
       <notes>
-        <note category="reference">Program.cs</note>
         <note category="fingerprint">d8acd899155c6f68a445830e8e4bf278</note>
       </notes>
       <segment state="translated" subState="archpillar:Translated">

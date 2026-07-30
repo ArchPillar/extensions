@@ -75,6 +75,10 @@ internal class AuthoringScopeSettings : ScopeSettings
     [Description("Extract only IL call sites, omitting the [[Localized…]] attribute strings.")]
     public bool NoAnnotations { get; init; }
 
+    [CommandOption("--references")]
+    [Description("Record the source files each string is used in (needs a PDB); off by default.")]
+    public bool References { get; init; }
+
     [CommandOption("--catalog-path <PROJECT_SUBPATH>")]
     [Description("The catalog folder inside each project (default: Translations).")]
     public string? CatalogPath { get; init; }
@@ -85,6 +89,11 @@ internal class AuthoringScopeSettings : ScopeSettings
 
     /// <summary>Whether attribute-carried strings are extracted (on unless <c>--no-annotations</c>).</summary>
     public bool IncludeAnnotations => !NoAnnotations;
+
+    /// <summary>Whether source-file references are recorded (off unless <c>--references</c>). Opt-in because a
+    /// reference is a convenience for translators, not part of a string's identity, and it ties a git-tracked
+    /// catalog to where the code happens to live: moving a call then rewrites the catalog for every language.</summary>
+    public bool IncludeReferences => References;
 
     /// <summary>
     /// The single directory every catalog is written to, or null when each project keeps its own. This is

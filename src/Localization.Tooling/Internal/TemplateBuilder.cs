@@ -18,9 +18,10 @@ internal static class TemplateBuilder
     /// assembly has no translatable strings. The <paramref name="extractor"/> is shared across a batch so its
     /// resolver and method cache are reused for every assembly in one scan. <paramref name="comments"/> carries the
     /// translation comments scanned from the project's source (empty when there is no source root); each entry's
-    /// comment is looked up by its key and default. <paramref name="sourceRoot"/> is the project directory file
-    /// references are recorded relative to; a reference outside it (or no root at all) is dropped rather than
-    /// recorded as a machine-specific absolute path. <paramref name="includeAnnotations"/> folds in strings carried
+    /// comment is looked up by its key and default. <paramref name="referenceRoot"/> is the project directory file
+    /// references are recorded relative to; a reference outside it is dropped rather than recorded as a
+    /// machine-specific absolute path, and <see langword="null"/> records no references at all (references are
+    /// opt-in). <paramref name="includeAnnotations"/> folds in strings carried
     /// by display annotations (<c>[DisplayName]</c> / <c>[Display]</c> / <c>[Description]</c> and the
     /// <c>[Localized…]</c> twins); pass <see langword="false"/> to opt out and emit only the IL call sites. IL call
     /// sites take precedence over an annotation on the same (category, key), whose file references are unioned.</summary>
@@ -29,7 +30,7 @@ internal static class TemplateBuilder
         string assemblyPath,
         string sourceLanguage,
         CommentIndex? comments = null,
-        string? sourceRoot = null,
+        string? referenceRoot = null,
         bool includeAnnotations = true)
     {
         (IReadOnlyList<RawCallSite> callSites, IReadOnlyList<RawCallSite> annotations) = extractor.Extract(assemblyPath, includeAnnotations);
@@ -54,7 +55,7 @@ internal static class TemplateBuilder
                 order.Add(identity);
             }
 
-            if (Relativize(site.File, sourceRoot) is { } file)
+            if (Relativize(site.File, referenceRoot) is { } file)
             {
                 group.Files.Add(file);
             }
@@ -83,9 +84,9 @@ internal static class TemplateBuilder
     // every machine and OS. A path that is absent, has no root to resolve against, or falls outside the project
     // (a deterministic /pathmap build, a loose --assembly, a linked file) is dropped: no reference is honest, a
     // machine-specific absolute path is not — and the reconciler preserves whatever the catalog already had.
-    private static string? Relativize(string? file, string? sourceRoot)
+    private static string? Relativize(string? file, string? referenceRoot)
     {
-        if (string.IsNullOrEmpty(file) || string.IsNullOrEmpty(sourceRoot))
+        if (string.IsNullOrEmpty(file) || string.IsNullOrEmpty(referenceRoot))
         {
             return null;
         }
@@ -95,7 +96,7 @@ internal static class TemplateBuilder
             return null;
         }
 
-        var relative = Path.GetRelativePath(sourceRoot!, file!);
+        var relative = Path.GetRelativePath(referenceRoot!, file!);
         if (Path.IsPathRooted(relative) || relative.StartsWith("..", StringComparison.Ordinal))
         {
             return null;

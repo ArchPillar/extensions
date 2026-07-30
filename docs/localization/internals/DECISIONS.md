@@ -364,8 +364,15 @@ receives the catalog **without the source tree**, so a line number is dead weigh
 ("Pages/Checkout.razor") is real context; a developer greps the symbolic key. gettext reached the same place
 from the same pressure — `--add-location=file`.
 
-**Decision:** references are recorded as the **project-relative file path only**, `/`-separated, sorted and
-deduplicated, unioned across every call site of a `(category, key)`. Consequences:
+**Decision:** references are **opt-in per project** — `ArchPillarLocalizationExtractReferences=true`, the tool's
+`--references`, **off by default** — and when on are recorded as the **project-relative file path only**,
+`/`-separated, sorted and deduplicated, unioned across every call site of a `(category, key)`.
+
+Opt-in rather than always-on because a reference is a *convenience for translators*, not part of a string's
+identity: it is the one piece of catalog content that changes when nothing about the string does. A project that
+wants the file context accepts that its catalog moves when its code moves; a project that does not, pays nothing.
+The switch lives in the `.csproj`, so it is committed and the catalog stays canonical for everyone building that
+project — not a per-machine variant. Consequences:
 
 - Symbols are read with `throwIfNoSymbol: false`; a missing or stripped PDB is not an error, it just yields no
   references. A path that will not relativize against the project root (a deterministic `/pathmap` build, a

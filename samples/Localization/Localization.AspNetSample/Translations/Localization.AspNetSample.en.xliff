@@ -3,7 +3,6 @@
   <file id="Localization.AspNetSample">
     <unit id="uea020c0aac8ab66b" name="home.greeting">
       <notes>
-        <note category="reference">Program.cs</note>
         <note category="fingerprint">833583c574131c1ec81313e982643b9f</note>
       </notes>
       <segment state="initial" subState="archpillar:NeedsTranslation">
@@ -12,7 +11,6 @@
     </unit>
     <unit id="u2162200347870e0b" name="inbox.count">
       <notes>
-        <note category="reference">Program.cs</note>
         <note category="fingerprint">d8acd899155c6f68a445830e8e4bf278</note>
       </notes>
       <segment state="initial" subState="archpillar:NeedsTranslation">
@@ -22,7 +20,6 @@
     <group id="g90920d93e2c7e632" name="Program">
       <unit id="uad99352fe73af3aa" name="inbox.summary">
         <notes>
-          <note category="reference">Program.cs</note>
           <note category="fingerprint">4e3f70441d707ef98aa1fa347563eb09</note>
         </notes>
         <segment state="initial" subState="archpillar:NeedsTranslation">

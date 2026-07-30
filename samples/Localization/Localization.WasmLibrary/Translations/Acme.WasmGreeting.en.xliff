@@ -4,7 +4,6 @@
     <group id="g18ce37c08701a7c4" name="!!0">
       <unit id="ufe5719931d46ffce" name="greeting">
         <notes>
-          <note category="reference">Greeter.cs</note>
           <note category="fingerprint">95192c66c6831791c8af612928f54cb4</note>
         </notes>
         <segment state="initial" subState="archpillar:NeedsTranslation">
