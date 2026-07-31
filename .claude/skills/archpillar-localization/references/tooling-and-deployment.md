@@ -15,7 +15,7 @@ project) in the current directory.
 
 | Command | Purpose |
 | --- | --- |
-| `dotnet apl status` | Which assemblies have strings, and how many |
+| `dotnet apl status` | Translation coverage — how much of the app is translated (and, before any language exists, which assemblies have strings). `--detail overall\|language\|project\|matrix` chooses how far it aggregates; default `overall` |
 | `extract` | Emit the source-language catalog (`{Assembly}.en.xliff`). **Runs automatically after each real build** when the package is referenced |
 | `add <culture>` | Create a target file (`{Assembly}.<culture>.xliff`), every entry `NeedsTranslation` |
 | `sync` | Reconcile every language file after code changes; **`sync --check` is the CI gate** |
@@ -26,6 +26,12 @@ project) in the current directory.
 
 **Scope** defaults to the current directory; override with `--solution App.sln`,
 `--project App.csproj` (add `--recurse` for its project dependencies), or `--input bin/Debug/net10.0`.
+
+**Coverage** (`status`) reports **Translated** (a current translation — `Translated` *or* `Final`),
+**Review** (a translation the source drifted under, so it renders but is stale), **Missing**
+(untranslated or absent from the catalog), and a floored **%**. The total column names itself:
+`Strings` at the `language`/`matrix` levels is a string count; `Units` at `project`/`overall` is
+strings × languages, the real work. A project with no language yet shows `—`, not 0%.
 
 > The auto-extracted source catalog is **merged, not overwritten** — keep it in git, and you may
 > edit the source wording in place (a typo/tone fix loads as an override **without a recompile**);

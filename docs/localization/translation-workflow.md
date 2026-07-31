@@ -67,13 +67,14 @@ assembly with no translatable strings produces no file — empty templates are n
 
 ```bash
 dotnet apl status --solution App.sln
-# App.Web   (source en)  42 string(s)
-# App.Core  (source en)  17 string(s)
-# 2 assembly(ies), 59 string(s) total.
 ```
 
-Per-language progress (`de: 31/42 translated`) is reported wherever catalogs are found; pass
-`--catalog-path <folder>` if yours do not live in the default `Translations`.
+Before any language exists there is nothing to measure, so `status` simply lists what there is to translate —
+one row per assembly with its string count. Pass `--catalog-path <folder>` if your catalogs do not live in the
+default `Translations`.
+
+Once catalogs exist the same command reports **coverage**, and `--detail` chooses how far it is aggregated.
+See [Tracking coverage](#tracking-coverage) below.
 
 ## 2. Extract — the source template
 
@@ -178,6 +179,40 @@ drift:
 
 ```bash
 dotnet apl sync --solution App.sln --check
+```
+
+## Tracking coverage
+
+`status` answers "how much of the app is translated?". Every project's catalogs are measured against that
+project's extracted template, and `--detail` chooses only how far the result is aggregated before it is shown:
+
+```bash
+dotnet apl status --solution App.sln                     # one line for the whole app (the default)
+dotnet apl status --solution App.sln --detail language   # one row per language
+dotnet apl status --solution App.sln --detail project    # one row per project
+dotnet apl status --solution App.sln --detail matrix     # every project × language pair
+```
+
+Every level reports the same four numbers, so they always reconcile:
+
+| Column | Meaning |
+|---|---|
+| **Translated** | a current translation exists (`Translated` **or** `Final` — a reviewed string is done) |
+| **Review** | a translation exists but the source drifted under it (`NeedsReview`) — it renders, but it is stale |
+| **Missing** | untranslated, **or** absent from the catalog entirely (a catalog not synced since keys were added never reads as complete) |
+| **%** | `Translated / total`, floored — so one string short of complete never shows 100% |
+
+The totals differ by level, and the column name says which: `Strings` at the `language` and `matrix` levels is
+a real string count, while `Units` at the `project` and `overall` levels is strings × languages — the actual
+work, since each string must be translated once per language. A project that has no language yet shows its
+string count and `—` for coverage: it is not 0% translated, it simply is not being translated.
+
+```
+╭──────────┬───────────┬───────┬────────────┬────────┬─────────┬─────╮
+│ Projects │ Languages │ Units │ Translated │ Review │ Missing │   % │
+├──────────┼───────────┼───────┼────────────┼────────┼─────────┼─────┤
+│ 2        │ 3         │   177 │        140 │      9 │      28 │ 79% │
+╰──────────┴───────────┴───────┴────────────┴────────┴─────────┴─────╯
 ```
 
 ## Deployment

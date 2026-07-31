@@ -483,6 +483,22 @@ The `dotnet apl` tool turns the emitted template into per-language files (`add`,
 `sync --check` as a CI gate) and merges them at publish time. Nothing touches a translator's files as
 a build side effect.
 
+### Translation coverage
+
+`dotnet apl status` reports how much of the app is translated. Each project's catalogs are measured against
+that project's template, and `--detail` chooses how far the result is aggregated — `overall` (one line for the
+app — the default), `language`, `project`, or `matrix` (every project × language pair):
+
+```bash
+dotnet apl status --solution App.sln --detail language
+```
+
+Every level shows the same breakdown: **Translated** (a current translation — `Translated` *or* `Final`, since a
+reviewed string is done), **Review** (a translation the source has drifted under: it renders, but it is stale),
+**Missing** (untranslated, or absent from the catalog — so a catalog not synced since keys were added never
+reads as complete), and a floored **%**. Before any language exists there is nothing to measure and `status`
+simply lists the strings each assembly has.
+
 ### Translator comments
 
 Give a translator context by writing a comment **inside the argument list**, beside the string — in a

@@ -195,6 +195,36 @@ public sealed class ScopeToolingTests : IDisposable
         Assert.False(Directory.Exists(Path.Combine(_root, "out")));
     }
 
+    [Theory]
+    [InlineData("overall")]
+    [InlineData("language")]
+    [InlineData("project")]
+    [InlineData("matrix")]
+    public async Task Status_RendersEveryDetailLevelOverAScopeWithCatalogsAsync(string detail)
+    {
+        // Two libraries × two languages, so every level has something to aggregate: overall collapses all four
+        // pairs, language and project each collapse one axis, and matrix shows them all.
+        await ToolApplication.RunAsync(["extract", "--input", _binDirectory, "--output", _catalogs]);
+        await ToolApplication.RunAsync(["add", "de", "--input", _binDirectory, "--output", _catalogs]);
+        await ToolApplication.RunAsync(["add", "fr", "--input", _binDirectory, "--output", _catalogs]);
+
+        Assert.Equal(0, await ToolApplication.RunAsync(["status", "--input", _binDirectory, "--output", _catalogs, "--detail", detail]));
+    }
+
+    [Fact]
+    public async Task Status_WithNoCatalogsYet_StillReportsTheStringsToTranslateAsync()
+    {
+        // Before any language exists there is nothing to measure; status is still the answer to "what is there
+        // to translate?", so it must not fail or render an empty coverage table.
+        Assert.Equal(0, await ToolApplication.RunAsync(["status", "--input", _binDirectory, "--output", _catalogs]));
+    }
+
+    [Fact]
+    public async Task Status_UnknownDetailLevel_FailsWithTheErrorExitCodeAsync()
+    {
+        Assert.Equal(2, await ToolApplication.RunAsync(["status", "--input", _binDirectory, "--detail", "nonsense"]));
+    }
+
     [Fact]
     public async Task ScopedCommands_AssemblyFileNameWithBrackets_RenderLiterallyInsteadOfAsMarkupAsync()
     {
