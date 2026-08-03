@@ -11,6 +11,16 @@ namespace ArchPillar.Extensions.Localization.Tooling.Internal;
 /// project may relocate.</param>
 internal sealed record ProjectOutputs(string AssemblyFileName, string OutputRoot);
 
+/// <summary>The evaluation's result: what each project builds, plus whatever MSBuild reported while working it
+/// out. The diagnostics matter because a project that fails to evaluate fails the whole task — so they are the
+/// only thing that says <em>which</em> project, and why.</summary>
+/// <param name="Outputs">The projects that evaluated, keyed by full path.</param>
+/// <param name="Diagnostics">MSBuild's error output, empty when it had none.</param>
+internal sealed record ProjectEvaluation(IReadOnlyDictionary<string, ProjectOutputs> Outputs, string Diagnostics);
+
+/// <summary>One MSBuild invocation's captured output.</summary>
+internal sealed record MsBuildRun(string Output, string Errors);
+
 /// <summary>
 /// Asks MSBuild what a project builds, rather than inferring it from the project file. The assembly name is not
 /// derivable by reading XML: it can come from <c>Directory.Build.props</c>, a property expression
@@ -55,23 +65,24 @@ internal static class ProjectEvaluator
     /// result could not be evaluated — which is the same thing as not being buildable, so the caller reports it
     /// rather than guessing a name for an assembly that cannot exist.
     /// </summary>
-    public static IReadOnlyDictionary<string, ProjectOutputs> EvaluateAll(IReadOnlyList<string> projectPaths)
+    public static ProjectEvaluation EvaluateAll(IReadOnlyList<string> projectPaths)
     {
         var results = new Dictionary<string, ProjectOutputs>(StringComparer.OrdinalIgnoreCase);
         if (projectPaths.Count == 0)
         {
-            return results;
+            return new ProjectEvaluation(results, string.Empty);
         }
 
-        foreach ((var path, ProjectOutputs outputs) in EvaluateBatch(projectPaths))
+        (IEnumerable<KeyValuePair<string, ProjectOutputs>> evaluated, var diagnostics) = EvaluateBatch(projectPaths);
+        foreach ((var path, ProjectOutputs outputs) in evaluated)
         {
             results[path] = outputs;
         }
 
-        return results;
+        return new ProjectEvaluation(results, diagnostics);
     }
 
-    private static IEnumerable<KeyValuePair<string, ProjectOutputs>> EvaluateBatch(IReadOnlyList<string> projectPaths)
+    private static (IEnumerable<KeyValuePair<string, ProjectOutputs>> Evaluated, string Diagnostics) EvaluateBatch(IReadOnlyList<string> projectPaths)
     {
         var workspace = Path.Combine(Path.GetTempPath(), "apl-eval-" + Guid.NewGuid().ToString("N"));
         try
@@ -82,16 +93,21 @@ internal static class ProjectEvaluator
             File.WriteAllText(targets, CollectTargets);
             File.WriteAllText(traversal, Traversal(projectPaths, targets));
 
-            var output = RunMsBuild(workspace, [traversal, "-t:ArchPillarAplGetOutputs", "-getTargetResult:ArchPillarAplGetOutputs"]);
-            return output is null ? [] : ParseItems(output);
+            MsBuildRun? run = RunMsBuild(workspace, [traversal, "-t:ArchPillarAplGetOutputs", "-getTargetResult:ArchPillarAplGetOutputs"]);
+            // Parsed whatever the exit code: one project that cannot be evaluated fails the whole task, but the
+            // projects that DID evaluate still come back on stdout. Discarding them because the run exited
+            // non-zero would report every project in the scope as broken because one of them is.
+            return run is null
+                ? ([], "MSBuild could not be run. Is the .NET SDK installed and on the path?")
+                : (ParseItems(run.Output), run.Errors);
         }
-        catch (IOException)
+        catch (IOException error)
         {
-            return [];
+            return ([], error.Message);
         }
-        catch (UnauthorizedAccessException)
+        catch (UnauthorizedAccessException error)
         {
-            return [];
+            return ([], error.Message);
         }
         finally
         {
@@ -104,15 +120,16 @@ internal static class ProjectEvaluator
         var builder = new StringBuilder("<Project>\n  <ItemGroup>\n");
         foreach (var path in projectPaths)
         {
-            builder.Append("    <ArchPillarAplProject Include=\"").Append(SecurityElement.Escape(Path.GetFullPath(path))).Append("\" />\n");
+            builder.Append("    <ArchPillarAplProject Include=\"").Append(Escape(Path.GetFullPath(path))).Append("\" />\n");
         }
 
         // Deliberately NOT BuildInParallel: that spawns MSBuild worker nodes, and several tool invocations running
-        // at once (a parallel build, a busy CI agent) then fail their node handshake — which would degrade to the
-        // guessed name silently. Evaluating in one node is barely slower, since the cost here is process startup.
-        // ContinueOnError keeps a project that cannot be evaluated from failing the run; the caller then retries
-        // whatever did not come back. SkipNonexistentProjects covers a solution that lists a deleted project.
-        var escapedTargets = SecurityElement.Escape(targets);
+        // at once (a parallel build, a busy CI agent) then fail their node handshake. Evaluating in one node is
+        // barely slower, since the cost here is process startup, not the evaluation.
+        // ContinueOnError lets the projects that DO evaluate come back even when one of them cannot (the task
+        // still reports failure, which is why the output is read regardless of exit code).
+        // SkipNonexistentProjects covers a solution that lists a project that has been deleted.
+        var escapedTargets = Escape(targets);
         builder.Append("  </ItemGroup>\n")
             .Append("  <Target Name=\"ArchPillarAplGetOutputs\" Returns=\"@(ArchPillarAplResult)\">\n")
             .Append("    <MSBuild Projects=\"@(ArchPillarAplProject)\" Targets=\"ArchPillarAplGetOutputs\"\n")
@@ -177,7 +194,7 @@ internal static class ProjectEvaluator
         return new ProjectOutputs(fileName, root.Length == 0 ? "bin" : root);
     }
 
-    private static string? RunMsBuild(string workingDirectory, IReadOnlyList<string> arguments)
+    private static MsBuildRun? RunMsBuild(string workingDirectory, IReadOnlyList<string> arguments)
     {
         var start = new ProcessStartInfo(DotnetHost())
         {
@@ -192,11 +209,15 @@ internal static class ProjectEvaluator
             start.ArgumentList.Add(argument);
         }
 
-        // MSBuild keeps worker nodes alive for reuse by default, and those nodes inherit the redirected output
-        // handle — so the read below would block on them long after the evaluation finished. They are worthless
-        // here (nothing is ever built twice), so switch reuse off and stay in a single node.
+        // MSBuild keeps worker nodes alive for reuse, and those nodes inherit the redirected output handle — so
+        // the read below would block on them long after the evaluation finished. They are worthless here (nothing
+        // is ever built twice), so switch reuse off and stay in a single node.
         start.ArgumentList.Add("-nodeReuse:false");
         start.ArgumentList.Add("-m:1");
+        // MSBuild otherwise auto-includes a Directory.Build.rsp found by walking up from the entry project — which
+        // lives in the temp directory. A response file there is nobody's intent, belongs to whoever can write to
+        // temp, and can carry anything up to -logger:<assembly>.
+        start.ArgumentList.Add("-noAutoResponse");
         start.ArgumentList.Add("-nologo");
 
         try
@@ -208,14 +229,9 @@ internal static class ProjectEvaluator
             }
 
             var output = new StringBuilder();
-            process.OutputDataReceived += (_, args) =>
-            {
-                if (args.Data is not null)
-                {
-                    output.AppendLine(args.Data);
-                }
-            };
-            process.ErrorDataReceived += (_, _) => { };
+            var errors = new StringBuilder();
+            process.OutputDataReceived += (_, args) => Append(output, args.Data);
+            process.ErrorDataReceived += (_, args) => Append(errors, args.Data);
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
             if (!process.WaitForExit(TimeoutMilliseconds))
@@ -226,15 +242,29 @@ internal static class ProjectEvaluator
 
             // The timed overload returns as soon as the process exits, WITHOUT waiting for the asynchronous
             // readers to deliver what it wrote. Only the parameterless overload does — omit it and a loaded
-            // machine yields exit code 0 with empty output, which reads as "no result" and silently degrades to
-            // the guessed assembly name. Safe from hanging because node reuse is off: nothing outlives the exit.
+            // machine yields empty output, which would read as "nothing evaluated". Safe from hanging because
+            // node reuse is off: nothing outlives the exit.
             process.WaitForExit();
-            return process.ExitCode == 0 ? output.ToString() : null;
+            return new MsBuildRun(output.ToString(), errors.ToString());
         }
         catch (Exception error) when (error is System.ComponentModel.Win32Exception or InvalidOperationException or IOException)
         {
-            // No dotnet on the path, or it could not be launched: the caller falls back to the project file.
+            // dotnet is not on the path, or could not be launched. The caller turns this into a diagnostic.
             return null;
+        }
+    }
+
+    private static void Append(StringBuilder builder, string? line)
+    {
+        if (line is null)
+        {
+            return;
+        }
+
+        // Bounded: a diagnostic is for a human to read, and a pathological build log must not be held whole.
+        if (builder.Length < 8000)
+        {
+            builder.AppendLine(line);
         }
     }
 
@@ -259,6 +289,22 @@ internal static class ProjectEvaluator
         {
             // As above — cleanup is best effort and never worth failing a scan over.
         }
+    }
+
+    // XML escaping alone is not enough: MSBuild reads its own metacharacters out of an Include or a Properties
+    // value, so a directory named "a;b" would split into two item specs and one named "a%b" would decode as a hex
+    // escape — both silently resolving to nothing. Percent goes first, or it would re-escape the escapes.
+    private static string Escape(string value)
+    {
+        var escaped = value
+            .Replace("%", "%25", StringComparison.Ordinal)
+            .Replace(";", "%3B", StringComparison.Ordinal)
+            .Replace("$", "%24", StringComparison.Ordinal)
+            .Replace("@", "%40", StringComparison.Ordinal)
+            .Replace("'", "%27", StringComparison.Ordinal)
+            .Replace("*", "%2A", StringComparison.Ordinal)
+            .Replace("?", "%3F", StringComparison.Ordinal);
+        return SecurityElement.Escape(escaped);
     }
 
     private static string Text(JsonElement item, string name) =>

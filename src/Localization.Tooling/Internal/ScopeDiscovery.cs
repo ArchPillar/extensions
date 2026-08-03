@@ -60,7 +60,14 @@ internal static class ScopeDiscovery
 
             foreach (var referenced in ProjectReferences(current))
             {
-                queue.Enqueue(referenced);
+                // Only C# projects: the evaluation injects its target through the common targets, which a
+                // .vcxproj (a C++/CLI interop reference is real on Windows) never imports — so following one
+                // would fail the whole scope over a project this tool has nothing to say about. This also
+                // matches what a solution scope already accepts.
+                if (referenced.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
+                {
+                    queue.Enqueue(referenced);
+                }
             }
         }
     }

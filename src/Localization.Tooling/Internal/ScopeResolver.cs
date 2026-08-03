@@ -88,27 +88,35 @@ internal static class ScopeResolver
     private static IEnumerable<string> ProjectAssemblies(IEnumerable<string> projects)
     {
         List<string> ordered = [.. projects.Distinct(StringComparer.OrdinalIgnoreCase)];
-        IReadOnlyDictionary<string, ProjectOutputs> outputs = ProjectEvaluator.EvaluateAll(ordered);
+        ProjectEvaluation evaluation = ProjectEvaluator.EvaluateAll(ordered);
 
         // A project that will not evaluate is the same project that will not build, and one that cannot build has
         // no assembly to scan — so say so, rather than guessing a name for a file that cannot exist and reporting
-        // "no strings" for a project full of them.
-        List<string> unevaluated = [.. ordered.Where(project => !outputs.ContainsKey(project))];
+        // "no strings" for a project full of them. Only the projects that actually failed are named: one bad
+        // project fails the whole MSBuild task, but the rest still evaluated and must not be blamed for it.
+        List<string> unevaluated = [.. ordered.Where(project => !evaluation.Outputs.ContainsKey(project))];
         if (unevaluated.Count > 0)
         {
-            throw new ArgumentException(
-                $"Could not evaluate {Describe(unevaluated)}. Every project in scope must be one MSBuild can evaluate — "
-                + "the same requirement as building it — because that is where the assembly each project builds is read from. "
-                + "To read built assemblies without their projects, scope with --input <dir> or --assembly <dll> instead.");
+            throw new ArgumentException(Unevaluated(unevaluated, evaluation.Diagnostics));
         }
 
-        return ordered.SelectMany(project => OwnAssemblies(project, outputs[project]));
+        return ordered.SelectMany(project => OwnAssemblies(project, evaluation.Outputs[project]));
     }
 
-    private static string Describe(List<string> projects) =>
-        projects.Count == 1
+    private static string Unevaluated(List<string> projects, string diagnostics)
+    {
+        var named = projects.Count == 1
             ? $"project '{projects[0]}'"
-            : $"{projects.Count} projects: {string.Join(", ", projects.Select(Path.GetFileName))}";
+            : $"{projects.Count} projects:{string.Concat(projects.Select(project => "\n  " + project))}";
+        var message =
+            $"Could not evaluate {named}. Every project in scope must be one MSBuild can evaluate — the same "
+            + "requirement as building it — because that is where the assembly each project builds is read from. "
+            + "To read built assemblies without their projects, scope with --input <dir> or --assembly <dll> instead.";
+
+        // MSBuild's own diagnostic is the part that says what is actually wrong with the project, so it is
+        // reported rather than swallowed.
+        return string.IsNullOrWhiteSpace(diagnostics) ? message : message + "\n\nMSBuild reported:\n" + diagnostics.Trim();
+    }
 
     private static IEnumerable<string> OwnAssemblies(string projectPath, ProjectOutputs outputs)
     {

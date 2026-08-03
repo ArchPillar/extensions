@@ -136,6 +136,29 @@ public sealed class ScopeResolverTests : IDisposable
     }
 
     [Fact]
+    public void Resolve_OneUnevaluableProjectAmongGoodOnes_NamesOnlyItAndReportsWhy()
+    {
+        // One project that will not load fails the whole MSBuild task, so the projects that DID evaluate come
+        // back alongside a non-zero exit code. Blaming all of them — or discarding their results — would make
+        // the error useless on the solution-sized scope this exists for.
+        var good = MakeProject("App.Web");
+        WriteAssembly("App.Web", "bin", "Debug", "net10.0", "App.Web.dll");
+        var brokenDirectory = Path.Combine(_root, "Broken");
+        Directory.CreateDirectory(brokenDirectory);
+        var broken = Path.Combine(brokenDirectory, "Broken.csproj");
+        File.WriteAllText(broken, "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>");
+        var solution = MakeSolution("App.sln", good, broken);
+
+        ArgumentException error = Assert.Throws<ArgumentException>(
+            () => ScopeResolver.Resolve(new ScopeOptions(null, null, null, solution, Recurse: false)));
+
+        Assert.Contains("Broken.csproj", error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("App.Web.csproj", error.Message, StringComparison.Ordinal);
+        // MSBuild's own diagnostic is what says why, so it must survive to the user.
+        Assert.Contains("MSBuild reported:", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Extract_FileThatIsNotAManagedAssembly_IsSkippedInsteadOfFailingTheScan()
     {
         // A native library, or anything else with a .dll name that Cecil cannot open. A scan walks whatever is
