@@ -46,6 +46,12 @@ assembly, and fans out over every in-scope assembly that actually has strings:
 | `--input <dir>` | scan a build-output folder (e.g. `bin/Debug/net10.0` or a publish dir) for assemblies |
 | `--assembly <dll>` | a single assembly (the low-level form) |
 
+A project or solution scope reads **only the assemblies those projects build** — never the packages copied
+beside them. A `bin` folder is mostly other people's code (every NuGet dependency and native interop library
+lands there), and none of it is yours to translate. To cover the libraries an app pulls in, add `--recurse`,
+which follows *project* references. `--input` is the deliberate exception: it names a directory of built
+assemblies, so everything under it is in scope — that is what makes scanning a publish folder possible.
+
 With **no scope at all**, the tool defaults to the current directory like `dotnet build` — a lone solution
 wins, else a lone project. So from your app's folder you can just run `dotnet apl add de`.
 `--project` and `--solution` also accept a **folder** or no value, finding the single file in

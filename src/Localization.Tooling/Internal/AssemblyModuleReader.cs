@@ -29,16 +29,33 @@ internal sealed class AssemblyModuleReader : IDisposable
     /// with <c>HasSymbols</c> false and the scan simply recovers no file references.
     /// </para>
     /// </summary>
-    public ModuleDefinition Read(string assemblyPath)
+    public ModuleDefinition? Read(string assemblyPath)
     {
         var fullPath = Path.GetFullPath(assemblyPath);
         AddSearchDirectory(Path.GetDirectoryName(fullPath)!);
-        return ModuleDefinition.ReadModule(fullPath, new ReaderParameters
+        try
         {
-            AssemblyResolver = _resolver,
-            ReadSymbols = true,
-            SymbolReaderProvider = new DefaultSymbolReaderProvider(throwIfNoSymbol: false)
-        });
+            return ModuleDefinition.ReadModule(fullPath, new ReaderParameters
+            {
+                AssemblyResolver = _resolver,
+                ReadSymbols = true,
+                SymbolReaderProvider = new DefaultSymbolReaderProvider(throwIfNoSymbol: false)
+            });
+        }
+        catch (BadImageFormatException)
+        {
+            // Not a managed assembly — a native library, a resource-only or otherwise unreadable file. A scan
+            // walks whatever is on disk, so this is a file that is simply not a candidate, not a failure.
+            return null;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     /// <summary>Every type in the module, including nested types, depth-first.</summary>

@@ -43,19 +43,20 @@ internal static class ScopeResolver
             return [Path.GetFullPath(assembly)];
         }
 
-        IEnumerable<string> roots = scope switch
+        // A project or solution names *projects*, so only those projects' own output assemblies are candidates.
+        // A bin folder is mostly other people's code — every NuGet dependency and native interop library is
+        // copied there — and none of it belongs to this scope. `--input` is the opposite: it names a directory
+        // of built assemblies, so everything in it is a candidate by definition.
+        IEnumerable<string> assemblies = scope switch
         {
-            { Input: { Length: > 0 } input } => [input],
-            { Project: { } project } => ProjectBinDirectories(ScopeDiscovery.ResolveSingleFile(project, "project", "*.csproj"), scope.Recurse),
+            { Input: { Length: > 0 } input } => AssembliesUnder(input),
+            { Project: { } project } => ProjectAssemblies(ScopeDiscovery.ResolveSingleFile(project, "project", "*.csproj"), scope.Recurse),
             { Solution: { } solution } => ScopeDiscovery.SolutionProjects(ScopeDiscovery.ResolveSingleFile(solution, "solution", "*.sln", "*.slnx"))
-                .SelectMany(p => ProjectBinDirectories(p, recurse: false)),
+                .SelectMany(project => ProjectAssemblies(project, recurse: false)),
             _ => DiscoverInCurrentDirectory(scope.Recurse)
         };
 
-        return roots
-            .Where(Directory.Exists)
-            .SelectMany(directory => Directory.EnumerateFiles(directory, "*.dll", SearchOption.AllDirectories))
-            .Distinct(StringComparer.OrdinalIgnoreCase);
+        return assemblies.Distinct(StringComparer.OrdinalIgnoreCase);
     }
 
     // With no scope at all, default to the current directory like `dotnet build`: a lone solution wins, else
@@ -65,20 +66,33 @@ internal static class ScopeResolver
         CurrentDirectoryScope current = ScopeDiscovery.DiscoverCurrentDirectory();
         if (current.Solution is { } solution)
         {
-            return ScopeDiscovery.SolutionProjects(solution).SelectMany(p => ProjectBinDirectories(p, recurse: false));
+            return ScopeDiscovery.SolutionProjects(solution).SelectMany(project => ProjectAssemblies(project, recurse: false));
         }
 
         if (current.Project is { } project)
         {
-            return ProjectBinDirectories(project, recurse);
+            return ProjectAssemblies(project, recurse);
         }
 
         throw new ArgumentException("No project or solution found in the current directory. Run from your app folder, or pass --project, --solution, or --input <dir>.");
     }
 
-    // The bin tree for each project in the closure (the project itself, plus transitive references when
-    // recursing), so `--project App --recurse` covers the libraries the app pulls in.
-    private static IEnumerable<string> ProjectBinDirectories(string projectPath, bool recurse) =>
-        ScopeDiscovery.ProjectClosure(projectPath, recurse)
-            .Select(project => Path.Combine(Path.GetDirectoryName(project)!, "bin"));
+    // Each project in the closure (the project itself, plus transitive references when recursing) contributes
+    // only the assembly it builds — found by name under its bin tree, so every configuration and target
+    // framework is covered while its dependencies are not.
+    private static IEnumerable<string> ProjectAssemblies(string projectPath, bool recurse) =>
+        ScopeDiscovery.ProjectClosure(projectPath, recurse).SelectMany(OwnAssemblies);
+
+    private static IEnumerable<string> OwnAssemblies(string projectPath)
+    {
+        var bin = Path.Combine(Path.GetDirectoryName(projectPath)!, "bin");
+        return Directory.Exists(bin)
+            ? Directory.EnumerateFiles(bin, ScopeDiscovery.AssemblyNameOf(projectPath) + ".dll", SearchOption.AllDirectories)
+            : [];
+    }
+
+    private static IEnumerable<string> AssembliesUnder(string directory) =>
+        Directory.Exists(directory)
+            ? Directory.EnumerateFiles(directory, "*.dll", SearchOption.AllDirectories)
+            : [];
 }

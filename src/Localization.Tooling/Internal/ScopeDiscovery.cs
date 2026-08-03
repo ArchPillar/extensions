@@ -114,6 +114,26 @@ internal static class ScopeDiscovery
         };
     }
 
+    /// <summary>
+    /// The assembly a project builds: its <c>AssemblyName</c> when it sets one, else the project file's own name
+    /// (the SDK default). This is what makes a project scope mean *this project's output* rather than everything
+    /// in its <c>bin</c> — which is mostly its dependencies.
+    /// </summary>
+    public static string AssemblyNameOf(string projectPath)
+    {
+        var declared = XDocument.Load(projectPath)
+            .Descendants()
+            .FirstOrDefault(element => element.Name.LocalName == "AssemblyName")?
+            .Value
+            .Trim();
+
+        // An MSBuild property can be a expression ($(MSBuildProjectName)-Tests); we cannot evaluate one without
+        // MSBuild, so fall back to the project name rather than searching for a file that will never exist.
+        return declared is { Length: > 0 } && !declared.Contains('$', StringComparison.Ordinal)
+            ? declared
+            : Path.GetFileNameWithoutExtension(projectPath);
+    }
+
     private static IEnumerable<string> ProjectReferences(string projectPath)
     {
         var directory = Path.GetDirectoryName(projectPath)!;
