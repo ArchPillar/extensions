@@ -99,15 +99,17 @@ public sealed class LocalizationTests
     public void Initialize_CalledAgainWithEqualOptions_DoesNotReconfigureTheAmbient()
     {
         Localizer.ResetAmbientForTests();
-        var options = new LocalizerOptions { Providers = [Layer(DeCatalog(typeof(Greeting).FullName!, "hello", "Hallo"))] };
-        Localizer.Initialize(options);
+        // Two distinct options instances sharing one provider factory: value-equal, so the guard dedupes them even
+        // though they are not the same object.
+        Func<LocalizerOptions, ICatalogProvider> factory = Layer(DeCatalog(typeof(Greeting).FullName!, "hello", "Hallo"));
+        Localizer.Initialize(new LocalizerOptions { Providers = [factory] });
         WithCulture(_german, () => Assert.Equal("Hallo", Localizer.For<Greeting>().Translate("hello", "Hello")));
 
-        // A repeat call with the same configuration is a no-op: it must not rebuild the ambient, which would raise
+        // A repeat call with an equal configuration is a no-op: it must not rebuild the ambient, which would raise
         // CatalogsChanged. The subscription is added after the first configure, so only a redundant rebuild trips it.
         var raised = 0;
         Localizer.CatalogsChanged += () => raised++;
-        Localizer.Initialize(options);
+        Localizer.Initialize(new LocalizerOptions { Providers = [factory] });
 
         Assert.Equal(0, raised);
         WithCulture(_german, () => Assert.Equal("Hallo", Localizer.For<Greeting>().Translate("hello", "Hello")));

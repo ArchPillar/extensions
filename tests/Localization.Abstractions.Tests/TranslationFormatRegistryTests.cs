@@ -42,6 +42,62 @@ public sealed class TranslationFormatRegistryTests
         Assert.Throws<ArgumentNullException>(() => registry.Register(null!));
     }
 
+    [Fact]
+    public void Equals_SameFormatSupport_AreEqual_RegardlessOfOrder()
+    {
+        var first = new TranslationFormatRegistry();
+        first.Register(new StubFormat("arb", ".arb"));
+        first.Register(new StubFormat("po", ".po"));
+
+        var second = new TranslationFormatRegistry();
+        second.Register(new StubFormat("po", ".po"));
+        second.Register(new StubFormat("arb", ".arb"));
+
+        // Distinct instances, reverse registration order — equal by format support, with equal hash codes.
+        Assert.Equal(first, second);
+        Assert.Equal(first.GetHashCode(), second.GetHashCode());
+    }
+
+    [Fact]
+    public void Equals_DifferentFormatIds_AreNotEqual()
+    {
+        var first = new TranslationFormatRegistry();
+        first.Register(new StubFormat("arb", ".arb"));
+
+        var second = new TranslationFormatRegistry();
+        second.Register(new StubFormat("po", ".po"));
+
+        Assert.NotEqual(first, second);
+    }
+
+    [Fact]
+    public void Equals_SameIdDifferentFormatType_AreNotEqual()
+    {
+        var first = new TranslationFormatRegistry();
+        first.Register(new StubFormat("arb", ".arb"));
+
+        var second = new TranslationFormatRegistry();
+        second.Register(new OtherStubFormat("arb", ".arb"));
+
+        // Same id, different implementation type — a genuinely different format, so not equal.
+        Assert.NotEqual(first, second);
+    }
+
+    private sealed class OtherStubFormat(string formatId, params string[] extensions) : ITranslationFormat
+    {
+        public string FormatId { get; } = formatId;
+
+        public IReadOnlyCollection<string> Extensions { get; } = extensions;
+
+        public FormatCapabilities Capabilities => FormatCapabilities.None;
+
+        public Catalog Read(Stream input) =>
+            throw new NotSupportedException();
+
+        public Task WriteAsync(Stream output, Catalog catalog, CatalogWriteOptions? options = null, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+    }
+
     private sealed class StubFormat : ITranslationFormat
     {
         public StubFormat(string formatId, params string[] extensions)

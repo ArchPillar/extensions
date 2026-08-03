@@ -65,5 +65,48 @@ public sealed record LocalizerOptions
     /// </summary>
     public TranslationFormatRegistry Formats { get; init; } = BuiltInTranslationFormats.CreateRegistry();
 
+    /// <summary>
+    /// Determines whether <paramref name="other"/> carries the same configuration. This is genuine value equality
+    /// over every option, including the members a record would otherwise compare by reference — the
+    /// <see cref="Cultures"/> and <see cref="Providers"/> lists (compared element-wise) and the <see cref="Formats"/>
+    /// registry (compared by format support) — so two independently built but equivalent options (two defaults, say)
+    /// compare equal.
+    /// </summary>
+    /// <param name="other">The options to compare with.</param>
+    /// <returns><see langword="true"/> when both describe the same configuration.</returns>
+    public bool Equals(LocalizerOptions? other) =>
+        other is not null
+        && TranslationsDirectory == other.TranslationsDirectory
+        && SourceCulture == other.SourceCulture
+        && CultureLoading == other.CultureLoading
+        && EnableHotReload == other.EnableHotReload
+        && HotReloadDebounce == other.HotReloadDebounce
+        && MissingArguments == other.MissingArguments
+        && CulturesEqual(Cultures, other.Cultures)
+        && Providers.SequenceEqual(other.Providers)
+        && EqualityComparer<TranslationFormatRegistry>.Default.Equals(Formats, other.Formats);
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        hash.Add(TranslationsDirectory);
+        hash.Add(SourceCulture);
+        hash.Add(CultureLoading);
+        hash.Add(EnableHotReload);
+        hash.Add(HotReloadDebounce);
+        hash.Add(MissingArguments);
+        hash.Add(Cultures?.Count ?? 0);
+        hash.Add(Providers.Count);
+        hash.Add(Formats);
+        return hash.ToHashCode();
+    }
+
+    // Sequence equality that treats two nulls (the "discover every culture" default) as equal and a null against a
+    // list as different, since a record would otherwise compare the lists by reference.
+    private static bool CulturesEqual(IReadOnlyList<string>? left, IReadOnlyList<string>? right) =>
+        ReferenceEquals(left, right)
+            || (left is not null && right is not null && left.SequenceEqual(right, StringComparer.Ordinal));
+
     private static string DefaultDirectory() => Path.Combine(AppContext.BaseDirectory, "Translations");
 }

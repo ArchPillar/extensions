@@ -52,6 +52,50 @@ public sealed class TranslationFormatRegistry
             ? format
             : null;
 
+    /// <summary>
+    /// Determines whether <paramref name="obj"/> is a registry with the same format support — the same format ids
+    /// mapped to the same format types. Construction order and instance identity do not matter, so two registries
+    /// built from the same formats (the built-in set, say, which is assembled fresh each time) compare equal.
+    /// </summary>
+    /// <param name="obj">The object to compare with.</param>
+    /// <returns><see langword="true"/> when both registries support the same formats.</returns>
+    public override bool Equals(object? obj) =>
+        obj is TranslationFormatRegistry other && HasSameFormats(other);
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+    {
+        // Order-independent: the id set identifies the registry, so XOR the per-id hashes rather than depend on
+        // the dictionary's enumeration order.
+        var hash = 0;
+        foreach (var id in _byId.Keys)
+        {
+            hash ^= StringComparer.OrdinalIgnoreCase.GetHashCode(id);
+        }
+
+        return hash;
+    }
+
+    // Whether both registries resolve the same format ids to formats of the same type. Extensions derive from the
+    // format (stateless, so type-determined), so matching the id-to-type mapping matches the extension mapping too.
+    private bool HasSameFormats(TranslationFormatRegistry other)
+    {
+        if (_byId.Count != other._byId.Count)
+        {
+            return false;
+        }
+
+        foreach (KeyValuePair<string, ITranslationFormat> entry in _byId)
+        {
+            if (!other._byId.TryGetValue(entry.Key, out ITranslationFormat? format) || format.GetType() != entry.Value.GetType())
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private static string Normalize(string extension) =>
         extension.StartsWith(".", StringComparison.Ordinal) ? extension : "." + extension;
 }
