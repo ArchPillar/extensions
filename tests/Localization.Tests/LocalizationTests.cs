@@ -95,6 +95,40 @@ public sealed class LocalizationTests
         WithCulture(_german, () => Assert.Equal("Hello", Localizer.For<Greeting>().Translate("hello", "Hello")));
     }
 
+    [Fact]
+    public void Initialize_CalledAgainWithEqualOptions_DoesNotReconfigureTheAmbient()
+    {
+        Localizer.ResetAmbientForTests();
+        var options = new LocalizerOptions { Providers = [Layer(DeCatalog(typeof(Greeting).FullName!, "hello", "Hallo"))] };
+        Localizer.Initialize(options);
+        WithCulture(_german, () => Assert.Equal("Hallo", Localizer.For<Greeting>().Translate("hello", "Hello")));
+
+        // A repeat call with the same configuration is a no-op: it must not rebuild the ambient, which would raise
+        // CatalogsChanged. The subscription is added after the first configure, so only a redundant rebuild trips it.
+        var raised = 0;
+        Localizer.CatalogsChanged += () => raised++;
+        Localizer.Initialize(options);
+
+        Assert.Equal(0, raised);
+        WithCulture(_german, () => Assert.Equal("Hallo", Localizer.For<Greeting>().Translate("hello", "Hello")));
+
+        Localizer.ResetAmbientForTests();
+    }
+
+    [Fact]
+    public void Initialize_CalledAgainWithDifferentOptions_ReconfiguresTheAmbient()
+    {
+        Localizer.ResetAmbientForTests();
+        Localizer.Initialize(new LocalizerOptions { Providers = [Layer(DeCatalog(typeof(Greeting).FullName!, "hello", "Hallo"))] });
+        WithCulture(_german, () => Assert.Equal("Hallo", Localizer.For<Greeting>().Translate("hello", "Hello")));
+
+        // Different options apply, so the override changes — configure-once dedupes equal configurations only.
+        Localizer.Initialize(new LocalizerOptions { Providers = [Layer(DeCatalog(typeof(Greeting).FullName!, "hello", "Servus"))] });
+        WithCulture(_german, () => Assert.Equal("Servus", Localizer.For<Greeting>().Translate("hello", "Hello")));
+
+        Localizer.ResetAmbientForTests();
+    }
+
     // Serves a fixed catalog through an InMemoryCatalogProvider, so a test can layer it through
     // LocalizerOptions.Providers the way a host configures any catalog provider.
     private static Func<LocalizerOptions, ICatalogProvider> Layer(Catalog catalog) =>

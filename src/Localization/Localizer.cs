@@ -13,6 +13,9 @@ public static class Localizer
 {
     private static readonly object _gate = new();
     private static LocalizationContext? _ambient;
+    // The options last applied to the ambient through Initialize, so a repeat call with the same configuration is a
+    // no-op instead of rebuilding the shared ambient. Null until Initialize runs (and after ResetAmbientForTests).
+    private static LocalizerOptions? _appliedOptions;
 
     /// <summary>The global-namespace ambient localizer (the uncategorized bucket).</summary>
     public static ILocalizer Default => Ambient.Default;
@@ -29,7 +32,10 @@ public static class Localizer
 
     /// <summary>
     /// Feeds initial <paramref name="options"/> to the ambient context, applied in one rebuild, and — when
-    /// <paramref name="eager"/> is set — loads the catalogs now instead of lazily on first use.
+    /// <paramref name="eager"/> is set — loads the catalogs now instead of lazily on first use. Idempotent: the
+    /// ambient is configured once per distinct configuration, so calling this again with the same
+    /// <paramref name="options"/> (the same instance, or an equal one) does not rebuild the shared ambient. This is
+    /// what lets the DI helpers configure the ambient once no matter how many times they run in a process.
     /// </summary>
     /// <param name="options">The configuration to apply.</param>
     /// <param name="eager">Whether to load the catalogs (directory + assembly discovery) up front.</param>
@@ -38,7 +44,18 @@ public static class Localizer
     {
         ArgumentNullException.ThrowIfNull(options);
 
-        Ambient.Configure(options);
+        lock (_gate)
+        {
+            // Configure only when the configuration actually differs from the one already applied, so a repeat call
+            // (every DI container in a multi-host process re-runs registration) does not needlessly rebuild the
+            // ambient. Equality is the record's value equality, short-circuiting on reference equality.
+            if (!options.Equals(_appliedOptions))
+            {
+                Ambient.Configure(options);
+                _appliedOptions = options;
+            }
+        }
+
         if (eager)
         {
             Ambient.Load();
@@ -135,6 +152,7 @@ public static class Localizer
         {
             _ambient?.Dispose();
             _ambient = null;
+            _appliedOptions = null;
         }
     }
 
