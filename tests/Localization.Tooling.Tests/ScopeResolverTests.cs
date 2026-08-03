@@ -118,16 +118,21 @@ public sealed class ScopeResolverTests : IDisposable
     }
 
     [Fact]
-    public void Resolve_ProjectMsBuildCannotEvaluate_FallsBackToTheProjectFileName()
+    public void Resolve_ProjectMsBuildCannotEvaluate_IsReportedRatherThanGuessed()
     {
-        // No target framework, so the evaluation fails. The scan degrades to the SDK's default naming rather
-        // than resolving nothing at all.
-        var project = MakeProject("App.Web");
-        WriteFile(Path.Combine(_root, "App.Web", "bin", "Debug", "net10.0", "App.Web.dll"));
+        // A project that will not evaluate is the same project that will not build, so it has no assembly to
+        // scan. Guessing a name would report "no strings" for a project that may be full of them.
+        var directory = Path.Combine(_root, "Broken");
+        Directory.CreateDirectory(directory);
+        var project = Path.Combine(directory, "Broken.csproj");
+        File.WriteAllText(project, "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>");
 
-        IReadOnlyList<string> resolved = ScopeResolver.Resolve(new ScopeOptions(null, null, project, null, Recurse: false));
+        ArgumentException error = Assert.Throws<ArgumentException>(
+            () => ScopeResolver.Resolve(new ScopeOptions(null, null, project, null, Recurse: false)));
 
-        Assert.Equal(["App.Web.dll"], resolved.Select(Path.GetFileName));
+        Assert.Contains("Broken.csproj", error.Message, StringComparison.Ordinal);
+        // The error must point at the way to scan assemblies that have no usable project.
+        Assert.Contains("--input", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -161,9 +166,8 @@ public sealed class ScopeResolverTests : IDisposable
         var directory = Path.Combine(_root, name);
         Directory.CreateDirectory(directory);
         var path = Path.Combine(directory, name + ".csproj");
-        var body = assemblyName is null
-            ? "<Project Sdk=\"Microsoft.NET.Sdk\" />"
-            : $"<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><AssemblyName>{assemblyName}</AssemblyName></PropertyGroup></Project>";
+        var assembly = assemblyName is null ? string.Empty : $"<AssemblyName>{assemblyName}</AssemblyName>";
+        var body = $"<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework>{assembly}</PropertyGroup></Project>";
         File.WriteAllText(path, body);
         return path;
     }

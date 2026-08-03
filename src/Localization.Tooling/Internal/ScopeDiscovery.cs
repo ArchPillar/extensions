@@ -114,27 +114,6 @@ internal static class ScopeDiscovery
         };
     }
 
-    /// <summary>
-    /// A best-effort assembly name read off the project file: its literal <c>AssemblyName</c>, else the project
-    /// file's own name (the SDK default). This is only the **fallback** for a project MSBuild could not evaluate
-    /// (<see cref="ProjectEvaluator"/>) — it cannot see a name set in <c>Directory.Build.props</c>, built from a
-    /// property expression, or renamed by <c>TargetName</c>, so it is a guess and never the first answer.
-    /// </summary>
-    public static string AssemblyNameOf(string projectPath)
-    {
-        var declared = XDocument.Load(projectPath)
-            .Descendants()
-            .FirstOrDefault(element => element.Name.LocalName == "AssemblyName")?
-            .Value
-            .Trim();
-
-        // An MSBuild property can be a expression ($(MSBuildProjectName)-Tests); we cannot evaluate one without
-        // MSBuild, so fall back to the project name rather than searching for a file that will never exist.
-        return declared is { Length: > 0 } && !declared.Contains('$', StringComparison.Ordinal)
-            ? declared
-            : Path.GetFileNameWithoutExtension(projectPath);
-    }
-
     private static IEnumerable<string> ProjectReferences(string projectPath)
     {
         var directory = Path.GetDirectoryName(projectPath)!;

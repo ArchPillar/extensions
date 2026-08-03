@@ -88,19 +88,33 @@ internal static class ScopeResolver
     private static IEnumerable<string> ProjectAssemblies(IEnumerable<string> projects)
     {
         List<string> ordered = [.. projects.Distinct(StringComparer.OrdinalIgnoreCase)];
-        IReadOnlyDictionary<string, ProjectOutputs?> outputs = ProjectEvaluator.EvaluateAll(ordered);
-        return ordered.SelectMany(project => OwnAssemblies(project, outputs.GetValueOrDefault(project)));
+        IReadOnlyDictionary<string, ProjectOutputs> outputs = ProjectEvaluator.EvaluateAll(ordered);
+
+        // A project that will not evaluate is the same project that will not build, and one that cannot build has
+        // no assembly to scan — so say so, rather than guessing a name for a file that cannot exist and reporting
+        // "no strings" for a project full of them.
+        List<string> unevaluated = [.. ordered.Where(project => !outputs.ContainsKey(project))];
+        if (unevaluated.Count > 0)
+        {
+            throw new ArgumentException(
+                $"Could not evaluate {Describe(unevaluated)}. Every project in scope must be one MSBuild can evaluate — "
+                + "the same requirement as building it — because that is where the assembly each project builds is read from. "
+                + "To read built assemblies without their projects, scope with --input <dir> or --assembly <dll> instead.");
+        }
+
+        return ordered.SelectMany(project => OwnAssemblies(project, outputs[project]));
     }
 
-    private static IEnumerable<string> OwnAssemblies(string projectPath, ProjectOutputs? outputs)
+    private static string Describe(List<string> projects) =>
+        projects.Count == 1
+            ? $"project '{projects[0]}'"
+            : $"{projects.Count} projects: {string.Join(", ", projects.Select(Path.GetFileName))}";
+
+    private static IEnumerable<string> OwnAssemblies(string projectPath, ProjectOutputs outputs)
     {
-        var directory = Path.GetDirectoryName(projectPath)!;
-        // Without an evaluation (no SDK on the path, an unrestored or malformed project) fall back to reading the
-        // project file, so a scan degrades to the documented default rather than finding nothing at all.
-        var fileName = outputs?.AssemblyFileName ?? ScopeDiscovery.AssemblyNameOf(projectPath) + ".dll";
-        var root = Path.Combine(directory, outputs?.OutputRoot ?? "bin");
+        var root = Path.Combine(Path.GetDirectoryName(projectPath)!, outputs.OutputRoot);
         return Directory.Exists(root)
-            ? Directory.EnumerateFiles(root, fileName, SearchOption.AllDirectories)
+            ? Directory.EnumerateFiles(root, outputs.AssemblyFileName, SearchOption.AllDirectories)
             : [];
     }
 

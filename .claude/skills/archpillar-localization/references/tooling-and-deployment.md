@@ -29,9 +29,10 @@ project) in the current directory.
 A project/solution scope reads only the assemblies **those projects build** — not the NuGet packages
 and native libraries copied into their `bin`. Which assembly that is comes from an **MSBuild
 evaluation** of each project (so a name set in `Directory.Build.props`, built from a property
-expression, or renamed by `TargetName` is resolved correctly), falling back to the SDK default naming
-if a project cannot be evaluated. `--input` is the exception: it names a directory of assemblies, so
-everything under it is in scope (which is what lets you scan a publish folder).
+expression, or renamed by `TargetName` is resolved correctly). A project that will not evaluate is
+reported, not guessed around — it is the same project that will not build. `--input`/`--assembly` are
+the exception: they read assemblies with no project involved (which is what lets you scan a publish
+folder, or a drop from another build).
 
 **Coverage** (`status`) reports **Translated** (a current translation — `Translated` *or* `Final`),
 **Review** (a translation the source drifted under, so it renders but is stale), **Missing**

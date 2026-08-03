@@ -20,9 +20,13 @@ internal sealed record ProjectOutputs(string AssemblyFileName, string OutputRoot
 /// Evaluation is cheap; <em>starting MSBuild</em> is not — of a one-project run, about 0.7s is process startup
 /// and only 0.4s the evaluation. So every in-scope project is evaluated in a <b>single</b> MSBuild process,
 /// through a generated traversal project: evaluating this repository's 57 projects costs about 2.5s that way
-/// against about 17s one process at a time. A project the batch does not return (one malformed project fails the
-/// whole task) is then evaluated on its own, and one that fails even alone falls back to reading the project
-/// file — so the scan degrades in steps rather than silently resolving nothing.
+/// against about 17s one process at a time.
+/// </para>
+/// <para>
+/// A project that will not evaluate is reported, not worked around. It is the same project that will not build,
+/// and a project that cannot build has no assembly to scan — so the only thing a fallback could do is guess a
+/// name for a file that does not exist, and guess silently. Scanning assemblies with no project in sight is what
+/// <c>--input</c> and <c>--assembly</c> are for; they never come here.
 /// </para>
 /// </summary>
 internal static class ProjectEvaluator
@@ -46,10 +50,14 @@ internal static class ProjectEvaluator
         </Project>
         """;
 
-    /// <summary>Evaluates every project, batching them into one MSBuild process wherever possible.</summary>
-    public static IReadOnlyDictionary<string, ProjectOutputs?> EvaluateAll(IReadOnlyList<string> projectPaths)
+    /// <summary>
+    /// The outputs of every project that could be evaluated, keyed by project path. A project missing from the
+    /// result could not be evaluated — which is the same thing as not being buildable, so the caller reports it
+    /// rather than guessing a name for an assembly that cannot exist.
+    /// </summary>
+    public static IReadOnlyDictionary<string, ProjectOutputs> EvaluateAll(IReadOnlyList<string> projectPaths)
     {
-        var results = new Dictionary<string, ProjectOutputs?>(StringComparer.OrdinalIgnoreCase);
+        var results = new Dictionary<string, ProjectOutputs>(StringComparer.OrdinalIgnoreCase);
         if (projectPaths.Count == 0)
         {
             return results;
@@ -58,21 +66,6 @@ internal static class ProjectEvaluator
         foreach ((var path, ProjectOutputs outputs) in EvaluateBatch(projectPaths))
         {
             results[path] = outputs;
-        }
-
-        // Whatever the batch did not answer for — a project it could not load, or a whole batch lost to one bad
-        // project — is evaluated individually rather than left unresolved.
-        List<string> missing = [.. projectPaths.Where(path => !results.ContainsKey(path))];
-        if (missing.Count == 0)
-        {
-            return results;
-        }
-
-        var evaluated = new ProjectOutputs?[missing.Count];
-        Parallel.For(0, missing.Count, index => evaluated[index] = EvaluateOne(missing[index]));
-        for (var index = 0; index < missing.Count; index++)
-        {
-            results[missing[index]] = evaluated[index];
         }
 
         return results;
@@ -184,77 +177,6 @@ internal static class ProjectEvaluator
         return new ProjectOutputs(fileName, root.Length == 0 ? "bin" : root);
     }
 
-    private static ProjectOutputs? EvaluateOne(string projectPath)
-    {
-        IReadOnlyDictionary<string, string>? properties = Properties(projectPath, targetFramework: null);
-        if (properties is null)
-        {
-            return null;
-        }
-
-        ProjectOutputs? outputs = OutputsFrom(Value(properties, "TargetFileName"), Value(properties, "AssemblyName"), Value(properties, "BaseOutputPath"));
-        if (outputs is not null)
-        {
-            return outputs;
-        }
-
-        // Neither name is defined in the outer build: pin one of the frameworks, where both always are.
-        var first = Value(properties, "TargetFrameworks").Split(';').FirstOrDefault(value => value.Trim().Length > 0);
-        if (first is null)
-        {
-            return null;
-        }
-
-        properties = Properties(projectPath, first.Trim());
-        return properties is null
-            ? null
-            : OutputsFrom(Value(properties, "TargetFileName"), Value(properties, "AssemblyName"), Value(properties, "BaseOutputPath"));
-    }
-
-    private static IReadOnlyDictionary<string, string>? Properties(string projectPath, string? targetFramework)
-    {
-        List<string> arguments =
-        [
-            projectPath,
-            "-getProperty:TargetFileName",
-            "-getProperty:AssemblyName",
-            "-getProperty:TargetFrameworks",
-            "-getProperty:BaseOutputPath"
-        ];
-        if (targetFramework is not null)
-        {
-            arguments.Add("-p:TargetFramework=" + targetFramework);
-        }
-
-        var output = RunMsBuild(Path.GetDirectoryName(Path.GetFullPath(projectPath))!, arguments);
-        if (output is null)
-        {
-            return null;
-        }
-
-        try
-        {
-            using JsonDocument document = JsonDocument.Parse(output);
-            if (!document.RootElement.TryGetProperty("Properties", out JsonElement properties))
-            {
-                return null;
-            }
-
-            var values = new Dictionary<string, string>(StringComparer.Ordinal);
-            foreach (JsonProperty property in properties.EnumerateObject())
-            {
-                values[property.Name] = property.Value.GetString() ?? string.Empty;
-            }
-
-            return values;
-        }
-        catch (JsonException)
-        {
-            // An older SDK without -getProperty, or an evaluation that printed diagnostics instead.
-            return null;
-        }
-    }
-
     private static string? RunMsBuild(string workingDirectory, IReadOnlyList<string> arguments)
     {
         var start = new ProcessStartInfo(DotnetHost())
@@ -341,7 +263,4 @@ internal static class ProjectEvaluator
 
     private static string Text(JsonElement item, string name) =>
         item.TryGetProperty(name, out JsonElement value) ? value.GetString()?.Trim() ?? string.Empty : string.Empty;
-
-    private static string Value(IReadOnlyDictionary<string, string> properties, string name) =>
-        properties.TryGetValue(name, out var value) ? value.Trim() : string.Empty;
 }

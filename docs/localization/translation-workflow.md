@@ -57,8 +57,12 @@ from `Directory.Build.props`, a property expression (`$(MSBuildProjectName).Core
 group, or an import, and `TargetName`/`TargetExt` can rename the file after that — none of it visible in the
 XML. The tool evaluates every in-scope project in **one** MSBuild process (an evaluation, not a build), because
 starting MSBuild costs more than evaluating with it — this repository's 57 projects evaluate in about 2.5s that
-way, against about 17s one process at a time. If a project cannot be evaluated — no SDK on the path, a
-malformed project — the scan falls back to the SDK's default naming instead of failing.
+way, against about 17s one process at a time.
+
+A project MSBuild cannot evaluate is **reported, not guessed around**: it is the same project that will not
+build, so it has no assembly to scan, and inventing a name for it would report "no strings" for a project that
+may be full of them. To read built assemblies with no usable project — a publish folder, a drop from another
+build — use `--input <dir>` or `--assembly <dll>`, which never look at a project at all.
 
 With **no scope at all**, the tool defaults to the current directory like `dotnet build` — a lone solution
 wins, else a lone project. So from your app's folder you can just run `dotnet apl add de`.
