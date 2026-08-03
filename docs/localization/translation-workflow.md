@@ -64,6 +64,15 @@ build, so it has no assembly to scan, and inventing a name for it would report "
 may be full of them. To read built assemblies with no usable project — a publish folder, a drop from another
 build — use `--input <dir>` or `--assembly <dll>`, which never look at a project at all.
 
+**Every project in scope is read, not only those referencing this library.** That looks like a missing
+optimisation and is not: `[DisplayName]` and `[Display]` are Base Class Library attributes, so a contracts or
+model project whose strings are pure DataAnnotations usually references no localizer at all — and its strings
+are still yours to translate. Filtering the scope by "references the localization package" would drop them
+silently. The saving you would want from such a filter is already taken where it is safe: the **call-site**
+pass skips any assembly that references no localizer, since a `Translate(...)` call cannot exist without one,
+so an unrelated assembly costs only a metadata read. Pass `--no-annotations`
+(`ArchPillarLocalizationExtractAnnotations=false`) when you want call sites only.
+
 With **no scope at all**, the tool defaults to the current directory like `dotnet build` — a lone solution
 wins, else a lone project. So from your app's folder you can just run `dotnet apl add de`.
 `--project` and `--solution` also accept a **folder** or no value, finding the single file in

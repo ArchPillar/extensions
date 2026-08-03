@@ -34,6 +34,12 @@ reported, not guessed around — it is the same project that will not build. `--
 the exception: they read assemblies with no project involved (which is what lets you scan a publish
 folder, or a drop from another build).
 
+**Every project in scope is read, not only those referencing this library** — `[DisplayName]`/`[Display]`
+are BCL attributes, so a model or contracts project usually references no localizer yet still carries
+translatable strings. The call-site pass already skips assemblies with no localizer reference (a
+`Translate(...)` call cannot exist without one), so unrelated assemblies cost only a metadata read.
+`--no-annotations` when you want call sites only.
+
 **Coverage** (`status`) reports **Translated** (a current translation — `Translated` *or* `Final`),
 **Review** (a translation the source drifted under, so it renders but is stale), **Missing**
 (untranslated or absent from the catalog), and a floored **%**. The total column names itself:
