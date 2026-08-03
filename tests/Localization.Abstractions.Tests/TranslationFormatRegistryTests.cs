@@ -83,6 +83,19 @@ public sealed class TranslationFormatRegistryTests
         Assert.NotEqual(first, second);
     }
 
+    [Fact]
+    public void Equals_SameIdDifferentExtensions_AreNotEqual()
+    {
+        var first = new TranslationFormatRegistry();
+        first.Register(new StubFormat("json", ".json"));
+
+        var second = new TranslationFormatRegistry();
+        second.Register(new StubFormat("json", ".jsn"));
+
+        // Same id and type, but they resolve different extensions — so they do not offer the same format support.
+        Assert.NotEqual(first, second);
+    }
+
     private sealed class OtherStubFormat(string formatId, params string[] extensions) : ITranslationFormat
     {
         public string FormatId { get; } = formatId;

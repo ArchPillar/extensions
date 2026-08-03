@@ -118,6 +118,25 @@ public sealed class LocalizationTests
     }
 
     [Fact]
+    public void Reset_ThenInitializeWithEqualOptions_ReconfiguresAgainstTheEmptiedStore()
+    {
+        Localizer.ResetAmbientForTests();
+        var options = new LocalizerOptions { Providers = [Layer(DeCatalog(typeof(Greeting).FullName!, "hello", "Hallo"))] };
+        Localizer.Initialize(options);
+        WithCulture(_german, () => Assert.Equal("Hallo", Localizer.For<Greeting>().Translate("hello", "Hello")));
+
+        // Resetting the ambient empties the store; a later Initialize with the very same options must re-apply, not
+        // skip on a stale "already configured" memo. The configuration is owned by the context and Reset returns it
+        // to the default, so the dedupe cannot leave the store empty here.
+        Localizer.Ambient.Reset();
+        Localizer.Initialize(options);
+
+        WithCulture(_german, () => Assert.Equal("Hallo", Localizer.For<Greeting>().Translate("hello", "Hello")));
+
+        Localizer.ResetAmbientForTests();
+    }
+
+    [Fact]
     public void Initialize_CalledAgainWithDifferentOptions_ReconfiguresTheAmbient()
     {
         Localizer.ResetAmbientForTests();

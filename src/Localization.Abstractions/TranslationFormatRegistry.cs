@@ -53,9 +53,11 @@ public sealed class TranslationFormatRegistry
             : null;
 
     /// <summary>
-    /// Determines whether <paramref name="obj"/> is a registry with the same format support — the same format ids
-    /// mapped to the same format types. Construction order and instance identity do not matter, so two registries
-    /// built from the same formats (the built-in set, say, which is assembled fresh each time) compare equal.
+    /// Determines whether <paramref name="obj"/> is a registry with the same format support — the same ids and the
+    /// same file extensions, each mapped to the same format type. Construction order and instance identity do not
+    /// matter, so two registries built from the same formats (the built-in set, say, which is assembled fresh each
+    /// time) compare equal, while a registry that resolves an extension to a different format does not. Per-instance
+    /// parsing behaviour within one format type is not compared (formats are treated as identified by type).
     /// </summary>
     /// <param name="obj">The object to compare with.</param>
     /// <returns><see langword="true"/> when both registries support the same formats.</returns>
@@ -76,18 +78,23 @@ public sealed class TranslationFormatRegistry
         return hash;
     }
 
-    // Whether both registries resolve the same format ids to formats of the same type. Extensions derive from the
-    // format (stateless, so type-determined), so matching the id-to-type mapping matches the extension mapping too.
-    private bool HasSameFormats(TranslationFormatRegistry other)
+    // Whether both registries resolve the same ids and the same extensions to formats of the same type. Extensions
+    // are compared explicitly (not assumed to follow from the id set) because a format's extensions are its own
+    // choice, so two formats sharing an id and type can still register different extensions.
+    private bool HasSameFormats(TranslationFormatRegistry other) =>
+        SameTypeMapping(_byId, other._byId) && SameTypeMapping(_byExtension, other._byExtension);
+
+    // Whether two id/extension-to-format maps have the same keys, each mapped to a format of the same type.
+    private static bool SameTypeMapping(Dictionary<string, ITranslationFormat> left, Dictionary<string, ITranslationFormat> right)
     {
-        if (_byId.Count != other._byId.Count)
+        if (left.Count != right.Count)
         {
             return false;
         }
 
-        foreach (KeyValuePair<string, ITranslationFormat> entry in _byId)
+        foreach (KeyValuePair<string, ITranslationFormat> entry in left)
         {
-            if (!other._byId.TryGetValue(entry.Key, out ITranslationFormat? format) || format.GetType() != entry.Value.GetType())
+            if (!right.TryGetValue(entry.Key, out ITranslationFormat? format) || format.GetType() != entry.Value.GetType())
             {
                 return false;
             }
