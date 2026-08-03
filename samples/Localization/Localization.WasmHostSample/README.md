@@ -37,6 +37,7 @@ dotnet publish samples/Localization/Localization.WasmHostSample -c Release -o ou
 - `out/wwwroot/Translations/apl-catalogs.json` — the catalog manifest, present.
 - `out/wwwroot/Translations/*.arb` — the merged per-culture bundle(s), present.
 - `out/wwwroot/_content/**/Translations/*` — the libraries' raw catalogs, **absent** (merged, not shipped raw).
+- `out/Translations/*` — beside-the-binary file copies, **absent** (a WebAssembly app has no file system to read them, so the copy is suppressed rather than leaked to the host root).
 
 ## Notes
 

@@ -147,6 +147,18 @@ jobs:
             fail=1
           fi
 
+          # A WebAssembly app serves its catalogs as static web assets, so the beside-the-binary file copy is
+          # suppressed; it must not appear at the host's output root (this host authors no strings of its own).
+          fs_copy=""
+          if [ -d "$root/../Translations" ]; then
+            fs_copy=$(find "$root/../Translations" -maxdepth 1 \( -name '*.arb' -o -name '*.xliff' -o -name '*.xlf' -o -name '*.po' \) 2>/dev/null)
+          fi
+          if [ -n "$fs_copy" ]; then
+            echo "BROKEN: catalog file-system copies leaked into the host output root (useless for a WASM client):"
+            echo "$fs_copy"
+            fail=1
+          fi
+
           if [ "$fail" -eq 0 ]; then
             echo "OK: manifest + merged bundle present, no raw catalogs leaked"
           fi

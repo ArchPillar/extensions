@@ -3,8 +3,9 @@
   <PropertyGroup>
     <!-- Catalogs are authored under the default OutputPath (Translations/, not wwwroot). The build registers
          them and the apl-catalogs.json manifest as static web assets through the Razor pipeline (per-library at
-         build, merged per-culture bundles at publish), so the client fetches them over HTTP. -->
-    <ArchPillarLocalizationCopyTargetsToOutput>false</ArchPillarLocalizationCopyTargetsToOutput>
+         build, merged per-culture bundles at publish), so the client fetches them over HTTP. The beside-the-binary
+         file copy (ArchPillarLocalizationCopyTargetsToOutput) is skipped automatically for a WebAssembly app — a
+         browser has no file system to read it — so this project sets nothing to opt out. -->
     <!-- This sample is trimmed by default (Blazor WASM) but must still author + serve its catalogs through the
          build pipeline, so it opts into the samples' authoring wiring explicitly. -->
     <ArchPillarLocalizationSampleAuthoring>true</ArchPillarLocalizationSampleAuthoring>

@@ -41,8 +41,13 @@
     edited source wording as overrides above the in-code default (its un-edited echoes are inert at runtime).
     Only the language-neutral Portable Object template (messages.pot) is excluded. Set
     ArchPillarLocalizationCopyTargetsToOutput=false to opt out (e.g. when embedding or merging at publish).
+
+    Skipped for a Blazor WebAssembly app: a browser has no file system for the ambient directory source to read,
+    so that app serves its catalogs as static web assets over HTTP (below) and a beside-the-binary copy is dead
+    weight — worse, it flows up to a server host's output root, a leaked file the WebAssembly client never reads.
+    UsingMicrosoftNETSdkBlazorWebAssembly is the same signal the catalog authority uses.
   -->
-  <ItemGroup Condition="'$(ArchPillarLocalizationCopyTargetsToOutput)' == 'true' and '$(ArchPillarLocalizationEmbedTargets)' != 'true' and Exists('$(ArchPillarLocalizationCatalogPath)')">
+  <ItemGroup Condition="'$(ArchPillarLocalizationCopyTargetsToOutput)' == 'true' and '$(ArchPillarLocalizationEmbedTargets)' != 'true' and '$(UsingMicrosoftNETSdkBlazorWebAssembly)' != 'true' and Exists('$(ArchPillarLocalizationCatalogPath)')">
     <Content Include="$(ArchPillarLocalizationCatalogPath)\**\*.arb;$(ArchPillarLocalizationCatalogPath)\**\*.xliff;$(ArchPillarLocalizationCatalogPath)\**\*.xlf;$(ArchPillarLocalizationCatalogPath)\**\*.po"
              Exclude="$(ArchPillarLocalizationCatalogPath)\messages.pot"
              CopyToOutputDirectory="PreserveNewest"
