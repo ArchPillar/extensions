@@ -85,3 +85,57 @@ jobs:
           dotnet publish samples/Localization/Localization.AotSample/Localization.AotSample.csproj \
             -c Release -r linux-x64 -o artifacts/aot
           ./artifacts/aot/AotSample
+
+  wasm-publish:
+    name: Blazor WASM hosted publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+
+      # Publish a server that hosts a Blazor WebAssembly client that references a localized library, then assert
+      # the composed wwwroot: the client's merged per-culture bundle and the apl-catalogs.json manifest must
+      # ship, and the library's raw per-culture catalogs must NOT leak under _content (the authority already
+      # merged them — see the publish-time prune in the package targets). This guards the hosted-publish path,
+      # which a standalone WASM publish cannot reach because the leak only appears one reference level past the
+      # authority.
+      - name: Publish the hosted WASM sample
+        run: |
+          dotnet publish samples/Localization/Localization.WasmHostSample/Localization.WasmHostSample.csproj \
+            -c Release -o artifacts/wasmhost
+
+      - name: Assert the published catalog layout
+        run: |
+          root=artifacts/wasmhost/wwwroot
+          fail=0
+
+          if [ ! -f "$root/Translations/apl-catalogs.json" ]; then
+            echo "BROKEN: the catalog manifest wwwroot/Translations/apl-catalogs.json is missing"
+            fail=1
+          fi
+
+          if ! ls "$root"/Translations/*.arb >/dev/null 2>&1; then
+            echo "BROKEN: no merged per-culture bundle under wwwroot/Translations"
+            fail=1
+          fi
+
+          leaked=$(find "$root/_content" -path '*/Translations/*' \( -name '*.arb' -o -name '*.xliff' -o -name '*.xlf' -o -name '*.po' \) 2>/dev/null)
+          if [ -n "$leaked" ]; then
+            echo "BROKEN: raw library catalogs leaked into the host wwwroot instead of being merged:"
+            echo "$leaked"
+            fail=1
+          fi
+
+          if [ "$fail" -eq 0 ]; then
+            echo "OK: manifest + merged bundle present, no raw catalogs leaked"
+          fi
+          exit $fail
