@@ -46,6 +46,33 @@ assembly, and fans out over every in-scope assembly that actually has strings:
 | `--input <dir>` | scan a build-output folder (e.g. `bin/Debug/net10.0` or a publish dir) for assemblies |
 | `--assembly <dll>` | a single assembly (the low-level form) |
 
+A project or solution scope reads **only the assemblies those projects build** — never the packages copied
+beside them. A `bin` folder is mostly other people's code (every NuGet dependency and native interop library
+lands there), and none of it is yours to translate. To cover the libraries an app pulls in, add `--recurse`,
+which follows *project* references. `--input` is the deliberate exception: it names a directory of built
+assemblies, so everything under it is in scope — that is what makes scanning a publish folder possible.
+
+Which assembly a project builds is **asked of MSBuild**, not guessed from the project file: the name can come
+from `Directory.Build.props`, a property expression (`$(MSBuildProjectName).Core`), a conditioned property
+group, or an import, and `TargetName`/`TargetExt` can rename the file after that — none of it visible in the
+XML. The tool evaluates every in-scope project in **one** MSBuild process (an evaluation, not a build), because
+starting MSBuild costs more than evaluating with it — this repository's 57 projects evaluate in about 2.5s that
+way, against about 17s one process at a time.
+
+A project MSBuild cannot evaluate is **reported, not guessed around**: it is the same project that will not
+build, so it has no assembly to scan, and inventing a name for it would report "no strings" for a project that
+may be full of them. To read built assemblies with no usable project — a publish folder, a drop from another
+build — use `--input <dir>` or `--assembly <dll>`, which never look at a project at all.
+
+**Every project in scope is read, not only those referencing this library.** That looks like a missing
+optimisation and is not: `[DisplayName]` and `[Display]` are Base Class Library attributes, so a contracts or
+model project whose strings are pure DataAnnotations usually references no localizer at all — and its strings
+are still yours to translate. Filtering the scope by "references the localization package" would drop them
+silently. The saving you would want from such a filter is already taken where it is safe: the **call-site**
+pass skips any assembly that references no localizer, since a `Translate(...)` call cannot exist without one,
+so an unrelated assembly costs only a metadata read. Pass `--no-annotations`
+(`ArchPillarLocalizationExtractAnnotations=false`) when you want call sites only.
+
 With **no scope at all**, the tool defaults to the current directory like `dotnet build` — a lone solution
 wins, else a lone project. So from your app's folder you can just run `dotnet apl add de`.
 `--project` and `--solution` also accept a **folder** or no value, finding the single file in

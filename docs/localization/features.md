@@ -552,6 +552,15 @@ in-code default, scoped to the declaring type's category, the same text-as-key t
 looks up by. There is no call site to write and no `L(...)` to add: annotate as you already do and the
 strings reach translators. Opt a project out with `ArchPillarLocalizationExtractAnnotations=false`.
 
+> **A project does not have to reference this library to contribute annotation strings.** `[DisplayName]`
+> and `[Display]` are Base Class Library attributes, so a contracts or model project full of them —
+> rendered by ASP.NET model metadata, localized at runtime by the `…AspNetCore` integration — typically
+> references no localizer at all. That is why a scan reads every project in scope rather than only those
+> referencing this package: skipping them would drop their strings silently. (The **call-site** pass does
+> skip an assembly that references no localizer — a `Translate(...)` call is impossible without one — so
+> the cost of scanning an unrelated assembly is already just reading its metadata.) Use
+> `ArchPillarLocalizationExtractAnnotations=false` when you deliberately want call sites only.
+
 Some teams prefer a **string id** to text-as-key. For them an **optional twin attribute** carries just the
 source-language default, while the stable id stays where the framework already reads it — in the system
 attribute's value. So the system attribute holds the key and the twin holds the default text:

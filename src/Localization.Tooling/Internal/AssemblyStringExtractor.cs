@@ -21,7 +21,14 @@ internal sealed class AssemblyStringExtractor : IDisposable
     /// </summary>
     public (IReadOnlyList<RawCallSite> CallSites, IReadOnlyList<RawCallSite> Annotations) Extract(string assemblyPath, bool includeAnnotations)
     {
-        using ModuleDefinition module = _reader.Read(assemblyPath);
+        // A file the reader cannot open is not a managed assembly (a native library beside the app, an
+        // unreadable file); it carries no strings and is skipped, never failing the scan around it.
+        using ModuleDefinition? module = _reader.Read(assemblyPath);
+        if (module is null)
+        {
+            return ([], []);
+        }
+
         IReadOnlyList<RawCallSite> callSites = _callSites.Extract(module);
         IReadOnlyList<RawCallSite> annotations = includeAnnotations ? AnnotationExtractor.Extract(module) : [];
         return (callSites, annotations);

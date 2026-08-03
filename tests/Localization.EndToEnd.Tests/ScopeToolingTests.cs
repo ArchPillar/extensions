@@ -91,13 +91,16 @@ public sealed class ScopeToolingTests : IDisposable
     [Fact]
     public async Task ProjectScope_DiscoversTheSingleProjectFileInADirectoryAsync()
     {
-        File.WriteAllText(Path.Combine(_root, "App.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
+        File.WriteAllText(Path.Combine(_root, "LibA.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
 
-        // Passing the directory (not the .csproj) finds the single project and scans its bin — like running
-        // `dotnet build` in a folder.
+        // Passing the directory (not the .csproj) finds the single project — like running `dotnet build` in a
+        // folder — and resolves it to the assembly that project builds.
         Assert.Equal(0, await ToolApplication.RunAsync(["extract", "--project", _root, "--output", _catalogs]));
         Assert.True(File.Exists(Path.Combine(_catalogs, "LibA.en.xliff")));
-        Assert.True(File.Exists(Path.Combine(_catalogs, "LibB.en.xliff")));
+
+        // LibB.dll sits in the same bin but is not this project's output, so a project scope must not extract
+        // it: a bin folder is mostly dependencies, and none of them belong to the project that references them.
+        Assert.False(File.Exists(Path.Combine(_catalogs, "LibB.en.xliff")));
     }
 
     [Fact]
@@ -140,18 +143,17 @@ public sealed class ScopeToolingTests : IDisposable
     [Fact]
     public async Task CatalogPath_WritesInsideTheProjectRatherThanTheCurrentDirectoryAsync()
     {
-        File.WriteAllText(Path.Combine(_root, "App.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
+        File.WriteAllText(Path.Combine(_root, "LibA.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
 
         Assert.Equal(0, await ToolApplication.RunAsync(["extract", "--project", _root, "--catalog-path", "Catalogs"]));
 
         Assert.True(File.Exists(Path.Combine(_root, "Catalogs", "LibA.en.xliff")));
-        Assert.True(File.Exists(Path.Combine(_root, "Catalogs", "LibB.en.xliff")));
     }
 
     [Fact]
     public async Task CatalogPath_DefaultsToTranslationsAsync()
     {
-        File.WriteAllText(Path.Combine(_root, "App.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
+        File.WriteAllText(Path.Combine(_root, "LibA.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
 
         Assert.Equal(0, await ToolApplication.RunAsync(["extract", "--project", _root]));
 
@@ -162,7 +164,7 @@ public sealed class ScopeToolingTests : IDisposable
     public async Task Output_WinsOverCatalogPathAsync()
     {
         // The two say different things; the explicit single destination is the more specific instruction.
-        File.WriteAllText(Path.Combine(_root, "App.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
+        File.WriteAllText(Path.Combine(_root, "LibA.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
         var flat = Path.Combine(_root, "flat");
 
         Assert.Equal(0, await ToolApplication.RunAsync(["extract", "--project", _root, "--catalog-path", "Catalogs", "--output", flat]));
@@ -176,7 +178,7 @@ public sealed class ScopeToolingTests : IDisposable
     {
         // Matches the dotnet CLI's own --output, and is the whole reason the project-relative form needed its own
         // name: the same relative string means different places under the two options.
-        File.WriteAllText(Path.Combine(_root, "App.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
+        File.WriteAllText(Path.Combine(_root, "LibA.csproj"), "<Project Sdk=\"Microsoft.NET.Sdk\" />");
         var working = Path.Combine(_root, "cwd");
         Directory.CreateDirectory(working);
 
