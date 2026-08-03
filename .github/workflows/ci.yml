@@ -114,9 +114,16 @@ jobs:
             -c Release -o artifacts/wasmhost
 
       - name: Assert the published catalog layout
+        # No `set -e` reliance: a `find` over a _content directory that (correctly) does not exist would abort
+        # the step before the checks run. Collect failures explicitly and exit at the end.
+        shell: bash
         run: |
+          set +e
           root=artifacts/wasmhost/wwwroot
           fail=0
+
+          echo "Published Translations:"
+          ls -la "$root/Translations" 2>/dev/null || echo "  (no Translations directory)"
 
           if [ ! -f "$root/Translations/apl-catalogs.json" ]; then
             echo "BROKEN: the catalog manifest wwwroot/Translations/apl-catalogs.json is missing"
@@ -128,7 +135,12 @@ jobs:
             fail=1
           fi
 
-          leaked=$(find "$root/_content" -path '*/Translations/*' \( -name '*.arb' -o -name '*.xliff' -o -name '*.xlf' -o -name '*.po' \) 2>/dev/null)
+          # The _content directory only exists if something served under it; the success case (raw catalogs
+          # pruned) may leave it absent entirely, so guard the find on its existence.
+          leaked=""
+          if [ -d "$root/_content" ]; then
+            leaked=$(find "$root/_content" -path '*/Translations/*' \( -name '*.arb' -o -name '*.xliff' -o -name '*.xlf' -o -name '*.po' \) 2>/dev/null)
+          fi
           if [ -n "$leaked" ]; then
             echo "BROKEN: raw library catalogs leaked into the host wwwroot instead of being merged:"
             echo "$leaked"
