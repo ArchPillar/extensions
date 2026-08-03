@@ -115,9 +115,10 @@ internal static class ScopeDiscovery
     }
 
     /// <summary>
-    /// The assembly a project builds: its <c>AssemblyName</c> when it sets one, else the project file's own name
-    /// (the SDK default). This is what makes a project scope mean *this project's output* rather than everything
-    /// in its <c>bin</c> — which is mostly its dependencies.
+    /// A best-effort assembly name read off the project file: its literal <c>AssemblyName</c>, else the project
+    /// file's own name (the SDK default). This is only the **fallback** for a project MSBuild could not evaluate
+    /// (<see cref="ProjectEvaluator"/>) — it cannot see a name set in <c>Directory.Build.props</c>, built from a
+    /// property expression, or renamed by <c>TargetName</c>, so it is a guess and never the first answer.
     /// </summary>
     public static string AssemblyNameOf(string projectPath)
     {

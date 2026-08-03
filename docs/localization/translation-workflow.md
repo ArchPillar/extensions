@@ -52,6 +52,13 @@ lands there), and none of it is yours to translate. To cover the libraries an ap
 which follows *project* references. `--input` is the deliberate exception: it names a directory of built
 assemblies, so everything under it is in scope — that is what makes scanning a publish folder possible.
 
+Which assembly a project builds is **asked of MSBuild**, not guessed from the project file: the name can come
+from `Directory.Build.props`, a property expression (`$(MSBuildProjectName).Core`), a conditioned property
+group, or an import, and `TargetName`/`TargetExt` can rename the file after that — none of it visible in the
+XML. The tool evaluates each in-scope project once (an evaluation, not a build), in parallel, so a
+solution-sized scope pays roughly a second overall rather than per project. If a project cannot be evaluated —
+no SDK on the path, a malformed project — the scan falls back to the SDK's default naming instead of failing.
+
 With **no scope at all**, the tool defaults to the current directory like `dotnet build` — a lone solution
 wins, else a lone project. So from your app's folder you can just run `dotnet apl add de`.
 `--project` and `--solution` also accept a **folder** or no value, finding the single file in

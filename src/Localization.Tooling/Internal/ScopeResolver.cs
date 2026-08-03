@@ -50,9 +50,11 @@ internal static class ScopeResolver
         IEnumerable<string> assemblies = scope switch
         {
             { Input: { Length: > 0 } input } => AssembliesUnder(input),
-            { Project: { } project } => ProjectAssemblies(ScopeDiscovery.ResolveSingleFile(project, "project", "*.csproj"), scope.Recurse),
-            { Solution: { } solution } => ScopeDiscovery.SolutionProjects(ScopeDiscovery.ResolveSingleFile(solution, "solution", "*.sln", "*.slnx"))
-                .SelectMany(project => ProjectAssemblies(project, recurse: false)),
+            { Project: { } project } => ProjectAssemblies(ScopeDiscovery.ProjectClosure(
+                ScopeDiscovery.ResolveSingleFile(project, "project", "*.csproj"), scope.Recurse)),
+            { Solution: { } solution } => ProjectAssemblies(
+                ScopeDiscovery.SolutionProjects(ScopeDiscovery.ResolveSingleFile(solution, "solution", "*.sln", "*.slnx"))
+                    .SelectMany(project => ScopeDiscovery.ProjectClosure(project, recurse: false))),
             _ => DiscoverInCurrentDirectory(scope.Recurse)
         };
 
@@ -66,28 +68,39 @@ internal static class ScopeResolver
         CurrentDirectoryScope current = ScopeDiscovery.DiscoverCurrentDirectory();
         if (current.Solution is { } solution)
         {
-            return ScopeDiscovery.SolutionProjects(solution).SelectMany(project => ProjectAssemblies(project, recurse: false));
+            return ProjectAssemblies(ScopeDiscovery.SolutionProjects(solution)
+                .SelectMany(project => ScopeDiscovery.ProjectClosure(project, recurse: false)));
         }
 
         if (current.Project is { } project)
         {
-            return ProjectAssemblies(project, recurse);
+            return ProjectAssemblies(ScopeDiscovery.ProjectClosure(project, recurse));
         }
 
         throw new ArgumentException("No project or solution found in the current directory. Run from your app folder, or pass --project, --solution, or --input <dir>.");
     }
 
-    // Each project in the closure (the project itself, plus transitive references when recursing) contributes
-    // only the assembly it builds — found by name under its bin tree, so every configuration and target
-    // framework is covered while its dependencies are not.
-    private static IEnumerable<string> ProjectAssemblies(string projectPath, bool recurse) =>
-        ScopeDiscovery.ProjectClosure(projectPath, recurse).SelectMany(OwnAssemblies);
-
-    private static IEnumerable<string> OwnAssemblies(string projectPath)
+    // Each project contributes only the assembly it builds. What that assembly is called is asked of MSBuild
+    // rather than read off the project file — the name can come from Directory.Build.props, a property
+    // expression, or an import, none of which are visible in the XML. Every project is evaluated in one batch,
+    // so the scan pays for it once. The file is then found by name under the project's output root, which
+    // covers every configuration and target framework built while excluding the dependencies beside them.
+    private static IEnumerable<string> ProjectAssemblies(IEnumerable<string> projects)
     {
-        var bin = Path.Combine(Path.GetDirectoryName(projectPath)!, "bin");
-        return Directory.Exists(bin)
-            ? Directory.EnumerateFiles(bin, ScopeDiscovery.AssemblyNameOf(projectPath) + ".dll", SearchOption.AllDirectories)
+        List<string> ordered = [.. projects.Distinct(StringComparer.OrdinalIgnoreCase)];
+        IReadOnlyDictionary<string, ProjectOutputs?> outputs = ProjectEvaluator.EvaluateAll(ordered);
+        return ordered.SelectMany(project => OwnAssemblies(project, outputs.GetValueOrDefault(project)));
+    }
+
+    private static IEnumerable<string> OwnAssemblies(string projectPath, ProjectOutputs? outputs)
+    {
+        var directory = Path.GetDirectoryName(projectPath)!;
+        // Without an evaluation (no SDK on the path, an unrestored or malformed project) fall back to reading the
+        // project file, so a scan degrades to the documented default rather than finding nothing at all.
+        var fileName = outputs?.AssemblyFileName ?? ScopeDiscovery.AssemblyNameOf(projectPath) + ".dll";
+        var root = Path.Combine(directory, outputs?.OutputRoot ?? "bin");
+        return Directory.Exists(root)
+            ? Directory.EnumerateFiles(root, fileName, SearchOption.AllDirectories)
             : [];
     }
 

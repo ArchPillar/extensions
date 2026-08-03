@@ -27,8 +27,11 @@ project) in the current directory.
 **Scope** defaults to the current directory; override with `--solution App.sln`,
 `--project App.csproj` (add `--recurse` for its project dependencies), or `--input bin/Debug/net10.0`.
 A project/solution scope reads only the assemblies **those projects build** — not the NuGet packages
-and native libraries copied into their `bin`. `--input` is the exception: it names a directory of
-assemblies, so everything under it is in scope (which is what lets you scan a publish folder).
+and native libraries copied into their `bin`. Which assembly that is comes from an **MSBuild
+evaluation** of each project (so a name set in `Directory.Build.props`, built from a property
+expression, or renamed by `TargetName` is resolved correctly), falling back to the SDK default naming
+if a project cannot be evaluated. `--input` is the exception: it names a directory of assemblies, so
+everything under it is in scope (which is what lets you scan a publish folder).
 
 **Coverage** (`status`) reports **Translated** (a current translation — `Translated` *or* `Final`),
 **Review** (a translation the source drifted under, so it renders but is stale), **Missing**

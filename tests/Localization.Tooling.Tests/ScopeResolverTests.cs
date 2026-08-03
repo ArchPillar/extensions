@@ -98,6 +98,39 @@ public sealed class ScopeResolverTests : IDisposable
     }
 
     [Fact]
+    public void Resolve_AssemblyNameSetInDirectoryBuildProps_IsEvaluatedNotGuessed()
+    {
+        // The project file says nothing about its assembly name — it comes from Directory.Build.props, through a
+        // property expression. Reading the XML would guess "Lib" and find nothing; only MSBuild knows it is
+        // "Zeta.Lib". This is the case that makes evaluation necessary rather than nice to have.
+        var area = Path.Combine(_root, "evaluated");
+        Directory.CreateDirectory(area);
+        File.WriteAllText(
+            Path.Combine(area, "Directory.Build.props"),
+            "<Project><PropertyGroup><AssemblyName>Zeta.$(MSBuildProjectName)</AssemblyName></PropertyGroup></Project>");
+        var project = MakeBuildableProject(area, "Lib");
+        WriteFile(Path.Combine(area, "Lib", "bin", "Debug", "net10.0", "Zeta.Lib.dll"));
+        WriteFile(Path.Combine(area, "Lib", "bin", "Debug", "net10.0", "Google.Ads.GoogleAds.dll"));
+
+        IReadOnlyList<string> resolved = ScopeResolver.Resolve(new ScopeOptions(null, null, project, null, Recurse: false));
+
+        Assert.Equal(["Zeta.Lib.dll"], resolved.Select(Path.GetFileName));
+    }
+
+    [Fact]
+    public void Resolve_ProjectMsBuildCannotEvaluate_FallsBackToTheProjectFileName()
+    {
+        // No target framework, so the evaluation fails. The scan degrades to the SDK's default naming rather
+        // than resolving nothing at all.
+        var project = MakeProject("App.Web");
+        WriteFile(Path.Combine(_root, "App.Web", "bin", "Debug", "net10.0", "App.Web.dll"));
+
+        IReadOnlyList<string> resolved = ScopeResolver.Resolve(new ScopeOptions(null, null, project, null, Recurse: false));
+
+        Assert.Equal(["App.Web.dll"], resolved.Select(Path.GetFileName));
+    }
+
+    [Fact]
     public void Extract_FileThatIsNotAManagedAssembly_IsSkippedInsteadOfFailingTheScan()
     {
         // A native library, or anything else with a .dll name that Cecil cannot open. A scan walks whatever is
@@ -144,9 +177,23 @@ public sealed class ScopeResolverTests : IDisposable
         return path;
     }
 
-    private void WriteAssembly(string project, params string[] segments)
+    // A project MSBuild can actually evaluate: it declares a target framework, so -getProperty resolves.
+    private static string MakeBuildableProject(string area, string name)
     {
-        var path = Path.Combine([_root, project, .. segments]);
+        var directory = Path.Combine(area, name);
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, name + ".csproj");
+        File.WriteAllText(
+            path,
+            "<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup></Project>");
+        return path;
+    }
+
+    private void WriteAssembly(string project, params string[] segments) =>
+        WriteFile(Path.Combine([_root, project, .. segments]));
+
+    private static void WriteFile(string path)
+    {
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         File.WriteAllText(path, string.Empty);
     }
