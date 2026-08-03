@@ -52,6 +52,57 @@ public sealed class TranslationFormatRegistry
             ? format
             : null;
 
+    /// <summary>
+    /// Determines whether <paramref name="obj"/> is a registry with the same format support — the same ids and the
+    /// same file extensions, each mapped to the same format type. Construction order and instance identity do not
+    /// matter, so two registries built from the same formats (the built-in set, say, which is assembled fresh each
+    /// time) compare equal, while a registry that resolves an extension to a different format does not. Per-instance
+    /// parsing behaviour within one format type is not compared (formats are treated as identified by type).
+    /// </summary>
+    /// <param name="obj">The object to compare with.</param>
+    /// <returns><see langword="true"/> when both registries support the same formats.</returns>
+    public override bool Equals(object? obj) =>
+        obj is TranslationFormatRegistry other && HasSameFormats(other);
+
+    /// <inheritdoc />
+    public override int GetHashCode()
+    {
+        // Order-independent: the id set identifies the registry, so XOR the per-id hashes rather than depend on
+        // the dictionary's enumeration order.
+        var hash = 0;
+        foreach (var id in _byId.Keys)
+        {
+            hash ^= StringComparer.OrdinalIgnoreCase.GetHashCode(id);
+        }
+
+        return hash;
+    }
+
+    // Whether both registries resolve the same ids and the same extensions to formats of the same type. Extensions
+    // are compared explicitly (not assumed to follow from the id set) because a format's extensions are its own
+    // choice, so two formats sharing an id and type can still register different extensions.
+    private bool HasSameFormats(TranslationFormatRegistry other) =>
+        SameTypeMapping(_byId, other._byId) && SameTypeMapping(_byExtension, other._byExtension);
+
+    // Whether two id/extension-to-format maps have the same keys, each mapped to a format of the same type.
+    private static bool SameTypeMapping(Dictionary<string, ITranslationFormat> left, Dictionary<string, ITranslationFormat> right)
+    {
+        if (left.Count != right.Count)
+        {
+            return false;
+        }
+
+        foreach (KeyValuePair<string, ITranslationFormat> entry in left)
+        {
+            if (!right.TryGetValue(entry.Key, out ITranslationFormat? format) || format.GetType() != entry.Value.GetType())
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private static string Normalize(string extension) =>
         extension.StartsWith(".", StringComparison.Ordinal) ? extension : "." + extension;
 }

@@ -29,7 +29,10 @@ public static class Localizer
 
     /// <summary>
     /// Feeds initial <paramref name="options"/> to the ambient context, applied in one rebuild, and — when
-    /// <paramref name="eager"/> is set — loads the catalogs now instead of lazily on first use.
+    /// <paramref name="eager"/> is set — loads the catalogs now instead of lazily on first use. Idempotent: the
+    /// ambient reconfigures only when <paramref name="options"/> differ from its current configuration (see
+    /// <see cref="LocalizationContext.Configure"/>), so calling this again with the same configuration — as every DI
+    /// container in a multi-host process does — does not rebuild the shared ambient.
     /// </summary>
     /// <param name="options">The configuration to apply.</param>
     /// <param name="eager">Whether to load the catalogs (directory + assembly discovery) up front.</param>

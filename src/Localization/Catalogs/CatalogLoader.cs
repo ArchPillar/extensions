@@ -99,10 +99,17 @@ internal sealed class CatalogLoader(
 
     // Opens a synchronous source unless already handled, recording the catalog (or null on an expected failure).
     // Returns true only when a real catalog was newly registered. The open runs outside any lock; TryAdd re-checks so
-    // a concurrent load never double-registers.
+    // a concurrent load never double-registers. A provider absent from the registry belongs to a superseded
+    // configuration (the store builds work from _providers and loads it into _loader with two separate lock-free
+    // reads, so a reconfigure between them can hand this loader an old generation's provider); its stale work is
+    // dropped rather than throwing, since the new configuration reloads the in-use cultures against its own providers.
     private bool OpenSynchronous(ICatalogProvider provider, CatalogDescriptor descriptor, CatalogSource.Synchronous source)
     {
-        ConcurrentDictionary<(string Culture, string Name), Catalog?> catalogs = _registry[provider];
+        if (!_registry.TryGetValue(provider, out ConcurrentDictionary<(string Culture, string Name), Catalog?>? catalogs))
+        {
+            return false;
+        }
+
         if (catalogs.ContainsKey(descriptor.Identity))
         {
             return false;
@@ -137,7 +144,11 @@ internal sealed class CatalogLoader(
                 catalog = null;
             }
 
-            if (_registry[provider].TryAdd(descriptor.Identity, catalog) && catalog is not null)
+            // A provider absent from the registry belongs to a superseded configuration (see OpenSynchronous); its
+            // stale fetch is dropped rather than throwing.
+            if (_registry.TryGetValue(provider, out ConcurrentDictionary<(string Culture, string Name), Catalog?>? catalogs)
+                && catalogs.TryAdd(descriptor.Identity, catalog)
+                && catalog is not null)
             {
                 onChanged();
             }

@@ -13,6 +13,13 @@ namespace ArchPillar.Extensions.Localization;
 public sealed class LocalizationContext : IDisposable, ILocalizerFactory
 {
     private readonly CatalogStore _store;
+    // Guards the compare-and-set of the current configuration so a concurrent reconfigure cannot interleave the
+    // dedupe check with the swap. Acquired only outside the store's own locks (the store never calls back here), so
+    // it introduces no lock-order inversion.
+    private readonly object _configureGate = new();
+    // The configuration currently applied to this context — the one owner of that fact, so Configure can skip a
+    // redundant rebuild. Reset returns it to the default alongside the store, so the two never disagree.
+    private LocalizerOptions _options;
 
     /// <summary>
     /// Initializes a new, self-contained <see cref="LocalizationContext"/> over <paramref name="options"/> — a
@@ -27,6 +34,7 @@ public sealed class LocalizationContext : IDisposable, ILocalizerFactory
     private LocalizationContext(LocalizerOptions options, bool ambient)
     {
         _store = ambient ? CatalogStore.CreateAmbient() : new CatalogStore(options);
+        _options = options;
         Engine = new DefaultLocalizer(_store, RenderingContext.For(options.SourceCulture, options.MissingArguments));
         Default = new Internal.AmbientLocalizer(this);
     }
@@ -85,17 +93,31 @@ public sealed class LocalizationContext : IDisposable, ILocalizerFactory
 
     /// <summary>Applies the configuration — source culture, missing-argument policy, translations directory, format
     /// precedence, culture loading, hot reload, the culture allow-list, providers, and dynamic sources — in one
-    /// rebuild. This is the only way to add catalogs, providers, or sources: build new options and reconfigure.</summary>
+    /// rebuild. This is the only way to add catalogs, providers, or sources: build new options and reconfigure.
+    /// Idempotent: reconfiguring with options equal to the current configuration is a no-op, so a repeated
+    /// registration does not needlessly rebuild the context.</summary>
     /// <param name="options">The configuration to apply.</param>
     /// <exception cref="ArgumentNullException"><paramref name="options"/> is <see langword="null"/>.</exception>
     public void Configure(LocalizerOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
 
-        // Rendering (source culture + missing-argument policy) and catalog loading are re-derived from the same
-        // options, but they are separate concerns: the engine owns the rendering context, the store owns loading.
-        Engine.Reconfigure(RenderingContext.For(options.SourceCulture, options.MissingArguments));
-        _store.Configure(options);
+        lock (_configureGate)
+        {
+            // Skip a rebuild that would change nothing — the guard that keeps repeated helper registrations from
+            // churning the shared ambient. _options is this context's single record of its configuration, updated
+            // here and by Reset, so it cannot drift from the store's actual state.
+            if (options.Equals(_options))
+            {
+                return;
+            }
+
+            // Rendering (source culture + missing-argument policy) and catalog loading are re-derived from the same
+            // options, but they are separate concerns: the engine owns the rendering context, the store owns loading.
+            Engine.Reconfigure(RenderingContext.For(options.SourceCulture, options.MissingArguments));
+            _store.Configure(options);
+            _options = options;
+        }
     }
 
     /// <summary>Eagerly loads the catalogs now (otherwise the ambient store loads them lazily on first use).</summary>
@@ -131,8 +153,13 @@ public sealed class LocalizationContext : IDisposable, ILocalizerFactory
     /// <summary>Clears the configured providers and loaded catalogs, returning the context to its default empty state.</summary>
     public void Reset()
     {
-        Engine.Reconfigure(RenderingContext.Default);
-        _store.Reset();
+        lock (_configureGate)
+        {
+            Engine.Reconfigure(RenderingContext.Default);
+            _store.Reset();
+            // Track the default so a later Configure with equal options still re-applies against the emptied store.
+            _options = new LocalizerOptions();
+        }
     }
 
     /// <inheritdoc />

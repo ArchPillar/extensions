@@ -34,8 +34,9 @@ public static class ServiceCollectionExtensions
         LocalizerOptions resolved = options ?? new LocalizerOptions();
 
         // Feed and register the single process-wide ambient context, so DI, a non-DI caller, and an exception
-        // text all read one store. Registered as an instance, so the container does not dispose the
-        // process-global ambient.
+        // text all read one store. Initialize is idempotent per configuration, so registering from several DI
+        // containers in one process (a test host) configures the ambient once rather than rebuilding it each time.
+        // Registered as an instance, so the container does not dispose the process-global ambient.
         Localizer.Initialize(resolved);
         services.AddSingleton(Localizer.Ambient);
 

@@ -95,6 +95,61 @@ public sealed class LocalizationTests
         WithCulture(_german, () => Assert.Equal("Hello", Localizer.For<Greeting>().Translate("hello", "Hello")));
     }
 
+    [Fact]
+    public void Initialize_CalledAgainWithEqualOptions_DoesNotReconfigureTheAmbient()
+    {
+        Localizer.ResetAmbientForTests();
+        // Two distinct options instances sharing one provider factory: value-equal, so the guard dedupes them even
+        // though they are not the same object.
+        Func<LocalizerOptions, ICatalogProvider> factory = Layer(DeCatalog(typeof(Greeting).FullName!, "hello", "Hallo"));
+        Localizer.Initialize(new LocalizerOptions { Providers = [factory] });
+        WithCulture(_german, () => Assert.Equal("Hallo", Localizer.For<Greeting>().Translate("hello", "Hello")));
+
+        // A repeat call with an equal configuration is a no-op: it must not rebuild the ambient, which would raise
+        // CatalogsChanged. The subscription is added after the first configure, so only a redundant rebuild trips it.
+        var raised = 0;
+        Localizer.CatalogsChanged += () => raised++;
+        Localizer.Initialize(new LocalizerOptions { Providers = [factory] });
+
+        Assert.Equal(0, raised);
+        WithCulture(_german, () => Assert.Equal("Hallo", Localizer.For<Greeting>().Translate("hello", "Hello")));
+
+        Localizer.ResetAmbientForTests();
+    }
+
+    [Fact]
+    public void Reset_ThenInitializeWithEqualOptions_ReconfiguresAgainstTheEmptiedStore()
+    {
+        Localizer.ResetAmbientForTests();
+        var options = new LocalizerOptions { Providers = [Layer(DeCatalog(typeof(Greeting).FullName!, "hello", "Hallo"))] };
+        Localizer.Initialize(options);
+        WithCulture(_german, () => Assert.Equal("Hallo", Localizer.For<Greeting>().Translate("hello", "Hello")));
+
+        // Resetting the ambient empties the store; a later Initialize with the very same options must re-apply, not
+        // skip on a stale "already configured" memo. The configuration is owned by the context and Reset returns it
+        // to the default, so the dedupe cannot leave the store empty here.
+        Localizer.Ambient.Reset();
+        Localizer.Initialize(options);
+
+        WithCulture(_german, () => Assert.Equal("Hallo", Localizer.For<Greeting>().Translate("hello", "Hello")));
+
+        Localizer.ResetAmbientForTests();
+    }
+
+    [Fact]
+    public void Initialize_CalledAgainWithDifferentOptions_ReconfiguresTheAmbient()
+    {
+        Localizer.ResetAmbientForTests();
+        Localizer.Initialize(new LocalizerOptions { Providers = [Layer(DeCatalog(typeof(Greeting).FullName!, "hello", "Hallo"))] });
+        WithCulture(_german, () => Assert.Equal("Hallo", Localizer.For<Greeting>().Translate("hello", "Hello")));
+
+        // Different options apply, so the override changes — configure-once dedupes equal configurations only.
+        Localizer.Initialize(new LocalizerOptions { Providers = [Layer(DeCatalog(typeof(Greeting).FullName!, "hello", "Servus"))] });
+        WithCulture(_german, () => Assert.Equal("Servus", Localizer.For<Greeting>().Translate("hello", "Hello")));
+
+        Localizer.ResetAmbientForTests();
+    }
+
     // Serves a fixed catalog through an InMemoryCatalogProvider, so a test can layer it through
     // LocalizerOptions.Providers the way a host configures any catalog provider.
     private static Func<LocalizerOptions, ICatalogProvider> Layer(Catalog catalog) =>
