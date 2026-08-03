@@ -122,6 +122,11 @@ Runnable examples under [`samples/Localization/`](../../samples/Localization/):
   are discovered through a build-emitted manifest and fetched over HTTP (`ManifestCatalogProvider`, registered by
   `host.UseArchPillarLocalizationAsync(options)`); the build gathers the app's own and the referenced library's catalogs
   (merged into one bundle per culture on publish), and culture switches in-process.
+- [Localization.WasmHostSample](../../samples/Localization/Localization.WasmHostSample/) — an ASP.NET Core server
+  hosting the `Localization.WasmSample` client, the realistic three-level deployment (server → WebAssembly client →
+  localized library). It exists to pin the published layout: the client's merged bundle and `apl-catalogs.json`
+  ship under `wwwroot/Translations`, and the library's raw per-culture catalogs do **not** leak under
+  `wwwroot/_content` (the client already merged them). CI publishes it and asserts exactly that.
 - [Localization.TodoSample](../../samples/Localization/Localization.TodoSample/) — a console to-do app
   with English + German/French and a pseudo-localization smoke test.
 - [Localization.GreetingLibrary](../../samples/Localization/Localization.GreetingLibrary/) +

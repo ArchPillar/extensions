@@ -41,8 +41,13 @@
     edited source wording as overrides above the in-code default (its un-edited echoes are inert at runtime).
     Only the language-neutral Portable Object template (messages.pot) is excluded. Set
     ArchPillarLocalizationCopyTargetsToOutput=false to opt out (e.g. when embedding or merging at publish).
+
+    Skipped for a Blazor WebAssembly app: a browser has no file system for the ambient directory source to read,
+    so that app serves its catalogs as static web assets over HTTP (below) and a beside-the-binary copy is dead
+    weight — worse, it flows up to a server host's output root, a leaked file the WebAssembly client never reads.
+    UsingMicrosoftNETSdkBlazorWebAssembly is the same signal the catalog authority uses.
   -->
-  <ItemGroup Condition="'$(ArchPillarLocalizationCopyTargetsToOutput)' == 'true' and '$(ArchPillarLocalizationEmbedTargets)' != 'true' and Exists('$(ArchPillarLocalizationCatalogPath)')">
+  <ItemGroup Condition="'$(ArchPillarLocalizationCopyTargetsToOutput)' == 'true' and '$(ArchPillarLocalizationEmbedTargets)' != 'true' and '$(UsingMicrosoftNETSdkBlazorWebAssembly)' != 'true' and Exists('$(ArchPillarLocalizationCatalogPath)')">
     <Content Include="$(ArchPillarLocalizationCatalogPath)\**\*.arb;$(ArchPillarLocalizationCatalogPath)\**\*.xliff;$(ArchPillarLocalizationCatalogPath)\**\*.xlf;$(ArchPillarLocalizationCatalogPath)\**\*.po"
              Exclude="$(ArchPillarLocalizationCatalogPath)\messages.pot"
              CopyToOutputDirectory="PreserveNewest"
@@ -115,9 +120,11 @@
     Both hooks run late enough (PrepareForRun / the publish equivalent) that the tool is built and the
     source-language template has been extracted. These DependsOn properties exist only in Razor/Blazor
     projects, so this is inert elsewhere (a console/server app loads catalogs from the file system; see the
-    publish-merge target above). AssetMode is CurrentProject — merging catalogs contributed by referenced
-    localized libraries into a WebAssembly client is not yet covered here (the file-system merge above does it
-    for a server app).
+    publish-merge target above). The authority gathers each referenced localized library's catalogs (by trait)
+    and merges them in — its own bundle/manifest are AssetMode=CurrentProject, but the referenced libraries
+    contribute theirs as AssetMode=All so they flow up to be gathered. That same All propagation means a server
+    host referencing the WebAssembly app re-gathers the libraries' raw catalogs one reference level past the
+    authority, so a late prune (below) drops them from the host's published wwwroot.
   -->
   <PropertyGroup Condition="'$(ArchPillarLocalizationEmitManifest)' == 'true'">
     <!-- The Blazor WebAssembly app is the catalog "authority": it gathers every catalog static web asset (its
@@ -246,6 +253,16 @@
           Command="$(ArchPillarLocalizationToolCommand) manifest --input &quot;$([System.IO.Path]::TrimEndingDirectorySeparator('$(_ArchPillarBuildCollectDir)'))&quot; --output &quot;$(_ArchPillarBuildManifestDir)apl-catalogs.json&quot; --source $(ArchPillarLocalizationSourceLanguage)"
           ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)" StandardOutputImportance="low" />
 
+    <!-- The manifest is not optional for a WebAssembly client: with no file system to enumerate it is the only
+         way the runtime discovers what to fetch, so a missing one is a broken app, not a degraded one. The tool
+         invocations stay best-effort ($(ArchPillarLocalizationToolContinueOnError)) so a warning does not fail an
+         ordinary build, but here — the authority has catalogs yet produced no manifest — that best-effort miss
+         must surface, or the WebAssembly app ships silently un-localized. Held to real builds ('DesignTimeBuild'
+         != 'true') so an IDE's background build does not spam the error before the tool is even restored. -->
+    <Error Condition="'@(_ArchPillarBuildCatalog)' != '' and '$(DesignTimeBuild)' != 'true' and !Exists('$(_ArchPillarBuildManifestDir)apl-catalogs.json')"
+           Code="APL0100"
+           Text="Could not generate the Blazor WebAssembly catalog manifest (apl-catalogs.json). A WebAssembly client discovers its translation catalogs only through this manifest, so it is required. The '$(ArchPillarLocalizationToolCommand)' tool did not produce it — install the ArchPillar localization tool (dotnet tool install --global ArchPillar.Extensions.Localization.Tooling, or add it to a local .config/dotnet-tools.json manifest and run dotnet tool restore) so 'dotnet apl' resolves during the build, then rebuild. See the build log above for the tool's own error." />
+
     <ItemGroup>
       <_ArchPillarBuildManifestFile Include="$(_ArchPillarBuildManifestDir)apl-catalogs.json" Condition="Exists('$(_ArchPillarBuildManifestDir)apl-catalogs.json')">
         <RelativePath>Translations/apl-catalogs.json</RelativePath>
@@ -322,6 +339,14 @@
           Command="$(ArchPillarLocalizationToolCommand) manifest --input &quot;$([System.IO.Path]::TrimEndingDirectorySeparator('$(_ArchPillarBundleDir)'))&quot; --output &quot;$(_ArchPillarPubManifestDir)apl-catalogs.json&quot; --source $(ArchPillarLocalizationSourceLanguage)"
           ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)" StandardOutputImportance="low" />
 
+    <!-- As at build (see APL0100 above), the manifest is mandatory for a WebAssembly client, so a best-effort
+         miss must fail publish rather than ship an un-localized app. This also covers a failed merge: no bundles
+         means the manifest Exec is skipped, so the manifest is absent and this fires. The referenced catalogs
+         were already dropped from the publish set above, so stopping here is correct — nothing half-merged ships. -->
+    <Error Condition="'@(_ArchPillarOwnCatalogFile)@(_ArchPillarReferencedCatalog)' != '' and !Exists('$(_ArchPillarPubManifestDir)apl-catalogs.json')"
+           Code="APL0100"
+           Text="Could not generate the Blazor WebAssembly catalog manifest (apl-catalogs.json) for publish. A WebAssembly client discovers its translation catalogs only through this manifest, so it is required. The '$(ArchPillarLocalizationToolCommand)' tool did not merge the catalogs or write the manifest — install the ArchPillar localization tool (dotnet tool install --global ArchPillar.Extensions.Localization.Tooling, or add it to a local .config/dotnet-tools.json manifest and run dotnet tool restore) so 'dotnet apl' resolves during publish, then republish. See the build log above for the tool's own error." />
+
     <ItemGroup>
       <_ArchPillarPubManifestFile Include="$(_ArchPillarPubManifestDir)apl-catalogs.json" Condition="Exists('$(_ArchPillarPubManifestDir)apl-catalogs.json')">
         <RelativePath>Translations/apl-catalogs.json</RelativePath>
@@ -341,6 +366,40 @@
       ExistingEndpoints="@(StaticWebAssetEndpoint)" ContentTypeMappings="@(StaticWebAssetContentTypeMapping)">
       <Output TaskParameter="Endpoints" ItemName="StaticWebAssetEndpoint" />
     </DefineStaticWebAssetEndpoints>
+  </Target>
+
+  <!--
+    Drop the raw per-library catalogs a contributor registered (trait-tagged) from the published set, in whatever
+    project produces the final wwwroot. They exist only so the authority can gather and merge them; once it has
+    emitted the manifest (and the per-culture bundles) they are superseded and must not ship.
+
+    They matter here because they propagate as AssetMode=All: a server host that references the WebAssembly app
+    re-gathers each library's catalogs straight from the library — one reference level past the authority — so the
+    authority's own <StaticWebAsset Remove> never reaches them and they leak into the host's
+    wwwroot/_content/<library>/Translations. Pruning has to happen where the published files are computed: the
+    copy reads @(StaticWebAsset) in _SplitPublishStaticWebAssetsByCopyOptions, after ResolvePublishStaticWebAssets
+    has re-materialized the referenced assets — so a removal wired into ResolvePublishStaticWebAssetsDependsOn is
+    overwritten. Hook the copy directly instead (after CopyStaticWebAssetsToPublishDirectory has fully resolved
+    @(StaticWebAsset), before the split copies it and before the endpoint manifest is written). Removing the asset
+    is enough: the endpoint manifest is generated from the surviving assets, so the pruned catalogs' endpoints go
+    with them (this is the same asset-only removal the authority uses). Self-limited to when the authority's
+    manifest is present: without it there is nothing to supersede the raw catalogs, so they are left as the only
+    fallback rather than stripped to nothing.
+  -->
+  <Target Name="_ArchPillarLocalizationPruneContributedCatalogs"
+          Condition="'$(ArchPillarLocalizationEmitManifest)' == 'true'"
+          AfterTargets="CopyStaticWebAssetsToPublishDirectory"
+          BeforeTargets="_SplitPublishStaticWebAssetsByCopyOptions;GenerateStaticWebAssetsPublishManifest">
+    <ItemGroup>
+      <_ArchPillarContributedCatalogAsset Include="@(StaticWebAsset)" Condition="'%(StaticWebAsset.AssetTraitName)' == 'ArchPillarLocalizationCatalog'" />
+      <!-- The manifest's RelativePath carries the fingerprint-expression form (apl-catalogs#[.{fingerprint}]?.json),
+           so match on the stem, not the full 'apl-catalogs.json' file name. -->
+      <_ArchPillarResolvedManifestAsset Include="@(StaticWebAsset)" Condition="$([System.String]::new('%(StaticWebAsset.RelativePath)').Contains('apl-catalogs'))" />
+    </ItemGroup>
+
+    <ItemGroup Condition="'@(_ArchPillarResolvedManifestAsset)' != '' and '@(_ArchPillarContributedCatalogAsset)' != ''">
+      <StaticWebAsset Remove="@(_ArchPillarContributedCatalogAsset)" />
+    </ItemGroup>
   </Target>
 
 </Project>

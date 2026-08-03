@@ -85,3 +85,88 @@ jobs:
           dotnet publish samples/Localization/Localization.AotSample/Localization.AotSample.csproj \
             -c Release -r linux-x64 -o artifacts/aot
           ./artifacts/aot/AotSample
+
+  wasm-publish:
+    name: Blazor WASM hosted publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+
+      # A server that hosts a Blazor WebAssembly client that references a localized library. Build then publish
+      # --no-build (the deploy shape: build once, publish/containerize without rebuilding) so a regression in the
+      # publish target ordering under NoBuild — where the merge/prune must reuse the build's static-web-asset
+      # state — is caught too. The assertion then checks the composed wwwroot: the client's merged per-culture
+      # bundle and the apl-catalogs.json manifest must ship, the library's raw per-culture catalogs must NOT leak
+      # under _content (the authority already merged them — see the publish-time prune in the package targets),
+      # and no beside-the-binary file copy lands at the host root. Guards the hosted path a standalone WASM
+      # publish cannot reach: the leak only appears one reference level past the authority.
+      - name: Build the hosted WASM sample
+        run: |
+          dotnet build samples/Localization/Localization.WasmHostSample/Localization.WasmHostSample.csproj \
+            -c Release
+
+      - name: Publish the hosted WASM sample (no build)
+        run: |
+          dotnet publish samples/Localization/Localization.WasmHostSample/Localization.WasmHostSample.csproj \
+            -c Release --no-build -o artifacts/wasmhost
+
+      - name: Assert the published catalog layout
+        # No `set -e` reliance: a `find` over a _content directory that (correctly) does not exist would abort
+        # the step before the checks run. Collect failures explicitly and exit at the end.
+        shell: bash
+        run: |
+          set +e
+          root=artifacts/wasmhost/wwwroot
+          fail=0
+
+          echo "Published Translations:"
+          ls -la "$root/Translations" 2>/dev/null || echo "  (no Translations directory)"
+
+          if [ ! -f "$root/Translations/apl-catalogs.json" ]; then
+            echo "BROKEN: the catalog manifest wwwroot/Translations/apl-catalogs.json is missing"
+            fail=1
+          fi
+
+          if ! ls "$root"/Translations/*.arb >/dev/null 2>&1; then
+            echo "BROKEN: no merged per-culture bundle under wwwroot/Translations"
+            fail=1
+          fi
+
+          # The _content directory only exists if something served under it; the success case (raw catalogs
+          # pruned) may leave it absent entirely, so guard the find on its existence.
+          leaked=""
+          if [ -d "$root/_content" ]; then
+            leaked=$(find "$root/_content" -path '*/Translations/*' \( -name '*.arb' -o -name '*.xliff' -o -name '*.xlf' -o -name '*.po' \) 2>/dev/null)
+          fi
+          if [ -n "$leaked" ]; then
+            echo "BROKEN: raw library catalogs leaked into the host wwwroot instead of being merged:"
+            echo "$leaked"
+            fail=1
+          fi
+
+          # A WebAssembly app serves its catalogs as static web assets, so the beside-the-binary file copy is
+          # suppressed; it must not appear at the host's output root (this host authors no strings of its own).
+          fs_copy=""
+          if [ -d "$root/../Translations" ]; then
+            fs_copy=$(find "$root/../Translations" -maxdepth 1 \( -name '*.arb' -o -name '*.xliff' -o -name '*.xlf' -o -name '*.po' \) 2>/dev/null)
+          fi
+          if [ -n "$fs_copy" ]; then
+            echo "BROKEN: catalog file-system copies leaked into the host output root (useless for a WASM client):"
+            echo "$fs_copy"
+            fail=1
+          fi
+
+          if [ "$fail" -eq 0 ]; then
+            echo "OK: manifest + merged bundle present, no raw catalogs leaked"
+          fi
+          exit $fail

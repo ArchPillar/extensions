@@ -50,6 +50,9 @@
   <Folder Name="/samples/Localization/Localization.WasmSample/">
     <Project Path="samples/Localization/Localization.WasmSample/Localization.WasmSample.csproj" />
   </Folder>
+  <Folder Name="/samples/Localization/Localization.WasmHostSample/">
+    <Project Path="samples/Localization/Localization.WasmHostSample/Localization.WasmHostSample.csproj" />
+  </Folder>
   <Folder Name="/samples/Localization/Localization.TodoSample/">
     <Project Path="samples/Localization/Localization.TodoSample/Localization.TodoSample.csproj" />
   </Folder>
