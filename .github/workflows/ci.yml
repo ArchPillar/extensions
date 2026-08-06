@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [main]
 
+# One in-flight run per ref: a new push (or force-push) cancels the run still queued or running for
+# the same branch, so rapid re-pushes supersede instead of piling up stale, doomed-to-be-cancelled runs.
+# main is excluded from cancellation (github.run_id makes its group unique) so no push to main is skipped.
+concurrency:
+  group: ci-${{ github.ref }}-${{ github.ref == 'refs/heads/main' && github.run_id || '' }}
+  cancel-in-progress: true
+
 jobs:
   skills-manifest:
     name: Skills manifest check
