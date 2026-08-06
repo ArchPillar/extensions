@@ -75,15 +75,19 @@
     On publish, flatten the per-library catalogs in the published Translations folder into one bundle per
     culture (the dev many-files layout becomes a production single-bundle-per-culture layout). This is the
     file-system layout used by a server/console app; a Blazor WebAssembly app serves catalogs as static web
-    assets and merges them through the static web asset pipeline below instead, so this target is skipped there
-    (its $(PublishDir)Translations path does not exist for a WebAssembly publish). Best-effort: if the 'dotnet
-    apl' tool is not installed the merge is skipped (ContinueOnError) and the per-library files are kept, so the
-    app still works — just with more files. Set ArchPillarLocalizationMergeOnPublish=false to keep the many
-    files. The merge reuses the runtime's load, so the bundle resolves identically.
+    assets and merges them through the static web asset pipeline below instead, so this target is explicitly
+    skipped there ('$(UsingMicrosoftNETSdkBlazorWebAssembly)' != 'true'). Do not rely on $(PublishDir)Translations
+    being absent for a WebAssembly publish to skip it: a referenced Razor class library is not a WebAssembly
+    project, so its own file copy runs and its catalogs flow up into the app's output as ordinary content, which
+    can create $(PublishDir)Translations there. For a WebAssembly app those files are dead weight (the client
+    never reads the file system), so they are removed instead of merged — see the cleanup target below. Best-
+    effort: if the 'dotnet apl' tool is not installed the merge is skipped (ContinueOnError) and the per-library
+    files are kept, so the app still works — just with more files. Set ArchPillarLocalizationMergeOnPublish=false
+    to keep the many files. The merge reuses the runtime's load, so the bundle resolves identically.
   -->
   <Target Name="ArchPillarLocalizationMergeOnPublish"
           AfterTargets="Publish"
-          Condition="'$(ArchPillarLocalizationMergeOnPublish)' == 'true' and Exists('$(PublishDir)Translations')">
+          Condition="'$(ArchPillarLocalizationMergeOnPublish)' == 'true' and '$(UsingMicrosoftNETSdkBlazorWebAssembly)' != 'true' and Exists('$(PublishDir)Translations')">
     <!--
       Start from a clean intermediate folder. Otherwise a merge that fails this run (ContinueOnError) would
       leave the previous run's bundles in place, and the swap below would publish those stale catalogs.
@@ -105,6 +109,21 @@
     <Copy SourceFiles="@(_ArchPillarMergedCatalogs)"
           DestinationFiles="@(_ArchPillarMergedCatalogs->'$(PublishDir)Translations\%(Filename)%(Extension)')"
           Condition="'@(_ArchPillarMergedCatalogs)' != ''" />
+  </Target>
+
+  <!--
+    A Blazor WebAssembly app serves its catalogs as static web assets under wwwroot/Translations and never reads
+    the file system, so any $(PublishDir)Translations at the publish root is unreachable dead weight. It is not
+    the app's own copy (that is suppressed above) but a referenced Razor class library's file copy flowing up as
+    ordinary content; the merge target above is skipped for WebAssembly, so remove the folder here instead. Safe
+    and idempotent: on an SDK/topology where the folder never appears, the RemoveDir is a no-op. This is the
+    publish root ($(PublishDir)Translations), not the served wwwroot/Translations, so the client's catalogs are
+    untouched.
+  -->
+  <Target Name="_ArchPillarLocalizationCleanWebAssemblyFileSystemCatalogs"
+          AfterTargets="Publish"
+          Condition="'$(UsingMicrosoftNETSdkBlazorWebAssembly)' == 'true' and Exists('$(PublishDir)Translations')">
+    <RemoveDir Directories="$(PublishDir)Translations" />
   </Target>
 
   <!--
@@ -204,6 +223,13 @@
     catalog assets (by trait), collect them into one folder, and re-home them under Translations/ as Build
     assets, then emit one manifest listing them. The referenced assets are removed at their original
     _content/<lib>/ location so each catalog is served once.
+
+    The re-homed catalogs and the manifest are registered AssetMode=All, not CurrentProject. In a hosted layout
+    the project that produces the deployed wwwroot is the server host, not this WebAssembly app, and a
+    CurrentProject asset does not cross a ProjectReference (SDK versions before it began forwarding a referenced
+    WebAssembly app's own assets), so the manifest and bundles never reach the host — the app ships with the
+    contributor's raw catalogs (which ARE All and do propagate) but nothing pointing at them. All propagates the
+    same way the contributor's do, covering both the standalone publish and a hosting server.
   -->
   <Target Name="_ArchPillarLocalizationAuthorBuildCatalogs"
           Condition="'$(ArchPillarLocalizationEmitManifest)' == 'true' and '$(_ArchPillarIsCatalogAuthority)' == 'true'">
@@ -237,7 +263,7 @@
       CandidateAssets="@(_ArchPillarBuildCatalog)"
       SourceId="$(PackageId)" SourceType="Computed"
       BasePath="$(StaticWebAssetBasePath)" ContentRoot="$(_ArchPillarBuildCollectDir)"
-      AssetKind="Build" AssetMode="CurrentProject" AssetRole="Primary"
+      AssetKind="Build" AssetMode="All" AssetRole="Primary"
       FingerprintCandidates="$(StaticWebAssetsFingerprintContent)" FingerprintPatterns="@(StaticWebAssetFingerprintPattern)">
       <Output TaskParameter="Assets" ItemName="StaticWebAsset" />
       <Output TaskParameter="Assets" ItemName="_ArchPillarBuildCatalogAsset" />
@@ -271,7 +297,7 @@
     <DefineStaticWebAssets Condition="'@(_ArchPillarBuildManifestFile)' != ''"
       CandidateAssets="@(_ArchPillarBuildManifestFile)" SourceId="$(PackageId)" SourceType="Computed"
       BasePath="$(StaticWebAssetBasePath)" ContentRoot="$(_ArchPillarBuildManifestDir)"
-      AssetKind="Build" AssetMode="CurrentProject" AssetRole="Primary"
+      AssetKind="Build" AssetMode="All" AssetRole="Primary"
       FingerprintCandidates="$(StaticWebAssetsFingerprintContent)" FingerprintPatterns="@(StaticWebAssetFingerprintPattern)">
       <Output TaskParameter="Assets" ItemName="StaticWebAsset" />
       <Output TaskParameter="Assets" ItemName="_ArchPillarBuildManifestAsset" />
@@ -287,7 +313,9 @@
   <!--
     Authority (publish): same gather as the build, but flatten the app's own and every referenced library's
     catalogs into one bundle per culture, register the bundles, and remove the per-library catalogs from the
-    publish set so only the bundles ship.
+    publish set so only the bundles ship. Bundles and manifest are AssetMode=All (see the build twin above) so
+    they reach a server host that publishes this WebAssembly app through a ProjectReference; the client's base
+    path is the app root (/), so they land at the host's wwwroot/Translations, where the client fetches them.
   -->
   <Target Name="_ArchPillarLocalizationAuthorPublishCatalogs"
           Condition="'$(ArchPillarLocalizationEmitManifest)' == 'true' and '$(_ArchPillarIsCatalogAuthority)' == 'true'">
@@ -328,7 +356,7 @@
       CandidateAssets="@(_ArchPillarBundle)"
       SourceId="$(PackageId)" SourceType="Computed"
       BasePath="$(StaticWebAssetBasePath)" ContentRoot="$(_ArchPillarBundleDir)"
-      AssetKind="Publish" AssetMode="CurrentProject" AssetRole="Primary"
+      AssetKind="Publish" AssetMode="All" AssetRole="Primary"
       FingerprintCandidates="$(StaticWebAssetsFingerprintContent)" FingerprintPatterns="@(StaticWebAssetFingerprintPattern)">
       <Output TaskParameter="Assets" ItemName="StaticWebAsset" />
       <Output TaskParameter="Assets" ItemName="_ArchPillarPubBundleAsset" />
@@ -355,7 +383,7 @@
     <DefineStaticWebAssets Condition="'@(_ArchPillarPubManifestFile)' != ''"
       CandidateAssets="@(_ArchPillarPubManifestFile)" SourceId="$(PackageId)" SourceType="Computed"
       BasePath="$(StaticWebAssetBasePath)" ContentRoot="$(_ArchPillarPubManifestDir)"
-      AssetKind="Publish" AssetMode="CurrentProject" AssetRole="Primary"
+      AssetKind="Publish" AssetMode="All" AssetRole="Primary"
       FingerprintCandidates="$(StaticWebAssetsFingerprintContent)" FingerprintPatterns="@(StaticWebAssetFingerprintPattern)">
       <Output TaskParameter="Assets" ItemName="StaticWebAsset" />
       <Output TaskParameter="Assets" ItemName="_ArchPillarPubManifestAsset" />

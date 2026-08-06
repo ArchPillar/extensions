@@ -1,23 +1,22 @@
 // ---------------------------------------------------------------------------
 // Localization.WasmHostSample
 //
-// An ASP.NET Core server that hosts the Localization.WasmSample Blazor WebAssembly client, which in turn
-// references a localized Razor class library. This is the realistic deployment shape — server hosts client,
-// client references libraries — and the one where catalog publishing has to compose across three reference
-// levels: the library contributes its catalogs, the client (the "authority") merges them into one bundle per
-// culture and emits the apl-catalogs.json manifest, and this host serves the client's published wwwroot.
+// An ASP.NET Core server that hosts the Localization.WasmSample Blazor WebAssembly client, which references a
+// localized Razor class library. This is the realistic modern deployment — server references client via the
+// static web asset pipeline (no Microsoft.AspNetCore.Components.WebAssembly.Server wholesale copy) — and the one
+// where catalog publishing has to compose across three reference levels AND where AssetMode decides whether the
+// client's merged bundle and apl-catalogs.json manifest reach the deployed wwwroot at all.
 //
-// The point of the sample is what the publish output must look like: the client's merged bundle and manifest
-// under wwwroot/Translations, and NOT the libraries' raw per-culture catalogs under wwwroot/_content — those
-// are an intermediate the authority already merged, and shipping them would be dead weight the manifest never
-// points at. See the README for the exact publish assertions.
+// MapStaticAssets (not plain UseStaticFiles) serves the composed assets: it honours the catalog content-type
+// mappings the package targets register (.arb is application/json, etc.) and the fingerprinted routes, so a
+// GET for a bare file name the manifest lists (e.g. /Translations/de.arb) resolves. Plain UseStaticFiles would
+// 404 on the unknown .arb type.
 // ---------------------------------------------------------------------------
 var builder = WebApplication.CreateBuilder(args);
 
 var app = builder.Build();
 
-app.UseBlazorFrameworkFiles();
-app.UseStaticFiles();
+app.MapStaticAssets();
 app.MapFallbackToFile("index.html");
 
 app.Run();

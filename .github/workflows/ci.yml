@@ -102,14 +102,15 @@ jobs:
             9.0.x
             10.0.x
 
-      # A server that hosts a Blazor WebAssembly client that references a localized library. Build then publish
-      # --no-build (the deploy shape: build once, publish/containerize without rebuilding) so a regression in the
-      # publish target ordering under NoBuild — where the merge/prune must reuse the build's static-web-asset
-      # state — is caught too. The assertion then checks the composed wwwroot: the client's merged per-culture
-      # bundle and the apl-catalogs.json manifest must ship, the library's raw per-culture catalogs must NOT leak
-      # under _content (the authority already merged them — see the publish-time prune in the package targets),
-      # and no beside-the-binary file copy lands at the host root. Guards the hosted path a standalone WASM
-      # publish cannot reach: the leak only appears one reference level past the authority.
+      # A server that hosts a Blazor WebAssembly client that references a localized library, in the MODERN layout
+      # (composition via the static web asset pipeline, no Microsoft.AspNetCore.Components.WebAssembly.Server — the
+      # classic package wholesale-copies the client and would mask the propagation gap). Build then publish
+      # --no-build (the deploy shape: build once, publish/containerize without rebuilding). Three assertions
+      # follow: the composed wwwroot (manifest + merged bundle present, no _content leak, no host-root file copy),
+      # the host's static web asset metadata (the authority's assets must be AssetMode=All, which is the whole
+      # bug — CurrentProject does not cross the ProjectReference on SDK 9), and end-to-end (the running host serves
+      # the manifest and every file it lists). The metadata + runtime checks are the SDK-independent guards; the
+      # file tree alone passes on SDK 10, which forwards CurrentProject and so masks the gap.
       - name: Build the hosted WASM sample
         run: |
           dotnet build samples/Localization/Localization.WasmHostSample/Localization.WasmHostSample.csproj \
@@ -166,7 +167,65 @@ jobs:
             fail=1
           fi
 
-          if [ "$fail" -eq 0 ]; then
-            echo "OK: manifest + merged bundle present, no raw catalogs leaked"
+          # The merged bundle must carry the referenced library's strings, not only the app's own — a manifest
+          # listing a bundle that lost every contributed translation would still pass a bare existence check.
+          bundle=$(ls "$root"/Translations/*.arb 2>/dev/null | head -n1)
+          if [ -n "$bundle" ] && ! grep -q 'greeting' "$bundle"; then
+            echo "BROKEN: the merged bundle $bundle does not contain the contributor library's strings"
+            fail=1
           fi
+
+          # The whole bug: the authority's bundle + manifest must be AssetMode=All so they cross the
+          # ProjectReference into the host. On SDK 9 a CurrentProject asset does not, and the host ships without
+          # them. Assert on the host's own resolved publish manifest — this is SDK-independent.
+          host_manifest=$(find samples/Localization/Localization.WasmHostSample/obj -name 'staticwebassets.publish.json' | head -n1)
+          mode=$(python3 -c "
+import json,sys
+d=json.load(open('$host_manifest'))
+ms=[a.get('AssetMode') for a in d.get('Assets',[]) if 'apl-catalogs' in a.get('RelativePath','')]
+print(ms[0] if ms else 'MISSING')
+" 2>/dev/null)
+          echo "host apl-catalogs asset AssetMode: $mode"
+          if [ "$mode" != "All" ]; then
+            echo "BROKEN: the authority manifest is '$mode' in the host publish set, not All — it will not reach a hosted wwwroot"
+            fail=1
+          fi
+
+          if [ "$fail" -eq 0 ]; then
+            echo "OK: manifest + merged bundle (with library strings) present, no leaks, authority AssetMode=All"
+          fi
+          exit $fail
+
+      # End-to-end: a manifest that loads but whose entries 404 is its own failure mode (fingerprinting rewrites
+      # served paths; the manifest is written from bare file names, and .arb is an unknown content type to plain
+      # UseStaticFiles). Run the published host and assert the manifest and every file it lists return 200.
+      - name: Assert the host serves the manifest and every listed catalog
+        shell: bash
+        run: |
+          set +e
+          # Run from the publish directory so the app's content root (and wwwroot) resolve, as a real deployment does.
+          ( cd artifacts/wasmhost && exec dotnet Localization.WasmHostSample.dll --urls http://127.0.0.1:5080 ) >/tmp/host.log 2>&1 &
+          pid=$!
+          for i in $(seq 1 30); do
+            curl -sf -o /dev/null http://127.0.0.1:5080/ && break
+            sleep 1
+          done
+          fail=0
+          code=$(curl -s -o /tmp/mani.json -w '%{http_code}' http://127.0.0.1:5080/Translations/apl-catalogs.json)
+          echo "GET /Translations/apl-catalogs.json -> $code ($(wc -c </tmp/mani.json) bytes)"
+          # A non-200, or a 200 with an empty/unparseable body or zero catalogs, is a failure — do not let an
+          # unparseable manifest silently skip the per-file loop and pass.
+          files=$(python3 -c "import json;d=json.load(open('/tmp/mani.json'));assert d.get('catalogs');print('\n'.join(c['file'] for c in d['catalogs']))" 2>/dev/null)
+          if [ "$code" != "200" ] || [ -z "$files" ]; then
+            echo "BROKEN: manifest did not serve as valid non-empty JSON with catalogs"
+            fail=1
+            cat /tmp/host.log
+          fi
+          for fn in $files; do
+            fcode=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:5080/Translations/$fn")
+            echo "GET /Translations/$fn -> $fcode"
+            if [ "$fcode" != "200" ]; then echo "BROKEN: manifest lists $fn but it did not serve 200"; fail=1; fi
+          done
+          kill "$pid" 2>/dev/null
+          [ "$fail" -eq 0 ] && echo "OK: host serves the manifest and every catalog it lists"
           exit $fail
