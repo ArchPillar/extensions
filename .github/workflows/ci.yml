@@ -179,12 +179,7 @@ jobs:
           # ProjectReference into the host. On SDK 9 a CurrentProject asset does not, and the host ships without
           # them. Assert on the host's own resolved publish manifest — this is SDK-independent.
           host_manifest=$(find samples/Localization/Localization.WasmHostSample/obj -name 'staticwebassets.publish.json' | head -n1)
-          mode=$(python3 -c "
-import json,sys
-d=json.load(open('$host_manifest'))
-ms=[a.get('AssetMode') for a in d.get('Assets',[]) if 'apl-catalogs' in a.get('RelativePath','')]
-print(ms[0] if ms else 'MISSING')
-" 2>/dev/null)
+          mode=$(python3 -c "import json; d=json.load(open('$host_manifest')); ms=[a.get('AssetMode') for a in d.get('Assets',[]) if 'apl-catalogs' in a.get('RelativePath','')]; print(ms[0] if ms else 'MISSING')" 2>/dev/null)
           echo "host apl-catalogs asset AssetMode: $mode"
           if [ "$mode" != "All" ]; then
             echo "BROKEN: the authority manifest is '$mode' in the host publish set, not All — it will not reach a hosted wwwroot"
