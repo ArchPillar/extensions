@@ -121,106 +121,14 @@ jobs:
           dotnet publish samples/Localization/Localization.WasmHostSample/Localization.WasmHostSample.csproj \
             -c Release --no-build -o artifacts/wasmhost
 
-      - name: Assert the published catalog layout
-        # No `set -e` reliance: a `find` over a _content directory that (correctly) does not exist would abort
-        # the step before the checks run. Collect failures explicitly and exit at the end.
-        shell: bash
+      # All assertions live in a .NET file-based app (eng/, like the other tooling scripts) rather than inline
+      # shell: it parses the static-web-asset and catalog JSON natively, runs the published host and checks it
+      # over HTTP, and is runnable the same way locally. It checks the file tree (manifest + merged bundle
+      # present, no _content leak, no host-root file copy), that the bundle carries the library's strings, the
+      # host's staticwebassets.publish.json (authority asset is AssetMode=All — the SDK-independent guard), and
+      # end-to-end (the running host serves the manifest and every file it lists). Exits non-zero on any failure.
+      - name: Assert the published output
         run: |
-          set +e
-          root=artifacts/wasmhost/wwwroot
-          fail=0
-
-          echo "Published Translations:"
-          ls -la "$root/Translations" 2>/dev/null || echo "  (no Translations directory)"
-
-          if [ ! -f "$root/Translations/apl-catalogs.json" ]; then
-            echo "BROKEN: the catalog manifest wwwroot/Translations/apl-catalogs.json is missing"
-            fail=1
-          fi
-
-          if ! ls "$root"/Translations/*.arb >/dev/null 2>&1; then
-            echo "BROKEN: no merged per-culture bundle under wwwroot/Translations"
-            fail=1
-          fi
-
-          # The _content directory only exists if something served under it; the success case (raw catalogs
-          # pruned) may leave it absent entirely, so guard the find on its existence.
-          leaked=""
-          if [ -d "$root/_content" ]; then
-            leaked=$(find "$root/_content" -path '*/Translations/*' \( -name '*.arb' -o -name '*.xliff' -o -name '*.xlf' -o -name '*.po' \) 2>/dev/null)
-          fi
-          if [ -n "$leaked" ]; then
-            echo "BROKEN: raw library catalogs leaked into the host wwwroot instead of being merged:"
-            echo "$leaked"
-            fail=1
-          fi
-
-          # A WebAssembly app serves its catalogs as static web assets, so the beside-the-binary file copy is
-          # suppressed; it must not appear at the host's output root (this host authors no strings of its own).
-          fs_copy=""
-          if [ -d "$root/../Translations" ]; then
-            fs_copy=$(find "$root/../Translations" -maxdepth 1 \( -name '*.arb' -o -name '*.xliff' -o -name '*.xlf' -o -name '*.po' \) 2>/dev/null)
-          fi
-          if [ -n "$fs_copy" ]; then
-            echo "BROKEN: catalog file-system copies leaked into the host output root (useless for a WASM client):"
-            echo "$fs_copy"
-            fail=1
-          fi
-
-          # The merged bundle must carry the referenced library's strings, not only the app's own — a manifest
-          # listing a bundle that lost every contributed translation would still pass a bare existence check.
-          bundle=$(ls "$root"/Translations/*.arb 2>/dev/null | head -n1)
-          if [ -n "$bundle" ] && ! grep -q 'greeting' "$bundle"; then
-            echo "BROKEN: the merged bundle $bundle does not contain the contributor library's strings"
-            fail=1
-          fi
-
-          # The whole bug: the authority's bundle + manifest must be AssetMode=All so they cross the
-          # ProjectReference into the host. On SDK 9 a CurrentProject asset does not, and the host ships without
-          # them. Assert on the host's own resolved publish manifest — this is SDK-independent.
-          host_manifest=$(find samples/Localization/Localization.WasmHostSample/obj -name 'staticwebassets.publish.json' | head -n1)
-          mode=$(python3 -c "import json; d=json.load(open('$host_manifest')); ms=[a.get('AssetMode') for a in d.get('Assets',[]) if 'apl-catalogs' in a.get('RelativePath','')]; print(ms[0] if ms else 'MISSING')" 2>/dev/null)
-          echo "host apl-catalogs asset AssetMode: $mode"
-          if [ "$mode" != "All" ]; then
-            echo "BROKEN: the authority manifest is '$mode' in the host publish set, not All — it will not reach a hosted wwwroot"
-            fail=1
-          fi
-
-          if [ "$fail" -eq 0 ]; then
-            echo "OK: manifest + merged bundle (with library strings) present, no leaks, authority AssetMode=All"
-          fi
-          exit $fail
-
-      # End-to-end: a manifest that loads but whose entries 404 is its own failure mode (fingerprinting rewrites
-      # served paths; the manifest is written from bare file names, and .arb is an unknown content type to plain
-      # UseStaticFiles). Run the published host and assert the manifest and every file it lists return 200.
-      - name: Assert the host serves the manifest and every listed catalog
-        shell: bash
-        run: |
-          set +e
-          # Run from the publish directory so the app's content root (and wwwroot) resolve, as a real deployment does.
-          ( cd artifacts/wasmhost && exec dotnet Localization.WasmHostSample.dll --urls http://127.0.0.1:5080 ) >/tmp/host.log 2>&1 &
-          pid=$!
-          for i in $(seq 1 30); do
-            curl -sf -o /dev/null http://127.0.0.1:5080/ && break
-            sleep 1
-          done
-          fail=0
-          code=$(curl -s -o /tmp/mani.json -w '%{http_code}' http://127.0.0.1:5080/Translations/apl-catalogs.json)
-          echo "GET /Translations/apl-catalogs.json -> $code ($(wc -c </tmp/mani.json) bytes)"
-          # A non-200, or a 200 with an empty/unparseable body or zero catalogs, is a failure — do not let an
-          # unparseable manifest silently skip the per-file loop and pass.
-          files=$(python3 -c "import json;d=json.load(open('/tmp/mani.json'));assert d.get('catalogs');print('\n'.join(c['file'] for c in d['catalogs']))" 2>/dev/null)
-          if [ "$code" != "200" ] || [ -z "$files" ]; then
-            echo "BROKEN: manifest did not serve as valid non-empty JSON with catalogs"
-            fail=1
-            cat /tmp/host.log
-          fi
-          for fn in $files; do
-            fcode=$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:5080/Translations/$fn")
-            echo "GET /Translations/$fn -> $fcode"
-            if [ "$fcode" != "200" ]; then echo "BROKEN: manifest lists $fn but it did not serve 200"; fail=1; fi
-          done
-          kill "$pid" 2>/dev/null
-          [ "$fail" -eq 0 ] && echo "OK: host serves the manifest and every catalog it lists"
-          exit $fail
+          dotnet run eng/assert-wasm-publish.cs -- \
+            artifacts/wasmhost \
+            samples/Localization/Localization.WasmHostSample/obj
