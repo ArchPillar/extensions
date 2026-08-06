@@ -36,33 +36,47 @@ void Broken(string message)
     failed = true;
 }
 
-// 1. The manifest the WebAssembly client fetches to discover its catalogs.
+// 1. The manifest the WebAssembly client fetches to discover its catalogs, listing the merged per-culture bundles
+//    by bare file name (whatever the bundle format is — .aploc by default).
 var manifestPath = Path.Combine(translations, "apl-catalogs.json");
+string[] listedBundles = [];
 if (!File.Exists(manifestPath))
 {
     Broken($"the catalog manifest is missing at {Rel(manifestPath)}");
 }
-
-// 2. At least one merged per-culture bundle.
-var bundles = Directory.Exists(translations)
-    ? Directory.GetFiles(translations, "*.arb")
-    : [];
-if (bundles.Length == 0)
+else
 {
-    Broken("no merged per-culture bundle (*.arb) under wwwroot/Translations");
+    using var manifest = JsonDocument.Parse(File.ReadAllText(manifestPath));
+    listedBundles = manifest.RootElement.GetProperty("catalogs").EnumerateArray()
+        .Select(c => c.GetProperty("file").GetString())
+        .Where(f => !string.IsNullOrEmpty(f))
+        .ToArray()!;
 }
 
-// 3. The merged bundle must carry the referenced library's strings, not only the app's own — a manifest listing a
-//    bundle that lost every contributed translation would still pass a bare existence check. The library ships a
-//    "greeting" key, so its presence in the merged bundle proves the contributor's catalog was folded in.
-foreach (var bundle in bundles)
+// 2. The manifest must list at least one bundle, and every file it lists must exist on disk.
+if (listedBundles.Length == 0)
 {
-    using var doc = JsonDocument.Parse(File.ReadAllText(bundle));
-    var hasContributorKey = doc.RootElement.EnumerateObject().Any(p => p.Name.Contains("greeting", StringComparison.Ordinal));
-    if (!hasContributorKey)
+    Broken("the manifest lists no per-culture bundle");
+}
+
+foreach (var file in listedBundles)
+{
+    if (!File.Exists(Path.Combine(translations, file)))
     {
-        Broken($"the merged bundle {Rel(bundle)} does not contain the contributor library's strings");
+        Broken($"the manifest lists {file} but it is not present under wwwroot/Translations");
     }
+}
+
+// 3. A listed bundle must carry the referenced library's strings, not only the app's own — a manifest listing a
+//    bundle that lost every contributed translation would still pass a bare existence check. The library ships a
+//    "greeting" key, so its presence in a bundle proves the contributor's catalog was folded into the merge.
+var mergedContributorStrings = listedBundles
+    .Select(f => Path.Combine(translations, f))
+    .Where(File.Exists)
+    .Any(f => File.ReadAllText(f).Contains("greeting", StringComparison.Ordinal));
+if (listedBundles.Length > 0 && !mergedContributorStrings)
+{
+    Broken("no listed bundle contains the contributor library's strings — the merge dropped the referenced catalog");
 }
 
 // 4. The library's raw per-culture catalogs must not leak under _content: the authority already merged them, and
@@ -260,7 +274,7 @@ async Task AssertServedAsync(string appDir)
 static bool IsCatalog(string path)
 {
     var ext = Path.GetExtension(path);
-    return ext is ".arb" or ".xliff" or ".xlf" or ".po";
+    return ext is ".aploc" or ".arb" or ".xliff" or ".xlf" or ".po";
 }
 
 static bool IsFrameworkDependent(string runtimeConfigPath)

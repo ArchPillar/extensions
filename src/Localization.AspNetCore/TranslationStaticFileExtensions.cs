@@ -6,8 +6,8 @@ namespace Microsoft.AspNetCore.Builder;
 
 /// <summary>
 /// Serves ArchPillar translation catalogs as static files. The static file middleware returns 404 for an
-/// unknown file extension by default, so a hosted Blazor WebAssembly client fetching its <c>.arb</c> (or
-/// <c>.xliff</c> / <c>.po</c>) catalogs over HTTP gets nothing and silently falls back to its in-code defaults.
+/// unknown file extension by default, so a hosted Blazor WebAssembly client fetching its <c>.aploc</c> (or
+/// <c>.arb</c> / <c>.xliff</c> / <c>.po</c>) catalogs over HTTP gets nothing and silently falls back to its in-code defaults.
 /// These helpers register the catalog content types so the catalogs are served.
 /// </summary>
 public static class TranslationStaticFileExtensions
@@ -17,14 +17,15 @@ public static class TranslationStaticFileExtensions
     // adapter's own concern — lives here.
     private static readonly (string FormatId, string ContentType)[] _contentTypes =
     [
+        ("aploc", "application/json"),
         ("arb", "application/json"),
         ("xliff", "application/xml"),
         ("po", "text/plain"),
     ];
 
     /// <summary>
-    /// Registers the translation catalog content types (<c>.arb</c>, <c>.xliff</c>, <c>.xlf</c>, <c>.po</c>,
-    /// <c>.pot</c>) on <paramref name="provider"/>, so a static file middleware using it serves the catalogs
+    /// Registers the translation catalog content types (<c>.aploc</c>, <c>.arb</c>, <c>.xliff</c>, <c>.xlf</c>,
+    /// <c>.po</c>) on <paramref name="provider"/>, so a static file middleware using it serves the catalogs
     /// instead of 404-ing them. Pass the returned provider to each <c>UseStaticFiles</c> that should serve them.
     /// </summary>
     /// <param name="provider">The content-type provider to register the catalog types on.</param>

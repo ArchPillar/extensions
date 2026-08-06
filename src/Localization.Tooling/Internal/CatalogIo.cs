@@ -188,6 +188,7 @@ internal static class CatalogIo
         registry.Register(new ArbTranslationFormat());
         registry.Register(new XliffTranslationFormat());
         registry.Register(new PoTranslationFormat());
+        registry.Register(new AplocTranslationFormat());
         return registry;
     }
 }

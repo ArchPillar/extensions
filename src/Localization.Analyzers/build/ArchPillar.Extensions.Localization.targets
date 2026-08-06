@@ -167,10 +167,12 @@
     Teach the static web asset pipeline the catalog content types, so the endpoints serve a WebAssembly client's
     catalogs with a correct Content-Type. The SDK's built-in map does not know these extensions, so without this
     they are served as application/octet-stream (a runtime HttpClient fetch still reads them, but the type is
-    wrong). ARB is JSON; XLIFF is XML; Portable Object is plain text. Matches the content types the
-    ArchPillar.Extensions.Localization.AspNetCore package registers for the classic UseStaticFiles path.
+    wrong). APLOC (the default bundle) and ARB are JSON; XLIFF is XML; Portable Object is plain text. Matches the
+    content types the ArchPillar.Extensions.Localization.AspNetCore package registers for the classic
+    UseStaticFiles path.
   -->
   <ItemGroup Condition="'$(ArchPillarLocalizationEmitManifest)' == 'true'">
+    <StaticWebAssetContentTypeMapping Include="application/json" Pattern="*.aploc" Priority="1" Cache="$(StaticWebAssetEndpointDefaultMediaCacheControlHeader)" />
     <StaticWebAssetContentTypeMapping Include="application/json" Pattern="*.arb" Priority="1" Cache="$(StaticWebAssetEndpointDefaultMediaCacheControlHeader)" />
     <StaticWebAssetContentTypeMapping Include="application/xml" Pattern="*.xliff" Priority="1" Cache="$(StaticWebAssetEndpointDefaultMediaCacheControlHeader)" />
     <StaticWebAssetContentTypeMapping Include="application/xml" Pattern="*.xlf" Priority="1" Cache="$(StaticWebAssetEndpointDefaultMediaCacheControlHeader)" />
@@ -346,7 +348,7 @@
       <!-- The bundles replace the per-library catalogs; drop the referenced ones from the publish set. -->
       <StaticWebAsset Remove="@(_ArchPillarReferencedCatalog)" />
 
-      <_ArchPillarBundleRaw Include="$(_ArchPillarBundleDir)*.arb;$(_ArchPillarBundleDir)*.xliff;$(_ArchPillarBundleDir)*.xlf;$(_ArchPillarBundleDir)*.po" />
+      <_ArchPillarBundleRaw Include="$(_ArchPillarBundleDir)*.aploc;$(_ArchPillarBundleDir)*.arb;$(_ArchPillarBundleDir)*.xliff;$(_ArchPillarBundleDir)*.xlf;$(_ArchPillarBundleDir)*.po" />
       <_ArchPillarBundle Include="@(_ArchPillarBundleRaw)">
         <RelativePath>Translations/%(Filename)%(Extension)</RelativePath>
       </_ArchPillarBundle>

@@ -79,7 +79,7 @@ public sealed class ToolApplicationTests : IDisposable
         await WriteCatalogAsync(Path.Combine(input, "LibA.fr.arb"), "fr", ("save", "Sauvegarder"));
         await WriteCatalogAsync(Path.Combine(input, "LibA.en.arb"), "en", ("save", "Save")); // a source override
 
-        var exit = await ToolApplication.RunAsync(["merge", "--input", input, "--output", output, "--source", "en"]);
+        var exit = await ToolApplication.RunAsync(["merge", "--input", input, "--output", output, "--source", "en", "--format", "arb"]);
 
         Assert.Equal(0, exit);
         Assert.True(File.Exists(Path.Combine(output, "de.arb")));
@@ -345,7 +345,7 @@ public sealed class ToolApplicationTests : IDisposable
     {
         var project = await CreateProjectWithCatalogAsync("App", "App", "de", ("save", "Speichern"));
         var bundles = Path.Combine(_directory, "bundles");
-        Assert.Equal(0, await ToolApplication.RunAsync(["merge", "--project", project, "--output", bundles, "--source", "en"]));
+        Assert.Equal(0, await ToolApplication.RunAsync(["merge", "--project", project, "--output", bundles, "--source", "en", "--format", "arb"]));
 
         Assert.True(File.Exists(Path.Combine(bundles, "de.arb")));
     }

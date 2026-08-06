@@ -95,7 +95,7 @@ public sealed class ConsoleMarkupTests : IDisposable
 
         var bundles = Path.Combine(_directory, "bundles");
 
-        Assert.Equal(0, await ToolApplication.RunAsync(["merge", "--input", catalogs, "--output", bundles, "--source", "en"]));
+        Assert.Equal(0, await ToolApplication.RunAsync(["merge", "--input", catalogs, "--output", bundles, "--source", "en", "--format", "arb"]));
         Assert.True(File.Exists(Path.Combine(bundles, "[x].arb")));
     }
 
