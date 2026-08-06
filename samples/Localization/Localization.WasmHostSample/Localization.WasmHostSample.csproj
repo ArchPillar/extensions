@@ -8,17 +8,17 @@
     <RootNamespace>Localization.WasmHostSample</RootNamespace>
     <!-- The host authors no translatable strings of its own; it only serves the WebAssembly client. It still
          opts into the samples' authoring wiring so it imports the package's build targets the way a real
-         consumer gets them transitively (buildTransitive) — that is what runs the publish-time prune that keeps
-         the referenced libraries' raw catalogs from leaking into this host's wwwroot/_content. -->
+         consumer gets them transitively (buildTransitive) — that is what runs the publish-time prune. -->
     <ArchPillarLocalizationSampleAuthoring>true</ArchPillarLocalizationSampleAuthoring>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Server" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <!-- The server hosts this Blazor WebAssembly client (which itself references a localized Razor library). -->
+    <!-- Modern hosted layout: the server references the WebAssembly client with a plain ProjectReference and no
+         Microsoft.AspNetCore.Components.WebAssembly.Server. The client's assets reach the host through the static
+         web asset pipeline, which respects AssetMode — so the authority's bundle + manifest must be AssetMode=All
+         to arrive (a CurrentProject asset does not cross the reference). This is the topology that breaks when the
+         authority registers CurrentProject; the classic WebAssembly.Server host wholesale-copies the client and
+         would mask it. -->
     <ProjectReference Include="..\Localization.WasmSample\Localization.WasmSample.csproj" />
   </ItemGroup>
 
