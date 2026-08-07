@@ -79,7 +79,7 @@ internal sealed class CallSiteExtractor
                 Recognize(target, args, sites, bindings, method, instruction);
                 if (target.ReturnType.FullName != "System.Void")
                 {
-                    stack.Add(new Slot(null, target.ReturnType));
+                    stack.Add(new Slot(null, Constructed(target.ReturnType, target)));
                 }
 
                 continue;
@@ -306,9 +306,44 @@ internal sealed class CallSiteExtractor
             }
         }
 
+        // Same guard as ScopedArgument: an unsubstituted type parameter is not a category — its FullName is an IL
+        // name (!!0), not a type. A scope flowing through an open generic is left to the Roslyn detector.
         return receiverType is GenericInstanceType { GenericArguments.Count: > 0 } generic
+            && generic.GenericArguments[0] is not GenericParameter
             ? generic.GenericArguments[0].FullName
             : string.Empty;
+    }
+
+    // A call's return type is the one on the method *declaration*, so a generic method still names its own type
+    // parameters in it: Localizer.For<T>() returns ILocalizer<!!0>, never ILocalizer<Acme.Greeter>. Substituting
+    // the call's actual generic arguments is what puts the constructed receiver on the stack, so the category
+    // resolves to the type argument instead of leaking the parameter's IL name (!!0).
+    private static TypeReference Constructed(TypeReference type, MethodReference target)
+    {
+        if (type is GenericParameter parameter)
+        {
+            IList<TypeReference>? arguments = parameter.Type switch
+            {
+                GenericParameterType.Method => (target as GenericInstanceMethod)?.GenericArguments,
+                GenericParameterType.Type => (target.DeclaringType as GenericInstanceType)?.GenericArguments,
+                _ => null
+            };
+
+            return arguments is not null && parameter.Position < arguments.Count ? arguments[parameter.Position] : type;
+        }
+
+        if (type is not GenericInstanceType generic)
+        {
+            return type;
+        }
+
+        var constructed = new GenericInstanceType(generic.ElementType);
+        foreach (TypeReference argument in generic.GenericArguments)
+        {
+            constructed.GenericArguments.Add(Constructed(argument, target));
+        }
+
+        return constructed;
     }
 
     // The full name of the argument bound to a [TranslationScope] generic parameter of this constructed type, or

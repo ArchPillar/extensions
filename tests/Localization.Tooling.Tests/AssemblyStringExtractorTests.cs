@@ -75,6 +75,30 @@ public sealed class AssemblyStringExtractorTests : IDisposable
     }
 
     [Fact]
+    public void Extract_StaticGenericFactoryReceiver_TakesCategoryFromTheTypeArgument()
+    {
+        // Localizer.For<T>() returns ILocalizer<T>, so the receiver only ever reaches the extractor through a
+        // call's return type — and that type is the one on the *declaration*, still naming the method's own
+        // parameter (ILocalizer<!!0>). Without substituting the call's type argument the category became the
+        // parameter's IL name, "!!0", which matches no category the runtime ever asks for, so every translation
+        // behind this (very common) call shape silently fell back to its in-code default.
+        IReadOnlyList<RawCallSite> sites = Extract("""
+            using ArchPillar.Extensions.Localization;
+
+            namespace Demo;
+
+            public sealed class Greeter
+            {
+                public static string Greeting => Localizer.For<Greeter>().Translate("greeting", "Hello");
+            }
+            """);
+
+        RawCallSite site = Assert.Single(sites);
+        Assert.Equal("greeting", site.Key);
+        Assert.Equal("Demo.Greeter", site.Category);
+    }
+
+    [Fact]
     public void Extract_NullConditionalIndexer_IsStillExtracted()
     {
         // strings?["key", "default"] is a consumer's own indexer called defensively; its key must still be
