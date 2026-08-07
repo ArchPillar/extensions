@@ -19,7 +19,7 @@ internal sealed class MergeCommand : AsyncCommand<MergeCommand.Settings>
         public string? Output { get; init; }
 
         [CommandOption("--format <FORMAT>")]
-        [Description("The bundle format (default: arb).")]
+        [Description("The bundle format (aploc, arb, xliff, po; default: aploc).")]
         public string? Format { get; init; }
     }
 
@@ -35,7 +35,7 @@ internal sealed class MergeCommand : AsyncCommand<MergeCommand.Settings>
             }
         }
 
-        ITranslationFormat outputProvider = CatalogIo.FormatOrDefault(string.IsNullOrEmpty(settings.Format) ? "arb" : settings.Format);
+        ITranslationFormat outputProvider = CatalogIo.FormatOrDefault(string.IsNullOrEmpty(settings.Format) ? "aploc" : settings.Format);
 
         var catalogs = new List<Catalog>();
         foreach (var file in inputDirectories.SelectMany(CatalogNaming.EnumerateCatalogFiles))
