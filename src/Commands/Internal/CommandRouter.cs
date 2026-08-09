@@ -80,9 +80,15 @@ internal sealed class CommandRouter : IPipelineHandler<CommandContext>
         IReadOnlyList<IRequest> commands,
         CancellationToken cancellationToken)
     {
+        // Precondition of the batch handler path: both delegates are present.
+        // HandleBatchAsync only selects this path when they are, so these state
+        // the internal contract rather than guarding a reachable case.
+        ArgumentNullException.ThrowIfNull(descriptor.ValidateBatchAsync);
+        ArgumentNullException.ThrowIfNull(descriptor.InvokeBatchAsync);
+
         // Batch handler path: the handler owns both validation and processing.
         // The single-command ICommandHandler<TCommand> is not consulted.
-        await descriptor.ValidateBatchAsync!(_services, commands, context.Validation, cancellationToken).ConfigureAwait(false);
+        await descriptor.ValidateBatchAsync(_services, commands, context.Validation, cancellationToken).ConfigureAwait(false);
         OperationFailure? failure = context.Validation.ToFailureResult();
         if (failure is not null)
         {
@@ -90,7 +96,7 @@ internal sealed class CommandRouter : IPipelineHandler<CommandContext>
             return;
         }
 
-        OperationResult result = await descriptor.InvokeBatchAsync!(_services, commands, cancellationToken).ConfigureAwait(false);
+        OperationResult result = await descriptor.InvokeBatchAsync(_services, commands, cancellationToken).ConfigureAwait(false);
         context.Result = result;
     }
 

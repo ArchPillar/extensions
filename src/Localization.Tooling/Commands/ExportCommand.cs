@@ -54,7 +54,7 @@ internal sealed class ExportCommand : AsyncCommand<ExportCommand.Settings>
             var parent = Path.GetDirectoryName(Path.GetFullPath(output));
             if (!string.IsNullOrEmpty(parent))
             {
-                Directory.CreateDirectory(parent!);
+                Directory.CreateDirectory(parent);
             }
 
             var written = await ToolConsole.StatusAsync(

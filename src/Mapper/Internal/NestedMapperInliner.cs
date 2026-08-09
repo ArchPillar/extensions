@@ -47,7 +47,7 @@ internal sealed class NestedMapperInliner(
     {
         ValidateInlineIncludes(node);
 
-        var newExpr    = (NewExpression)Visit(node.NewExpression)!;
+        var newExpr    = (NewExpression)Visit(node.NewExpression);
         var newBindings = new List<MemberBinding>(node.Bindings.Count);
 
         foreach (MemberBinding binding in node.Bindings)
@@ -59,7 +59,7 @@ internal sealed class NestedMapperInliner(
                     ? IncludeSet.All
                     : includes.Nested.GetValueOrDefault(memberName, IncludeSet.Empty);
                 Expression visited = new NestedMapperInliner(memberIncludes, depth, guardNullOptionalCollections)
-                    .Visit(assignment.Expression)!;
+                    .Visit(assignment.Expression);
                 newBindings.Add(Expression.Bind(assignment.Member, visited));
             }
             else
@@ -117,7 +117,7 @@ internal sealed class NestedMapperInliner(
                     .GetReverseRawExpression(includes, depth + 1, guardNullOptionalCollections)
                 : CompileMapperAccessor(node.Object!)
                     .GetRawExpression(includes, depth + 1, guardNullOptionalCollections);
-            Expression srcExpr = Visit(node.Arguments[0])!;
+            Expression srcExpr = Visit(node.Arguments[0]);
 
             // Nullable value type source (e.g. TSource?) — unwrap via .Value,
             // inline the core expression, then wrap with a HasValue guard.
@@ -127,13 +127,13 @@ internal sealed class NestedMapperInliner(
             {
                 Expression valueExpr = Expression.Property(srcExpr, "Value");
                 Expression inlined = new ParameterReplacer(nestedLambda.Parameters[0], valueExpr)
-                                         .Visit(nestedLambda.Body)!;
+                                         .Visit(nestedLambda.Body);
 
                 // 2-arg overload: Map(TSource?, TDest defaultValue) — use the
                 // second argument as the fallback when source is null.
                 if (node.Arguments.Count == 2)
                 {
-                    Expression defaultExpr = Visit(node.Arguments[1])!;
+                    Expression defaultExpr = Visit(node.Arguments[1]);
                     return Expression.Condition(
                         Expression.Property(srcExpr, "HasValue"),
                         inlined,
@@ -149,7 +149,7 @@ internal sealed class NestedMapperInliner(
             }
 
             Expression inlinedBody = new ParameterReplacer(nestedLambda.Parameters[0], srcExpr)
-                                         .Visit(nestedLambda.Body)!;
+                                         .Visit(nestedLambda.Body);
 
             if (!srcExpr.Type.IsValueType)
             {
@@ -173,7 +173,7 @@ internal sealed class NestedMapperInliner(
             IMapper nestedMapper = CompileMapperAccessor(node.Arguments[1]);
             LambdaExpression nestedLambda = nestedMapper.GetRawExpression(
                 includes, depth + 1, guardNullOptionalCollections);
-            Expression srcExpr = Visit(node.Arguments[0])!;
+            Expression srcExpr = Visit(node.Arguments[0]);
             Type srcType  = nestedLambda.Parameters[0].Type;
             Type destType = nestedLambda.ReturnType;
 
@@ -209,7 +209,7 @@ internal sealed class NestedMapperInliner(
     private Expression RewriteInvoke(MethodCallExpression node)
     {
         var builder = (IInvokeExpressionBuilder)CompileMapperAccessor(node.Object!);
-        return builder.BuildInvokeExpression(Visit(node.Arguments[0])!);
+        return builder.BuildInvokeExpression(Visit(node.Arguments[0]));
     }
 
     /// <summary>

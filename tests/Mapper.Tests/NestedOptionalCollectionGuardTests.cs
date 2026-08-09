@@ -37,7 +37,7 @@ public class NestedOptionalCollectionGuardTests
 
         Assert.NotNull(dest);
         Assert.NotNull(dest.Form);
-        Assert.Equal(2, dest.Form!.Id);
+        Assert.Equal(2, dest.Form.Id);
         Assert.Null(dest.Form.Options);
     }
 
@@ -57,8 +57,8 @@ public class NestedOptionalCollectionGuardTests
 
         PageDest? dest = mappers.Page.Map(source);
 
-        Assert.NotNull(dest!.Form!.Options);
-        Assert.Equal(2, dest.Form.Options!.Count);
+        Assert.NotNull(dest.Form!.Options);
+        Assert.Equal(2, dest.Form.Options.Count);
         Assert.Equal("A", dest.Form.Options[0].Label);
     }
 
@@ -71,7 +71,7 @@ public class NestedOptionalCollectionGuardTests
         PageDest? dest = mappers.Page.Map(source);
 
         Assert.NotNull(dest);
-        Assert.Null(dest!.Form);
+        Assert.Null(dest.Form);
     }
 }
 

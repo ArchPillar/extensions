@@ -18,14 +18,18 @@ internal static class NumberFormatting
     /// <summary>Classifies and validates a style, throwing on an unknown or unsupported one.</summary>
     public static NumberFormatSpec Resolve(string? style)
     {
-        if (string.IsNullOrEmpty(style))
+        // Pattern match rather than string.IsNullOrEmpty: the [NotNullWhen] annotation
+        // that lets the compiler carry non-nullness past the guard is missing on
+        // netstandard2.0, which would force a null-forgiving operator below. The
+        // property pattern rejects null as well, so this covers null and empty.
+        if (style is not { Length: > 0 })
         {
             return NumberFormatSpec.Default;
         }
 
-        if (style!.StartsWith("::", StringComparison.Ordinal))
+        if (style.StartsWith("::", StringComparison.Ordinal))
         {
-            return _skeletons.GetOrAdd(style!, NumberSkeleton.Parse);
+            return _skeletons.GetOrAdd(style, NumberSkeleton.Parse);
         }
 
         return style switch

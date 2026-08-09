@@ -23,7 +23,7 @@ public class BasicMappingTests
 
         OrderDto dto = _mappers.Order.Map(order);
 
-        Assert.Equal(42, dto!.Id);
+        Assert.Equal(42, dto.Id);
         Assert.Equal(new DateTime(2025, 1, 15, 0, 0, 0, DateTimeKind.Utc), dto.PlacedAt);
         Assert.Equal(OrderStatusDto.Shipped, dto.Status);
     }
@@ -45,7 +45,7 @@ public class BasicMappingTests
 
         OrderDto dto = _mappers.Order.Map(order);
 
-        Assert.Equal(2, dto!.Lines.Count);
+        Assert.Equal(2, dto.Lines.Count);
         Assert.Equal("Widget", dto.Lines[0].ProductName);
         Assert.Equal(3, dto.Lines[0].Quantity);
         Assert.Equal(9.99m, dto.Lines[0].UnitPrice);
@@ -63,7 +63,7 @@ public class BasicMappingTests
 
         OrderLineDto dto = _mappers.OrderLine.Map(line);
 
-        Assert.Equal("Widget", dto!.ProductName);
+        Assert.Equal("Widget", dto.ProductName);
         Assert.Equal(5, dto.Quantity);
         Assert.Equal(2.50m, dto.UnitPrice);
     }
@@ -85,9 +85,9 @@ public class BasicMappingTests
         var dtos = lines.Project(_mappers.OrderLine).ToList();
 
         Assert.Equal(3, dtos.Count);
-        Assert.Equal("A", dtos[0]!.ProductName);
-        Assert.Equal("B", dtos[1]!.ProductName);
-        Assert.Equal("C", dtos[2]!.ProductName);
+        Assert.Equal("A", dtos[0].ProductName);
+        Assert.Equal("B", dtos[1].ProductName);
+        Assert.Equal("C", dtos[2].ProductName);
     }
 
     // -----------------------------------------------------------------------

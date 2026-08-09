@@ -28,7 +28,7 @@ public sealed class MessageSyntaxTests
 
         Assert.False(valid);
         Assert.NotNull(error);
-        Assert.Equal(5, error!.Position);
+        Assert.Equal(5, error.Position);
     }
 
     [Fact]
@@ -91,7 +91,7 @@ public sealed class MessageSyntaxTests
         CardinalPlural? shape = MessageSyntax.RecognizeCardinalPlural("{count, plural, one {# item} other {# items}}");
 
         Assert.NotNull(shape);
-        Assert.Equal("count", shape!.ArgumentName);
+        Assert.Equal("count", shape.ArgumentName);
         Assert.Equal("# item", shape.Branches[PluralCategory.One]);
         Assert.Equal("# items", shape.Branches[PluralCategory.Other]);
     }
@@ -113,7 +113,7 @@ public sealed class MessageSyntaxTests
         CardinalPlural? shape = MessageSyntax.RecognizeCardinalPlural("{n, plural, one {a '{' b} other {#}}");
 
         Assert.NotNull(shape);
-        var body = shape!.Branches[PluralCategory.One];
+        var body = shape.Branches[PluralCategory.One];
         Assert.Equal("{n, plural, one {a '{' b}}", MessageSyntax.BuildCardinalPlural("n", [(PluralCategory.One, body)]));
     }
 }

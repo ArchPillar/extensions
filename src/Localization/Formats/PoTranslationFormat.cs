@@ -178,7 +178,7 @@ public sealed class PoTranslationFormat : ITranslationFormat
         if (!string.IsNullOrEmpty(entry.TranslatorComment))
         {
             // Translator comments ("# ") come first, ahead of the extracted ("#.") comments, per gettext order.
-            foreach (var line in entry.TranslatorComment!.Split('\n'))
+            foreach (var line in entry.TranslatorComment.Split('\n'))
             {
                 builder.Append("# ").Append(line).Append('\n');
             }
@@ -191,7 +191,7 @@ public sealed class PoTranslationFormat : ITranslationFormat
 
         if (!string.IsNullOrEmpty(entry.Comment))
         {
-            foreach (var line in entry.Comment!.Split('\n'))
+            foreach (var line in entry.Comment.Split('\n'))
             {
                 builder.Append("#. ").Append(line).Append('\n');
             }
@@ -210,7 +210,7 @@ public sealed class PoTranslationFormat : ITranslationFormat
 
         if (!string.IsNullOrEmpty(entry.PreviousSource))
         {
-            builder.Append("#| msgid \"").Append(Escape(entry.PreviousSource!)).Append("\"\n");
+            builder.Append("#| msgid \"").Append(Escape(entry.PreviousSource)).Append("\"\n");
         }
     }
 

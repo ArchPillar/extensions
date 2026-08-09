@@ -16,7 +16,7 @@ public class BuilderDeduplicationTests
         DeduplicationDest? dto = context.Mapper.Map(src);
 
         // The fluent .Map() overrides the member-init for FullName
-        Assert.Equal("Smith, Alice", dto!.FullName);
+        Assert.Equal("Smith, Alice", dto.FullName);
     }
 
     [Fact]
@@ -28,7 +28,7 @@ public class BuilderDeduplicationTests
         DeduplicationDest? dto = context.DoubleOverrideMapper.Map(src);
 
         // Second .Map() overrides the first
-        Assert.Equal("ALICE", dto!.FullName);
+        Assert.Equal("ALICE", dto.FullName);
     }
 
     [Fact]
@@ -49,7 +49,7 @@ public class BuilderDeduplicationTests
 
         NullableDest? dto = context.Build().Map(src);
 
-        Assert.Equal("Test", dto!.Name);
+        Assert.Equal("Test", dto.Name);
         Assert.Null(dto.Score);
     }
 }

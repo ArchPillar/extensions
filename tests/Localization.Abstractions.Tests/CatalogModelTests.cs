@@ -42,7 +42,7 @@ public sealed class CatalogModelTests
         AttributeUsageAttribute? usage = attributeType.GetCustomAttribute<AttributeUsageAttribute>();
 
         Assert.NotNull(usage);
-        Assert.Equal(expectedTargets, usage!.ValidOn);
+        Assert.Equal(expectedTargets, usage.ValidOn);
     }
 
     [Fact]

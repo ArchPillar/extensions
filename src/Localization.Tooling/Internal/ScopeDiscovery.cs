@@ -92,7 +92,7 @@ internal static class ScopeDiscovery
             .Where(line => line.StartsWith("Project(", StringComparison.Ordinal))
             .Select(ProjectPathFromSlnLine)
             .Where(path => path is { Length: > 0 })
-            .Select(path => Path.GetFullPath(Path.Combine(directory, path!.Replace('\\', Path.DirectorySeparatorChar))))!;
+            .Select(path => Path.GetFullPath(Path.Combine(directory, path!.Replace('\\', Path.DirectorySeparatorChar))));
     }
 
     /// <summary>The lone solution or project file in the current directory, or an
@@ -129,7 +129,7 @@ internal static class ScopeDiscovery
             var include = element.Attribute("Include")?.Value;
             if (!string.IsNullOrEmpty(include))
             {
-                yield return Path.GetFullPath(Path.Combine(directory, include!.Replace('\\', Path.DirectorySeparatorChar)));
+                yield return Path.GetFullPath(Path.Combine(directory, include.Replace('\\', Path.DirectorySeparatorChar)));
             }
         }
     }

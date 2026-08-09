@@ -24,7 +24,7 @@ internal static class SourceReferenceText
             return null;
         }
 
-        var lastColon = text!.LastIndexOf(':');
+        var lastColon = text.LastIndexOf(':');
         if (lastColon <= 0)
         {
             // No line/column suffix: the whole text is the path (our own extraction output, and gettext's

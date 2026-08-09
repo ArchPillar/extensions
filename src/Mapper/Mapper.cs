@@ -123,13 +123,13 @@ public sealed class Mapper<TSource, TDest> : IMapper, IInvokeExpressionBuilder
             }
 
             Expression body = new ParameterReplacer(mapping.Source!.Parameters[0], sourceParam)
-                                  .Visit(mapping.Source.Body)!;
+                                  .Visit(mapping.Source.Body);
 
             IncludeSet nestedIncludes = includes.IncludeAll
                 ? IncludeSet.All
                 : includes.Nested.GetValueOrDefault(mapping.Destination.Name, IncludeSet.Empty);
 
-            body = new NestedMapperInliner(nestedIncludes, depth, guardNullOptionalCollections).Visit(body)!;
+            body = new NestedMapperInliner(nestedIncludes, depth, guardNullOptionalCollections).Visit(body);
 
             if (guardNullOptionalCollections && mapping.Kind == MappingKind.Optional)
             {
@@ -283,7 +283,7 @@ public sealed class Mapper<TSource, TDest> : IMapper, IInvokeExpressionBuilder
         ParameterExpression bindingsParam = Expression.Parameter(VariableDictReplacer.BindingsType, "vars");
         Expression<Func<TSource, TDest>> raw = BuildExpression(
             IncludeSet.All, guardNullOptionalCollections: true);
-        Expression withLookups = new VariableDictReplacer(bindingsParam).Visit(raw)!;
+        Expression withLookups = new VariableDictReplacer(bindingsParam).Visit(raw);
         Expression body = new SelectorCompiler(bindingsParam).Visit(((LambdaExpression)withLookups).Body);
         return Expression.Lambda<Func<TSource, List<(object, object?)>?, TDest>>(
             body, raw.Parameters[0], bindingsParam);
@@ -415,7 +415,7 @@ public sealed class Mapper<TSource, TDest> : IMapper, IInvokeExpressionBuilder
         // Substitute the source parameter into the source collection accessor
         LambdaExpression sourceAccessor = config.SourceCollectionAccessor!;
         Expression sourceCollection = new ParameterReplacer(sourceAccessor.Parameters[0], srcParam)
-            .Visit(sourceAccessor.Body)!;
+            .Visit(sourceAccessor.Body);
 
         MethodInfo mergeMethod = _mergeWithIdentityMethod.MakeGenericMethod(sourceItemType, destItemType, keyType);
         Type collectionType = typeof(ICollection<>).MakeGenericType(destItemType);
@@ -584,7 +584,7 @@ public sealed class Mapper<TSource, TDest> : IMapper, IInvokeExpressionBuilder
 
         return (Expression<Func<TSource, TDest>>)
             new VariableReplacer(new Dictionary<object, object?>(variableBindings))
-                .Visit(BuildExpression(includes))!;
+                .Visit(BuildExpression(includes));
     }
 
     LambdaExpression IMapper.GetRawExpression(

@@ -54,7 +54,7 @@ public abstract class CastTransformer<TSource, TTarget> : ExpressionVisitor, IEx
             && node.Type == typeof(TTarget)
             && node.Operand.Type.IsAssignableTo(typeof(TSource)))
         {
-            return Replacement(Visit(node.Operand)!);
+            return Replacement(Visit(node.Operand));
         }
 
         return base.VisitUnary(node);

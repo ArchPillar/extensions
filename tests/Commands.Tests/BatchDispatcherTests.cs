@@ -146,8 +146,8 @@ public class BatchDispatcherTests
         Assert.True(result.IsFailure);
         Assert.Equal(OperationStatus.BadRequest, result.Status);
         Assert.NotNull(result.Problem);
-        Assert.NotNull(result.Problem!.Errors);
-        Assert.Contains("commands[1].Name", result.Problem.Errors!);
+        Assert.NotNull(result.Problem.Errors);
+        Assert.Contains("commands[1].Name", result.Problem.Errors);
         Assert.Empty(log.Received);
     }
 

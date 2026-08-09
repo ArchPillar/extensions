@@ -183,7 +183,7 @@ public sealed class DirectoryCatalogProviderTests
 
             Assert.True(await fired.WaitAsync(TimeSpan.FromSeconds(5)), "watch did not fire on change");
             Assert.NotNull(changed);
-            Assert.Equal("fr", changed!.Culture);
+            Assert.Equal("fr", changed.Culture);
             handle.Dispose();
         }
         finally

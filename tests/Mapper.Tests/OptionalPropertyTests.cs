@@ -21,7 +21,7 @@ public class OptionalPropertyTests
 
         OrderDto dto = _mappers.Order.Map(order);
 
-        Assert.Equal("Alice", dto!.CustomerName);
+        Assert.Equal("Alice", dto.CustomerName);
         Assert.Equal("Sup", dto.Lines[0].SupplierName);
     }
 
@@ -38,7 +38,7 @@ public class OptionalPropertyTests
 
         OrderDto dto = _mappers.Order.Map(order);
 
-        Assert.Null(dto!.CustomerName);
+        Assert.Null(dto.CustomerName);
         Assert.Null(dto.Lines[0].SupplierName);
     }
 
@@ -55,7 +55,7 @@ public class OptionalPropertyTests
 
         OrderDto dto = _mappers.Order.Map(order);
 
-        Assert.Equal("SupCo", dto!.Lines[0].SupplierName);
+        Assert.Equal("SupCo", dto.Lines[0].SupplierName);
     }
 
     // -----------------------------------------------------------------------
@@ -77,7 +77,7 @@ public class OptionalPropertyTests
 
         OrderDto dto = _mappers.Order.Map(order);
 
-        Assert.Null(dto!.Lines[0].Product);
+        Assert.Null(dto.Lines[0].Product);
     }
 
     [Fact]
@@ -104,7 +104,7 @@ public class OptionalPropertyTests
 
         OrderDto dto = _mappers.Order.Map(order);
 
-        Assert.NotNull(dto!.Lines[0].Product);
+        Assert.NotNull(dto.Lines[0].Product);
         Assert.Equal("Widget", dto.Lines[0].Product!.Name);
         Assert.Equal("Gadgets", dto.Lines[0].Product!.CategoryName);
     }

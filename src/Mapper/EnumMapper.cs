@@ -149,7 +149,7 @@ public sealed class EnumMapper<TSource, TDest>(Func<TSource, TDest> mappingMetho
         Expression value    = Expression.Property(nullableParam, "Value");
 
         Expression body = new ParameterReplacer(coreExpression.Parameters[0], value)
-            .Visit(coreExpression.Body)!;
+            .Visit(coreExpression.Body);
 
         Expression result = Expression.Condition(
             hasValue,

@@ -11,6 +11,6 @@ public sealed class TranslationScopeAttributeTests
             .GetCustomAttribute<AttributeUsageAttribute>();
 
         Assert.NotNull(usage);
-        Assert.Equal(AttributeTargets.GenericParameter, usage!.ValidOn);
+        Assert.Equal(AttributeTargets.GenericParameter, usage.ValidOn);
     }
 }

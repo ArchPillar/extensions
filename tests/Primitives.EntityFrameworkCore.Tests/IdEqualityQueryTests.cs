@@ -41,7 +41,7 @@ public sealed class IdEqualityQueryTests(PostgresFixture fixture) : IAsyncLifeti
         Id<UserTag> id = _userId1;
         UserEntity? user = await _db.Users.SingleOrDefaultAsync(u => u.Id == id);
         Assert.NotNull(user);
-        Assert.Equal("Alice", user!.Name);
+        Assert.Equal("Alice", user.Name);
     }
 
     [Fact]

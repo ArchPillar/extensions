@@ -226,7 +226,7 @@ public class SymmetricEnumMappingTests
 
         OrderDto? dto = _mappers.Order.Map(order);
 
-        Assert.Equal(expected, dto!.Status);
+        Assert.Equal(expected, dto.Status);
     }
 
     // -----------------------------------------------------------------------
@@ -250,7 +250,7 @@ public class SymmetricEnumMappingTests
 
         Order? order = _mappers.OrderReverse.Map(dto);
 
-        Assert.Equal(expected, order!.Status);
+        Assert.Equal(expected, order.Status);
     }
 
     // -----------------------------------------------------------------------
@@ -448,7 +448,7 @@ public class SymmetricNullableEnumMappingTests
 
         OrderDtoWithNullableStatus? result = _mappers.NullableForward.Map(source);
 
-        Assert.Equal(expected, result!.Status);
+        Assert.Equal(expected, result.Status);
     }
 
     [Fact]
@@ -458,7 +458,7 @@ public class SymmetricNullableEnumMappingTests
 
         OrderDtoWithNullableStatus? result = _mappers.NullableForward.Map(source);
 
-        Assert.Null(result!.Status);
+        Assert.Null(result.Status);
     }
 
     // -----------------------------------------------------------------------
@@ -475,7 +475,7 @@ public class SymmetricNullableEnumMappingTests
 
         OrderWithNullableStatus? result = _mappers.NullableReverse.Map(source);
 
-        Assert.Equal(expected, result!.Status);
+        Assert.Equal(expected, result.Status);
     }
 
     [Fact]
@@ -485,7 +485,7 @@ public class SymmetricNullableEnumMappingTests
 
         OrderWithNullableStatus? result = _mappers.NullableReverse.Map(source);
 
-        Assert.Null(result!.Status);
+        Assert.Null(result.Status);
     }
 
     // -----------------------------------------------------------------------
@@ -555,7 +555,7 @@ public class SymmetricNullableEnumMappingTests
 
         OrderDtoWithDefaultStatus? result = _mappers.NullableToNonNullableForward.Map(source);
 
-        Assert.Equal(OrderStatusDto.Pending, result!.Status);
+        Assert.Equal(OrderStatusDto.Pending, result.Status);
     }
 
     [Fact]

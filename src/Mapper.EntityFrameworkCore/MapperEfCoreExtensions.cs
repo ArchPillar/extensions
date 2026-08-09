@@ -95,7 +95,7 @@ public static class MapperEfCoreExtensions
     {
         ArgumentNullException.ThrowIfNull(query);
 
-        Expression rewritten = new MapperCallRewriter(flattenVariableBoxes: false).Visit(query.Expression)!;
+        Expression rewritten = new MapperCallRewriter(flattenVariableBoxes: false).Visit(query.Expression);
         return query.Provider.CreateQuery<TSource>(rewritten);
     }
 }

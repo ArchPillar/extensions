@@ -444,7 +444,7 @@ public sealed class MessageFormatterTests
 
         Assert.True(formatter.TryGetCachedParseError(Malformed, out MessageFormatException? cached));
         Assert.NotNull(cached);
-        Assert.Equal(thrown.Message, cached!.Message);
+        Assert.Equal(thrown.Message, cached.Message);
         Assert.Equal(thrown.Position, cached.Position);
     }
 

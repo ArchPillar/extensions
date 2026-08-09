@@ -20,7 +20,7 @@ public class OperationExceptionTests
 
         Assert.Equal(OperationStatus.Conflict, ex.Result.Status);
         Assert.NotNull(ex.Result.Problem);
-        Assert.Equal("already exists", ex.Result.Problem!.Detail);
+        Assert.Equal("already exists", ex.Result.Problem.Detail);
     }
 
     [Fact]

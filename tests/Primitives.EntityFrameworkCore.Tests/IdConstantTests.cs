@@ -35,7 +35,7 @@ public sealed class IdConstantTests(PostgresFixture fixture) : IAsyncLifetime
         var id = (Id<UserTag>)guid;
         UserEntity? user = await _db.Users.SingleOrDefaultAsync(u => u.Id == id);
         Assert.NotNull(user);
-        Assert.Equal("Alice", user!.Name);
+        Assert.Equal("Alice", user.Name);
     }
 
     [Fact]

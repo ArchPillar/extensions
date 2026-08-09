@@ -100,32 +100,32 @@ public class MapBenchmarks
     // -------------------------------------------------------------------------
 
     [Benchmark(Description = "Empty→Empty")]
-    public EmptyDest Map_Empty() => _mappers.Empty.Map(_emptySource)!;
+    public EmptyDest Map_Empty() => _mappers.Empty.Map(_emptySource);
 
     [Benchmark(Description = "1 property")]
-    public SinglePropDest Map_SingleProp() => _mappers.SingleProp.Map(_singlePropSource)!;
+    public SinglePropDest Map_SingleProp() => _mappers.SingleProp.Map(_singlePropSource);
 
     [Benchmark(Description = "5 properties")]
-    public FivePropDest Map_FiveProp() => _mappers.FiveProp.Map(_fivePropSource)!;
+    public FivePropDest Map_FiveProp() => _mappers.FiveProp.Map(_fivePropSource);
 
     [Benchmark(Description = "10 properties")]
-    public TenPropDest Map_TenProp() => _mappers.TenProp.Map(_tenPropSource)!;
+    public TenPropDest Map_TenProp() => _mappers.TenProp.Map(_tenPropSource);
 
     // -------------------------------------------------------------------------
     // Collection benchmarks
     // -------------------------------------------------------------------------
 
     [Benchmark(Description = "List<T> (1 item)")]
-    public ListCollectionDest Map_ListCollection() => _mappers.ListCollection.Map(_listCollectionSource)!;
+    public ListCollectionDest Map_ListCollection() => _mappers.ListCollection.Map(_listCollectionSource);
 
     [Benchmark(Description = "T[] (1 item)")]
-    public ArrayCollectionDest Map_ArrayCollection() => _mappers.ArrayCollection.Map(_arrayCollectionSource)!;
+    public ArrayCollectionDest Map_ArrayCollection() => _mappers.ArrayCollection.Map(_arrayCollectionSource);
 
     [Benchmark(Description = "HashSet<T> (1 item)")]
-    public HashSetCollectionDest Map_HashSetCollection() => _mappers.HashSetCollection.Map(_hashSetCollectionSource)!;
+    public HashSetCollectionDest Map_HashSetCollection() => _mappers.HashSetCollection.Map(_hashSetCollectionSource);
 
     [Benchmark(Description = "Dictionary<K,V> (1 item)")]
-    public DictionaryCollectionDest Map_DictionaryCollection() => _mappers.DictionaryCollection.Map(_dictionaryCollectionSource)!;
+    public DictionaryCollectionDest Map_DictionaryCollection() => _mappers.DictionaryCollection.Map(_dictionaryCollectionSource);
 
     // -------------------------------------------------------------------------
     // Baselines — raw LINQ (no mapper) for comparison
@@ -210,13 +210,13 @@ public class MapBenchmarks
     // -------------------------------------------------------------------------
 
     [Benchmark(Description = "Nested (empty objects)")]
-    public NestedEmptyDest Map_NestedEmpty() => _mappers.NestedEmpty.Map(_nestedEmptySource)!;
+    public NestedEmptyDest Map_NestedEmpty() => _mappers.NestedEmpty.Map(_nestedEmptySource);
 
     [Benchmark(Description = "5-level nesting")]
-    public N5L1Dto Map_Nested5() => _mappers.Nested5.Map(_nested5Source)!;
+    public N5L1Dto Map_Nested5() => _mappers.Nested5.Map(_nested5Source);
 
     [Benchmark(Description = "10-level nesting")]
-    public N10L1Dto Map_Nested10() => _mappers.Nested10.Map(_nested10Source)!;
+    public N10L1Dto Map_Nested10() => _mappers.Nested10.Map(_nested10Source);
 }
 
 // =============================================================================

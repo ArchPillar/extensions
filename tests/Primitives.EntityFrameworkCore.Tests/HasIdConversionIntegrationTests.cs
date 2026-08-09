@@ -38,6 +38,6 @@ public sealed class HasIdConversionIntegrationTests(PostgresFixture fixture) : I
         UserEntity? user = await _db.Users.SingleOrDefaultAsync(u => u.Id == id);
 
         Assert.NotNull(user);
-        Assert.Equal("Manual", user!.Name);
+        Assert.Equal("Manual", user.Name);
     }
 }

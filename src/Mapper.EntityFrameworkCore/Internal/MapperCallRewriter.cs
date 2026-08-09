@@ -36,8 +36,8 @@ internal sealed class MapperCallRewriter(bool flattenVariableBoxes) : Expression
         if (IsRegularMapCall(node))
         {
             Type[] typeArgs = node.Object!.Type.GetGenericArguments();
-            LambdaExpression projection = GetProjection(node.Object!, typeArgs[0], typeArgs[1], configure: null);
-            return InlineScalar(projection, Visit(node.Arguments[0])!);
+            LambdaExpression projection = GetProjection(node.Object, typeArgs[0], typeArgs[1], configure: null);
+            return InlineScalar(projection, Visit(node.Arguments[0]));
         }
 
         // mapper.Map(src, configure) — EF options overload
@@ -46,7 +46,7 @@ internal sealed class MapperCallRewriter(bool flattenVariableBoxes) : Expression
             Type[] typeArgs = node.Method.GetGenericArguments();
             var configure = MapperConstantEvaluator.Evaluate(node.Arguments[2]);
             LambdaExpression projection = GetProjection(node.Arguments[0], typeArgs[0], typeArgs[1], configure);
-            return InlineScalar(projection, Visit(node.Arguments[1])!);
+            return InlineScalar(projection, Visit(node.Arguments[1]));
         }
 
         // src.Project(mapper) — core IEnumerable overload (no options)
@@ -54,7 +54,7 @@ internal sealed class MapperCallRewriter(bool flattenVariableBoxes) : Expression
         {
             Type[] typeArgs = node.Method.GetGenericArguments();
             LambdaExpression projection = GetProjection(node.Arguments[1], typeArgs[0], typeArgs[1], configure: null);
-            return InlineCollection(projection, Visit(node.Arguments[0])!, typeArgs[0], typeArgs[1]);
+            return InlineCollection(projection, Visit(node.Arguments[0]), typeArgs[0], typeArgs[1]);
         }
 
         // src.Project(mapper, configure) — EF options overload
@@ -63,7 +63,7 @@ internal sealed class MapperCallRewriter(bool flattenVariableBoxes) : Expression
             Type[] typeArgs = node.Method.GetGenericArguments();
             var configure = MapperConstantEvaluator.Evaluate(node.Arguments[2]);
             LambdaExpression projection = GetProjection(node.Arguments[1], typeArgs[0], typeArgs[1], configure);
-            return InlineCollection(projection, Visit(node.Arguments[0])!, typeArgs[0], typeArgs[1]);
+            return InlineCollection(projection, Visit(node.Arguments[0]), typeArgs[0], typeArgs[1]);
         }
 
         return base.VisitMethodCall(node);
@@ -106,7 +106,7 @@ internal sealed class MapperCallRewriter(bool flattenVariableBoxes) : Expression
                 "parameter extraction.");
         }
 
-        return (LambdaExpression)new VariableBoxFlattener().Visit(projection)!;
+        return (LambdaExpression)new VariableBoxFlattener().Visit(projection);
     }
 
     private static bool ContainsInvokeBox(Expression expression)
@@ -162,7 +162,7 @@ internal sealed class MapperCallRewriter(bool flattenVariableBoxes) : Expression
     /// </summary>
     private static Expression InlineScalar(LambdaExpression projection, Expression source)
     {
-        Expression body = new ParameterReplacer(projection.Parameters[0], source).Visit(projection.Body)!;
+        Expression body = new ParameterReplacer(projection.Parameters[0], source).Visit(projection.Body);
 
         if (!source.Type.IsValueType && source is not ParameterExpression)
         {

@@ -262,6 +262,6 @@ public class ComposableMapperContextTests
         BookDto? dto1 = bookMappers1.Book.Map(book);
         BookDto? dto2 = bookMappers2.Book.Map(book);
 
-        Assert.Equal(dto1!.Publisher.Name, dto2!.Publisher.Name);
+        Assert.Equal(dto1.Publisher.Name, dto2.Publisher.Name);
     }
 }

@@ -63,7 +63,7 @@ public sealed class IdProjectionTests(PostgresFixture fixture) : IAsyncLifetime
         UserEntity? user = await _db.Users.FindAsync(userId);
 
         Assert.NotNull(user);
-        Assert.Equal(userId, user!.Id);
+        Assert.Equal(userId, user.Id);
         Assert.Equal(orderId, user.LatestOrderId);
     }
 

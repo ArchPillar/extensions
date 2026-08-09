@@ -15,7 +15,7 @@ public class CollectionWrappingTests
 
         ListDest? dto = mappers.ToListMapper.Map(src);
 
-        Assert.IsType<List<ItemDto>>(dto!.Items);
+        Assert.IsType<List<ItemDto>>(dto.Items);
         Assert.Equal(2, dto.Items.Count);
         Assert.Equal("A", dto.Items[0].Name);
     }
@@ -28,7 +28,7 @@ public class CollectionWrappingTests
 
         ArrayDest? dto = mappers.ToArrayMapper.Map(src);
 
-        Assert.IsType<ItemDto[]>(dto!.Items);
+        Assert.IsType<ItemDto[]>(dto.Items);
         Assert.Equal(2, dto.Items.Length);
         Assert.Equal("X", dto.Items[0].Name);
     }
@@ -41,7 +41,7 @@ public class CollectionWrappingTests
 
         HashSetDest? dto = mappers.ToHashSetMapper.Map(src);
 
-        Assert.IsType<HashSet<ItemDto>>(dto!.Items);
+        Assert.IsType<HashSet<ItemDto>>(dto.Items);
         Assert.Equal(2, dto.Items.Count);
     }
 

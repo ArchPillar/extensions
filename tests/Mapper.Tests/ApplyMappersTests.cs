@@ -44,7 +44,7 @@ public sealed class ApplyMappersTests : IDisposable
     {
         IxFormVm result = await _db.Forms
             .Where(f => f.Id == 1)
-            .Select(f => _mappers.Form.Map(f)!)
+            .Select(f => _mappers.Form.Map(f))
             .ApplyMappers()
             .SingleAsync();
 
@@ -56,7 +56,7 @@ public sealed class ApplyMappersTests : IDisposable
     {
         var result = await _db.Forms
             .Where(f => f.Id == 1)
-            .Select(f => new { f.Id, Vm = _mappers.Form.Map(f)! })
+            .Select(f => new { f.Id, Vm = _mappers.Form.Map(f) })
             .ApplyMappers()
             .SingleAsync();
 
@@ -72,7 +72,7 @@ public sealed class ApplyMappersTests : IDisposable
         InvalidOperationException ex = await Assert.ThrowsAsync<InvalidOperationException>(
             () => _db.Forms
                 .Where(f => f.Id == 1)
-                .Select(f => _mappers.Form.Map(f)!)
+                .Select(f => _mappers.Form.Map(f))
                 .SingleAsync());
 
         Assert.Contains("ApplyMappers", ex.Message, StringComparison.Ordinal);
