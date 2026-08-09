@@ -104,8 +104,8 @@
     </ItemGroup>
     <ItemGroup>
         <!-- Analyzers -->
-        <PackageVersion Include="Roslynator.Analyzers" Version="4.15.0" />
-        <PackageVersion Include="Roslynator.Formatting.Analyzers" Version="4.15.0" />
+        <PackageVersion Include="Roslynator.Analyzers" Version="4.16.0" />
+        <PackageVersion Include="Roslynator.Formatting.Analyzers" Version="4.16.0" />
         <PackageVersion Include="SecurityCodeScan.VS2019" Version="5.6.7" />
         <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.20.0.135146" />
     </ItemGroup>
