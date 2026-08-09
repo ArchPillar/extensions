@@ -1,3 +1,4 @@
+using DotNet.Testcontainers.Configurations;
 using Npgsql;
 using Testcontainers.PostgreSql;
 
@@ -29,6 +30,12 @@ public sealed class PostgresFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        // Rootless Podman cannot run the Ryuk resource reaper privileged: the
+        // sysfs mount it needs is denied, and container startup fails. Owning
+        // the setting here keeps the suite self-contained instead of relying on
+        // TESTCONTAINERS_RYUK_CONTAINER_PRIVILEGED being exported by the host.
+        TestcontainersSettings.ResourceReaperPrivilegedModeEnabled = false;
+
         if (TryBuildContainer(out PostgreSqlContainer? container) && container != null)
         {
             _container = container;
