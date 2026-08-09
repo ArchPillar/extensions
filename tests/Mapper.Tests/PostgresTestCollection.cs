@@ -19,6 +19,8 @@ public sealed class PostgresTestCollection : ICollectionFixture<PostgresFixture>
 /// </summary>
 public sealed class PostgresFixture : IAsyncLifetime
 {
+    private const string PostgresImage = "postgres:16-alpine";
+
     private const string LocalConnectionTemplate =
         "Host=localhost;Port=5432;Username=app;Password=postgres;Database={0}";
 
@@ -101,7 +103,7 @@ public sealed class PostgresFixture : IAsyncLifetime
             // "ready" log-message wait matches PostgreSQL's first startup line and
             // connects during its init-time restart, which surfaces as intermittent
             // EndOfStreamException on connection open.
-            container = new PostgreSqlBuilder().Build();
+            container = new PostgreSqlBuilder(PostgresImage).Build();
 
             if (Environment.GetEnvironmentVariable("CLAUDE_CLOUD") == "true")
             {
