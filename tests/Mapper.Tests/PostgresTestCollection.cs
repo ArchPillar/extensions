@@ -1,3 +1,4 @@
+using DotNet.Testcontainers.Configurations;
 using Npgsql;
 using Testcontainers.PostgreSql;
 
@@ -19,6 +20,8 @@ public sealed class PostgresTestCollection : ICollectionFixture<PostgresFixture>
 /// </summary>
 public sealed class PostgresFixture : IAsyncLifetime
 {
+    private const string PostgresImage = "postgres:16-alpine";
+
     private const string LocalConnectionTemplate =
         "Host=localhost;Port=5432;Username=app;Password=postgres;Database={0}";
 
@@ -27,6 +30,12 @@ public sealed class PostgresFixture : IAsyncLifetime
 
     public async Task InitializeAsync()
     {
+        // Rootless Podman cannot run the Ryuk resource reaper privileged: the
+        // sysfs mount it needs is denied, and container startup fails. Owning
+        // the setting here keeps the suite self-contained instead of relying on
+        // TESTCONTAINERS_RYUK_CONTAINER_PRIVILEGED being exported by the host.
+        TestcontainersSettings.ResourceReaperPrivilegedModeEnabled = false;
+
         if (TryBuildContainer(out PostgreSqlContainer? container) && container != null)
         {
             _container = container;
@@ -101,7 +110,7 @@ public sealed class PostgresFixture : IAsyncLifetime
             // "ready" log-message wait matches PostgreSQL's first startup line and
             // connects during its init-time restart, which surfaces as intermittent
             // EndOfStreamException on connection open.
-            container = new PostgreSqlBuilder().Build();
+            container = new PostgreSqlBuilder(PostgresImage).Build();
 
             if (Environment.GetEnvironmentVariable("CLAUDE_CLOUD") == "true")
             {
