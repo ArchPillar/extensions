@@ -43,7 +43,7 @@ public sealed class EfCoreMapperInliningTests : IDisposable
     {
         List<OrderDto> results = await _db.Orders
             .OrderBy(o => o.Id)
-            .Select(o => _mappers.Order.Map(o)!)
+            .Select(o => _mappers.Order.Map(o))
             .ToListAsync();
 
         Assert.Equal(2, results.Count);
@@ -69,7 +69,7 @@ public sealed class EfCoreMapperInliningTests : IDisposable
             {
                 OrderId = o.Id,
                 CustomerEmail = o.Customer.Email,   // hand-written, not from a mapper
-                Order = _mappers.Order.Map(o)!,     // one property produced by the mapper
+                Order = _mappers.Order.Map(o),     // one property produced by the mapper
             })
             .ToListAsync();
 

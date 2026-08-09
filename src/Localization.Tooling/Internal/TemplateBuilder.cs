@@ -96,7 +96,7 @@ internal static class TemplateBuilder
             return null;
         }
 
-        var relative = Path.GetRelativePath(referenceRoot!, file!);
+        var relative = Path.GetRelativePath(referenceRoot, file);
         if (Path.IsPathRooted(relative) || relative.StartsWith("..", StringComparison.Ordinal))
         {
             return null;

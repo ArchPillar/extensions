@@ -33,7 +33,7 @@ public sealed class IdRoundTripTests(PostgresFixture fixture) : IAsyncLifetime
         UserEntity? user = await _db.Users.FindAsync(id);
 
         Assert.NotNull(user);
-        Assert.Equal(id, user!.Id);
+        Assert.Equal(id, user.Id);
         Assert.Equal("Alice", user.Name);
     }
 
@@ -48,7 +48,7 @@ public sealed class IdRoundTripTests(PostgresFixture fixture) : IAsyncLifetime
         UserEntity? user = await _db.Users.FindAsync(id);
 
         Assert.NotNull(user);
-        Assert.Null(user!.LatestOrderId);
+        Assert.Null(user.LatestOrderId);
     }
 
     [Fact]
@@ -63,7 +63,7 @@ public sealed class IdRoundTripTests(PostgresFixture fixture) : IAsyncLifetime
         UserEntity? user = await _db.Users.FindAsync(userId);
 
         Assert.NotNull(user);
-        Assert.Equal(orderId, user!.LatestOrderId);
+        Assert.Equal(orderId, user.LatestOrderId);
     }
 
     [Fact]

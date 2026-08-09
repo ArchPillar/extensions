@@ -15,7 +15,7 @@ public class VariableTests
 
         OrderDto dto = _mappers.Order.Map(order, o => o.Set(_mappers.CurrentUserId, 99));
 
-        Assert.True(dto!.IsOwner);
+        Assert.True(dto.IsOwner);
     }
 
     [Fact]
@@ -25,7 +25,7 @@ public class VariableTests
 
         OrderDto dto = _mappers.Order.Map(order, o => o.Set(_mappers.CurrentUserId, 1));
 
-        Assert.False(dto!.IsOwner);
+        Assert.False(dto.IsOwner);
     }
 
     [Fact]
@@ -36,7 +36,7 @@ public class VariableTests
 
         OrderDto dto = _mappers.Order.Map(order);
 
-        Assert.False(dto!.IsOwner);
+        Assert.False(dto.IsOwner);
     }
 
     [Fact]
@@ -47,7 +47,7 @@ public class VariableTests
 
         OrderDto dto = _mappers.Order.Map(order);
 
-        Assert.True(dto!.IsOwner);
+        Assert.True(dto.IsOwner);
     }
 
     // -----------------------------------------------------------------------
@@ -164,7 +164,7 @@ public class VariableTests
         UserDto dto = _mappers.User.Map(user, o => o
             .Set(_mappers.CurrentUserId, 42));
 
-        Assert.True(dto!.Orders![0].IsOwner);
+        Assert.True(dto.Orders![0].IsOwner);
     }
 
     [Fact]
@@ -208,6 +208,6 @@ public class VariableTests
         OrderDto dto = _mappers.Order.Map(order, o => o.Set(other.CurrentUserId, 5));
 
         // The unrelated variable has no effect; variable resolves to default (0 != 5)
-        Assert.False(dto!.IsOwner);
+        Assert.False(dto.IsOwner);
     }
 }

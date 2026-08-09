@@ -38,7 +38,7 @@ public class OperationResultOfTTests
         Assert.Null(result.Value);
         Assert.Equal(OperationStatus.NotFound, result.Status);
         Assert.NotNull(result.Problem);
-        Assert.Equal("missing", result.Problem!.Detail);
+        Assert.Equal("missing", result.Problem.Detail);
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public class OperationResultOfTTests
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Value);
-        Assert.Equal(3, result.Value!.Id);
+        Assert.Equal(3, result.Value.Id);
     }
 
     [Fact]

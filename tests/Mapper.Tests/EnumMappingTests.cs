@@ -117,7 +117,7 @@ public class EnumMappingTests
 
         OrderDto? dto = _mappers.Order.Map(order);
 
-        Assert.Equal(expected, dto!.Status);
+        Assert.Equal(expected, dto.Status);
     }
 
     // -----------------------------------------------------------------------
@@ -232,7 +232,7 @@ public class NullableEnumMappingTests
 
         OrderDtoWithNullableStatus? result = _mappers.NullableToNullable.Map(source);
 
-        Assert.Equal(expected, result!.Status);
+        Assert.Equal(expected, result.Status);
     }
 
     [Fact]
@@ -242,7 +242,7 @@ public class NullableEnumMappingTests
 
         OrderDtoWithNullableStatus? result = _mappers.NullableToNullable.Map(source);
 
-        Assert.Null(result!.Status);
+        Assert.Null(result.Status);
     }
 
     [Theory]
@@ -284,7 +284,7 @@ public class NullableEnumMappingTests
 
         OrderDtoWithDefaultStatus? result = _mappers.NullableToNonNullable.Map(source);
 
-        Assert.Equal(expected, result!.Status);
+        Assert.Equal(expected, result.Status);
     }
 
     [Fact]
@@ -294,7 +294,7 @@ public class NullableEnumMappingTests
 
         OrderDtoWithDefaultStatus? result = _mappers.NullableToNonNullable.Map(source);
 
-        Assert.Equal(OrderStatusDto.Pending, result!.Status);
+        Assert.Equal(OrderStatusDto.Pending, result.Status);
     }
 
     [Theory]
@@ -342,7 +342,7 @@ public class NullableEnumMappingTests
 
         OrderDtoWithNullableStatus? result = _mappers.NonNullableToNullable.Map(source);
 
-        Assert.Equal(expected, result!.Status);
+        Assert.Equal(expected, result.Status);
     }
 
     [Theory]

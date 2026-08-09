@@ -158,7 +158,7 @@ public sealed class MessageParserTests
         Assert.False(ok);
         Assert.Null(message);
         Assert.NotNull(error);
-        Assert.Equal(5, error!.Position);
+        Assert.Equal(5, error.Position);
     }
 
     [Fact]

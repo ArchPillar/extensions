@@ -29,7 +29,7 @@ public class NestedInlinerTests
 
         FlexDest? dest = _mappers.Flex.Map(source);
 
-        Assert.Equal("alpha", dest!.Part.Label);
+        Assert.Equal("alpha", dest.Part.Label);
     }
 
     [Fact]
@@ -44,7 +44,7 @@ public class NestedInlinerTests
 
         FlexDest? dest = _mappers.Flex.Map(source);
 
-        Assert.Equal("beta", dest!.Part.Label);
+        Assert.Equal("beta", dest.Part.Label);
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public class NestedInlinerTests
 
         CatalogDto? dto = _mappers.Catalog.Map(source);
 
-        Assert.Equal(2, dto!.Items.Count);
+        Assert.Equal(2, dto.Items.Count);
         Assert.Equal("Apple",  dto.Items["A"].Label);
         Assert.Equal("Banana", dto.Items["B"].Label);
     }
@@ -125,7 +125,7 @@ public class NestedInlinerTests
 
         ShipmentDest? dest = _mappers.Shipment.Map(source);
 
-        Assert.Equal("alpha", dest!.Pack.Primary.Label);
+        Assert.Equal("alpha", dest.Pack.Primary.Label);
         Assert.Equal("beta",  dest.Pack.Secondary.Label);
     }
 
@@ -173,7 +173,7 @@ public class NestedInlinerTests
         ShipmentDest? dest = _mappers.Shipment.Map(source);
 
         // Map() always includes all optionals
-        Assert.Equal("t1", dest!.Pack.Primary.Tag);
+        Assert.Equal("t1", dest.Pack.Primary.Tag);
         Assert.Equal("t2", dest.Pack.Secondary.Tag);
     }
 

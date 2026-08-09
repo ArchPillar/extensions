@@ -27,7 +27,7 @@ public class InheritedMapperTests
     {
         Document doc = CreateDocument();
 
-        DocumentSummaryDto dto = _mappers.Summary.Map(doc)!;
+        DocumentSummaryDto dto = _mappers.Summary.Map(doc);
 
         Assert.Equal(1, dto.Id);
         Assert.Equal("Design Patterns", dto.Title);
@@ -43,7 +43,7 @@ public class InheritedMapperTests
     {
         Document doc = CreateDocument();
 
-        DocumentDetailDto dto = _mappers.Detail.Map(doc)!;
+        DocumentDetailDto dto = _mappers.Detail.Map(doc);
 
         Assert.Equal(1, dto.Id);
         Assert.Equal("Design Patterns", dto.Title);
@@ -55,7 +55,7 @@ public class InheritedMapperTests
     {
         Document doc = CreateDocument();
 
-        DocumentDetailDto dto = _mappers.Detail.Map(doc)!;
+        DocumentDetailDto dto = _mappers.Detail.Map(doc);
 
         Assert.Equal("Full content here", dto.Content);
         Assert.Equal(new DateTime(2025, 6, 1, 0, 0, 0, DateTimeKind.Utc), dto.CreatedAt);
@@ -70,7 +70,7 @@ public class InheritedMapperTests
     {
         Document doc = CreateDocument();
 
-        DocumentStatsDto dto = _mappers.Stats.Map(doc)!;
+        DocumentStatsDto dto = _mappers.Stats.Map(doc);
 
         Assert.Equal(1, dto.Id);
         Assert.Equal("Design Patterns", dto.Title);
@@ -98,7 +98,7 @@ public class InheritedMapperTests
     {
         Document doc = CreateDocument();
 
-        DocumentDetailDto dto = _mappers.Detail.Map(doc)!;
+        DocumentDetailDto dto = _mappers.Detail.Map(doc);
 
         Assert.Equal("Software", dto.Category);
     }
@@ -183,7 +183,7 @@ public class InheritedMapperTests
             ReviewedBy = new Customer { Name = "Reviewer", Email = "r@example.com" },
         };
 
-        TechnicalDocumentDto dto = mappers.Technical.Map(doc)!;
+        TechnicalDocumentDto dto = mappers.Technical.Map(doc);
 
         // Inherited from Summary (grandparent)
         Assert.Equal(1, dto.Id);
@@ -266,7 +266,7 @@ public class InheritedMapperTests
         var mappers = new OverrideInheritanceMappers();
         Document doc = CreateDocument();
 
-        DocumentDetailDto dto = mappers.Detail.Map(doc)!;
+        DocumentDetailDto dto = mappers.Detail.Map(doc);
 
         Assert.Equal("DESIGN PATTERNS", dto.Title);
         Assert.Equal("Full content here", dto.Content);

@@ -70,7 +70,7 @@ public sealed class EfCoreOptionalEntityProjectionTests : IDisposable
     {
         List<SubmissionDto> results = await _db.Submissions
             .OrderBy(t => t.Id)
-            .Select(t => _mappers.Submission.Map(t)!)
+            .Select(t => _mappers.Submission.Map(t))
             .ToListAsync();
 
         Assert.Equal(2, results.Count);

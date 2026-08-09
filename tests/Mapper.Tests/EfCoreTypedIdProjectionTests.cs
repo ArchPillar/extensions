@@ -64,7 +64,7 @@ public sealed class EfCoreTypedIdProjectionTests : IDisposable
             .SingleAsync();
 
         Assert.NotNull(result.FactChecker);
-        Assert.Equal("Bob", result.FactChecker!.Name);
+        Assert.Equal("Bob", result.FactChecker.Name);
     }
 
     [Fact]
@@ -120,7 +120,7 @@ public sealed class EfCoreTypedIdProjectionTests : IDisposable
             .SingleAsync();
 
         Assert.NotNull(result.Featured);
-        Assert.Equal(7, result.Featured!.Priority);
+        Assert.Equal(7, result.Featured.Priority);
     }
 
     [Fact]
@@ -164,7 +164,7 @@ public sealed class EfCoreTypedIdProjectionTests : IDisposable
     {
         List<ArticleDto> results = await _db.Articles
             .OrderBy(a => a.Id)
-            .Select(a => _mappers.Article.Map(a)!)
+            .Select(a => _mappers.Article.Map(a))
             .ToListAsync();
 
         Assert.Equal(2, results.Count);

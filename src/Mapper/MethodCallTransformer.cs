@@ -153,7 +153,7 @@ public abstract class MethodCallTransformer : ExpressionVisitor, IExpressionTran
 
         for (var i = 0; i < arguments.Count; i++)
         {
-            visited[i] = Visit(arguments[i])!;
+            visited[i] = Visit(arguments[i]);
         }
 
         return visited;

@@ -65,7 +65,7 @@ internal sealed class CommandDispatcher : ICommandDispatcher
         for (var i = 0; i < commands.Count; i++)
         {
             ArgumentNullException.ThrowIfNull(commands[i]);
-            requests[i] = commands[i]!;
+            requests[i] = commands[i];
         }
 
         var context = new CommandContext(requests, typeof(TCommand));
@@ -95,7 +95,7 @@ internal sealed class CommandDispatcher : ICommandDispatcher
         for (var i = 0; i < commands.Count; i++)
         {
             ArgumentNullException.ThrowIfNull(commands[i]);
-            requests[i] = commands[i]!;
+            requests[i] = commands[i];
         }
 
         var context = new CommandContext(requests, typeof(TCommand));

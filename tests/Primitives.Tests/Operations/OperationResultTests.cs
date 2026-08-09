@@ -40,7 +40,7 @@ public class OperationResultTests
         Assert.Equal(OperationStatus.NotFound, result.Status);
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Problem);
-        Assert.Equal("not_found", result.Problem!.Type);
+        Assert.Equal("not_found", result.Problem.Type);
         Assert.Equal("Not Found", result.Problem.Title);
         Assert.Equal("missing", result.Problem.Detail);
     }
@@ -64,7 +64,7 @@ public class OperationResultTests
         OperationFailure result = OperationResult.BadRequest("Validation failed.", errors: errors);
 
         Assert.NotNull(result.Problem!.Errors);
-        Assert.True(result.Problem.Errors!.ContainsKey("Quantity"));
+        Assert.True(result.Problem.Errors.ContainsKey("Quantity"));
     }
 
     [Fact]
@@ -89,7 +89,7 @@ public class OperationResultTests
 
         Assert.Equal(OperationStatus.UnprocessableEntity, result.Status);
         Assert.NotNull(result.Problem);
-        Assert.Equal("validation", result.Problem!.Type);
+        Assert.Equal("validation", result.Problem.Type);
         Assert.Equal("Validation Failed", result.Problem.Title);
         Assert.Equal("Multiple errors occurred.", result.Problem.Detail);
     }
@@ -104,7 +104,7 @@ public class OperationResultTests
         Assert.Same(ex, result.Exception);
         Assert.Equal(OperationStatus.InternalServerError, result.Status);
         Assert.NotNull(result.Problem);
-        Assert.Equal("boom", result.Problem!.Detail);
+        Assert.Equal("boom", result.Problem.Detail);
     }
 
     [Fact]

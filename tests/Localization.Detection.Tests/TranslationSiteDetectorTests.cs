@@ -328,6 +328,6 @@ public sealed class TranslationSiteDetectorTests
     {
         TranslationSite? site = results.Select(r => r.Site).FirstOrDefault(s => s?.Key == key);
         Assert.NotNull(site);
-        return site!;
+        return site;
     }
 }

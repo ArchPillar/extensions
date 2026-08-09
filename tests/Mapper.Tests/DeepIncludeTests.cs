@@ -152,9 +152,9 @@ public class DeepIncludeTests
     {
         UserDto? dto = _mappers.User.Map(MakeUser());
 
-        Assert.NotNull(dto!.Orders);
-        Assert.Equal("Dave",   dto.Orders![0].CustomerName);
-        Assert.Equal("AcmeCo", dto.Orders![0].Lines[0].SupplierName);
+        Assert.NotNull(dto.Orders);
+        Assert.Equal("Dave",   dto.Orders[0].CustomerName);
+        Assert.Equal("AcmeCo", dto.Orders[0].Lines[0].SupplierName);
     }
 
     // -----------------------------------------------------------------------

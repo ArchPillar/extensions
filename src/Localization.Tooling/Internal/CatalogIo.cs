@@ -92,7 +92,7 @@ internal static class CatalogIo
         var directory = Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(directory))
         {
-            Directory.CreateDirectory(directory!);
+            Directory.CreateDirectory(directory);
         }
 
         var sourceName = CatalogNaming.Split(Path.GetFileNameWithoutExtension(path)).Name;

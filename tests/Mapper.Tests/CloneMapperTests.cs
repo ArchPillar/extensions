@@ -78,7 +78,7 @@ public class CloneMapperTests
             Notes       = "Urgent",
         };
 
-        Ticket clone = _mappers.Ticket.Map(source)!;
+        Ticket clone = _mappers.Ticket.Map(source);
 
         Assert.NotSame(source, clone);
         Assert.Equal(42, clone.Id);
@@ -109,7 +109,7 @@ public class CloneMapperTests
             Assignee    = assignee,
         };
 
-        Ticket clone = _mappers.Ticket.Map(source)!;
+        Ticket clone = _mappers.Ticket.Map(source);
 
         Assert.Same(source.Assignee, clone.Assignee);
     }
@@ -125,7 +125,7 @@ public class CloneMapperTests
             Tags        = ["alpha", "beta"],
         };
 
-        Ticket clone = _mappers.Ticket.Map(source)!;
+        Ticket clone = _mappers.Ticket.Map(source);
 
         Assert.Same(source.Tags, clone.Tags);
     }
@@ -142,7 +142,7 @@ public class CloneMapperTests
             Assignee    = null,
         };
 
-        Ticket clone = _mappers.Ticket.Map(source)!;
+        Ticket clone = _mappers.Ticket.Map(source);
 
         Assert.Null(clone.Notes);
         Assert.Null(clone.Assignee);
@@ -159,7 +159,7 @@ public class CloneMapperTests
             Description = "Do something",
         };
 
-        Ticket clone = mappers.Ticket.Map(source)!;
+        Ticket clone = mappers.Ticket.Map(source);
 
         Assert.Equal(0, clone.Id);
         Assert.Equal("Task", clone.Title);
@@ -178,7 +178,7 @@ public class CloneMapperTests
             Tags        = ["alpha", "beta"],
         };
 
-        Ticket clone = mappers.Ticket.Map(source)!;
+        Ticket clone = mappers.Ticket.Map(source);
 
         Assert.NotSame(source.Tags, clone.Tags);
         Assert.Equal(source.Tags, clone.Tags);

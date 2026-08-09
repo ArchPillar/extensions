@@ -65,7 +65,7 @@ public sealed class XliffTranslationFormat : ITranslationFormat
         XNamespace ns = root.Name.Namespace;
         var sourceLanguage = (string?)root.Attribute("srcLang") ?? string.Empty;
         var targetLanguage = (string?)root.Attribute("trgLang");
-        var culture = string.IsNullOrEmpty(targetLanguage) ? sourceLanguage : targetLanguage!;
+        var culture = string.IsNullOrEmpty(targetLanguage) ? sourceLanguage : targetLanguage;
 
         var entries = new List<CatalogEntry>();
         foreach (XElement unit in root.Descendants(ns + "unit"))
@@ -199,7 +199,7 @@ public sealed class XliffTranslationFormat : ITranslationFormat
         var root = new XElement(
             _ns + "xliff",
             new XAttribute("version", "2.1"),
-            new XAttribute("srcLang", string.IsNullOrEmpty(sourceLanguage) ? "en" : sourceLanguage!),
+            new XAttribute("srcLang", string.IsNullOrEmpty(sourceLanguage) ? "en" : sourceLanguage),
             new XAttribute("trgLang", catalog.Culture),
             new XElement(_ns + "file", new XAttribute("id", FileId(options)), BuildFileContent(catalog)));
 
@@ -210,7 +210,7 @@ public sealed class XliffTranslationFormat : ITranslationFormat
     // The <file> id identifies the logical source independently of target language, so it carries the
     // catalog's source name (the assembly) when known, and a generic token otherwise.
     private static string FileId(CatalogWriteOptions options) =>
-        string.IsNullOrEmpty(options.SourceName) ? "f1" : options.SourceName!;
+        string.IsNullOrEmpty(options.SourceName) ? "f1" : options.SourceName;
 
     // Groups entries by category, deterministically: the global (empty) category's units sit directly in the
     // file; each named category is a <group name="{category}"> so a translator tool shows it as structure.

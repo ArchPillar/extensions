@@ -25,7 +25,7 @@ public class NestedMapperTests
 
         OrderDto? dto = _mappers.Order.Map(order);
 
-        Assert.Equal(2, dto!.Lines.Count);
+        Assert.Equal(2, dto.Lines.Count);
         Assert.Equal("Alpha", dto.Lines[0].ProductName);
         Assert.Equal(2, dto.Lines[0].Quantity);
         Assert.Equal(5.00m, dto.Lines[0].UnitPrice);
@@ -39,7 +39,7 @@ public class NestedMapperTests
 
         OrderDto? dto = _mappers.Order.Map(order);
 
-        Assert.NotNull(dto!.Lines);
+        Assert.NotNull(dto.Lines);
         Assert.Empty(dto.Lines);
     }
 
@@ -60,7 +60,7 @@ public class NestedMapperTests
 
         OrderDto? dto = _mappers.Order.Map(order);
 
-        Assert.Equal("Bob", dto!.CustomerName);
+        Assert.Equal("Bob", dto.CustomerName);
         Assert.Equal("SupX", dto.Lines[0].SupplierName);
     }
 
@@ -79,11 +79,11 @@ public class NestedMapperTests
             Status = OrderStatus.Pending,
             Customer = new Customer { Name = "", Email = "" },
             Lines = [line],
-        })!.Lines[0];
+        }).Lines[0];
 
         OrderLineDto? standalone = _mappers.OrderLine.Map(line);
 
-        Assert.Equal(standalone!.ProductName, fromParent.ProductName);
+        Assert.Equal(standalone.ProductName, fromParent.ProductName);
         Assert.Equal(standalone.Quantity, fromParent.Quantity);
         Assert.Equal(standalone.UnitPrice, fromParent.UnitPrice);
     }
@@ -144,7 +144,7 @@ public class NestedMapperTests
 
         OrderDto dto = mappers.Order.Map(order);
 
-        Assert.Equal(2, dto!.Lines.Count);
+        Assert.Equal(2, dto.Lines.Count);
         Assert.Equal("Alpha", dto.Lines[0].ProductName);
         Assert.Equal("Beta", dto.Lines[1].ProductName);
     }

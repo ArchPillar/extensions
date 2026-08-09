@@ -130,7 +130,7 @@ public sealed class MoneyToAmountTransformer : ExpressionVisitor, IExpressionTra
             && node.Type == typeof(decimal)
             && node.Operand.Type == typeof(Money))
         {
-            return Expression.Property(Visit(node.Operand)!, typeof(Money), nameof(Money.Amount));
+            return Expression.Property(Visit(node.Operand), typeof(Money), nameof(Money.Amount));
         }
 
         return base.VisitUnary(node);
@@ -330,7 +330,7 @@ public class ExpressionTransformerTests
             Tax   = new Money(12.50m, "USD"),
         };
 
-        InvoiceDto dto = mappers.Invoice.Map(invoice)!;
+        InvoiceDto dto = mappers.Invoice.Map(invoice);
 
         Assert.Equal(1, dto.Id);
         Assert.Equal(99.95m, dto.Total);
@@ -377,7 +377,7 @@ public class ExpressionTransformerTests
             Tax   = new Money(10m, "GBP"),
         };
 
-        InvoiceDto dto = mappers.Invoice.Map(invoice)!;
+        InvoiceDto dto = mappers.Invoice.Map(invoice);
 
         Assert.Equal(3, dto.Id);
         Assert.Equal(50m, dto.Total);
@@ -400,7 +400,7 @@ public class ExpressionTransformerTests
             Tax   = new Money(15m, "SEK"),
         };
 
-        InvoiceDto dto = mappers.Invoice.Map(invoice)!;
+        InvoiceDto dto = mappers.Invoice.Map(invoice);
 
         Assert.Equal(4, dto.Id);
         Assert.Equal(75m, dto.Total);
@@ -420,7 +420,7 @@ public class ExpressionTransformerTests
         var mappers = new TransformerOrderMappers(globalOptions);
 
         var source = new LabelSource { Tag = "ignored" };
-        LabelDest dest = mappers.Label.Map(source)!;
+        LabelDest dest = mappers.Label.Map(source);
 
         // The constant "base" is visited by global first, then context, then mapper.
         // Each StringSuffixTransformer appends its suffix to string constants.
@@ -443,7 +443,7 @@ public class ExpressionTransformerTests
             Tax   = new Money(8m, "NOK"),
         };
 
-        InvoiceDto dto = mappers.Invoice.Map(invoice)!;
+        InvoiceDto dto = mappers.Invoice.Map(invoice);
 
         Assert.Equal(5, dto.Id);
         Assert.Equal(42m, dto.Total);
@@ -462,7 +462,7 @@ public class ExpressionTransformerTests
             ServiceFee = new Fee(5m, "Processing"),
         };
 
-        MixedAmountDto dto = mappers.Mixed.Map(source)!;
+        MixedAmountDto dto = mappers.Mixed.Map(source);
 
         Assert.Equal(1, dto.Id);
         Assert.Equal(100m, dto.Total);
@@ -484,7 +484,7 @@ public class ExpressionTransformerTests
             Amount = new Money(50m, "USD"),
         };
 
-        PaymentDto dto = mappers.Payment.Map(payment)!;
+        PaymentDto dto = mappers.Payment.Map(payment);
 
         Assert.Equal(1, dto.Id);
         Assert.Equal(50m, dto.Amount);
@@ -502,7 +502,7 @@ public class ExpressionTransformerTests
             Amount = new Money(-10m, "USD"),
         };
 
-        PaymentDto dto = mappers.Payment.Map(payment)!;
+        PaymentDto dto = mappers.Payment.Map(payment);
 
         Assert.Equal(-10m, dto.Amount);
         Assert.False(dto.IsPositive);
@@ -519,7 +519,7 @@ public class ExpressionTransformerTests
             Price = new WrappedDecimal { Value = 42.5m },
         };
 
-        UnwrapDest dto = mappers.Unwrap.Map(source)!;
+        UnwrapDest dto = mappers.Unwrap.Map(source);
 
         Assert.Equal(1, dto.Id);
         Assert.Equal(42.5m, dto.Price);
@@ -536,7 +536,7 @@ public class ExpressionTransformerTests
             Amount = new Quantity(99m),
         };
 
-        QuantityDto dto = mappers.Quantity.Map(source)!;
+        QuantityDto dto = mappers.Quantity.Map(source);
 
         Assert.Equal(1, dto.Id);
         Assert.Equal(99m, dto.Amount);
@@ -554,7 +554,7 @@ public class ExpressionTransformerTests
             Amount = new Quantity(-5m),
         };
 
-        QuantityDto dto = mappers.Quantity.Map(source)!;
+        QuantityDto dto = mappers.Quantity.Map(source);
 
         Assert.Equal(-5m, dto.Amount);
         Assert.False(dto.IsPositive);
@@ -577,7 +577,7 @@ public class ExpressionTransformerTests
             Lines    = [],
         };
 
-        OrderDto dto = mappers.Order.Map(order)!;
+        OrderDto dto = mappers.Order.Map(order);
 
         Assert.Equal(10, dto.Id);
     }

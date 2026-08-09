@@ -56,7 +56,7 @@ public sealed class NumberPatternParserTests
         NumberPattern pattern = NumberPatternParser.Parse("¤ #,##0.00;¤ -#,##0.00");
 
         Assert.NotNull(pattern.NegativePrefix);
-        Assert.Equal(PatternTokenKind.CurrencySymbol, pattern.NegativePrefix![0].Kind);
+        Assert.Equal(PatternTokenKind.CurrencySymbol, pattern.NegativePrefix[0].Kind);
         Assert.Equal(PatternTokenKind.Literal, pattern.NegativePrefix[1].Kind);
         Assert.Equal(PatternTokenKind.MinusSign, pattern.NegativePrefix[2].Kind);
         Assert.Empty(pattern.NegativeSuffix!);

@@ -59,8 +59,8 @@ public class CommandDispatcherTests
         Assert.False(result.IsSuccess);
         Assert.Equal(OperationStatus.BadRequest, result.Status);
         Assert.NotNull(result.Problem);
-        Assert.NotNull(result.Problem!.Errors);
-        Assert.Equal(2, result.Problem.Errors!.Count);
+        Assert.NotNull(result.Problem.Errors);
+        Assert.Equal(2, result.Problem.Errors.Count);
     }
 
     [Fact]

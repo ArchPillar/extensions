@@ -39,8 +39,8 @@ public class NullSourceMappingTests
 
         NullableDest? dest = mappers.Root.Map(source);
 
-        Assert.NotNull(dest!.Items);
-        Assert.Equal(2, dest.Items!.Count);
+        Assert.NotNull(dest.Items);
+        Assert.Equal(2, dest.Items.Count);
         Assert.Equal("A", dest.Items[0].Label);
     }
 

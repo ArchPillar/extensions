@@ -45,7 +45,7 @@ public sealed class ProjectionSqlShapeTests : IDisposable
 
         Assert.Equal("HQ", result.Name);
         Assert.NotNull(result.Child);
-        Assert.Equal("Alice", result.Child!.Label);
+        Assert.Equal("Alice", result.Child.Label);
     }
 
     [Fact]

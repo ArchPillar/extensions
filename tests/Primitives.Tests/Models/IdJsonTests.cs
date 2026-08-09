@@ -53,7 +53,7 @@ public sealed class IdJsonTests
         var json = $"{{\"Id\":\"{guid:D}\",\"Name\":\"Alice\"}}";
         UserDto? dto = JsonSerializer.Deserialize<UserDto>(json);
         Assert.NotNull(dto);
-        Assert.Equal(guid, dto!.Id.Value);
+        Assert.Equal(guid, dto.Id.Value);
     }
 
     [Fact]
