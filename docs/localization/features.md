@@ -593,6 +593,37 @@ unambiguous):
 public string Email { get; set; } = "";
 ```
 
+### `[Localized]` — key and default in one attribute
+
+The twin pairs above need a system attribute to hang the key on. When nothing else has to read the
+annotation, `[Localized(key, default)]` carries both itself, so a member takes one line instead of two. A
+description is optional — a form-field hint, a help line — and its key is **derived** from the display key
+plus `.description`, so a member never repeats its own id:
+
+```csharp
+public sealed class RegisterModel
+{
+    [Localized("register.password.label", "Password")]
+    public string Password { get; set; } = "";
+
+    // description resolves under "user.email.description"
+    [Localized("user.email", "Email address", Description = "We never share it.")]
+    public string Email { get; set; } = "";
+}
+```
+
+Set `DescriptionKey` only to point a description at an id derivation cannot produce. Note the description is
+deliberately *not* text-as-key: unlike the system attributes — where the framework looks the literal up, so
+the text has to be the key — nothing external reads this one, and keying it by its text would mean editing
+the hint silently orphaned every translation of it.
+
+Both forms extract identically and resolve under the declaring type's category, so a model can mix them.
+Reach for `[Display]` (with a twin, if you want a string id) when something **other than this library** must
+read the annotation too — the framework's own `Order`/`GroupName`/`Prompt`, or a third-party consumer that
+looks for `DisplayAttribute` specifically.
+
+### Reading an annotation at runtime
+
 **Enums** read their own annotation at runtime: `value.GetLocalizedDisplayName()` reads the member's
 `[Display(Name)]` value as the key (and a `[LocalizedDisplayName]` twin as the source default) and resolves
 it through the localizer under the enum's category — the localized replacement for the usual hand-rolled
@@ -608,10 +639,31 @@ public enum AccountStatus
 string label = AccountStatus.Suspended.GetLocalizedDisplayName();   // resolves account.suspended
 ```
 
+**Types and members** do the same through `MemberInfo`, for the consumers ASP.NET's DataAnnotations pipeline
+does not reach (Blazor, a console renderer, your own UI). `[Localized]` wins; failing that the system
+attribute plus its twin is read, and a member with no annotation renders as its own name:
+
+```csharp
+PropertyInfo password = typeof(RegisterModel).GetProperty(nameof(RegisterModel.Password))!;
+string label = password.GetLocalizedDisplayName();
+string help  = password.GetLocalizedDescription();
+
+// or by expression, so you do not reach for reflection yourself
+string same = MemberLocalizationExtensions.GetLocalizedDisplayName<RegisterModel>(x => x.Password);
+
+// naming no type at all, when you already hold the instance
+string also = MemberLocalizationExtensions.GetLocalizedDisplayName(() => model.Password);
+```
+
+A `Type` is itself a `MemberInfo`, so `typeof(RegisterModel).GetLocalizedDisplayName()` labels the model
+itself. Each has a `LocalizationContext` overload for isolated resolution (tests, multi-tenant hosting).
+
 **ASP.NET MVC / Razor Pages** route their DataAnnotations through the localizer with one call on the MVC
 builder (in the `…Localization.AspNetCore` package): display names *and* validation messages resolve under
 the model type's category, by the system attribute's value (text or string id) as the key, falling back to
-the twin's default when no translation is loaded.
+the twin's default when no translation is loaded. The same call also teaches MVC to read `[Localized]`,
+which it would otherwise ignore — the DataAnnotations seam only translates strings MVC already found on a
+system attribute, so a member carrying just `[Localized]` would fall back to its property name.
 
 ```csharp
 builder.Services.AddControllersWithViews().AddArchPillarDataAnnotationsLocalization();

@@ -5,6 +5,67 @@ using System.ComponentModel.DataAnnotations;
 namespace ArchPillar.Extensions.Localization;
 
 /// <summary>
+/// Declares a member's display text — a stable key and its source-language default — in one attribute, with no
+/// system attribute to hang them on. This is the low-noise form: where the twin attributes need a
+/// <c>[Display(Name = …)]</c> to carry the key, this carries both itself, so a member needs one line instead of
+/// two. A description is optional and follows the same shape: set <see cref="Description"/> for its text and, if
+/// you want a string id rather than text-as-key, <see cref="DescriptionKey"/> for its key.
+/// <para>
+/// Reach for <c>[Display]</c> (with a <see cref="LocalizedDisplayNameAttribute"/> twin when you want a string id)
+/// when something other than this library must also read the annotation — the framework's own
+/// <c>Order</c>/<c>GroupName</c>/<c>Prompt</c>, or a third-party consumer that looks for
+/// <c>DisplayAttribute</c> specifically. Both forms extract identically and resolve under the declaring type's
+/// category, so they can be mixed freely in one model.
+/// </para>
+/// </summary>
+/// <remarks>Initializes a new instance with the display name's key and source-language default.</remarks>
+/// <param name="key">The stable symbolic key this member's display name resolves under.</param>
+/// <param name="defaultValue">The source-language display name (the in-code default and terminal fallback).</param>
+[AttributeUsage(
+    AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Enum | AttributeTargets.Property | AttributeTargets.Field,
+    AllowMultiple = false)]
+public sealed class LocalizedAttribute(
+    string key,
+    string defaultValue)
+    : Attribute
+{
+    /// <summary>
+    /// The suffix appended to <see cref="Key"/> to derive a description's key when <see cref="DescriptionKey"/>
+    /// is unset. Public because the build-time extractor derives the same key from metadata and must agree with
+    /// the runtime to the character.
+    /// </summary>
+    public const string DescriptionKeySuffix = ".description";
+
+    /// <summary>Gets the stable key the display name resolves under.</summary>
+    public string Key { get; } = key;
+
+    /// <summary>Gets the source-language display name.</summary>
+    public string Default { get; } = defaultValue;
+
+    /// <summary>
+    /// Gets or sets the source-language description — a form-field hint, a help line. When unset the member
+    /// carries no description at all.
+    /// </summary>
+    public string? Description { get; set; }
+
+    /// <summary>
+    /// Gets or sets the stable key the description resolves under. Leave it unset and the key is derived from
+    /// <see cref="Key"/> plus <see cref="DescriptionKeySuffix"/>, so a member never repeats its own id; set it
+    /// only to point a description at an id that derivation cannot produce. Ignored when
+    /// <see cref="Description"/> is unset, since a key with no source text has nothing to resolve.
+    /// </summary>
+    public string? DescriptionKey { get; set; }
+
+    /// <summary>
+    /// Gets the key the description resolves under — the explicit <see cref="DescriptionKey"/>, else
+    /// <see cref="Key"/> plus <see cref="DescriptionKeySuffix"/> — or <see langword="null"/> when the member has
+    /// no description. The single owner of the rule for every runtime reader.
+    /// </summary>
+    public string? EffectiveDescriptionKey =>
+        Description is null ? null : DescriptionKey ?? Key + DescriptionKeySuffix;
+}
+
+/// <summary>
 /// Supplies the source-language default text for a display name whose stable key — a string id — lives in the
 /// system attribute it accompanies (<c>[DisplayName]</c> or <c>[Display(Name = …)]</c>). Reach for it when you
 /// prefer a string id to the text-as-key default: put the id in the system attribute (which the framework looks
