@@ -59,6 +59,91 @@ public sealed class AnnotationExtractionTests : IDisposable
     }
 
     [Fact]
+    public void ExtractAnnotations_LocalizedOnProperty_TakesItsOwnKeyAndDefault()
+    {
+        // The self-contained form: no system attribute to hang a key on, so [Localized] carries both itself.
+        IReadOnlyList<RawCallSite> sites = ExtractAnnotations("""
+            using ArchPillar.Extensions.Localization;
+
+            namespace Demo;
+
+            public sealed class RegisterModel
+            {
+                [Localized("register.password.label", "Password")]
+                public string Password { get; set; }
+            }
+            """);
+
+        RawCallSite site = Assert.Single(sites);
+        Assert.Equal("register.password.label", site.Key);
+        Assert.Equal("Password", site.Default);
+        Assert.Equal("Demo.RegisterModel", site.Category);
+    }
+
+    [Fact]
+    public void ExtractAnnotations_LocalizedWithDescriptionKey_YieldsBothConcepts()
+    {
+        IReadOnlyList<RawCallSite> sites = ExtractAnnotations("""
+            using ArchPillar.Extensions.Localization;
+
+            namespace Demo;
+
+            public sealed class RegisterModel
+            {
+                [Localized("user.email", "Email address", DescriptionKey = "user.email.help", Description = "We never share it.")]
+                public string Email { get; set; }
+            }
+            """);
+
+        Assert.Equal(2, sites.Count);
+        RawCallSite name = sites.Single(site => site.Key == "user.email");
+        Assert.Equal("Email address", name.Default);
+        RawCallSite description = sites.Single(site => site.Key == "user.email.help");
+        Assert.Equal("We never share it.", description.Default);
+        Assert.All(sites, site => Assert.Equal("Demo.RegisterModel", site.Category));
+    }
+
+    [Fact]
+    public void ExtractAnnotations_LocalizedDescriptionWithoutItsOwnKey_IsTextAsKey()
+    {
+        // Same rule the system attributes follow: with no explicit key the source text is the key.
+        IReadOnlyList<RawCallSite> sites = ExtractAnnotations("""
+            using ArchPillar.Extensions.Localization;
+
+            namespace Demo;
+
+            public sealed class RegisterModel
+            {
+                [Localized("user.email", "Email address", Description = "We never share it.")]
+                public string Email { get; set; }
+            }
+            """);
+
+        RawCallSite description = Assert.Single(sites, site => site.Key == "We never share it.");
+        Assert.Equal("We never share it.", description.Default);
+    }
+
+    [Fact]
+    public void ExtractAnnotations_LocalizedOnType_IsScopedToThatType()
+    {
+        IReadOnlyList<RawCallSite> sites = ExtractAnnotations("""
+            using ArchPillar.Extensions.Localization;
+
+            namespace Demo;
+
+            [Localized("models.register", "Registration")]
+            public sealed class RegisterModel
+            {
+            }
+            """);
+
+        RawCallSite site = Assert.Single(sites);
+        Assert.Equal("models.register", site.Key);
+        Assert.Equal("Registration", site.Default);
+        Assert.Equal("Demo.RegisterModel", site.Category);
+    }
+
+    [Fact]
     public void ExtractAnnotations_DescriptionOnProperty_TakesTheLiteral()
     {
         IReadOnlyList<RawCallSite> sites = ExtractAnnotations("""

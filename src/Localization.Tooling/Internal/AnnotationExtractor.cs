@@ -17,6 +17,7 @@ internal static class AnnotationExtractor
     private const string LocalizedDisplayNameAttribute = "ArchPillar.Extensions.Localization.LocalizedDisplayNameAttribute";
     private const string LocalizedDescriptionAttribute = "ArchPillar.Extensions.Localization.LocalizedDescriptionAttribute";
     private const string LocalizedMessageAttribute = "ArchPillar.Extensions.Localization.LocalizedMessageAttribute`1";
+    private const string LocalizedAttribute = "ArchPillar.Extensions.Localization.LocalizedAttribute";
 
     public static IReadOnlyList<RawCallSite> Extract(ModuleDefinition module)
     {
@@ -54,7 +55,33 @@ internal static class AnnotationExtractor
             LiteralFromConstructor(member, DisplayNameAttribute) ?? NamedArgument(member, DisplayAttribute, "Name"));
         AddConcept(member, category, sites, LocalizedDescriptionAttribute,
             LiteralFromConstructor(member, DescriptionAttribute) ?? NamedArgument(member, DisplayAttribute, "Description"));
+        AddLocalizedSites(member, category, sites);
         AddValidationMessageSites(member, category, sites);
+    }
+
+    // Emits the sites of a [Localized(key, default)] — the self-contained form, which needs no system attribute
+    // because it carries the key and the default itself. Its optional description follows the same shape: the text
+    // is the default, and the key is DescriptionKey or, unset, that text (text-as-key, as the system attributes do).
+    // A description key with no text is skipped, having no source string to fall back to.
+    private static void AddLocalizedSites(ICustomAttributeProvider member, string category, List<RawCallSite> sites)
+    {
+        foreach (CustomAttribute attribute in member.CustomAttributes)
+        {
+            if (attribute.AttributeType.FullName != LocalizedAttribute || attribute.ConstructorArguments.Count < 2)
+            {
+                continue;
+            }
+
+            if (attribute.ConstructorArguments[0].Value is string key && attribute.ConstructorArguments[1].Value is string defaultValue)
+            {
+                sites.Add(new RawCallSite(key, defaultValue, category));
+            }
+
+            if (NamedArgument(member, LocalizedAttribute, "Description") is { } description)
+            {
+                sites.Add(new RawCallSite(NamedArgument(member, LocalizedAttribute, "DescriptionKey") ?? description, description, category));
+            }
+        }
     }
 
     // Emits one site for a display concept. The system attribute's value is the key (the text-as-key default, or a

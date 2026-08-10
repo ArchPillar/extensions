@@ -1,5 +1,6 @@
 using ArchPillar.Extensions.Localization;
 using ArchPillar.Extensions.Localization.AspNetCore;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Microsoft.Extensions.DependencyInjection;
 
@@ -30,6 +31,11 @@ public static class DataAnnotationsLocalizationMvcBuilderExtensions
         builder.AddDataAnnotationsLocalization(options =>
             options.DataAnnotationLocalizerProvider = (type, _) =>
                 new ArchPillarDataAnnotationsLocalizer(Localizer.ForCategory(CategoryName.Of(type)), type));
+
+        // The seam above only translates strings MVC already found on a system attribute, so [Localized] — which
+        // needs no system attribute — would be invisible to a view without this provider.
+        builder.Services.Configure<MvcOptions>(options =>
+            options.ModelMetadataDetailsProviders.Add(new LocalizedDisplayMetadataProvider(Localizer.ForCategory)));
         return builder;
     }
 }
