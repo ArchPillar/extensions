@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Globalization;
 using ArchPillar.Extensions.Localization.Providers;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -61,7 +62,7 @@ public sealed class LocalizedDisplayMetadataProviderTests
 
     private static DisplayMetadata Describe(string propertyName, LocalizationContext context)
     {
-        var property = typeof(RegisterModel).GetProperty(propertyName)!;
+        PropertyInfo property = typeof(RegisterModel).GetProperty(propertyName)!;
         var key = ModelMetadataIdentity.ForProperty(property, property.PropertyType, typeof(RegisterModel));
         var providerContext = new DisplayMetadataProviderContext(key, ModelAttributes.GetAttributesForProperty(typeof(RegisterModel), property));
 

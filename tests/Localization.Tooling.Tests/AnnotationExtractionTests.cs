@@ -104,9 +104,10 @@ public sealed class AnnotationExtractionTests : IDisposable
     }
 
     [Fact]
-    public void ExtractAnnotations_LocalizedDescriptionWithoutItsOwnKey_IsTextAsKey()
+    public void ExtractAnnotations_LocalizedDescriptionWithoutItsOwnKey_DerivesItFromTheDisplayKey()
     {
-        // Same rule the system attributes follow: with no explicit key the source text is the key.
+        // The member must not repeat its own id, and text-as-key would be wrong here: editing the hint would
+        // change its key and orphan every translation of it. The key is the display key plus the suffix.
         IReadOnlyList<RawCallSite> sites = ExtractAnnotations("""
             using ArchPillar.Extensions.Localization;
 
@@ -119,7 +120,7 @@ public sealed class AnnotationExtractionTests : IDisposable
             }
             """);
 
-        RawCallSite description = Assert.Single(sites, site => site.Key == "We never share it.");
+        RawCallSite description = Assert.Single(sites, site => site.Key == "user.email" + LocalizedAttribute.DescriptionKeySuffix);
         Assert.Equal("We never share it.", description.Default);
     }
 

@@ -39,9 +39,8 @@ internal sealed class LocalizedDisplayMetadataProvider(Func<string, ILocalizer> 
         // Metadata is cached, so the resolution has to happen inside the delegate: it runs per render, under that
         // request's UI culture.
         context.DisplayMetadata.DisplayName = () => localizer.Translate(localized.Key, localized.Default);
-        if (localized.Description is { } description)
+        if (localized is { Description: { } description, EffectiveDescriptionKey: { } descriptionKey })
         {
-            var descriptionKey = localized.DescriptionKey ?? description;
             context.DisplayMetadata.Description = () => localizer.Translate(descriptionKey, description);
         }
     }

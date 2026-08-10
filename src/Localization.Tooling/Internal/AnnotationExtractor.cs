@@ -60,26 +60,28 @@ internal static class AnnotationExtractor
     }
 
     // Emits the sites of a [Localized(key, default)] — the self-contained form, which needs no system attribute
-    // because it carries the key and the default itself. Its optional description follows the same shape: the text
-    // is the default, and the key is DescriptionKey or, unset, that text (text-as-key, as the system attributes do).
-    // A description key with no text is skipped, having no source string to fall back to.
+    // because it carries the key and the default itself. Its optional description reuses that key with the
+    // library's suffix unless DescriptionKey overrides it, mirroring LocalizedAttribute.EffectiveDescriptionKey
+    // (the constant is shared, so the two cannot drift). A DescriptionKey with no text is skipped, having no
+    // source string to resolve.
     private static void AddLocalizedSites(ICustomAttributeProvider member, string category, List<RawCallSite> sites)
     {
         foreach (CustomAttribute attribute in member.CustomAttributes)
         {
-            if (attribute.AttributeType.FullName != LocalizedAttribute || attribute.ConstructorArguments.Count < 2)
+            if (attribute.AttributeType.FullName != LocalizedAttribute
+                || attribute.ConstructorArguments.Count < 2
+                || attribute.ConstructorArguments[0].Value is not string key
+                || attribute.ConstructorArguments[1].Value is not string defaultValue)
             {
                 continue;
             }
 
-            if (attribute.ConstructorArguments[0].Value is string key && attribute.ConstructorArguments[1].Value is string defaultValue)
-            {
-                sites.Add(new RawCallSite(key, defaultValue, category));
-            }
-
+            sites.Add(new RawCallSite(key, defaultValue, category));
             if (NamedArgument(member, LocalizedAttribute, "Description") is { } description)
             {
-                sites.Add(new RawCallSite(NamedArgument(member, LocalizedAttribute, "DescriptionKey") ?? description, description, category));
+                var descriptionKey = NamedArgument(member, LocalizedAttribute, "DescriptionKey")
+                    ?? key + ArchPillar.Extensions.Localization.LocalizedAttribute.DescriptionKeySuffix;
+                sites.Add(new RawCallSite(descriptionKey, description, category));
             }
         }
     }

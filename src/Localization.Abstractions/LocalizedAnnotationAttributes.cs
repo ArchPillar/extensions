@@ -29,6 +29,13 @@ public sealed class LocalizedAttribute(
     string defaultValue)
     : Attribute
 {
+    /// <summary>
+    /// The suffix appended to <see cref="Key"/> to derive a description's key when <see cref="DescriptionKey"/>
+    /// is unset. Public because the build-time extractor derives the same key from metadata and must agree with
+    /// the runtime to the character.
+    /// </summary>
+    public const string DescriptionKeySuffix = ".description";
+
     /// <summary>Gets the stable key the display name resolves under.</summary>
     public string Key { get; } = key;
 
@@ -36,17 +43,26 @@ public sealed class LocalizedAttribute(
     public string Default { get; } = defaultValue;
 
     /// <summary>
-    /// Gets or sets the source-language description. When unset the member carries no description at all; when
-    /// set it is the description's default, and its key is <see cref="DescriptionKey"/> or, failing that, this
-    /// text itself (the same text-as-key default the system attributes use).
+    /// Gets or sets the source-language description — a form-field hint, a help line. When unset the member
+    /// carries no description at all.
     /// </summary>
     public string? Description { get; set; }
 
     /// <summary>
-    /// Gets or sets the stable key the description resolves under. Ignored unless <see cref="Description"/> is
-    /// also set, since a key with no source text has nothing to fall back to.
+    /// Gets or sets the stable key the description resolves under. Leave it unset and the key is derived from
+    /// <see cref="Key"/> plus <see cref="DescriptionKeySuffix"/>, so a member never repeats its own id; set it
+    /// only to point a description at an id that derivation cannot produce. Ignored when
+    /// <see cref="Description"/> is unset, since a key with no source text has nothing to resolve.
     /// </summary>
     public string? DescriptionKey { get; set; }
+
+    /// <summary>
+    /// Gets the key the description resolves under — the explicit <see cref="DescriptionKey"/>, else
+    /// <see cref="Key"/> plus <see cref="DescriptionKeySuffix"/> — or <see langword="null"/> when the member has
+    /// no description. The single owner of the rule for every runtime reader.
+    /// </summary>
+    public string? EffectiveDescriptionKey =>
+        Description is null ? null : DescriptionKey ?? Key + DescriptionKeySuffix;
 }
 
 /// <summary>

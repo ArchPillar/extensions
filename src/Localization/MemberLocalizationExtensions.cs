@@ -149,13 +149,13 @@ public static class MemberLocalizationExtensions
 
     /// <summary>
     /// The <c>(key, default)</c> a member's description annotation carries. On <see cref="LocalizedAttribute"/> the
-    /// description is optional: its text is the default and its key is <c>DescriptionKey</c> or, unset, that text.
+    /// description is optional; its key is the attribute's own derivation, so the rule has one owner.
     /// </summary>
     internal static (string Key, string Default)? DescriptionAnnotation(MemberInfo member)
     {
-        if (member.GetCustomAttribute<LocalizedAttribute>() is { Description: { } description } localized)
+        if (member.GetCustomAttribute<LocalizedAttribute>() is { Description: { } description, EffectiveDescriptionKey: { } descriptionKey })
         {
-            return (localized.DescriptionKey ?? description, description);
+            return (descriptionKey, description);
         }
 
         var key = member.GetCustomAttribute<DescriptionAttribute>()?.Description

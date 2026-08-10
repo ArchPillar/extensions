@@ -40,28 +40,28 @@ public sealed class MemberLocalizationExtensionsTests
     [Fact]
     public void GetLocalizedDisplayName_Localized_ReturnsItsDefaultNotItsKey()
     {
-        using var context = SourceOnly();
+        using LocalizationContext context = SourceOnly();
         Assert.Equal("Password", Property(nameof(RegisterModel.Password)).GetLocalizedDisplayName(context));
     }
 
     [Fact]
     public void GetLocalizedDisplayName_SystemAttributeWithTwin_ReturnsTheTwinDefault()
     {
-        using var context = SourceOnly();
+        using LocalizationContext context = SourceOnly();
         Assert.Equal("Nickname", Property(nameof(RegisterModel.Nickname)).GetLocalizedDisplayName(context));
     }
 
     [Fact]
     public void GetLocalizedDisplayName_SystemAttributeAlone_IsTextAsKey()
     {
-        using var context = SourceOnly();
+        using LocalizationContext context = SourceOnly();
         Assert.Equal("Street address", Property(nameof(RegisterModel.Street)).GetLocalizedDisplayName(context));
     }
 
     [Fact]
     public void GetLocalizedDisplayName_NoAnnotation_ReturnsTheMemberName()
     {
-        using var context = SourceOnly();
+        using LocalizationContext context = SourceOnly();
         Assert.Equal("Unlabelled", Property(nameof(RegisterModel.Unlabelled)).GetLocalizedDisplayName(context));
     }
 
@@ -69,35 +69,35 @@ public sealed class MemberLocalizationExtensionsTests
     public void GetLocalizedDisplayName_OnTheTypeItself_ResolvesUnderItsOwnCategory()
     {
         // A Type is a MemberInfo, so a type's own display name needs no separate overload.
-        using var context = SourceOnly();
+        using LocalizationContext context = SourceOnly();
         Assert.Equal("Registration", typeof(RegisterModel).GetLocalizedDisplayName(context));
     }
 
     [Fact]
     public void GetLocalizedDescription_LocalizedWithDescriptionKey_ReturnsItsText()
     {
-        using var context = SourceOnly();
+        using LocalizationContext context = SourceOnly();
         Assert.Equal("We never share it.", Property(nameof(RegisterModel.Email)).GetLocalizedDescription(context));
     }
 
     [Fact]
     public void GetLocalizedDescription_SystemAttribute_IsTextAsKey()
     {
-        using var context = SourceOnly();
+        using LocalizationContext context = SourceOnly();
         Assert.Equal("Where we post the letter.", Property(nameof(RegisterModel.Street)).GetLocalizedDescription(context));
     }
 
     [Fact]
     public void GetLocalizedDescription_NoDescription_ReturnsTheMemberName()
     {
-        using var context = SourceOnly();
+        using LocalizationContext context = SourceOnly();
         Assert.Equal("Password", Property(nameof(RegisterModel.Password)).GetLocalizedDescription(context));
     }
 
     [Fact]
     public void GetLocalizedDisplayName_Expression_SelectsTheSameMember()
     {
-        using var context = SourceOnly();
+        using LocalizationContext context = SourceOnly();
         Assert.Equal("Password", MemberLocalizationExtensions.GetLocalizedDisplayName<RegisterModel>(model => model.Password, context));
     }
 
@@ -105,14 +105,14 @@ public sealed class MemberLocalizationExtensionsTests
     public void GetLocalizedDisplayName_ExpressionOnAValueTypedMember_UnwrapsTheConversion()
     {
         // int reaches the object? return through a Convert node; the selector must still find the property.
-        using var context = SourceOnly();
+        using LocalizationContext context = SourceOnly();
         Assert.Equal("Age", MemberLocalizationExtensions.GetLocalizedDisplayName<RegisterModel>(model => model.Age, context));
     }
 
     [Fact]
     public void GetLocalizedDescription_Expression_SelectsTheSameMember()
     {
-        using var context = SourceOnly();
+        using LocalizationContext context = SourceOnly();
         Assert.Equal("Years since birth.", MemberLocalizationExtensions.GetLocalizedDescription<RegisterModel>(model => model.Age, context));
     }
 
@@ -128,7 +128,7 @@ public sealed class MemberLocalizationExtensionsTests
     [Fact]
     public void GetLocalizedDisplayName_Override_ResolvesUnderTheStableKeyAndDeclaringTypeCategory()
     {
-        using var context = WithOverride("register.password.label", "Passwort");
+        using LocalizationContext context = WithOverride("register.password.label", "Passwort");
 
         CultureInfo original = CultureInfo.CurrentUICulture;
         try
@@ -143,9 +143,28 @@ public sealed class MemberLocalizationExtensionsTests
     }
 
     [Fact]
+    public void GetLocalizedDescription_DerivedKey_ResolvesUnderTheDisplayKeyPlusSuffix()
+    {
+        // Age sets Description but no DescriptionKey, so its key is derived — the member never repeats its id, and
+        // editing the hint text cannot orphan its translation.
+        using LocalizationContext context = WithOverride("register.age" + LocalizedAttribute.DescriptionKeySuffix, "Jahre seit der Geburt.");
+
+        CultureInfo original = CultureInfo.CurrentUICulture;
+        try
+        {
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("de");
+            Assert.Equal("Jahre seit der Geburt.", Property(nameof(RegisterModel.Age)).GetLocalizedDescription(context));
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = original;
+        }
+    }
+
+    [Fact]
     public void GetLocalizedDescription_Override_ResolvesUnderItsOwnDescriptionKey()
     {
-        using var context = WithOverride("user.email.help", "Wir geben sie nicht weiter.");
+        using LocalizationContext context = WithOverride("user.email.help", "Wir geben sie nicht weiter.");
 
         CultureInfo original = CultureInfo.CurrentUICulture;
         try

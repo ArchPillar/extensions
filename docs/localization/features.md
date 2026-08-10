@@ -597,8 +597,8 @@ public string Email { get; set; } = "";
 
 The twin pairs above need a system attribute to hang the key on. When nothing else has to read the
 annotation, `[Localized(key, default)]` carries both itself, so a member takes one line instead of two. A
-description is optional and follows the same rule — `Description` is its text, and `DescriptionKey` its key
-(unset, the text is the key):
+description is optional — a form-field hint, a help line — and its key is **derived** from the display key
+plus `.description`, so a member never repeats its own id:
 
 ```csharp
 public sealed class RegisterModel
@@ -606,10 +606,16 @@ public sealed class RegisterModel
     [Localized("register.password.label", "Password")]
     public string Password { get; set; } = "";
 
-    [Localized("user.email", "Email address", DescriptionKey = "user.email.help", Description = "We never share it.")]
+    // description resolves under "user.email.description"
+    [Localized("user.email", "Email address", Description = "We never share it.")]
     public string Email { get; set; } = "";
 }
 ```
+
+Set `DescriptionKey` only to point a description at an id derivation cannot produce. Note the description is
+deliberately *not* text-as-key: unlike the system attributes — where the framework looks the literal up, so
+the text has to be the key — nothing external reads this one, and keying it by its text would mean editing
+the hint silently orphaned every translation of it.
 
 Both forms extract identically and resolve under the declaring type's category, so a model can mix them.
 Reach for `[Display]` (with a twin, if you want a string id) when something **other than this library** must
