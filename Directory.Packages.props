@@ -79,7 +79,7 @@
         <PackageVersion Include="OpenIddict.AspNetCore" Version="7.6.0" />
         <PackageVersion Include="OpenIddict.EntityFrameworkCore" Version="7.6.0" />
         <PackageVersion Include="Bogus" Version="35.6.5" />
-        <PackageVersion Include="Scalar.AspNetCore" Version="2.6.0" />
+        <PackageVersion Include="Scalar.AspNetCore" Version="2.16.18" />
         <PackageVersion Include="Spectre.Console" Version="0.55.0" />
         <PackageVersion Include="Spectre.Console.Cli" Version="0.55.0" />
     </ItemGroup>
