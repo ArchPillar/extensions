@@ -117,6 +117,46 @@ public sealed class MemberLocalizationExtensionsTests
     }
 
     [Fact]
+    public void GetLocalizedDisplayName_TypeFreeExpression_ResolvesThroughTheInstance()
+    {
+        // No type argument: the declaring type comes from the member the expression reaches, so a caller that
+        // already holds the instance never names RegisterModel.
+        var model = new RegisterModel();
+        using LocalizationContext context = SourceOnly();
+
+        Assert.Equal("Password", MemberLocalizationExtensions.GetLocalizedDisplayName(() => model.Password, context));
+    }
+
+    [Fact]
+    public void GetLocalizedDescription_TypeFreeExpression_ResolvesThroughTheInstance()
+    {
+        var model = new RegisterModel();
+        using LocalizationContext context = SourceOnly();
+
+        Assert.Equal("Years since birth.", MemberLocalizationExtensions.GetLocalizedDescription(() => model.Age, context));
+    }
+
+    [Fact]
+    public void GetLocalizedDisplayName_TypeFreeExpression_ResolvesUnderTheDeclaringTypeNotTheClosure()
+    {
+        // The instance is captured, so the expression tree reaches the property through a closure field. The
+        // category must still be the declaring type — a closure's compiler-generated name would match no catalog.
+        var model = new RegisterModel();
+        using LocalizationContext context = WithOverride("register.password.label", "Passwort");
+
+        CultureInfo original = CultureInfo.CurrentUICulture;
+        try
+        {
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("de");
+            Assert.Equal("Passwort", MemberLocalizationExtensions.GetLocalizedDisplayName(() => model.Password, context));
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = original;
+        }
+    }
+
+    [Fact]
     public void GetLocalizedDisplayName_ExpressionThatIsNotAMember_Throws()
     {
         ArgumentException exception = Assert.Throws<ArgumentException>(

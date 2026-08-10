@@ -650,6 +650,9 @@ string help  = password.GetLocalizedDescription();
 
 // or by expression, so you do not reach for reflection yourself
 string same = MemberLocalizationExtensions.GetLocalizedDisplayName<RegisterModel>(x => x.Password);
+
+// naming no type at all, when you already hold the instance
+string also = MemberLocalizationExtensions.GetLocalizedDisplayName(() => model.Password);
 ```
 
 A `Type` is itself a `MemberInfo`, so `typeof(RegisterModel).GetLocalizedDisplayName()` labels the model

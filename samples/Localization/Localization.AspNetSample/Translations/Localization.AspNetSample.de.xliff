@@ -30,5 +30,43 @@
         </segment>
       </unit>
     </group>
+    <group id="gbb45d2c318d3126e" name="RegisterModel">
+      <unit id="ud898c97d2e785b08" name="user.email">
+        <notes>
+          <note category="fingerprint">f2488fd4ef4adbc6ac61300083f2c339</note>
+        </notes>
+        <segment state="translated" subState="archpillar:Translated">
+          <source xml:space="preserve">Email address</source>
+          <target xml:space="preserve">E-Mail-Adresse</target>
+        </segment>
+      </unit>
+      <unit id="u84667b3fb4490419" name="user.email.description">
+        <notes>
+          <note category="fingerprint">6f36ca09538c6f6a407533f99e4825b9</note>
+        </notes>
+        <segment state="translated" subState="archpillar:Translated">
+          <source xml:space="preserve">We never share it.</source>
+          <target xml:space="preserve">Wir geben sie nicht weiter.</target>
+        </segment>
+      </unit>
+      <unit id="uf4be602dace32c6a" name="user.password">
+        <notes>
+          <note category="fingerprint">e7cf3ef4f17c3999a94f2c6f612e8a88</note>
+        </notes>
+        <segment state="translated" subState="archpillar:Translated">
+          <source xml:space="preserve">Password</source>
+          <target xml:space="preserve">Passwort</target>
+        </segment>
+      </unit>
+      <unit id="u2fdc7595f1b2dcee" name="user.password.description">
+        <notes>
+          <note category="fingerprint">b46e3217f4cd18a40183aef61b538602</note>
+        </notes>
+        <segment state="translated" subState="archpillar:Translated">
+          <source xml:space="preserve">At least 12 characters.</source>
+          <target xml:space="preserve">Mindestens 12 Zeichen.</target>
+        </segment>
+      </unit>
+    </group>
   </file>
 </xliff>
