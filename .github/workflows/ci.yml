@@ -52,8 +52,22 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
 
+      # -bl records every task, project instance and file write. Localization.Tooling has
+      # intermittently failed here under parallel builds -- CreateAppHost losing obj/.../apphost,
+      # GenerateDepsFile hitting a locked bin/.../deps.json -- and the console log does not say
+      # which second writer touched those files. The binlog is uploaded on failure so the next
+      # occurrence is diagnosable instead of costing another investigation round.
       - name: Build
-        run: dotnet build -c Release --no-restore
+        run: dotnet build -c Release --no-restore -bl:build.binlog
+
+      - name: Upload the build binlog
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-binlog-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build.binlog
+          retention-days: 14
+          if-no-files-found: warn
 
       - name: Test
         # --blame-hang-timeout names and dumps a test that wedges, instead of hanging until the job cap.
