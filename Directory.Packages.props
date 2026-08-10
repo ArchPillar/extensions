@@ -76,8 +76,8 @@
     <!-- Framework-agnostic                                                 -->
     <!-- ================================================================== -->
     <ItemGroup>
-        <PackageVersion Include="OpenIddict.AspNetCore" Version="5.5.0" />
-        <PackageVersion Include="OpenIddict.EntityFrameworkCore" Version="5.5.0" />
+        <PackageVersion Include="OpenIddict.AspNetCore" Version="7.6.0" />
+        <PackageVersion Include="OpenIddict.EntityFrameworkCore" Version="7.6.0" />
         <PackageVersion Include="Bogus" Version="35.6.5" />
         <PackageVersion Include="Scalar.AspNetCore" Version="2.6.0" />
         <PackageVersion Include="Spectre.Console" Version="0.50.0" />
