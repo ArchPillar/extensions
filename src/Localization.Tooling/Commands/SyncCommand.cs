@@ -27,7 +27,7 @@ internal sealed class SyncCommand : AsyncCommand<SyncCommand.Settings>
         public bool Check { get; init; }
     }
 
-    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var check = settings.Check;
 

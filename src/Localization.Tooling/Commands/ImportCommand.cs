@@ -35,7 +35,7 @@ internal sealed class ImportCommand : AsyncCommand<ImportCommand.Settings>
         public string? Output { get; init; }
     }
 
-    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var zipPath = ScopeInput.Require(settings.Input, "--input");
 
@@ -80,7 +80,7 @@ internal sealed class ImportCommand : AsyncCommand<ImportCommand.Settings>
                 using (Stream entryStream = entry.Open())
                 using (var buffer = new MemoryStream())
                 {
-                    await entryStream.CopyToAsync(buffer);
+                    await entryStream.CopyToAsync(buffer, cancellationToken);
                     buffer.Position = 0;
                     catalog = source.Read(buffer);
                 }

@@ -21,7 +21,7 @@ internal sealed class ManifestCommand : AsyncCommand<ManifestCommand.Settings>
         public string? Output { get; init; }
     }
 
-    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         IReadOnlyList<string> inputDirectories = CatalogDirectoryResolver.ResolveDirectories(settings.ToScope());
         if (inputDirectories.Count == 0)
@@ -53,7 +53,7 @@ internal sealed class ManifestCommand : AsyncCommand<ManifestCommand.Settings>
             return byCulture != 0 ? byCulture : string.CompareOrdinal(left.File, right.File);
         });
 
-        await File.WriteAllBytesAsync(output, BuildManifest(entries));
+        await File.WriteAllBytesAsync(output, BuildManifest(entries), cancellationToken);
         ToolConsole.Success($"Wrote manifest with {entries.Count} catalog(s) to {output}");
         return 0;
     }
