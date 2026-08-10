@@ -23,7 +23,7 @@ internal sealed class MergeCommand : AsyncCommand<MergeCommand.Settings>
         public string? Format { get; init; }
     }
 
-    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var output = ScopeInput.Require(settings.Output, "--output");
         IReadOnlyList<string> inputDirectories = CatalogDirectoryResolver.ResolveDirectories(settings.ToScope());

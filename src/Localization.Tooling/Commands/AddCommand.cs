@@ -27,7 +27,7 @@ internal sealed class AddCommand : AsyncCommand<AddCommand.Settings>
         public bool Force { get; init; }
     }
 
-    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var language = settings.Language;
         var force = settings.Force;

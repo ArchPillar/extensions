@@ -23,7 +23,7 @@ internal sealed class ConvertCommand : AsyncCommand<ConvertCommand.Settings>
         public string? Output { get; init; }
     }
 
-    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var from = ScopeInput.Require(settings.From, "--from");
         var toFormat = ScopeInput.Require(settings.To, "--to");

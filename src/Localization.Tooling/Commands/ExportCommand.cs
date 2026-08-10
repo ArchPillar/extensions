@@ -26,7 +26,7 @@ internal sealed class ExportCommand : AsyncCommand<ExportCommand.Settings>
         public string? Format { get; init; }
     }
 
-    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings)
+    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var output = ScopeInput.Require(settings.Output, "--output");
         var language = !string.IsNullOrEmpty(settings.Lang) ? settings.Lang : null;
