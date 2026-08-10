@@ -21,6 +21,9 @@ public sealed class EnumLocalizationExtensionsTests
         [LocalizedDisplayName("Pending review")]
         Pending,
 
+        [Localized("order.status.shipped", "On its way")]
+        Shipped,
+
         Unlabelled,
     }
 
@@ -36,6 +39,54 @@ public sealed class EnumLocalizationExtensionsTests
     {
         using var context = new LocalizationContext(new LocalizerOptions { SourceCulture = "en" });
         Assert.Equal("Pending review", OrderStatus.Pending.GetLocalizedDisplayName(context));
+    }
+
+    [Fact]
+    public void GetLocalizedDisplayName_Localized_ReturnsItsDefaultNotItsKey()
+    {
+        // Extraction lifts [Localized] off an enum member like any other field, so the runtime has to read it
+        // too — otherwise the string is extracted and translated under a key nothing ever looks up.
+        using var context = new LocalizationContext(new LocalizerOptions { SourceCulture = "en" });
+        Assert.Equal("On its way", OrderStatus.Shipped.GetLocalizedDisplayName(context));
+    }
+
+    [Fact]
+    public void GetLocalizedDisplayName_Localized_ResolvesOverrideUnderItsStableKey()
+    {
+        using var context = new LocalizationContext(new LocalizerOptions
+        {
+            SourceCulture = "en",
+            Providers =
+            [
+                Layer(new Catalog
+                {
+                    Culture = "de",
+                    Entries =
+                    [
+                        new CatalogEntry
+                        {
+                            Category = typeof(OrderStatus).FullName!,
+                            Key = "order.status.shipped",
+                            SourceMessage = "On its way",
+                            TranslatedMessage = "Versandt",
+                            SourceFingerprint = "",
+                            State = TranslationState.Translated,
+                        },
+                    ],
+                }),
+            ],
+        });
+
+        CultureInfo original = CultureInfo.CurrentUICulture;
+        try
+        {
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("de");
+            Assert.Equal("Versandt", OrderStatus.Shipped.GetLocalizedDisplayName(context));
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = original;
+        }
     }
 
     [Fact]
