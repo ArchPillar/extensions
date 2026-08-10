@@ -2,8 +2,9 @@
 name: archpillar-localization
 description: >-
   Use when any user-facing text in a .NET app must support more than one language or correct
-  plurals/gender — a hard-coded UI string, a validation / DataAnnotations message, an email or PDF,
-  or pluralization that string.Format gets wrong — and when adding, editing, or reviewing that text:
+  plurals/gender — a hard-coded UI string, a form label or model display name, a validation /
+  DataAnnotations message, an email or PDF, or pluralization that string.Format gets wrong — and
+  when adding, editing, or reviewing that text:
   ICU MessageFormat defaults, the ILocalizer / Localized string bundles, the `dotnet apl` tooling, or
   DI / IStringLocalizer / ASP.NET integration. Applies whether ArchPillar.Extensions.Localization is
   referenced yet or you are choosing or introducing a localization approach, and any time you would
@@ -143,10 +144,13 @@ dotnet apl sync                                # reconcile all languages after c
 | Format money / numbers | ICU `{x, number, ::currency/USD}` (widths: `unit-width-full-name`…); `::compact-short`, `::percent` | Explicit ISO code — does **not** follow the UI language |
 | Number outside a message | `x.ToLocalizedString("::currency/USD")` (`using …MessageFormat;`) | Same engine/syntax; defaults to `CurrentUICulture` |
 | Mark a non-localizer string | `L("text")` (`using static …TranslationMarkers;`) | Extracts an exception/log literal; no runtime change |
+| Label a model member / form field | `[Localized("user.email", "Email address", Description = "We never share it.")]` | Key + default in one attribute, extracted like a call site; the description's key derives as the display key + `.description` (`DescriptionKey` overrides) |
+| Read a label outside MVC | `member.GetLocalizedDisplayName()` / `.GetLocalizedDescription()` over `MemberInfo` | Expression forms too: `MemberLocalizationExtensions.GetLocalizedDisplayName<T>(x => x.Prop)` or type-free `(() => model.Prop)`; each has a `LocalizationContext` overload |
 | Note for a translator | inline comment in the parens: `Translate("k", "d" /* note */)`, or `[Display(Name = "…" /* note */)]` | Extracted to PO `#.` / ARB `description` / XLIFF `<note>`; write it **beside the string, inside the parens** — a comment on the line *above* is not extracted. Never in the binary |
 | How translated are we? | `dotnet apl status --detail overall\|language\|project\|matrix` | Same measurement, four aggregations (default `overall`); `Final` counts as translated, `NeedsReview` is its own column |
 | Configure | `Localizer.Initialize(new LocalizerOptions { SourceCulture = "en", TranslationsDirectory = "Translations" })` | One options surface; add `eager: true` to load at startup (else lazy on first use) |
 | DI registration | `services.AddArchPillarLocalization(options)` | `…DependencyInjection` package; chain `.AddArchPillarLocalizedBundles()` |
+| Blazor WebAssembly client | `await host.UseArchPillarLocalizationAsync(options)` before `RunAsync` | `…WebAssembly` package; catalogs fetched over HTTP via the build-emitted manifest — pass the same `options` as the DI registration |
 | Isolated / test scope | `new LocalizationContext(options)` or `Localizer.Ambient.Reset()` | Context shares nothing with the ambient store |
 | IStringLocalizer interop | `services.AddArchPillarStringLocalizer(options)` | `…StringLocalizer` package; composes over existing `.resx` |
 
@@ -161,7 +165,8 @@ opt-in companions:
 | `…Localization.Tooling` (global tool `dotnet apl`) | Generating/reconciling/exporting catalogs |
 | `…Localization.DependencyInjection` | `AddArchPillarLocalization`, injected `ILocalizer<T>`, bundle registration |
 | `…Localization.StringLocalizer` | `IStringLocalizer` interop + `.resx` migration on-ramp |
-| `…Localization.AspNetCore` | `AddArchPillarDataAnnotationsLocalization` (MVC/Razor DataAnnotations) |
+| `…Localization.AspNetCore` | `AddArchPillarDataAnnotationsLocalization` (MVC/Razor DataAnnotations), `UseArchPillarTranslationFiles` |
+| `…Localization.WebAssembly` | Blazor WebAssembly clients: HTTP catalog loading via `UseArchPillarLocalizationAsync` |
 
 > `…Localization.Abstractions`, `…Localization.MessageFormat` (the ICU engine), `…Localization.Analyzers`,
 > and `…Localization.CodeFixes` are **supporting libraries** pulled in automatically by the core package
@@ -184,12 +189,14 @@ See `references/tooling-and-deployment.md` for the full trim / single-file / AOT
 ## Deeper guidance
 
 - [`references/tooling-and-deployment.md`](references/tooling-and-deployment.md) — full `dotnet apl`
-  lifecycle (`status`/`extract`/`add`/`sync`/`export`/`import`/`merge`), formats (XLIFF/ARB/PO),
-  CI gating, files-vs-embedded delivery, and the trim/NativeAOT matrix.
+  lifecycle (`status`/`extract`/`add`/`sync`/`export`/`import`/`merge`), authoring formats
+  (XLIFF/ARB/PO) and the APLOC deploy bundle, CI gating, files-vs-embedded delivery, Blazor
+  WebAssembly (standalone and hosted) publishing, and the trim/NativeAOT matrix.
 - [`references/di-runtime-and-interop.md`](references/di-runtime-and-interop.md) — DI registration,
-  `Localized<T>` bundle wiring, the ambient store, `LocalizationContext` / `DefaultLocalizer`, hot
-  reload, pseudo-localization, test isolation, plus `IStringLocalizer` interop & migration, the
-  `L(...)` marker, and DataAnnotations / enum display localization.
+  `Localized<T>` bundle wiring, Blazor WebAssembly wiring, the ambient store,
+  `LocalizationContext` / `DefaultLocalizer`, hot reload, test isolation, plus
+  `IStringLocalizer` interop & migration, the `L(...)` marker, and `[Localized]` / DataAnnotations /
+  enum display localization with the `MemberInfo` reflection helpers.
 - [`references/messageformat-and-diagnostics.md`](references/messageformat-and-diagnostics.md) — the
   ICU grammar surface, missing-argument policy, and the full `APL0001`–`APL0010` diagnostic table.
 - Full docs: `docs/localization/` (`getting-started.md`, `features.md`, `translation-workflow.md`,

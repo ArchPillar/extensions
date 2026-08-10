@@ -21,7 +21,7 @@ project) in the current directory.
 | `sync` | Reconcile every language file after code changes; **`sync --check` is the CI gate** |
 | `export [--lang de] --output kit.zip` | Bundle catalogs for a translator (one zip, or one `<culture>.zip` per language into a folder); the source language is never handed off |
 | `import --input kit.zip` | Route returned files back to the right catalog by name |
-| `merge --input <dir> --output <dir> --format arb` | Flatten per-library files into one bundle per culture; **runs automatically on `dotnet publish`** |
+| `merge --input <dir> --output <dir> [--format aploc\|arb\|xliff\|po]` | Flatten per-library files into one bundle per culture (default format `aploc`); **runs automatically on `dotnet publish`** |
 | `convert` | Convert a catalog between formats |
 
 **Scope** defaults to the current directory; override with `--solution App.sln`,
@@ -52,10 +52,20 @@ strings × languages, the real work. A project with no language yet shows `—`,
 
 ## Formats
 
-Catalogs round-trip through three bundled formats: **XLIFF 2.1** (default), **ARB** (JSON), and
-**Portable Object** (`.po`). Author in whichever your pipeline prefers (`--format arb|po`); the
-runtime loads all three side by side. When one catalog exists in more than one format the
+Catalogs round-trip through three bundled **authoring** formats: **XLIFF 2.1** (default), **ARB**
+(JSON), and **Portable Object** (`.po`). Author in whichever your pipeline prefers (`--format arb|po`);
+the runtime loads all three side by side. When one catalog exists in more than one format the
 higher-fidelity file wins (`xliff` > `arb` > `po`, a fixed tie-breaker) and the loser is never loaded.
+
+**APLOC (`.aploc`) is the fourth format — deploy-only, never authored.** It is what the publish-time
+merge emits by default: a compact JSON bundle carrying only the translated value per entry, with the
+category folded into a **nested object tree** (each dot-segment of the category is one nested object;
+a node's keys are plain string members beside its child-namespace objects, and a dotted *key* like
+`home.title` stays one member, never split). `@@locale` at the root carries the culture, as in ARB;
+the `"@"` apex member exists only for the rare key whose name collides with a child namespace — a
+real bundle carries none. It is **lossy by design** — source text, state, comments, references, and
+fingerprints are dropped — so do not author it or hand it to a translator; `convert` moves a bundle
+back to XLIFF/ARB/PO for editing. In the same-catalog tie-breaker it loses to any authoring format.
 
 Files are named `{AssemblyName}.{culture}.{ext}` so independent libraries never collide, and the
 build copies them beside the binary.
@@ -85,9 +95,10 @@ location and get no reference. No PDB simply means no references, and existing o
   `TranslationsDirectory` on first use. This path works under **every** publish mode, including
   trimming and NativeAOT — the default everywhere.
 - **Publish merge.** On `dotnet publish`, per-library files flatten into one compact bundle per
-  culture (`de.arb`, …) automatically (`ArchPillarLocalizationMergeOnPublish`, default on). The
-  bundle is ARB by default even when you author XLIFF (override with
-  `ArchPillarLocalizationBundleFormat`).
+  culture (`de.aploc`, …) automatically (`ArchPillarLocalizationMergeOnPublish`, default on). The
+  bundle is APLOC (the deploy-only format above) by default even when you author XLIFF; set
+  `ArchPillarLocalizationBundleFormat` to `arb`, `xliff`, or `po` to publish an authoring format
+  instead.
 - **Embedded (opt-in, `ArchPillarLocalizationEmbedTargets=true`).** Catalogs become standard culture
   **satellite assemblies**, discovered lazily per requested culture. A culture-neutral/merged
   catalog can ride inside the main assembly via `[LocalizationCatalog]`.
@@ -95,6 +106,32 @@ location and get no reference. No PDB simply means no references, and existing o
 > **NativeAOT cannot load culture satellite assemblies** — it degrades to the in-code default.
 > For AOT use the files path (default) or a main-assembly embed (`[LocalizationCatalog]`), not
 > satellites. See `docs/localization/recommendations.md` for the full trim/AOT matrix.
+
+## Blazor WebAssembly — static web assets, not files
+
+A browser has no file system, so a WebAssembly app's catalogs are delivered as **static web assets**
+instead: the build emits a catalog manifest (`apl-catalogs.json`) plus the catalogs, and on publish
+the merged per-culture bundles, all through the Razor static-web-asset pipeline
+(`ArchPillarLocalizationEmitManifest`, default on). The client fetches them over HTTP — see the
+`…Localization.WebAssembly` wiring in `references/di-runtime-and-interop.md`. The beside-the-binary
+catalog copy (`ArchPillarLocalizationCopyTargetsToOutput`) is skipped automatically for a WebAssembly
+app. Three deployment gotchas:
+
+- **Hosted layouts work out of the box, but only via the asset pipeline.** When an ASP.NET Core
+  server references the WebAssembly client with a plain `ProjectReference`, the package registers the
+  client's manifest and bundles `AssetMode=All`, so they cross the reference and land at the host's
+  `wwwroot/Translations/`; the referenced libraries' raw per-culture catalogs are pruned from the
+  publish output (the merged bundle already carries them).
+- **The host must serve the catalog content types.** `MapStaticAssets()` honours the content-type
+  mappings the package registers (and the fingerprinted routes the manifest's bare file names map
+  to); plain `UseStaticFiles()` 404s the unknown catalog extensions, and a manifest that loads while
+  every file it lists 404s silently drops the app to its in-code defaults. On a host without the
+  asset pipeline, `app.UseArchPillarTranslationFiles()` (in `…Localization.AspNetCore`) registers
+  the content types instead.
+- **The manifest is mandatory, and its absence fails the build.** Over HTTP there is no directory to
+  enumerate, so a WebAssembly app with catalogs but no working `dotnet apl` (which produces the
+  manifest) fails with **`APL0100`** — naming how to install the tool — rather than shipping a
+  silently un-localized app.
 
 ## SDK requirement (the silent gotcha)
 
