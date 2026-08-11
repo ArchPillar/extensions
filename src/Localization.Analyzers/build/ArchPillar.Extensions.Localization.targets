@@ -42,10 +42,16 @@
     Only the language-neutral Portable Object template (messages.pot) is excluded. Set
     ArchPillarLocalizationCopyTargetsToOutput=false to opt out (e.g. when embedding or merging at publish).
 
-    Skipped for a Blazor WebAssembly app: a browser has no file system for the ambient directory source to read,
-    so that app serves its catalogs as static web assets over HTTP (below) and a beside-the-binary copy is dead
-    weight — worse, it flows up to a server host's output root, a leaked file the WebAssembly client never reads.
-    UsingMicrosoftNETSdkBlazorWebAssembly is the same signal the catalog authority uses.
+    Skipped for a Blazor WebAssembly app itself: a browser has no file system for the ambient directory source to
+    read, so that app serves its own catalogs as static web assets over HTTP (below) and a copy beside its
+    binaries is never loaded. UsingMicrosoftNETSdkBlazorWebAssembly is the same signal the catalog authority uses.
+
+    This skip is the app's OWN catalogs only. A referenced library is not a WebAssembly project, so its copy runs
+    and its catalogs flow up through the app into a hosting server's output — and that is wanted, not a leak: the
+    host is a server, it reads the file system, and with server-side prerendering it renders the very components
+    the client does, so its catalog set is a superset of the client's. Whether prerendering is on is not visible
+    from here (only the reference graph is), and keeping files a static host never reads costs bytes while
+    dropping files a prerendering host does read breaks it.
   -->
   <ItemGroup Condition="'$(ArchPillarLocalizationCopyTargetsToOutput)' == 'true' and '$(ArchPillarLocalizationEmbedTargets)' != 'true' and '$(UsingMicrosoftNETSdkBlazorWebAssembly)' != 'true' and Exists('$(ArchPillarLocalizationCatalogPath)')">
     <Content Include="$(ArchPillarLocalizationCatalogPath)\**\*.arb;$(ArchPillarLocalizationCatalogPath)\**\*.xliff;$(ArchPillarLocalizationCatalogPath)\**\*.xlf;$(ArchPillarLocalizationCatalogPath)\**\*.po"

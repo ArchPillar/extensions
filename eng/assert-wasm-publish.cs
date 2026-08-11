@@ -92,16 +92,14 @@ foreach (var f in leaked)
     Broken($"raw library catalog leaked into the host wwwroot instead of being merged: {Rel(f)}");
 }
 
-// 5. No beside-the-binary file copy at the host output root: a WebAssembly app serves catalogs as static web
-//    assets and never reads the file system, so a $(PublishDir)Translations copy is unreachable dead weight.
-var rootTranslations = Path.Combine(publishDir, "Translations");
-var rootCopies = Directory.Exists(rootTranslations)
-    ? Directory.GetFiles(rootTranslations).Where(IsCatalog).ToArray()
-    : [];
-foreach (var f in rootCopies)
-{
-    Broken($"catalog file-system copy leaked to the host output root (useless for a WASM client): {Rel(f)}");
-}
+// 5. A $(PublishDir)Translations copy at the host output root is NOT asserted against, and must not be: this is
+//    a server, and a server reads catalogs from the file system. It has its own strings, and with server-side
+//    prerendering it renders the very components the client does — so its catalog set is a superset of the
+//    client's, and the referenced libraries' catalogs arriving there are what that rendering runs on. Whether
+//    prerendering is switched on is not visible from here; only the reference graph is. Keeping files a static
+//    host never reads costs bytes, while dropping files a prerendering host does read breaks it, so the copy
+//    stays. (An earlier revision of this script failed the build on those files, reasoning that "a WebAssembly
+//    client never reads the file system" — true of the client, and beside the point for its host.)
 
 // 6. The whole bug this sample guards: the authority's bundle + manifest must be AssetMode=All so they cross the
 //    ProjectReference into the host. On SDK 9 a CurrentProject asset does not, and the host ships without them.
