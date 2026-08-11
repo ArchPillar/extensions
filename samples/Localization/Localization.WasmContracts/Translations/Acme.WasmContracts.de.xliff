@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xliff version="2.1" srcLang="en" trgLang="de" xmlns="urn:oasis:names:tc:xliff:document:2.1">
+  <file id="Acme.WasmContracts">
+    <group id="g5134eb3930dd40c0" name="Acme.WasmContracts.OrderStatus">
+      <unit id="u4fc2b79ebc31b2c9" name="Awaiting payment">
+        <notes>
+          <note category="fingerprint">7c2788959f353f288cee2f72aecf42a7</note>
+        </notes>
+        <segment state="translated" subState="archpillar:Translated">
+          <source xml:space="preserve">Awaiting payment</source>
+          <target xml:space="preserve">Zahlung ausstehend</target>
+        </segment>
+      </unit>
+      <unit id="uf6acdc637086e6ba" name="On its way">
+        <notes>
+          <note category="fingerprint">c5d0f5f4b8b8dced4ee0da7564b8beb7</note>
+        </notes>
+        <segment state="translated" subState="archpillar:Translated">
+          <source xml:space="preserve">On its way</source>
+          <target xml:space="preserve">Unterwegs</target>
+        </segment>
+      </unit>
+    </group>
+  </file>
+</xliff>

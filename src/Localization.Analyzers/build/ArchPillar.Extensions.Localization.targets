@@ -42,10 +42,16 @@
     Only the language-neutral Portable Object template (messages.pot) is excluded. Set
     ArchPillarLocalizationCopyTargetsToOutput=false to opt out (e.g. when embedding or merging at publish).
 
-    Skipped for a Blazor WebAssembly app: a browser has no file system for the ambient directory source to read,
-    so that app serves its catalogs as static web assets over HTTP (below) and a beside-the-binary copy is dead
-    weight — worse, it flows up to a server host's output root, a leaked file the WebAssembly client never reads.
-    UsingMicrosoftNETSdkBlazorWebAssembly is the same signal the catalog authority uses.
+    Skipped for a Blazor WebAssembly app itself: a browser has no file system for the ambient directory source to
+    read, so that app serves its own catalogs as static web assets over HTTP (below) and a copy beside its
+    binaries is never loaded. UsingMicrosoftNETSdkBlazorWebAssembly is the same signal the catalog authority uses.
+
+    This skip is the app's OWN catalogs only. A referenced library is not a WebAssembly project, so its copy runs
+    and its catalogs flow up through the app into a hosting server's output — and that is wanted, not a leak: the
+    host is a server, it reads the file system, and with server-side prerendering it renders the very components
+    the client does, so its catalog set is a superset of the client's. Whether prerendering is on is not visible
+    from here (only the reference graph is), and keeping files a static host never reads costs bytes while
+    dropping files a prerendering host does read breaks it.
   -->
   <ItemGroup Condition="'$(ArchPillarLocalizationCopyTargetsToOutput)' == 'true' and '$(ArchPillarLocalizationEmbedTargets)' != 'true' and '$(UsingMicrosoftNETSdkBlazorWebAssembly)' != 'true' and Exists('$(ArchPillarLocalizationCatalogPath)')">
     <Content Include="$(ArchPillarLocalizationCatalogPath)\**\*.arb;$(ArchPillarLocalizationCatalogPath)\**\*.xliff;$(ArchPillarLocalizationCatalogPath)\**\*.xlf;$(ArchPillarLocalizationCatalogPath)\**\*.po"
@@ -233,7 +239,39 @@
     contributor's raw catalogs (which ARE All and do propagate) but nothing pointing at them. All propagates the
     same way the contributor's do, covering both the standalone publish and a hosting server.
   -->
-  <Target Name="_ArchPillarLocalizationAuthorBuildCatalogs"
+  <!--
+    The authority's third catalog channel: a referenced library that is NOT a Razor/Blazor project.
+
+    A contributor registers its catalogs as static web assets from a target hooked onto
+    ResolveStaticWebAssetsInputsDependsOn — a property that exists only under the Razor/Blazor SDK. A plain
+    Microsoft.NET.Sdk library (a contracts or model project that only annotates its types) therefore never runs
+    it and produces no static web asset for the authority to find by trait, with no supported way to opt in. Its
+    catalogs still reach the consuming app, but only down the file-copy path — Content linked to Translations\ —
+    which for a browser is dead weight: there is no file system for the directory source to read. The catalog was
+    extracted, translated, and silently unreachable, with nothing to warn on.
+
+    So gather that channel too. GetCopyToOutputDirectoryItems populates the transitive copy items, whose
+    TargetPath is the Translations\ link the copy path already assigns, which is exactly the set of referenced
+    catalogs travelling as files. A Razor library's catalogs arrive through both channels; the collect directory
+    is keyed by file name, so the duplicate resolves to one file with no dedup pass. Gathering only ever adds to
+    the manifest, so a library that already worked keeps working.
+  -->
+  <Target Name="_ArchPillarLocalizationGatherCopiedCatalogs"
+          Condition="'$(ArchPillarLocalizationEmitManifest)' == 'true' and '$(_ArchPillarIsCatalogAuthority)' == 'true'">
+    <ItemGroup>
+      <_ArchPillarCopiedCatalogCandidate Include="@(_TransitiveItemsToCopyToOutputDirectory)"
+                                         Condition="'%(_TransitiveItemsToCopyToOutputDirectory.Extension)' == '.arb'
+                                                 or '%(_TransitiveItemsToCopyToOutputDirectory.Extension)' == '.xliff'
+                                                 or '%(_TransitiveItemsToCopyToOutputDirectory.Extension)' == '.xlf'
+                                                 or '%(_TransitiveItemsToCopyToOutputDirectory.Extension)' == '.po'" />
+      <!-- Only those the copy path homed under Translations\ are catalogs; other content keeps its own layout.
+           The separator is written as it appears in the link metadata, so match on the folder name alone. -->
+      <_ArchPillarCopiedCatalog Include="@(_ArchPillarCopiedCatalogCandidate)"
+                                Condition="$([System.String]::Copy('%(_ArchPillarCopiedCatalogCandidate.TargetPath)').StartsWith('Translations'))" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="_ArchPillarLocalizationAuthorBuildCatalogs" DependsOnTargets="GetCopyToOutputDirectoryItems;_ArchPillarLocalizationGatherCopiedCatalogs"
           Condition="'$(ArchPillarLocalizationEmitManifest)' == 'true' and '$(_ArchPillarIsCatalogAuthority)' == 'true'">
     <PropertyGroup>
       <_ArchPillarBuildCollectDir>$([MSBuild]::NormalizeDirectory('$(IntermediateOutputPath)apl-build'))</_ArchPillarBuildCollectDir>
@@ -247,8 +285,8 @@
 
     <RemoveDir Directories="$(_ArchPillarBuildCollectDir)" />
     <MakeDir Directories="$(_ArchPillarBuildCollectDir)" />
-    <Copy Condition="'@(_ArchPillarOwnCatalogFile)@(_ArchPillarReferencedCatalog)' != ''"
-          SourceFiles="@(_ArchPillarOwnCatalogFile);@(_ArchPillarReferencedCatalog)"
+    <Copy Condition="'@(_ArchPillarOwnCatalogFile)@(_ArchPillarReferencedCatalog)@(_ArchPillarCopiedCatalog)' != ''"
+          SourceFiles="@(_ArchPillarOwnCatalogFile);@(_ArchPillarReferencedCatalog);@(_ArchPillarCopiedCatalog)"
           DestinationFolder="$(_ArchPillarBuildCollectDir)" />
 
     <ItemGroup>
@@ -319,7 +357,7 @@
     they reach a server host that publishes this WebAssembly app through a ProjectReference; the client's base
     path is the app root (/), so they land at the host's wwwroot/Translations, where the client fetches them.
   -->
-  <Target Name="_ArchPillarLocalizationAuthorPublishCatalogs"
+  <Target Name="_ArchPillarLocalizationAuthorPublishCatalogs" DependsOnTargets="GetCopyToOutputDirectoryItems;_ArchPillarLocalizationGatherCopiedCatalogs"
           Condition="'$(ArchPillarLocalizationEmitManifest)' == 'true' and '$(_ArchPillarIsCatalogAuthority)' == 'true'">
     <PropertyGroup>
       <_ArchPillarPubCollectDir>$([MSBuild]::NormalizeDirectory('$(IntermediateOutputPath)apl-pub'))</_ArchPillarPubCollectDir>
@@ -334,13 +372,13 @@
 
     <RemoveDir Directories="$(_ArchPillarPubCollectDir);$(_ArchPillarBundleDir)" />
     <MakeDir Directories="$(_ArchPillarPubCollectDir);$(_ArchPillarBundleDir);$(_ArchPillarPubManifestDir)" />
-    <Copy Condition="'@(_ArchPillarOwnCatalogFile)@(_ArchPillarReferencedCatalog)' != ''"
-          SourceFiles="@(_ArchPillarOwnCatalogFile);@(_ArchPillarReferencedCatalog)"
+    <Copy Condition="'@(_ArchPillarOwnCatalogFile)@(_ArchPillarReferencedCatalog)@(_ArchPillarCopiedCatalog)' != ''"
+          SourceFiles="@(_ArchPillarOwnCatalogFile);@(_ArchPillarReferencedCatalog);@(_ArchPillarCopiedCatalog)"
           DestinationFolder="$(_ArchPillarPubCollectDir)" />
 
     <!-- Trim the trailing separators before quoting (see the build manifest call above): a double-quoted path
          ending in a separator escapes the closing quote on Windows, mangling the argument. Both dirs need it. -->
-    <Exec Condition="'@(_ArchPillarOwnCatalogFile)@(_ArchPillarReferencedCatalog)' != ''"
+    <Exec Condition="'@(_ArchPillarOwnCatalogFile)@(_ArchPillarReferencedCatalog)@(_ArchPillarCopiedCatalog)' != ''"
           Command="$(ArchPillarLocalizationToolCommand) merge --input &quot;$([System.IO.Path]::TrimEndingDirectorySeparator('$(_ArchPillarPubCollectDir)'))&quot; --output &quot;$([System.IO.Path]::TrimEndingDirectorySeparator('$(_ArchPillarBundleDir)'))&quot; --source $(ArchPillarLocalizationSourceLanguage) --format $(ArchPillarLocalizationBundleFormat)"
           ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)" StandardOutputImportance="low" />
 

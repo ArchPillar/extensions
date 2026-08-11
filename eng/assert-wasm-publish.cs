@@ -92,15 +92,25 @@ foreach (var f in leaked)
     Broken($"raw library catalog leaked into the host wwwroot instead of being merged: {Rel(f)}");
 }
 
-// 5. No beside-the-binary file copy at the host output root: a WebAssembly app serves catalogs as static web
-//    assets and never reads the file system, so a $(PublishDir)Translations copy is unreachable dead weight.
+// 5. At the host output root, the merged BUNDLE is legitimate but a RAW catalog is not. The host is a server: it
+//    reads the file system, has strings of its own, and under server-side prerendering renders the very
+//    components the client does — so its catalog set is a superset of the client's and it genuinely wants a
+//    bundle there. (Whether prerendering is on is invisible here; only the reference graph is. Keeping a bundle a
+//    static host never reads costs bytes, while dropping one a prerendering host does read breaks it.) What must
+//    NOT survive is the per-library authoring catalog: a publish ships the compact bundle, so any .xliff/.arb/.po
+//    left beside it is the merge having failed to replace it — dead weight, and a signal the host's
+//    merge-on-publish did not run. The bundle's own extension is whatever the manifest lists, so this stays
+//    format-agnostic rather than hard-coding .aploc.
+var bundleExtension = listedBundles.Select(Path.GetExtension).FirstOrDefault(e => !string.IsNullOrEmpty(e));
 var rootTranslations = Path.Combine(publishDir, "Translations");
-var rootCopies = Directory.Exists(rootTranslations)
-    ? Directory.GetFiles(rootTranslations).Where(IsCatalog).ToArray()
+var rootRaw = Directory.Exists(rootTranslations) && bundleExtension is not null
+    ? Directory.GetFiles(rootTranslations)
+        .Where(f => IsCatalog(f) && !string.Equals(Path.GetExtension(f), bundleExtension, StringComparison.OrdinalIgnoreCase))
+        .ToArray()
     : [];
-foreach (var f in rootCopies)
+foreach (var f in rootRaw)
 {
-    Broken($"catalog file-system copy leaked to the host output root (useless for a WASM client): {Rel(f)}");
+    Broken($"raw authoring catalog survived the publish at the host output root (a publish ships the {bundleExtension} bundle): {Rel(f)}");
 }
 
 // 6. The whole bug this sample guards: the authority's bundle + manifest must be AssetMode=All so they cross the
