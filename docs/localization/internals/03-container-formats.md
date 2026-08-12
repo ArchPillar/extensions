@@ -113,7 +113,7 @@ APLOC (`.aploc`, format id `aploc`) is the **default published-bundle** format (
 ## Shared provider requirements
 
 - **Round-trip fidelity:** `Read` then `Write` of an unchanged catalog must be byte-stable (modulo a single normalized formatting). This is what keeps version-control diffs meaningful and is a hard test gate.
-- **Encoding:** UTF-8 without byte-order-mark, `\n` line endings, on every format.
+- **Encoding:** UTF-8 without byte-order-mark, `\n` line endings, on every format. When the tooling *overwrites* an existing catalog it re-encodes to that file's current convention first, so a repository that normalizes line endings (Git `autocrlf` or a `text=auto` attribute checks the catalog out with CRLF) does not get a whole-file, line-ending-only diff on every `sync`/`extract`/`import`; a new file keeps the canonical `\n`.
 - **Determinism:** entry ordering and attribute ordering are fixed by the writer, not by dictionary iteration order.
 - **No partial writes:** write to a temporary file and atomically move into place, so a crash never truncates a translator's file.
 - **Provider discovery:** providers are resolved by `FormatId`/extension through a small registry so the reconciler and runtime select one without hard references to the concrete assemblies (keeps formats genuinely pluggable; a consumer can ship only the providers they use).

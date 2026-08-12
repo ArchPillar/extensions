@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Text;
 using ArchPillar.Extensions.Localization.Formats;
 
 namespace ArchPillar.Extensions.Localization.Tooling.Internal;
@@ -9,6 +10,8 @@ namespace ArchPillar.Extensions.Localization.Tooling.Internal;
 /// </summary>
 internal static class CatalogIo
 {
+    private static readonly UTF8Encoding _utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
+
     /// <summary>The built-in formats (XLIFF, ARB, PO); shared, since a format holds no per-call state.</summary>
     public static TranslationFormatRegistry Registry { get; } = BuildRegistry();
 
@@ -100,7 +103,37 @@ internal static class CatalogIo
         {
             SourceName = sourceName.Length == 0 ? null : sourceName
         };
-        File.WriteAllBytes(path, await SerializeAsync(provider, catalog, effective));
+        var bytes = await SerializeAsync(provider, catalog, effective);
+        File.WriteAllBytes(path, MatchLineEndings(path, bytes));
+    }
+
+    /// <summary>
+    /// Adapts freshly serialized bytes to the line-ending convention of the file already at <paramref name="path"/>.
+    /// The formats always emit LF; when a repository normalizes line endings (Git's <c>autocrlf</c> or a
+    /// <c>text=auto</c> attribute checks the catalog out with CRLF), rewriting it as LF would surface a whole-file,
+    /// line-ending-only diff on every run. Matching the existing file keeps a rewrite a no-op unless the content
+    /// itself changed. A new file, or one already using LF, keeps the canonical LF.
+    /// </summary>
+    public static byte[] MatchLineEndings(string path, byte[] serialized)
+    {
+        var normalized = _utf8NoBom.GetString(serialized).Replace("\r\n", "\n", StringComparison.Ordinal);
+        return ExistingFileUsesCarriageReturns(path)
+            ? _utf8NoBom.GetBytes(normalized.Replace("\n", "\r\n", StringComparison.Ordinal))
+            : _utf8NoBom.GetBytes(normalized);
+    }
+
+    // Whether the file already on disk uses CRLF, judged by its first line break: Git normalizes a file's endings
+    // uniformly, so the first break is representative of the whole. A missing file, or one with no break, is LF.
+    private static bool ExistingFileUsesCarriageReturns(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return false;
+        }
+
+        ReadOnlySpan<byte> bytes = File.ReadAllBytes(path);
+        var lineFeed = bytes.IndexOf((byte)'\n');
+        return lineFeed > 0 && bytes[lineFeed - 1] == (byte)'\r';
     }
 
     /// <summary>Serializes a catalog to bytes in the given format.</summary>

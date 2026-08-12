@@ -57,6 +57,40 @@ public sealed class ToolApplicationTests : IDisposable
     }
 
     [Fact]
+    public async Task Sync_Check_PassesWhenUpToDateTargetUsesCarriageReturnsAsync()
+    {
+        // A repo that normalizes line endings (Git autocrlf / text=auto) checks the catalog out with CRLF. The
+        // check gate must compare content, not line endings, so an otherwise up-to-date CRLF catalog is not drift.
+        await WriteTemplateAsync();
+        await ToolApplication.RunAsync(["add", "de", "--template", _template, "--output", _directory]);
+        var targetPath = Path.Combine(_directory, "de.arb");
+        await RewriteWithCarriageReturnsAsync(targetPath);
+
+        var exit = await ToolApplication.RunAsync(["sync", "--template", _template, "--target", targetPath, "--check"]);
+
+        Assert.Equal(0, exit);
+    }
+
+    [Fact]
+    public async Task Sync_TargetUsingCarriageReturns_KeepsThemInsteadOfRewritingToLfAsync()
+    {
+        // Syncing an up-to-date CRLF catalog must leave the bytes untouched: forcing LF would surface a whole-file,
+        // line-ending-only diff on every run in a repo that checks the file out with CRLF.
+        await WriteTemplateAsync();
+        await ToolApplication.RunAsync(["add", "de", "--template", _template, "--output", _directory]);
+        var targetPath = Path.Combine(_directory, "de.arb");
+        await RewriteWithCarriageReturnsAsync(targetPath);
+        var before = await File.ReadAllBytesAsync(targetPath);
+
+        var exit = await ToolApplication.RunAsync(["sync", "--template", _template, "--target", targetPath]);
+
+        Assert.Equal(0, exit);
+        var after = await File.ReadAllBytesAsync(targetPath);
+        Assert.Equal(before, after);
+        Assert.Contains("\r\n", await File.ReadAllTextAsync(targetPath), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Convert_RewritesCatalogInAnotherFormatAsync()
     {
         await WriteTemplateAsync();
@@ -387,6 +421,14 @@ public sealed class ToolApplicationTests : IDisposable
 
         using FileStream stream = File.Create(path);
         await _arb.WriteAsync(stream, catalog);
+    }
+
+    // Rewrites a catalog on disk with CRLF line endings, mimicking a checkout under Git autocrlf / text=auto.
+    private static async Task RewriteWithCarriageReturnsAsync(string path)
+    {
+        var text = await File.ReadAllTextAsync(path);
+        var crlf = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace("\n", "\r\n", StringComparison.Ordinal);
+        await File.WriteAllTextAsync(path, crlf);
     }
 
     private static async Task WriteCatalogRawAsync(string path, Catalog catalog)

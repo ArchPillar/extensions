@@ -91,7 +91,10 @@ internal sealed class SyncCommand : AsyncCommand<SyncCommand.Settings>
     {
         ITranslationFormat targetProvider = CatalogIo.ProviderFor(targetPath);
         Catalog reconciled = Reconciler.Reconcile(template, CatalogIo.ReadFile(targetProvider, targetPath));
-        var updated = await CatalogIo.SerializeAsync(targetProvider, reconciled, new CatalogWriteOptions { SourceName = sourceName });
+        var serialized = await CatalogIo.SerializeAsync(targetProvider, reconciled, new CatalogWriteOptions { SourceName = sourceName });
+        // Adapt to the target's existing line endings so a repo that checks catalogs out with CRLF neither reports
+        // false drift under --check nor gets rewritten to LF, which would be a line-ending-only diff every run.
+        var updated = CatalogIo.MatchLineEndings(targetPath, serialized);
         if (check)
         {
             return !File.ReadAllBytes(targetPath).AsSpan().SequenceEqual(updated);
