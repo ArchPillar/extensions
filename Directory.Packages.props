@@ -118,6 +118,13 @@
         <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
         <PackageVersion Include="BenchmarkDotNet.Annotations" Version="0.15.8" />
         <PackageVersion Include="Testcontainers.PostgreSql" Version="4.13.0" />
+        <!-- Transitive pin, not a direct reference. Testcontainers 4.13.0 (the latest) depends on
+             SSH.NET 2025.1.0, which carries a high-severity advisory (GHSA-q939-rpr3-3284); NuGet
+             audit raises NU1903, and warnings-as-errors turns that into a Release build failure.
+             There is no Testcontainers release that moves off it, so the graph is pinned forward
+             instead. Testcontainers asks for >= 2025.1.0, so 2026.0.0 satisfies its range. Drop
+             this once Testcontainers ships a version that depends on a non-vulnerable SSH.NET. -->
+        <PackageVersion Include="SSH.NET" Version="2026.0.0" />
         <!-- End of Testing -->
     </ItemGroup>
 </Project>
