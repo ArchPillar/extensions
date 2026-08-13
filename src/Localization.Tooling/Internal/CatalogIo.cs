@@ -112,19 +112,38 @@ internal static class CatalogIo
     /// The formats always emit LF; when a repository normalizes line endings (Git's <c>autocrlf</c> or a
     /// <c>text=auto</c> attribute checks the catalog out with CRLF), rewriting it as LF would surface a whole-file,
     /// line-ending-only diff on every run. Matching the existing file keeps a rewrite a no-op unless the content
-    /// itself changed. A new file, or one already using LF, keeps the canonical LF.
+    /// itself changed. A new file, or one already using LF, keeps the canonical LF. Prefer the overload taking the
+    /// existing bytes when the caller has already read them.
     /// </summary>
-    public static byte[] MatchLineEndings(string path, byte[] serialized)
+    public static byte[] MatchLineEndings(string path, byte[] serialized) =>
+        Reencode(serialized, ExistingFileUsesCarriageReturns(path));
+
+    /// <summary>
+    /// Adapts freshly serialized bytes to the line-ending convention of <paramref name="existing"/> — the current
+    /// on-disk bytes the caller already holds (for example the copy read for a drift comparison), so no second read
+    /// is needed. See <see cref="MatchLineEndings(string, byte[])"/> for the rationale.
+    /// </summary>
+    public static byte[] MatchLineEndings(ReadOnlySpan<byte> existing, byte[] serialized) =>
+        Reencode(serialized, UsesCarriageReturns(existing));
+
+    private static byte[] Reencode(byte[] serialized, bool carriageReturns)
     {
         var normalized = _utf8NoBom.GetString(serialized).Replace("\r\n", "\n", StringComparison.Ordinal);
-        return ExistingFileUsesCarriageReturns(path)
+        return carriageReturns
             ? _utf8NoBom.GetBytes(normalized.Replace("\n", "\r\n", StringComparison.Ordinal))
             : _utf8NoBom.GetBytes(normalized);
     }
 
-    // Whether the file already on disk uses CRLF, judged by its first line break: Git normalizes a file's endings
-    // uniformly, so the first break is representative of the whole. Reads only up to that break, not the whole
-    // catalog. A missing file, or one with no break, is LF.
+    // Whether content uses CRLF, judged by its first line break: Git normalizes a file's endings uniformly, so the
+    // first break is representative of the whole. No break (including empty) is LF.
+    private static bool UsesCarriageReturns(ReadOnlySpan<byte> content)
+    {
+        var lineFeed = content.IndexOf((byte)'\n');
+        return lineFeed > 0 && content[lineFeed - 1] == (byte)'\r';
+    }
+
+    // The same test for a caller holding only a path: streams to the first line break instead of reading the whole
+    // catalog. A missing file is LF.
     private static bool ExistingFileUsesCarriageReturns(string path)
     {
         if (!File.Exists(path))
