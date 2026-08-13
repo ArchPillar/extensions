@@ -5,6 +5,16 @@ dispatcher to one that also covers choreography and microservices. Companion
 to [REVIEW.md](REVIEW.md), which is the point-in-time assessment this plan
 answers.
 
+Two of the phases below are **platform prerequisites rather than Commands
+work** — the module system and the type registry serve models, commands, and
+events alike. They are planned here because the Commands work is what forces
+them, but each gets its own spec under `docs/modules/` and
+`docs/primitives/` when it is built.
+
+Where a decision below is marked *(assumed)*, it is a call made in the absence
+of a stated preference — flagged so it can be overruled cheaply rather than
+discovered later.
+
 ## The through-line
 
 Three deployment shapes, one command contract:
@@ -46,27 +56,72 @@ before three features are built on top of them than after.
 5. **Write down the nesting contract** (B1): a dispatch does not create a child
    DI scope, nested commands share the outer command's scoped services, and
    the documented `TransactionMiddleware` is replaced by the real one from
-   Phase 2.
+   Phase 3.
 6. **Close the test gaps** (A10): re-entrant dispatch, cancellation
    propagation, registration traps, and the typed batch path if it survives.
 
 ---
 
-## Phase 1 — the type registry (in Primitives)
+## Phase 1 — modules
 
-A whitelisting subsystem mapping a stable class id to a CLR type, with optional
-metadata. It is **strictly separate from `CommandInvokerRegistry`**: the type
-registry knows what a command *is*, the invoker registry knows who *handles*
-it. Keeping them apart is what makes the three-way routing distinction below
-expressible.
+Registration has to have a home before anything can register into it. A module
+is the unit that owns a slice of the platform: its services, and — through
+opt-in companion interfaces — its type registrations, its EF model
+configuration, and its endpoints.
 
-It lands in `ArchPillar.Extensions.Primitives` because nothing about it is
-command-specific — an outbox, an audit trail, or a saga store needs the same
-lookup.
+New `ArchPillar.Extensions.Modules` package *(assumed)*. It depends on
+`Microsoft.Extensions.DependencyInjection.Abstractions` and references
+Primitives. Keeping it out of Primitives preserves that package's current
+property of having **no package references at all** beyond SourceLink — worth
+protecting, since everything else in the family sits on top of it.
 
 ### Surface
 
+`IModule` stays small; the friends carry the rest, so a module pays only for
+what it uses.
+
 ```csharp
+public interface IModule
+{
+    void ConfigureServices(IServiceCollection services);
+}
+
+public interface IModuleDependencies { static abstract IReadOnlyList<Type> DependsOn { get; } }
+public interface IModuleInitializer   { Task InitializeAsync(IServiceProvider services, CancellationToken cancellationToken); }
+```
+
+Composition is explicit at the root — `services.AddModule<OrdersModule>()` —
+with **declared dependencies driving order** *(assumed)*. The host
+topologically sorts the graph and fails on a cycle or a missing dependency.
+Registration order in `Program.cs` is a poor ordering primitive once modules
+contribute to each other: the failure is silent and surfaces at runtime, far
+from its cause.
+
+`IModuleInitializer` is what runs the type registry's database reconciliation
+(Phase 2) after the provider is built, in dependency order, before the host
+starts serving.
+
+---
+
+## Phase 2 — the type registry (in Primitives)
+
+A **universal** whitelisting subsystem mapping a stable class id to a CLR type,
+with optional metadata: every model, every command, every event. Nothing about
+it is command-specific — an outbox, an audit trail, or a saga store needs the
+same lookup — which is why it belongs in Primitives rather than in Commands.
+
+It is **strictly separate from `CommandInvokerRegistry`**: the type registry
+knows what a command *is*, the invoker registry knows who *handles* it. Keeping
+them apart is what makes the three-way routing distinction below expressible.
+
+### Surface
+
+An interface opts its implementations into whitelisting:
+
+```csharp
+[RequiresClassId]
+public interface ICommand : ICommandBase;
+
 [ClassId("0189c7f4-3b2a-7c1e-9d55-2f8a1b6c4e03")]
 public sealed record CreateOrder(string CustomerId, int Quantity) : ICommand<Guid>;
 ```
@@ -88,35 +143,57 @@ error messages, which should never make a human read a GUID.
 Two sharp edges worth stating up front:
 
 - **Attribute arguments cannot be `Guid`.** The attribute takes a string,
-  parsed exactly once when the registry is built. The generator (below)
-  validates the format at compile time so a malformed id is a build error, not
-  a startup crash.
+  parsed exactly once when the registry is built. The analyzer validates the
+  format at compile time so a malformed id is a build error, not a startup
+  crash.
 - **`Id<T>`'s EF converter assumes a generic argument.**
   `PropertyBuilderExtensions.ApplyIdConversion` reads
   `idType.GetGenericArguments()[0]`, so a non-generic `ClassId` implementing
   `IId` would break it. Either model `ClassId` as a closed `Id<T>` or give it
   its own converter and comparer; do not quietly widen the existing one.
 
+### Analyzer and code fix
+
+The analyzer is not a convenience — it is what makes the generator's input set
+trustworthy. It enforces the `[RequiresClassId]` contract **in both
+directions**:
+
+| Rule | Condition | Code fix |
+| --- | --- | --- |
+| missing id | non-abstract class implements a `[RequiresClassId]` interface, carries no `[ClassId]` | add one with a fresh GUID |
+| spurious id | type carries `[ClassId]`, implements no such interface | remove the attribute |
+| duplicate id | two types share a GUID | none — the author picks which is wrong |
+| malformed id | the string does not parse as a GUID | replace with a fresh GUID |
+| ineligible type | `[ClassId]` on an abstract class, an interface, or an open generic | remove the attribute |
+
+Abstract types and interfaces are excluded because only instantiable types are
+whitelisted. Open generics are excluded because one attribute cannot identify
+every closure; if a generic contract has to cross the wire, its closures need
+ids of their own.
+
+Because the ids are **persisted**, changing or deleting one is a data-migration
+event, not a refactor. A shipped-baseline file — the way public-API analyzers
+use `PublicAPI.Shipped.txt` — turns an altered or removed id into a build
+error instead of silently orphaning stored rows. Worth having from the start,
+since the whole point of the GUID is that it outlives the type name.
+
 ### Population — source generator
 
 An incremental generator (new `ArchPillar.Extensions.Primitives.Analyzers`,
-`netstandard2.0`, mirroring `Localization.Analyzers`) finds every `[ClassId]`
-type at compile time and emits explicit registration calls.
+`netstandard2.0`, mirroring `Localization.Analyzers`, with its code fixes in a
+matching `.CodeFixes` project) emits explicit registration calls for the set
+the analyzer has already guaranteed.
 
-This keeps `IsTrimmable` and `IsAotCompatible` true on both Primitives and
-Commands, which assembly scanning would force to false. It also makes the
+This keeps `IsTrimmable` and `IsAotCompatible` true on Primitives, Modules and
+Commands alike, which assembly scanning would force to false. It also makes the
 whitelist a build artifact: what is registered is visible in generated source
-and diffable.
+and diffable in review.
 
-The generator walks the host compilation **and its referenced assembly
-symbols**, so a host referencing a shared contracts assembly picks those
-contracts up without per-assembly ceremony. That work is compile-time only.
-Where walking references is undesirable, each assembly can emit its own
-registration entry point for the host to call explicitly.
-
-Compile-time diagnostics the generator owns: duplicate GUID across two types,
-malformed GUID, and `[ClassId]` on a type that cannot be constructed from the
-wire.
+Registrations are emitted **per module**, so a module's whitelist arrives with
+the module rather than through a separate parallel mechanism. The generator
+walks the host compilation and its referenced assembly symbols, so a host
+referencing a shared contracts assembly picks those contracts up without
+per-assembly ceremony; that work is compile-time only.
 
 ### Persistence
 
@@ -132,10 +209,14 @@ its configuration, and a reconciliation step:
   persisting: it turns a class of silent production data corruption into a
   startup failure.
 
-Deliverables: the attribute, `ClassId`, `ITypeRegistry` and its in-memory
-implementation, the generator with its diagnostics, the EF entity plus
-reconciliation, tests for all of it, and the docs
-(`docs/primitives/internals/SPEC.md` and the user-facing pages).
+Reconciliation runs from an `IModuleInitializer`, so each module's whitelist is
+checked against the table in dependency order before the host serves traffic.
+
+Deliverables: `ClassId`, the two attributes, `ITypeRegistry` and its in-memory
+implementation, the analyzer with its five rules, the code-fix provider, the
+shipped-id baseline, the generator, the EF entity plus reconciliation, tests
+for all of it, and the docs (`docs/primitives/internals/SPEC.md` and the
+user-facing pages).
 
 ### What it buys Commands
 
@@ -155,7 +236,7 @@ receiving host never calls `Type.GetType`.
 
 ---
 
-## Phase 2 — `Commands.EntityFrameworkCore`
+## Phase 3 — `Commands.EntityFrameworkCore`
 
 New package, depending on `Microsoft.EntityFrameworkCore.Relational`, with
 `IsAotCompatible=false` to match `Primitives.EntityFrameworkCore`.
@@ -256,7 +337,7 @@ provider cannot verify.
 
 ---
 
-## Phase 3 — `Commands.Remote`
+## Phase 4 — `Commands.Remote`
 
 ### Wire contract
 
@@ -299,7 +380,7 @@ on as client-side pre-validation, the TOCTOU guarantee dies silently.
 **Transactions do not cross the wire.** A transaction middleware registered
 outside the router will wrap a remote dispatch too, opening a local
 transaction for work happening elsewhere. A remote command that fails cannot
-be rolled back by the caller's transaction; the caller compensates. Phase 2's
+be rolled back by the caller's transaction; the caller compensates. Phase 3's
 checkpoints cover local work only. This is the honest limit of the promise and
 should be the first thing the remote SPEC says.
 
@@ -314,7 +395,7 @@ services.AddRemoteCommand<CreateOrder, Guid>(
     OrdersJsonContext.Default.Guid);
 ```
 
-Class id to type resolution goes through the Phase 1 registry. Never
+Class id to type resolution goes through the Phase 2 registry. Never
 `Type.GetType`.
 
 ### Channel
@@ -334,7 +415,7 @@ a caller decision, expressible as a middleware.
 
 ---
 
-## Phase 4 — `Commands.Discovery`
+## Phase 5 — `Commands.Discovery`
 
 Discovery answers one question: which hosts own this class id?
 
@@ -361,10 +442,11 @@ interface.
 
 ```
 Phase A  clear the ground ............... gates everything
-Phase 1  type registry (Primitives) ..... gates 3 and 4
-Phase 2  EF transactions + checkpoints ... independent; highest immediate value
-Phase 3  remote execution ............... needs 1
-Phase 4  discovery ...................... needs 3
+Phase 1  modules ........................ gates 2
+Phase 2  type registry (Primitives) ..... gates 4 and 5
+Phase 3  EF transactions + checkpoints ... independent; highest immediate value
+Phase 4  remote execution ............... needs 2
+Phase 5  discovery ...................... needs 4
 ```
 
-Phase 2 can run in parallel with Phase 1.
+Phase 3 depends only on Phase A, so it can run in parallel with Phases 1 and 2.
