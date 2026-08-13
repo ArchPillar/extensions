@@ -123,7 +123,8 @@ internal static class CatalogIo
     }
 
     // Whether the file already on disk uses CRLF, judged by its first line break: Git normalizes a file's endings
-    // uniformly, so the first break is representative of the whole. A missing file, or one with no break, is LF.
+    // uniformly, so the first break is representative of the whole. Reads only up to that break, not the whole
+    // catalog. A missing file, or one with no break, is LF.
     private static bool ExistingFileUsesCarriageReturns(string path)
     {
         if (!File.Exists(path))
@@ -131,9 +132,20 @@ internal static class CatalogIo
             return false;
         }
 
-        ReadOnlySpan<byte> bytes = File.ReadAllBytes(path);
-        var lineFeed = bytes.IndexOf((byte)'\n');
-        return lineFeed > 0 && bytes[lineFeed - 1] == (byte)'\r';
+        using FileStream stream = File.OpenRead(path);
+        var previous = -1;
+        int current;
+        while ((current = stream.ReadByte()) != -1)
+        {
+            if (current == '\n')
+            {
+                return previous == '\r';
+            }
+
+            previous = current;
+        }
+
+        return false;
     }
 
     /// <summary>Serializes a catalog to bytes in the given format.</summary>
