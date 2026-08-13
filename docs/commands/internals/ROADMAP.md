@@ -5,15 +5,10 @@ dispatcher to one that also covers choreography and microservices. Companion
 to [REVIEW.md](REVIEW.md), which is the point-in-time assessment this plan
 answers.
 
-Two of the phases below are **platform prerequisites rather than Commands
-work** — the module system and the type registry serve models, commands, and
-events alike. They are planned here because the Commands work is what forces
-them, but each gets its own spec under `docs/modules/` and
+Phase 1 below is a **platform prerequisite rather than Commands work** — the
+type registry serves models, commands, and events alike. It is planned here
+because the Commands work is what forces it, but it gets its own spec under
 `docs/primitives/` when it is built.
-
-Where a decision below is marked *(assumed)*, it is a call made in the absence
-of a stated preference — flagged so it can be overruled cheaply rather than
-discovered later.
 
 ## The through-line
 
@@ -56,54 +51,25 @@ before three features are built on top of them than after.
 5. **Write down the nesting contract** (B1): a dispatch does not create a child
    DI scope, nested commands share the outer command's scoped services, and
    the documented `TransactionMiddleware` is replaced by the real one from
-   Phase 3.
+   Phase 2.
 6. **Close the test gaps** (A10): re-entrant dispatch, cancellation
    propagation, registration traps, and the typed batch path if it survives.
 
 ---
 
-## Phase 1 — modules
+## Blocked on — the module system
 
-Registration has to have a home before anything can register into it. A module
-is the unit that owns a slice of the platform: its services, and — through
-opt-in companion interfaces — its type registrations, its EF model
-configuration, and its endpoints.
+Registration needs a home before anything can register into it, so `IModule`
+and its registration helpers gate Phase 1. **Designing that is out of scope
+here** and is tracked separately; this plan only records the dependency.
 
-New `ArchPillar.Extensions.Modules` package *(assumed)*. It depends on
-`Microsoft.Extensions.DependencyInjection.Abstractions` and references
-Primitives. Keeping it out of Primitives preserves that package's current
-property of having **no package references at all** beyond SourceLink — worth
-protecting, since everything else in the family sits on top of it.
-
-### Surface
-
-`IModule` stays small; the friends carry the rest, so a module pays only for
-what it uses.
-
-```csharp
-public interface IModule
-{
-    void ConfigureServices(IServiceCollection services);
-}
-
-public interface IModuleDependencies { static abstract IReadOnlyList<Type> DependsOn { get; } }
-public interface IModuleInitializer   { Task InitializeAsync(IServiceProvider services, CancellationToken cancellationToken); }
-```
-
-Composition is explicit at the root — `services.AddModule<OrdersModule>()` —
-with **declared dependencies driving order** *(assumed)*. The host
-topologically sorts the graph and fails on a cycle or a missing dependency.
-Registration order in `Program.cs` is a poor ordering primitive once modules
-contribute to each other: the failure is silent and surfaces at runtime, far
-from its cause.
-
-`IModuleInitializer` is what runs the type registry's database reconciliation
-(Phase 2) after the provider is built, in dependency order, before the host
-starts serving.
+What Phase 1 needs from it: a per-module place to contribute type
+registrations, and a post-build initialization hook to run the registry's
+database reconciliation before the host serves traffic.
 
 ---
 
-## Phase 2 — the type registry (in Primitives)
+## Phase 1 — the type registry (in Primitives)
 
 A **universal** whitelisting subsystem mapping a stable class id to a CLR type,
 with optional metadata: every model, every command, every event. Nothing about
@@ -184,7 +150,7 @@ An incremental generator (new `ArchPillar.Extensions.Primitives.Analyzers`,
 matching `.CodeFixes` project) emits explicit registration calls for the set
 the analyzer has already guaranteed.
 
-This keeps `IsTrimmable` and `IsAotCompatible` true on Primitives, Modules and
+This keeps `IsTrimmable` and `IsAotCompatible` true on Primitives and
 Commands alike, which assembly scanning would force to false. It also makes the
 whitelist a build artifact: what is registered is visible in generated source
 and diffable in review.
@@ -209,8 +175,9 @@ its configuration, and a reconciliation step:
   persisting: it turns a class of silent production data corruption into a
   startup failure.
 
-Reconciliation runs from an `IModuleInitializer`, so each module's whitelist is
-checked against the table in dependency order before the host serves traffic.
+Reconciliation runs from the module system's initialization hook, so each
+module's whitelist is checked against the table before the host serves
+traffic.
 
 Deliverables: `ClassId`, the two attributes, `ITypeRegistry` and its in-memory
 implementation, the analyzer with its five rules, the code-fix provider, the
@@ -236,7 +203,7 @@ receiving host never calls `Type.GetType`.
 
 ---
 
-## Phase 3 — `Commands.EntityFrameworkCore`
+## Phase 2 — `Commands.EntityFrameworkCore`
 
 New package, depending on `Microsoft.EntityFrameworkCore.Relational`, with
 `IsAotCompatible=false` to match `Primitives.EntityFrameworkCore`.
@@ -337,7 +304,7 @@ provider cannot verify.
 
 ---
 
-## Phase 4 — `Commands.Remote`
+## Phase 3 — `Commands.Remote`
 
 ### Wire contract
 
@@ -380,7 +347,7 @@ on as client-side pre-validation, the TOCTOU guarantee dies silently.
 **Transactions do not cross the wire.** A transaction middleware registered
 outside the router will wrap a remote dispatch too, opening a local
 transaction for work happening elsewhere. A remote command that fails cannot
-be rolled back by the caller's transaction; the caller compensates. Phase 3's
+be rolled back by the caller's transaction; the caller compensates. Phase 2's
 checkpoints cover local work only. This is the honest limit of the promise and
 should be the first thing the remote SPEC says.
 
@@ -395,7 +362,7 @@ services.AddRemoteCommand<CreateOrder, Guid>(
     OrdersJsonContext.Default.Guid);
 ```
 
-Class id to type resolution goes through the Phase 2 registry. Never
+Class id to type resolution goes through the Phase 1 registry. Never
 `Type.GetType`.
 
 ### Channel
@@ -415,7 +382,7 @@ a caller decision, expressible as a middleware.
 
 ---
 
-## Phase 5 — `Commands.Discovery`
+## Phase 4 — `Commands.Discovery`
 
 Discovery answers one question: which hosts own this class id?
 
@@ -442,11 +409,12 @@ interface.
 
 ```
 Phase A  clear the ground ............... gates everything
-Phase 1  modules ........................ gates 2
-Phase 2  type registry (Primitives) ..... gates 4 and 5
-Phase 3  EF transactions + checkpoints ... independent; highest immediate value
-Phase 4  remote execution ............... needs 2
-Phase 5  discovery ...................... needs 4
+           (module system) .............. gates 1, out of scope here
+Phase 1  type registry (Primitives) ..... gates 3 and 4
+Phase 2  EF transactions + checkpoints ... independent; highest immediate value
+Phase 3  remote execution ............... needs 1
+Phase 4  discovery ...................... needs 3
 ```
 
-Phase 3 depends only on Phase A, so it can run in parallel with Phases 1 and 2.
+Phase 2 depends only on Phase A, so it can start before the module system
+lands.
