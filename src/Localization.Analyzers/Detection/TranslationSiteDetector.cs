@@ -134,9 +134,10 @@ internal static class TranslationSiteDetector
         IArgumentOperation? keyArgument = FindArgument(reference.Arguments, symbols.Translatable);
         if (keyArgument is not null)
         {
+            // An indexer declares no type parameters, so it can carry no method scope.
             return IsForwardedParameter(keyArgument, symbols.Translatable)
                 ? null
-                : Build(reference.Arguments, keyArgument, symbols, node, reference.Instance?.Type as INamedTypeSymbol);
+                : Build(reference.Arguments, keyArgument, symbols, node, reference.Instance?.Type as INamedTypeSymbol, method: null);
         }
 
         return includeStringLocalizer ? DetectStringLocalizer(reference, symbols, node) : null;
@@ -235,7 +236,7 @@ internal static class TranslationSiteDetector
         AttributeSymbols symbols,
         SyntaxNode node,
         INamedTypeSymbol? receiver,
-        IMethodSymbol? method = null)
+        IMethodSymbol? method)
     {
         var problems = new List<DetectionProblem>();
         var key = Constant(keyArgument, problems);
