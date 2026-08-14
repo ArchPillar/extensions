@@ -117,7 +117,7 @@ internal static class TranslationSiteDetector
             return null;
         }
 
-        return Build(arguments, keyArgument, symbols, node, ReceiverType(operation));
+        return Build(arguments, keyArgument, symbols, node, ReceiverType(operation), MethodOf(operation));
     }
 
     // An indexer site. The library ships no indexer, but a consumer's own indexer carrying [Translatable] /
@@ -224,12 +224,18 @@ internal static class TranslationSiteDetector
             : null;
     }
 
+    // The called method, so a [TranslationScope] on the method's own type parameter is consulted alongside the
+    // receiver's. Only an invocation has method type parameters; an object-creation or indexer site has none.
+    private static IMethodSymbol? MethodOf(IOperation? operation) =>
+        (operation as IInvocationOperation)?.TargetMethod;
+
     private static TranslationSiteResult Build(
         ImmutableArray<IArgumentOperation> arguments,
         IArgumentOperation keyArgument,
         AttributeSymbols symbols,
         SyntaxNode node,
-        INamedTypeSymbol? receiver)
+        INamedTypeSymbol? receiver,
+        IMethodSymbol? method = null)
     {
         var problems = new List<DetectionProblem>();
         var key = Constant(keyArgument, problems);
@@ -246,17 +252,36 @@ internal static class TranslationSiteDetector
         AddArgumentProblems(placeholders, supplied, defaultArgument, problems);
         AddMissingOtherProblems(defaultMessage, defaultArgument, problems);
 
-        var category = CategoryFrom(receiver, symbols.Scope);
+        var category = CategoryFrom(receiver, method, symbols.Scope);
         var site = new TranslationSite(key, defaultMessage, category, placeholders, ToReference(node));
         return new TranslationSiteResult(site, problems);
     }
 
-    // The category is the full name of the type argument bound to a [TranslationScope] type parameter on
-    // the receiver's type (or any base type or interface) — so ILocalizer<T>, Localized<TSelf>, and any
-    // user-rolled scoped localizer all resolve identically, matching the runtime. No marker → global.
-    private static string CategoryFrom(INamedTypeSymbol? receiver, INamedTypeSymbol? scopeAttribute)
+    // The category is the full name of the type argument bound to a [TranslationScope] type parameter — read
+    // first off the called method's own type parameters (a static/extension method that defines its scope), then
+    // off the receiver's type, any base type, or interface — so a scoped extension method, ILocalizer<T>,
+    // Localized<TSelf>, and any user-rolled scoped localizer all resolve identically, matching the runtime.
+    // No marker → global.
+    private static string CategoryFrom(INamedTypeSymbol? receiver, IMethodSymbol? method, INamedTypeSymbol? scopeAttribute)
     {
-        if (receiver is null || scopeAttribute is null)
+        if (scopeAttribute is null)
+        {
+            return string.Empty;
+        }
+
+        if (method is not null)
+        {
+            for (var index = 0; index < method.TypeParameters.Length && index < method.TypeArguments.Length; index++)
+            {
+                if (HasScopeAttribute(method.TypeParameters[index], scopeAttribute)
+                    && method.TypeArguments[index] is INamedTypeSymbol methodArgument)
+                {
+                    return FullName(methodArgument);
+                }
+            }
+        }
+
+        if (receiver is null)
         {
             return string.Empty;
         }

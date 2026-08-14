@@ -124,7 +124,7 @@ internal sealed class CallSiteExtractor
             && args.Count >= receiver + 1
             && args[receiver].Constant is { } name)
         {
-            sites.Add(new RawCallSite(name, name, CategoryOf(args, receiver), FileOf(method, instruction)));
+            sites.Add(new RawCallSite(name, name, CategoryOf(args, receiver, target), FileOf(method, instruction)));
             return;
         }
 
@@ -144,7 +144,7 @@ internal sealed class CallSiteExtractor
 
         if (ConstantAt(args, receiver, binding.KeyIndex) is { } key && ConstantAt(args, receiver, binding.DefaultIndex) is { } def)
         {
-            sites.Add(new RawCallSite(key, def, CategoryOf(args, receiver), FileOf(method, instruction)));
+            sites.Add(new RawCallSite(key, def, CategoryOf(args, receiver, target), FileOf(method, instruction)));
         }
     }
 
@@ -283,18 +283,33 @@ internal sealed class CallSiteExtractor
         }
     }
 
-    // The category is the full name of the type argument bound to a [TranslationScope] type parameter on the
-    // receiver's type, any of its base types, or its interfaces — so ILocalizer<T> (scope on the receiver) and
-    // Localized<TSelf> (scope on a base) resolve identically to the runtime and the Roslyn detector, rather than
-    // only the direct-receiver case. IStringLocalizer<T> is a framework type and carries no [TranslationScope],
-    // so a generic receiver with no marker anywhere falls back to its own first type argument (its long-standing
-    // behaviour). A non-generic receiver with no marked base (the concrete DefaultLocalizer, or an unknown type)
-    // is the global category.
-    private static string CategoryOf(IReadOnlyList<Slot> args, int receiver)
+    // The category is the full name of the type argument bound to a [TranslationScope] type parameter — read
+    // first off the called method's own type parameters (a static/extension method that defines its scope), then
+    // off the receiver's type, any of its base types, or its interfaces — so a scoped extension method,
+    // ILocalizer<T> (scope on the receiver), and Localized<TSelf> (scope on a base) all resolve identically to
+    // the runtime and the Roslyn detector, rather than only the direct-receiver case. IStringLocalizer<T> is a
+    // framework type and carries no [TranslationScope], so a generic receiver with no marker anywhere falls back
+    // to its own first type argument (its long-standing behaviour). A non-generic receiver with no marked base
+    // (the concrete DefaultLocalizer, or an unknown type) is the global category.
+    private static string CategoryOf(IReadOnlyList<Slot> args, int receiver, MethodReference target)
     {
+        var methodScope = MethodScope(target);
+        if (methodScope is not null)
+        {
+            return methodScope;
+        }
+
         if (receiver <= 0 || args[0].Type is not { } receiverType)
         {
             return string.Empty;
+        }
+
+        // A value-type receiver is passed by managed reference — its stack slot is a T& (from ldarga/ldloca/ldflda,
+        // or an in/ref parameter loaded directly) — so unwrap to the value type itself. Without this its
+        // [TranslationScope] argument is unreachable and the call silently falls back to the global category.
+        if (receiverType is ByReferenceType byReference)
+        {
+            receiverType = byReference.ElementType;
         }
 
         foreach (GenericInstanceType candidate in SelfBasesAndInterfaces(receiverType))
@@ -312,6 +327,36 @@ internal sealed class CallSiteExtractor
             && generic.GenericArguments[0] is not GenericParameter
             ? generic.GenericArguments[0].FullName
             : string.Empty;
+    }
+
+    // The full name of the argument bound to a [TranslationScope] type parameter of the called method itself, or
+    // null when the method is non-generic, cannot be resolved, or has no such parameter. This lets a static
+    // (extension) method define the scope through its own type argument — Label<Acme.Greeter>(...) — the way a
+    // scoped receiver type does, matching the Roslyn detector. As with the receiver walk, an argument that is
+    // itself an unsubstituted type parameter (a scope flowing through an open generic) is left to that detector.
+    private static string? MethodScope(MethodReference target)
+    {
+        if (target is not GenericInstanceMethod instance)
+        {
+            return null;
+        }
+
+        MethodDefinition? definition = TryResolve(target);
+        if (definition is null)
+        {
+            return null;
+        }
+
+        for (var index = 0; index < definition.GenericParameters.Count && index < instance.GenericArguments.Count; index++)
+        {
+            TypeReference argument = instance.GenericArguments[index];
+            if (HasScopeAttribute(definition.GenericParameters[index]) && argument is not GenericParameter)
+            {
+                return argument.FullName;
+            }
+        }
+
+        return null;
     }
 
     // A call's return type is the one on the method *declaration*, so a generic method still names its own type
@@ -452,6 +497,12 @@ internal sealed class CallSiteExtractor
         Code.Ldloc_3 => LocalType(method, 3),
         Code.Ldloc or Code.Ldloc_S => ((VariableDefinition)instruction.Operand).VariableType,
         Code.Ldfld or Code.Ldsfld => ((FieldReference)instruction.Operand).FieldType,
+        // The address-loading forms produce a value-type receiver (a struct localizer in an arg, local, or field
+        // is called through its address, not a copy). Their operand's declared type is the value type itself,
+        // which CategoryOf unwraps from the resulting managed reference.
+        Code.Ldarga or Code.Ldarga_S => ((ParameterDefinition)instruction.Operand).ParameterType,
+        Code.Ldloca or Code.Ldloca_S => ((VariableDefinition)instruction.Operand).VariableType,
+        Code.Ldflda or Code.Ldsflda => ((FieldReference)instruction.Operand).FieldType,
         _ => null
     };
 

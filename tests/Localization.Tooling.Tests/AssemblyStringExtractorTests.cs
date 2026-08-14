@@ -99,6 +99,60 @@ public sealed class AssemblyStringExtractorTests : IDisposable
     }
 
     [Fact]
+    public void Extract_ValueTypeReceiver_TakesCategoryFromTheTypeArgument()
+    {
+        // A struct localizer is called through its address (ldflda/ldloca), so its receiver reaches the stack as
+        // a managed reference rather than the value type. Without unwrapping that reference the [TranslationScope]
+        // argument was unreachable and the call silently fell back to the global category — every translation
+        // behind a value-type localizer resolved to its in-code default instead of the scoped catalog.
+        IReadOnlyList<RawCallSite> sites = Extract("""
+            using ArchPillar.Extensions.Localization;
+
+            namespace Demo;
+
+            public readonly struct StructLocalizer<[TranslationScope] T>
+            {
+                public string Translate([Translatable] string key, [TranslationDefault] string message) => message;
+            }
+
+            public sealed class Checkout(StructLocalizer<Checkout> localizer)
+            {
+                public string Pay => localizer.Translate("pay", "Pay now");
+            }
+            """);
+
+        RawCallSite site = Assert.Single(sites);
+        Assert.Equal("pay", site.Key);
+        Assert.Equal("Demo.Checkout", site.Category);
+    }
+
+    [Fact]
+    public void Extract_ScopedMethodTypeParameter_TakesCategoryFromTheMethodTypeArgument()
+    {
+        // A static (extension) method declares the scope on its own type parameter, so the category is the
+        // method's type argument — read even though the receiver (a plain ILocalizer) carries no scope.
+        IReadOnlyList<RawCallSite> sites = Extract("""
+            using ArchPillar.Extensions.Localization;
+
+            namespace Demo;
+
+            public static class LocalizerExtensions
+            {
+                public static string Label<[TranslationScope] T>(this ILocalizer localizer, [Translatable] string key, [TranslationDefault] string message) => message;
+            }
+
+            public sealed class Greeter(ILocalizer localizer)
+            {
+                public string Hello => localizer.Label<Greeter>("hello", "Hello");
+            }
+            """);
+
+        RawCallSite site = Assert.Single(sites);
+        Assert.Equal("hello", site.Key);
+        Assert.Equal("Demo.Greeter", site.Category);
+    }
+
+    [Fact]
     public void Extract_NullConditionalIndexer_IsStillExtracted()
     {
         // strings?["key", "default"] is a consumer's own indexer called defensively; its key must still be
