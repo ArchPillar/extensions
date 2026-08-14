@@ -99,7 +99,7 @@ internal sealed class SyncCommand : AsyncCommand<SyncCommand.Settings>
 
         // An up-to-date target is left untouched rather than rewritten, so its timestamp survives for incremental
         // builds and file watchers, and a CRLF checkout is not turned into a line-ending-only diff.
-        CatalogIo.WriteIfChanged(targetPath, serialized);
+        await CatalogIo.WriteIfChangedAsync(targetPath, serialized);
         return false;
     }
 }

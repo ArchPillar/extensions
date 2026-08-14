@@ -103,7 +103,7 @@ internal static class CatalogIo
         {
             SourceName = sourceName.Length == 0 ? null : sourceName
         };
-        WriteIfChanged(path, await SerializeAsync(provider, catalog, effective));
+        await WriteIfChangedAsync(path, await SerializeAsync(provider, catalog, effective));
     }
 
     /// <summary>
@@ -114,19 +114,17 @@ internal static class CatalogIo
     public static bool DiffersFromDisk(string path, byte[] serialized) => PrepareWrite(path, serialized).Differs;
 
     /// <summary>
-    /// Writes <paramref name="serialized"/> to <paramref name="path"/> only when it would change the file, and
-    /// reports whether it did. An unchanged catalog is left completely untouched: rewriting identical bytes still
-    /// moves the file's timestamp, and incremental builds, file watchers, and caches key off that.
+    /// Writes <paramref name="serialized"/> to <paramref name="path"/> only when it would change the file. An
+    /// unchanged catalog is left completely untouched: rewriting identical bytes still moves the file's timestamp,
+    /// and incremental builds, file watchers, and caches key off that.
     /// </summary>
-    public static bool WriteIfChanged(string path, byte[] serialized)
+    public static async Task WriteIfChangedAsync(string path, byte[] serialized, CancellationToken cancellationToken = default)
     {
         (var content, var differs) = PrepareWrite(path, serialized);
         if (differs)
         {
-            File.WriteAllBytes(path, content);
+            await File.WriteAllBytesAsync(path, content, cancellationToken);
         }
-
-        return differs;
     }
 
     // The bytes that should land on disk, and whether they differ from what is there now. The existing file is read
@@ -149,12 +147,29 @@ internal static class CatalogIo
         return (content, !existing.AsSpan().SequenceEqual(content));
     }
 
-    // Whether content uses CRLF, judged by its first line break: Git normalizes a file's endings uniformly, so the
-    // first break is representative of the whole. No break (including empty) is LF.
+    // Whether content is *uniformly* CRLF, which is what a normalizing checkout produces and the only case worth
+    // preserving. Judging by the first line break alone would let one stray CRLF convert a mostly-LF file wholesale
+    // — the whole-file rewrite this exists to prevent — and it would then stay that way, since the result is
+    // self-consistent. Mixed (or no) line breaks fall back to the canonical LF, as before.
     private static bool UsesCarriageReturns(ReadOnlySpan<byte> content)
     {
-        var lineFeed = content.IndexOf((byte)'\n');
-        return lineFeed > 0 && content[lineFeed - 1] == (byte)'\r';
+        var lineFeeds = 0;
+        var afterCarriageReturn = 0;
+        for (var index = 0; index < content.Length; index++)
+        {
+            if (content[index] != (byte)'\n')
+            {
+                continue;
+            }
+
+            lineFeeds++;
+            if (index > 0 && content[index - 1] == (byte)'\r')
+            {
+                afterCarriageReturn++;
+            }
+        }
+
+        return lineFeeds > 0 && lineFeeds == afterCarriageReturn;
     }
 
     /// <summary>Serializes a catalog to bytes in the given format.</summary>

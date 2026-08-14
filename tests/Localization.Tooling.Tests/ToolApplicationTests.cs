@@ -127,6 +127,25 @@ public sealed class ToolApplicationTests : IDisposable
     }
 
     [Fact]
+    public async Task Sync_TargetWithMixedLineEndings_NormalizesToLfInsteadOfFollowingTheFirstBreakAsync()
+    {
+        // Only the first break is CRLF. Treating that as the file's convention would convert the whole catalog to
+        // CRLF — the very whole-file rewrite this feature prevents — and it would then stay there, self-consistent.
+        // A mixed file is not a normalized checkout, so it falls back to the canonical LF.
+        await WriteTemplateAsync();
+        await ToolApplication.RunAsync(["add", "de", "--template", _template, "--output", _directory]);
+        var targetPath = Path.Combine(_directory, "de.arb");
+        var text = await File.ReadAllTextAsync(targetPath);
+        var firstBreak = text.IndexOf('\n', StringComparison.Ordinal);
+        await File.WriteAllTextAsync(targetPath, string.Concat(text[..firstBreak], "\r\n", text[(firstBreak + 1)..]));
+
+        var exit = await ToolApplication.RunAsync(["sync", "--template", _template, "--target", targetPath]);
+
+        Assert.Equal(0, exit);
+        Assert.DoesNotContain("\r\n", await File.ReadAllTextAsync(targetPath), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Sync_DriftedTarget_StillWritesTheReconciledCatalogAsync()
     {
         // The skip must be driven by content equality, not by suppressing writes: a drifted target is still fixed.
