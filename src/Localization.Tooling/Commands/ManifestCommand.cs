@@ -53,7 +53,7 @@ internal sealed class ManifestCommand : AsyncCommand<ManifestCommand.Settings>
             return byCulture != 0 ? byCulture : string.CompareOrdinal(left.File, right.File);
         });
 
-        await File.WriteAllBytesAsync(output, BuildManifest(entries), cancellationToken);
+        CatalogIo.WriteIfChanged(output, BuildManifest(entries));
         ToolConsole.Success($"Wrote manifest with {entries.Count} catalog(s) to {output}");
         return 0;
     }

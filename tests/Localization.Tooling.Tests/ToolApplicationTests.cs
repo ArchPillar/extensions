@@ -10,6 +10,9 @@ public sealed class ToolApplicationTests : IDisposable
     private static readonly ArbTranslationFormat _arb = new();
     private static readonly XliffTranslationFormat _xliff = new();
 
+    // A fixed past timestamp, so a "was it rewritten?" assertion does not depend on filesystem clock granularity.
+    private static readonly DateTime _stamp = new(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
     private readonly string _directory;
     private readonly string _template;
 
@@ -88,6 +91,73 @@ public sealed class ToolApplicationTests : IDisposable
         var after = await File.ReadAllBytesAsync(targetPath);
         Assert.Equal(before, after);
         Assert.Contains("\r\n", await File.ReadAllTextAsync(targetPath), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Sync_UpToDateTarget_LeavesFileTimestampUntouchedAsync()
+    {
+        // An identical rewrite still moves the file's timestamp, and incremental builds, file watchers and caches
+        // key off that — so an up-to-date catalog must not be written at all.
+        await WriteTemplateAsync();
+        await ToolApplication.RunAsync(["add", "de", "--template", _template, "--output", _directory]);
+        var targetPath = Path.Combine(_directory, "de.arb");
+        File.SetLastWriteTimeUtc(targetPath, _stamp);
+
+        var exit = await ToolApplication.RunAsync(["sync", "--template", _template, "--target", targetPath]);
+
+        Assert.Equal(0, exit);
+        Assert.Equal(_stamp, File.GetLastWriteTimeUtc(targetPath));
+    }
+
+    [Fact]
+    public async Task Sync_UpToDateCarriageReturnTarget_LeavesFileTimestampUntouchedAsync()
+    {
+        // The same guarantee for a CRLF checkout: matching the file's own convention is what makes the comparison
+        // equal, so a normalized repo also stops seeing its catalogs re-stamped on every run.
+        await WriteTemplateAsync();
+        await ToolApplication.RunAsync(["add", "de", "--template", _template, "--output", _directory]);
+        var targetPath = Path.Combine(_directory, "de.arb");
+        await RewriteWithCarriageReturnsAsync(targetPath);
+        File.SetLastWriteTimeUtc(targetPath, _stamp);
+
+        var exit = await ToolApplication.RunAsync(["sync", "--template", _template, "--target", targetPath]);
+
+        Assert.Equal(0, exit);
+        Assert.Equal(_stamp, File.GetLastWriteTimeUtc(targetPath));
+    }
+
+    [Fact]
+    public async Task Sync_DriftedTarget_StillWritesTheReconciledCatalogAsync()
+    {
+        // The skip must be driven by content equality, not by suppressing writes: a drifted target is still fixed.
+        await WriteTemplateAsync();
+        await ToolApplication.RunAsync(["add", "de", "--template", _template, "--output", _directory]);
+        var targetPath = Path.Combine(_directory, "de.arb");
+        Catalog target = Read(targetPath);
+        await WriteCatalogRawAsync(targetPath, target with { Entries = [target.Entries[0]] });
+        File.SetLastWriteTimeUtc(targetPath, _stamp);
+
+        var exit = await ToolApplication.RunAsync(["sync", "--template", _template, "--target", targetPath]);
+
+        Assert.Equal(0, exit);
+        Assert.Equal(2, Read(targetPath).Entries.Count); // the dropped entry is restored
+        Assert.NotEqual(_stamp, File.GetLastWriteTimeUtc(targetPath));
+    }
+
+    [Fact]
+    public async Task Add_ForcedOverIdenticalCatalog_LeavesFileTimestampUntouchedAsync()
+    {
+        // Covers the shared WriteFileAsync path (add/import/convert/extract), not just sync's own write: even an
+        // explicit overwrite writes nothing when the bytes would be identical.
+        await WriteTemplateAsync();
+        await ToolApplication.RunAsync(["add", "de", "--template", _template, "--output", _directory]);
+        var targetPath = Path.Combine(_directory, "de.arb");
+        File.SetLastWriteTimeUtc(targetPath, _stamp);
+
+        var exit = await ToolApplication.RunAsync(["add", "de", "--template", _template, "--output", _directory, "--force"]);
+
+        Assert.Equal(0, exit);
+        Assert.Equal(_stamp, File.GetLastWriteTimeUtc(targetPath));
     }
 
     [Fact]

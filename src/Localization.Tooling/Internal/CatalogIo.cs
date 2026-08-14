@@ -103,35 +103,50 @@ internal static class CatalogIo
         {
             SourceName = sourceName.Length == 0 ? null : sourceName
         };
-        var bytes = await SerializeAsync(provider, catalog, effective);
-        File.WriteAllBytes(path, MatchLineEndings(path, bytes));
+        WriteIfChanged(path, await SerializeAsync(provider, catalog, effective));
     }
 
     /// <summary>
-    /// Adapts freshly serialized bytes to the line-ending convention of the file already at <paramref name="path"/>.
-    /// The formats always emit LF; when a repository normalizes line endings (Git's <c>autocrlf</c> or a
-    /// <c>text=auto</c> attribute checks the catalog out with CRLF), rewriting it as LF would surface a whole-file,
-    /// line-ending-only diff on every run. Matching the existing file keeps a rewrite a no-op unless the content
-    /// itself changed. A new file, or one already using LF, keeps the canonical LF. Prefer the overload taking the
-    /// existing bytes when the caller has already read them.
+    /// Whether writing <paramref name="serialized"/> to <paramref name="path"/> would change the file, compared
+    /// after line-ending adaptation so a checkout convention is not mistaken for content drift. The gate behind
+    /// <c>sync --check</c>.
     /// </summary>
-    public static byte[] MatchLineEndings(string path, byte[] serialized) =>
-        Reencode(serialized, ExistingFileUsesCarriageReturns(path));
+    public static bool DiffersFromDisk(string path, byte[] serialized) => PrepareWrite(path, serialized).Differs;
 
     /// <summary>
-    /// Adapts freshly serialized bytes to the line-ending convention of <paramref name="existing"/> — the current
-    /// on-disk bytes the caller already holds (for example the copy read for a drift comparison), so no second read
-    /// is needed. See <see cref="MatchLineEndings(string, byte[])"/> for the rationale.
+    /// Writes <paramref name="serialized"/> to <paramref name="path"/> only when it would change the file, and
+    /// reports whether it did. An unchanged catalog is left completely untouched: rewriting identical bytes still
+    /// moves the file's timestamp, and incremental builds, file watchers, and caches key off that.
     /// </summary>
-    public static byte[] MatchLineEndings(ReadOnlySpan<byte> existing, byte[] serialized) =>
-        Reencode(serialized, UsesCarriageReturns(existing));
+    public static bool WriteIfChanged(string path, byte[] serialized)
+    {
+        (var content, var differs) = PrepareWrite(path, serialized);
+        if (differs)
+        {
+            File.WriteAllBytes(path, content);
+        }
 
-    private static byte[] Reencode(byte[] serialized, bool carriageReturns)
+        return differs;
+    }
+
+    // The bytes that should land on disk, and whether they differ from what is there now. The existing file is read
+    // once and answers both questions: it fixes the line-ending convention to match, and it is the comparison.
+    private static (byte[] Content, bool Differs) PrepareWrite(string path, byte[] serialized)
     {
         var normalized = _utf8NoBom.GetString(serialized).Replace("\r\n", "\n", StringComparison.Ordinal);
-        return carriageReturns
+        if (!File.Exists(path))
+        {
+            return (_utf8NoBom.GetBytes(normalized), true);
+        }
+
+        // The formats always emit LF. When a repository normalizes line endings (Git's autocrlf, or a text=auto
+        // attribute that checks the catalog out with CRLF), re-encode to the file's own convention so an unchanged
+        // catalog compares equal instead of being rewritten as a whole-file, line-ending-only diff every run.
+        var existing = File.ReadAllBytes(path);
+        var content = UsesCarriageReturns(existing)
             ? _utf8NoBom.GetBytes(normalized.Replace("\n", "\r\n", StringComparison.Ordinal))
             : _utf8NoBom.GetBytes(normalized);
+        return (content, !existing.AsSpan().SequenceEqual(content));
     }
 
     // Whether content uses CRLF, judged by its first line break: Git normalizes a file's endings uniformly, so the
@@ -140,31 +155,6 @@ internal static class CatalogIo
     {
         var lineFeed = content.IndexOf((byte)'\n');
         return lineFeed > 0 && content[lineFeed - 1] == (byte)'\r';
-    }
-
-    // The same test for a caller holding only a path: streams to the first line break instead of reading the whole
-    // catalog. A missing file is LF.
-    private static bool ExistingFileUsesCarriageReturns(string path)
-    {
-        if (!File.Exists(path))
-        {
-            return false;
-        }
-
-        using FileStream stream = File.OpenRead(path);
-        var previous = -1;
-        int current;
-        while ((current = stream.ReadByte()) != -1)
-        {
-            if (current == '\n')
-            {
-                return previous == '\r';
-            }
-
-            previous = current;
-        }
-
-        return false;
     }
 
     /// <summary>Serializes a catalog to bytes in the given format.</summary>
