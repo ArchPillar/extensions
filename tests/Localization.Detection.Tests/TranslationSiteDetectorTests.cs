@@ -267,6 +267,35 @@ public sealed class TranslationSiteDetectorTests
     }
 
     [Fact]
+    public void Detect_ScopedMethodTypeParameter_TakesCategoryFromTheMethodTypeArgument()
+    {
+        // A static (extension) method carries the [TranslationScope] on its own type parameter, so the category
+        // is the method's type argument — resolved even though the receiver (a plain, unscoped localizer) has no
+        // scope of its own.
+        const string Scoped = """
+            using ArchPillar.Extensions.Localization;
+
+            public interface IPlain;
+
+            public sealed class Greeter;
+
+            public static class ScopedExtensions
+            {
+                public static string Label<[TranslationScope] T>(this IPlain plain, [Translatable] string key, [TranslationDefault] string message) => message;
+            }
+
+            public sealed class Consumer(IPlain plain)
+            {
+                public string Run() => plain.Label<Greeter>("hello", "Hello");
+            }
+            """;
+
+        var results = TranslationSiteDetector.Detect(RoslynTestHost.CreateCompilation(Scoped), CancellationToken.None).ToList();
+
+        Assert.Equal("Greeter", Single(results, "hello").Category);
+    }
+
+    [Fact]
     public void Detect_ObjectCreationReceiver_TakesCategoryFromTheConstructedType()
     {
         // The translation site is the construction itself; the constructed generic type carries the

@@ -99,6 +99,166 @@ public sealed class AssemblyStringExtractorTests : IDisposable
     }
 
     [Fact]
+    public void Extract_ValueTypeReceiver_TakesCategoryFromTheTypeArgument()
+    {
+        // A struct localizer is called through its address (ldflda/ldloca), so its receiver reaches the stack as
+        // a managed reference rather than the value type. Without unwrapping that reference the [TranslationScope]
+        // argument was unreachable and the call silently fell back to the global category — every translation
+        // behind a value-type localizer resolved to its in-code default instead of the scoped catalog.
+        IReadOnlyList<RawCallSite> sites = Extract("""
+            using ArchPillar.Extensions.Localization;
+
+            namespace Demo;
+
+            public readonly struct StructLocalizer<[TranslationScope] T>
+            {
+                public string Translate([Translatable] string key, [TranslationDefault] string message) => message;
+            }
+
+            public sealed class Checkout(StructLocalizer<Checkout> localizer)
+            {
+                public string Pay => localizer.Translate("pay", "Pay now");
+            }
+            """);
+
+        RawCallSite site = Assert.Single(sites);
+        Assert.Equal("pay", site.Key);
+        Assert.Equal("Demo.Checkout", site.Category);
+    }
+
+    [Fact]
+    public void Extract_ByReferenceReceiver_TakesCategoryFromTheTypeArgument()
+    {
+        // An `in` parameter is loaded by a plain ldarg whose declared type is already a managed reference
+        // (StructLocalizer<Save>&), so this is the shape the by-reference unwrap exists for — the address-loading
+        // opcodes push the value type itself and never reach it.
+        IReadOnlyList<RawCallSite> sites = Extract("""
+            using ArchPillar.Extensions.Localization;
+
+            namespace Demo;
+
+            public readonly struct StructLocalizer<[TranslationScope] T>
+            {
+                public string Translate([Translatable] string key, [TranslationDefault] string message) => message;
+            }
+
+            public sealed class Save;
+
+            public static class Runner
+            {
+                public static string Run(in StructLocalizer<Save> localizer) => localizer.Translate("save", "Save");
+            }
+            """);
+
+        RawCallSite site = Assert.Single(sites);
+        Assert.Equal("Demo.Save", site.Category);
+    }
+
+    [Fact]
+    public void Extract_NestedScopeType_UsesTheReflectionNestedSeparator()
+    {
+        // Cecil writes a nested type as Outer/Inner; the runtime (CategoryName.Of) and the Roslyn detector both
+        // write Outer+Inner. Emitting Cecil's raw name keys the string under a category neither ever asks for, so
+        // the lookup silently falls back to the in-code default.
+        IReadOnlyList<RawCallSite> sites = Extract("""
+            using ArchPillar.Extensions.Localization;
+
+            namespace Demo;
+
+            public static class Outer
+            {
+                public sealed class Inner;
+            }
+
+            public sealed class Banner(ILocalizer<Outer.Inner> localizer)
+            {
+                public string Title => localizer.Translate("title", "Home");
+            }
+            """);
+
+        RawCallSite site = Assert.Single(sites);
+        Assert.Equal("Demo.Outer+Inner", site.Category);
+    }
+
+    [Fact]
+    public void Extract_GenericScopeType_UsesTheOpenGenericNameWithArity()
+    {
+        // Cecil appends the type arguments (Demo.Box`1<System.Int32>); the runtime and the Roslyn detector use
+        // the open-generic name, so only the arity backtick belongs in the category.
+        IReadOnlyList<RawCallSite> sites = Extract("""
+            using ArchPillar.Extensions.Localization;
+
+            namespace Demo;
+
+            public sealed class Box<T>;
+
+            public sealed class Banner(ILocalizer<Box<int>> localizer)
+            {
+                public string Title => localizer.Translate("title", "Home");
+            }
+            """);
+
+        RawCallSite site = Assert.Single(sites);
+        Assert.Equal("Demo.Box`1", site.Category);
+    }
+
+    [Fact]
+    public void Extract_ExtensionMethodReceiver_TakesCategoryFromTheScopedThisParameter()
+    {
+        // A static extension call has no `this` slot, so the receiver is argument 0. Without recognising the
+        // extension form the scope on the receiver's own type is never read and the call falls back to global —
+        // the shape the Roslyn detector already resolves, which the IL path must match.
+        IReadOnlyList<RawCallSite> sites = Extract("""
+            using ArchPillar.Extensions.Localization;
+
+            namespace Demo;
+
+            public interface IScoped<[TranslationScope] T>;
+
+            public sealed class Save;
+
+            public static class ScopedExtensions
+            {
+                public static string Translate<T>(this IScoped<T> scope, [Translatable] string key, [TranslationDefault] string message) => message;
+            }
+
+            public sealed class Consumer(IScoped<Save> scope)
+            {
+                public string Run() => scope.Translate("label", "Save");
+            }
+            """);
+
+        RawCallSite site = Assert.Single(sites);
+        Assert.Equal("Demo.Save", site.Category);
+    }
+
+    [Fact]
+    public void Extract_ScopedMethodTypeParameter_TakesCategoryFromTheMethodTypeArgument()
+    {
+        // A static (extension) method declares the scope on its own type parameter, so the category is the
+        // method's type argument — read even though the receiver (a plain ILocalizer) carries no scope.
+        IReadOnlyList<RawCallSite> sites = Extract("""
+            using ArchPillar.Extensions.Localization;
+
+            namespace Demo;
+
+            public static class LocalizerExtensions
+            {
+                public static string Label<[TranslationScope] T>(this ILocalizer localizer, [Translatable] string key, [TranslationDefault] string message) => message;
+            }
+
+            public sealed class Greeter(ILocalizer localizer)
+            {
+                public string Hello => localizer.Label<Greeter>("hello", "Hello");
+            }
+            """);
+
+        RawCallSite site = Assert.Single(sites);
+        Assert.Equal("hello", site.Key);
+        Assert.Equal("Demo.Greeter", site.Category);
+    }
+
+    [Fact]
     public void Extract_NullConditionalIndexer_IsStillExtracted()
     {
         // strings?["key", "default"] is a consumer's own indexer called defensively; its key must still be
