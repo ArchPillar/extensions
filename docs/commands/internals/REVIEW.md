@@ -270,9 +270,10 @@ identity — it moves with namespace refactors, does not version, and couples
 both processes to identical assembly layout. Nothing in the design reserves a
 place for a stable identifier.
 
-*Resolved after review:* a separate type-registry subsystem keyed on a
-`[ClassId]` GUID, distinct from the invoker registry. See
-[ROADMAP.md](ROADMAP.md).
+*Resolved after review:* a separate type-registry subsystem, distinct from the
+invoker registry, keyed on a composite `(module id, class id)` — class-id
+uniqueness is only verifiable within one compilation, so module scoping is what
+makes the guarantee achievable. See [ROADMAP.md](ROADMAP.md).
 
 ### B4. `CommandContext` hardcodes telemetry parentage and kind
 
