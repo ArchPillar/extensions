@@ -44,6 +44,29 @@ public sealed class Checkout(ILocalizer<Checkout> localizer)
 that type as the scope — inject `ILocalizer<SharedResource>` wherever you need them. The shared type is
 ordinary code reuse that doubles as the category, with no central registry to maintain.
 
+### Rolling your own scope — `[TranslationScope]`
+
+`ILocalizer<T>` is not special-cased. The category comes from whichever generic parameter carries
+`[TranslationScope]`, so a localizer, wrapper, or bundle base of your own is detected identically. Mark a
+**type's** parameter and a constructed receiver carries the scope; mark a **method's** own parameter and a
+static or extension method defines the scope through its type argument.
+
+```csharp
+public static class LocalizerExtensions
+{
+    public static string Label<[TranslationScope] T>(
+        this ILocalizer localizer,
+        [Translatable] string key,
+        [TranslationDefault] string message) =>
+        Localizer.For<T>().Translate(key, message); // category = T
+}
+```
+
+The attribute tells **extraction** which argument names the category; it does not redirect the lookup. A
+method that declares a scope must also resolve through it — as `Label<T>` does via `Localizer.For<T>()` —
+otherwise the string is extracted under `T` but looked up under the global category, and the translation
+silently never applies.
+
 ## `Localized<TSelf>` — a bundle of strings
 
 An optional base class for a set of related strings where the **member name is the key** (captured via

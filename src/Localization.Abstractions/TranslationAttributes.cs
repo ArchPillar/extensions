@@ -19,11 +19,16 @@ public sealed class TranslationDefaultAttribute : Attribute
 }
 
 /// <summary>
-/// Marks the generic type parameter that supplies the translation category. When a translatable call's
-/// receiver is a constructed generic type whose parameter carries this attribute, extraction and the
-/// runtime both take the category from that type argument's full name — the <c>ILogger&lt;T&gt;</c>
-/// model. Keeping the signal an attribute, rather than a hardcoded type name, lets anyone define their
-/// own scoped localizer and have it detected identically.
+/// Marks the generic parameter that supplies the translation category, whose type argument's full name
+/// becomes that category — the <c>ILogger&lt;T&gt;</c> model. It sits either on a type's parameter, so a
+/// constructed receiver carries the scope (<c>ILocalizer&lt;T&gt;</c>, or a base such as
+/// <c>Localized&lt;TSelf&gt;</c>), or on a method's own parameter, so a static or extension method
+/// defines the scope through its type argument (<c>Label&lt;T&gt;(…)</c>). Keeping the signal an
+/// attribute, rather than a hardcoded type name, lets anyone define their own scoped localizer and have
+/// it detected identically. The attribute tells extraction which argument names the category; it does
+/// not redirect the lookup, so a method that declares a scope must also resolve through it (for example
+/// <c>Localizer.For&lt;T&gt;()</c>) or its strings are extracted under one category and looked up under
+/// another.
 /// </summary>
 [AttributeUsage(AttributeTargets.GenericParameter, AllowMultiple = false)]
 public sealed class TranslationScopeAttribute : Attribute
