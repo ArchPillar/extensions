@@ -127,22 +127,24 @@ public sealed class ToolApplicationTests : IDisposable
     }
 
     [Fact]
-    public async Task Sync_TargetWithMixedLineEndings_NormalizesToLfInsteadOfFollowingTheFirstBreakAsync()
+    public async Task Sync_TargetWithOddLineEndings_IsLeftAloneWhileContentIsUpToDateAsync()
     {
-        // Only the first break is CRLF. Treating that as the file's convention would convert the whole catalog to
-        // CRLF — the very whole-file rewrite this feature prevents — and it would then stay there, self-consistent.
-        // A mixed file is not a normalized checkout, so it falls back to the canonical LF.
+        // Formatting the tool did not produce (here, one stray CRLF) is not drift. Since the reconcile decides
+        // whether to write, an up-to-date catalog is never reformatted — the tool has no reason to touch it at all.
         await WriteTemplateAsync();
         await ToolApplication.RunAsync(["add", "de", "--template", _template, "--output", _directory]);
         var targetPath = Path.Combine(_directory, "de.arb");
         var text = await File.ReadAllTextAsync(targetPath);
         var firstBreak = text.IndexOf('\n', StringComparison.Ordinal);
-        await File.WriteAllTextAsync(targetPath, string.Concat(text[..firstBreak], "\r\n", text[(firstBreak + 1)..]));
+        var mixed = string.Concat(text[..firstBreak], "\r\n", text[(firstBreak + 1)..]);
+        await File.WriteAllTextAsync(targetPath, mixed);
+        File.SetLastWriteTimeUtc(targetPath, _stamp);
 
         var exit = await ToolApplication.RunAsync(["sync", "--template", _template, "--target", targetPath]);
 
         Assert.Equal(0, exit);
-        Assert.DoesNotContain("\r\n", await File.ReadAllTextAsync(targetPath), StringComparison.Ordinal);
+        Assert.Equal(mixed, await File.ReadAllTextAsync(targetPath));
+        Assert.Equal(_stamp, File.GetLastWriteTimeUtc(targetPath));
     }
 
     [Fact]
@@ -177,6 +179,42 @@ public sealed class ToolApplicationTests : IDisposable
 
         Assert.Equal(0, exit);
         Assert.Equal(_stamp, File.GetLastWriteTimeUtc(targetPath));
+    }
+
+    [Fact]
+    public async Task Add_NewCatalogInACrlfEditorConfigRepo_IsSeededWithCrlfAsync()
+    {
+        // A brand-new catalog has no on-disk convention to match, so the repo's declared end_of_line decides — a
+        // CRLF repo gets CRLF catalogs from the start rather than a file that is rewritten on the next run.
+        await WriteTemplateAsync();
+        var repo = Path.Combine(_directory, "crlf-repo");
+        Directory.CreateDirectory(repo);
+        await File.WriteAllTextAsync(Path.Combine(repo, ".editorconfig"), "root = true\n\n[*]\nend_of_line = crlf\n");
+        var template = Path.Combine(repo, "App.en.arb");
+        File.Copy(_template, template);
+
+        var exit = await ToolApplication.RunAsync(["add", "de", "--template", template, "--output", repo]);
+
+        Assert.Equal(0, exit);
+        var text = await File.ReadAllTextAsync(Path.Combine(repo, "App.de.arb"));
+        Assert.Contains("\r\n", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("\n\n", text.Replace("\r\n", "\n", StringComparison.Ordinal), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Add_NewCatalogWithNoEditorConfigDeclaration_UsesCanonicalLfAsync()
+    {
+        await WriteTemplateAsync();
+        var repo = Path.Combine(_directory, "plain-repo");
+        Directory.CreateDirectory(repo);
+        await File.WriteAllTextAsync(Path.Combine(repo, ".editorconfig"), "root = true\n\n[*]\nindent_size = 4\n");
+        var template = Path.Combine(repo, "App.en.arb");
+        File.Copy(_template, template);
+
+        var exit = await ToolApplication.RunAsync(["add", "de", "--template", template, "--output", repo]);
+
+        Assert.Equal(0, exit);
+        Assert.DoesNotContain("\r\n", await File.ReadAllTextAsync(Path.Combine(repo, "App.de.arb")), StringComparison.Ordinal);
     }
 
     [Fact]

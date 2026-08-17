@@ -37,7 +37,7 @@ internal sealed class SyncCommand : AsyncCommand<SyncCommand.Settings>
             var targetPath = ScopeInput.Require(settings.Target, "--target");
             Catalog template = CatalogIo.ReadFile(CatalogIo.ProviderFor(templatePath), templatePath);
             var targetName = CatalogNaming.Split(Path.GetFileNameWithoutExtension(targetPath)).Name;
-            var drifted = await SyncTargetAsync(template, targetPath, targetName.Length == 0 ? null : targetName, check);
+            var drifted = await SyncTargetAsync(template, targetPath, targetName.Length == 0 ? null : targetName, check, cancellationToken);
             if (check)
             {
                 return drifted ? ToolConsole.Drift($"'{targetPath}' is out of date; run sync to update it.") : 0;
@@ -56,7 +56,7 @@ internal sealed class SyncCommand : AsyncCommand<SyncCommand.Settings>
             any = true;
             foreach (var targetPath in CatalogNaming.TargetCatalogsFor(catalogDirectory, name, sourceLanguage))
             {
-                if (await SyncTargetAsync(template, targetPath, name, check))
+                if (await SyncTargetAsync(template, targetPath, name, check, cancellationToken))
                 {
                     driftedTargets.Add(targetPath);
                 }
@@ -87,19 +87,32 @@ internal sealed class SyncCommand : AsyncCommand<SyncCommand.Settings>
     // Reconciles one target catalog against the template, then writes it (returning false) or, with check, compares
     // the serialized bytes without writing (returning true when it is out of date). The single owner of a sync step,
     // shared by the single-target and scope-mode paths.
-    private static async Task<bool> SyncTargetAsync(Catalog template, string targetPath, string? sourceName, bool check)
+    private static async Task<bool> SyncTargetAsync(
+        Catalog template,
+        string targetPath,
+        string? sourceName,
+        bool check,
+        CancellationToken cancellationToken)
     {
         ITranslationFormat targetProvider = CatalogIo.ProviderFor(targetPath);
-        Catalog reconciled = Reconciler.Reconcile(template, CatalogIo.ReadFile(targetProvider, targetPath));
-        var serialized = await CatalogIo.SerializeAsync(targetProvider, reconciled, new CatalogWriteOptions { SourceName = sourceName });
-        if (check)
+        Catalog existing = CatalogIo.ReadFile(targetProvider, targetPath);
+        Catalog reconciled = Reconciler.Reconcile(template, existing);
+
+        // The reconcile itself decides whether there is anything to write; an up-to-date target is left untouched
+        // rather than rewritten, so its timestamp survives for incremental builds and file watchers.
+        var pending = await CatalogIo.PendingWriteAsync(
+            targetProvider, targetPath, reconciled, existing, new CatalogWriteOptions { SourceName = sourceName });
+        if (pending is null)
         {
-            return CatalogIo.DiffersFromDisk(targetPath, serialized);
+            return false;
         }
 
-        // An up-to-date target is left untouched rather than rewritten, so its timestamp survives for incremental
-        // builds and file watchers, and a CRLF checkout is not turned into a line-ending-only diff.
-        await CatalogIo.WriteIfChangedAsync(targetPath, serialized);
+        if (check)
+        {
+            return true;
+        }
+
+        await CatalogIo.WriteBytesAsync(targetPath, pending, cancellationToken);
         return false;
     }
 }

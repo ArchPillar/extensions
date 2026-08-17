@@ -91,7 +91,7 @@ internal sealed class ImportCommand : AsyncCommand<ImportCommand.Settings>
                 var directory = DirectoryFor(name);
                 Directory.CreateDirectory(directory);
                 ITranslationFormat target = CatalogIo.ImportTargetProvider(directory, name, culture);
-                await CatalogIo.WriteFileAsync(target, Path.Combine(directory, CatalogNaming.FileName(name, culture, target)), catalog);
+                await CatalogIo.WriteFileAsync(target, Path.Combine(directory, CatalogNaming.FileName(name, culture, target)), catalog, cancellationToken: cancellationToken);
                 imported++;
             }
         });

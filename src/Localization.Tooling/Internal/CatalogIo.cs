@@ -1,5 +1,4 @@
 using System.IO.Compression;
-using System.Text;
 using ArchPillar.Extensions.Localization.Formats;
 
 namespace ArchPillar.Extensions.Localization.Tooling.Internal;
@@ -10,8 +9,6 @@ namespace ArchPillar.Extensions.Localization.Tooling.Internal;
 /// </summary>
 internal static class CatalogIo
 {
-    private static readonly UTF8Encoding _utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
-
     /// <summary>The built-in formats (XLIFF, ARB, PO); shared, since a format holds no per-call state.</summary>
     public static TranslationFormatRegistry Registry { get; } = BuildRegistry();
 
@@ -87,10 +84,70 @@ internal static class CatalogIo
     }
 
     /// <summary>
-    /// Writes a catalog to a path, creating the directory and carrying the assembly name from the file name into the
-    /// catalog's source identity (the published bundle is named by culture alone, so it keeps the format default).
+    /// Writes a catalog to a path, skipping the write when the bytes would be identical. For the commands that build
+    /// their output from somewhere else (a different file, a zip, many catalogs merged): they never parsed a prior
+    /// version of this path, so the file itself is the only available baseline.
     /// </summary>
-    public static async Task WriteFileAsync(ITranslationFormat provider, string path, Catalog catalog, CatalogWriteOptions? options = null)
+    public static async Task WriteFileAsync(
+        ITranslationFormat provider,
+        string path,
+        Catalog catalog,
+        CatalogWriteOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        await WriteIfDifferentAsync(path, await SerializeAsync(provider, catalog, EffectiveOptions(path, options)), cancellationToken);
+    }
+
+    /// <summary>
+    /// Writes bytes only when they differ from what is on the path, comparing after the line-ending adaptation so a
+    /// checkout convention never reads as a change. Costs one read of the destination and no parse — the baseline for
+    /// generated output (the publish bundles, the catalog manifest), which is regenerated on every build and must not
+    /// have its timestamp moved when nothing changed.
+    /// </summary>
+    public static async Task WriteIfDifferentAsync(string path, byte[] serialized, CancellationToken cancellationToken = default)
+    {
+        var content = LineEndings.Apply(serialized, LineEndings.For(path));
+        if (File.Exists(path) && File.ReadAllBytes(path).AsSpan().SequenceEqual(content))
+        {
+            return;
+        }
+
+        await WriteRawAsync(path, content, cancellationToken);
+    }
+
+    /// <summary>
+    /// The bytes to write when reconciling <paramref name="existing"/> into <paramref name="updated"/> actually
+    /// changed something this format persists, or <see langword="null"/> when it did not.
+    /// <para>
+    /// Both catalogs are serialized with identical options and compared in memory, so the decision needs no read of
+    /// the file: the parse that produced <paramref name="existing"/> is the only time it is read. Comparing the
+    /// serialized forms rather than the models is what makes this safe across formats — PO and XLIFF do not persist
+    /// placeholders, so a model comparison would see a difference the file could never hold and rewrite the catalog
+    /// on every run (see <see cref="Reconciler"/>).
+    /// </para>
+    /// </summary>
+    public static async Task<byte[]?> PendingWriteAsync(
+        ITranslationFormat provider,
+        string path,
+        Catalog updated,
+        Catalog existing,
+        CatalogWriteOptions? options = null)
+    {
+        CatalogWriteOptions effective = EffectiveOptions(path, options);
+        var after = await SerializeAsync(provider, updated, effective);
+        var before = await SerializeAsync(provider, existing, effective);
+        return before.AsSpan().SequenceEqual(after) ? null : after;
+    }
+
+    /// <summary>
+    /// Writes bytes unconditionally, in the line ending the path should use, creating the directory. For callers that
+    /// have already established there is a change — <see cref="PendingWriteAsync"/> — so re-checking the file would
+    /// be the redundant read this design exists to avoid.
+    /// </summary>
+    public static async Task WriteBytesAsync(string path, byte[] serialized, CancellationToken cancellationToken = default) =>
+        await WriteRawAsync(path, LineEndings.Apply(serialized, LineEndings.For(path)), cancellationToken);
+
+    private static async Task WriteRawAsync(string path, byte[] content, CancellationToken cancellationToken)
     {
         var directory = Path.GetDirectoryName(path);
         if (!string.IsNullOrEmpty(directory))
@@ -98,78 +155,19 @@ internal static class CatalogIo
             Directory.CreateDirectory(directory);
         }
 
+        await File.WriteAllBytesAsync(path, content, cancellationToken);
+    }
+
+    // The assembly name from the file name becomes the catalog's source identity (the published bundle is named by
+    // culture alone, so it keeps the format default). Shared by the write and the comparison so both serialize
+    // identically — a differing SourceName would otherwise read as a content change.
+    private static CatalogWriteOptions EffectiveOptions(string path, CatalogWriteOptions? options)
+    {
         var sourceName = CatalogNaming.Split(Path.GetFileNameWithoutExtension(path)).Name;
-        CatalogWriteOptions effective = (options ?? CatalogWriteOptions.Default) with
+        return (options ?? CatalogWriteOptions.Default) with
         {
             SourceName = sourceName.Length == 0 ? null : sourceName
         };
-        await WriteIfChangedAsync(path, await SerializeAsync(provider, catalog, effective));
-    }
-
-    /// <summary>
-    /// Whether writing <paramref name="serialized"/> to <paramref name="path"/> would change the file, compared
-    /// after line-ending adaptation so a checkout convention is not mistaken for content drift. The gate behind
-    /// <c>sync --check</c>.
-    /// </summary>
-    public static bool DiffersFromDisk(string path, byte[] serialized) => PrepareWrite(path, serialized).Differs;
-
-    /// <summary>
-    /// Writes <paramref name="serialized"/> to <paramref name="path"/> only when it would change the file. An
-    /// unchanged catalog is left completely untouched: rewriting identical bytes still moves the file's timestamp,
-    /// and incremental builds, file watchers, and caches key off that.
-    /// </summary>
-    public static async Task WriteIfChangedAsync(string path, byte[] serialized, CancellationToken cancellationToken = default)
-    {
-        (var content, var differs) = PrepareWrite(path, serialized);
-        if (differs)
-        {
-            await File.WriteAllBytesAsync(path, content, cancellationToken);
-        }
-    }
-
-    // The bytes that should land on disk, and whether they differ from what is there now. The existing file is read
-    // once and answers both questions: it fixes the line-ending convention to match, and it is the comparison.
-    private static (byte[] Content, bool Differs) PrepareWrite(string path, byte[] serialized)
-    {
-        var normalized = _utf8NoBom.GetString(serialized).Replace("\r\n", "\n", StringComparison.Ordinal);
-        if (!File.Exists(path))
-        {
-            return (_utf8NoBom.GetBytes(normalized), true);
-        }
-
-        // The formats always emit LF. When a repository normalizes line endings (Git's autocrlf, or a text=auto
-        // attribute that checks the catalog out with CRLF), re-encode to the file's own convention so an unchanged
-        // catalog compares equal instead of being rewritten as a whole-file, line-ending-only diff every run.
-        var existing = File.ReadAllBytes(path);
-        var content = UsesCarriageReturns(existing)
-            ? _utf8NoBom.GetBytes(normalized.Replace("\n", "\r\n", StringComparison.Ordinal))
-            : _utf8NoBom.GetBytes(normalized);
-        return (content, !existing.AsSpan().SequenceEqual(content));
-    }
-
-    // Whether content is *uniformly* CRLF, which is what a normalizing checkout produces and the only case worth
-    // preserving. Judging by the first line break alone would let one stray CRLF convert a mostly-LF file wholesale
-    // — the whole-file rewrite this exists to prevent — and it would then stay that way, since the result is
-    // self-consistent. Mixed (or no) line breaks fall back to the canonical LF, as before.
-    private static bool UsesCarriageReturns(ReadOnlySpan<byte> content)
-    {
-        var lineFeeds = 0;
-        var afterCarriageReturn = 0;
-        for (var index = 0; index < content.Length; index++)
-        {
-            if (content[index] != (byte)'\n')
-            {
-                continue;
-            }
-
-            lineFeeds++;
-            if (index > 0 && content[index - 1] == (byte)'\r')
-            {
-                afterCarriageReturn++;
-            }
-        }
-
-        return lineFeeds > 0 && lineFeeds == afterCarriageReturn;
     }
 
     /// <summary>Serializes a catalog to bytes in the given format.</summary>

@@ -31,7 +31,17 @@ internal sealed class ExtractCommand : AsyncCommand<ExtractCommand.Settings>
             Catalog existing = File.Exists(sourcePath)
                 ? CatalogIo.ReadFile(provider, sourcePath)
                 : new Catalog { Culture = sourceLanguage, Entries = [] };
-            await CatalogIo.WriteFileAsync(provider, sourcePath, Reconciler.ReconcileSource(template, existing), new CatalogWriteOptions { AlwaysWriteSource = true });
+            var options = new CatalogWriteOptions { AlwaysWriteSource = true };
+
+            // A re-extract that changed nothing leaves the catalog untouched: this runs on every build, and
+            // rewriting identical content would move the timestamp incremental builds and watchers key off.
+            var pending = await CatalogIo.PendingWriteAsync(
+                provider, sourcePath, Reconciler.ReconcileSource(template, existing), existing, options);
+            if (pending is not null)
+            {
+                await CatalogIo.WriteBytesAsync(sourcePath, pending, cancellationToken);
+            }
+
             count++;
         });
 
