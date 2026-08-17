@@ -135,8 +135,12 @@ internal static class CatalogIo
     {
         CatalogWriteOptions effective = EffectiveOptions(path, options);
         var after = await SerializeAsync(provider, updated, effective);
-        var before = await SerializeAsync(provider, existing, effective);
-        return before.AsSpan().SequenceEqual(after) ? null : after;
+
+        // The existing catalog is serialized straight into the comparison, never into a buffer: only the verdict is
+        // wanted, so the second copy of the output that a serialize-then-compare would allocate is pure waste.
+        using var comparison = new ComparisonStream(after);
+        await provider.WriteAsync(comparison, existing, effective);
+        return comparison.Matched ? null : after;
     }
 
     /// <summary>
