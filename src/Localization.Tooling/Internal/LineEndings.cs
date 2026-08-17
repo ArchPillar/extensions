@@ -5,34 +5,24 @@ namespace ArchPillar.Extensions.Localization.Tooling.Internal;
 
 /// <summary>
 /// Resolves the line ending a catalog should be written with. The formats always serialize LF; a repository that
-/// keeps CRLF on disk (Git's <c>autocrlf</c>, a <c>text</c> attribute, or a declared <c>end_of_line</c>) would
-/// otherwise see every written line as changed instead of only the lines that actually changed.
+/// wants its catalogs in CRLF declares it the same way it does for every other file type, with an
+/// <c>end_of_line</c> in <c>.editorconfig</c>.
 /// </summary>
 internal static class LineEndings
 {
     public const string Lf = "\n";
     public const string Crlf = "\r\n";
 
-    // Enough of the file to reach its first line break; a catalog's first break is within the first line of markup.
-    private const int PeekBytes = 4096;
-
     private static readonly UTF8Encoding _utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
 
     /// <summary>
-    /// The line ending for <paramref name="path"/>. An existing file's own convention wins — matching what is
-    /// actually on disk is what keeps a diff limited to the lines that changed, and it is fact rather than
-    /// declaration. Otherwise a declared <c>end_of_line</c> from <c>.editorconfig</c> decides how a brand-new
-    /// catalog is seeded, and failing that the canonical LF.
+    /// The line ending for <paramref name="path"/>: the <c>end_of_line</c> declared for it in <c>.editorconfig</c>,
+    /// or the canonical LF. The declaration is the only authority — a catalog that is checked out with some other
+    /// convention is a repository configuration matter, and inferring from the file on disk would silently work
+    /// around it forever instead. A file is only ever written when its content changed, so normalizing its line
+    /// endings at that point rides along with a diff that was happening anyway.
     /// </summary>
-    public static string For(string path)
-    {
-        if (File.Exists(path))
-        {
-            return OnDisk(path);
-        }
-
-        return EditorConfig.EndOfLine(path) ?? Lf;
-    }
+    public static string For(string path) => EditorConfig.EndOfLine(path) ?? Lf;
 
     /// <summary>Re-encodes LF-serialized bytes to <paramref name="lineEnding"/>, leaving LF content untouched.</summary>
     public static byte[] Apply(byte[] serialized, string lineEnding)
@@ -42,17 +32,6 @@ internal static class LineEndings
             string.Equals(lineEnding, Crlf, StringComparison.Ordinal)
                 ? normalized.Replace(Lf, Crlf, StringComparison.Ordinal)
                 : normalized);
-    }
-
-    // A bounded peek rather than a full read: only the first line break is needed, and this runs on the write path
-    // only, never on a run that changes nothing.
-    private static string OnDisk(string path)
-    {
-        using FileStream stream = File.OpenRead(path);
-        var buffer = new byte[PeekBytes];
-        var read = stream.Read(buffer, 0, buffer.Length);
-        var lineFeed = buffer.AsSpan(0, read).IndexOf((byte)'\n');
-        return lineFeed > 0 && buffer[lineFeed - 1] == (byte)'\r' ? Crlf : Lf;
     }
 
     /// <summary>

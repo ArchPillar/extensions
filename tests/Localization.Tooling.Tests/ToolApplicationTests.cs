@@ -77,8 +77,8 @@ public sealed class ToolApplicationTests : IDisposable
     [Fact]
     public async Task Sync_TargetUsingCarriageReturns_KeepsThemInsteadOfRewritingToLfAsync()
     {
-        // Syncing an up-to-date CRLF catalog must leave the bytes untouched: forcing LF would surface a whole-file,
-        // line-ending-only diff on every run in a repo that checks the file out with CRLF.
+        // Syncing an up-to-date CRLF catalog must leave the bytes untouched. Nothing normalizes them, because
+        // nothing is written: the reconcile found no content change, so the tool never opens the file for writing.
         await WriteTemplateAsync();
         await ToolApplication.RunAsync(["add", "de", "--template", _template, "--output", _directory]);
         var targetPath = Path.Combine(_directory, "de.arb");
@@ -112,8 +112,8 @@ public sealed class ToolApplicationTests : IDisposable
     [Fact]
     public async Task Sync_UpToDateCarriageReturnTarget_LeavesFileTimestampUntouchedAsync()
     {
-        // The same guarantee for a CRLF checkout: matching the file's own convention is what makes the comparison
-        // equal, so a normalized repo also stops seeing its catalogs re-stamped on every run.
+        // The same guarantee for a CRLF checkout: the comparison is of content, so the checkout convention never
+        // reads as drift and the catalog is not re-stamped on every run.
         await WriteTemplateAsync();
         await ToolApplication.RunAsync(["add", "de", "--template", _template, "--output", _directory]);
         var targetPath = Path.Combine(_directory, "de.arb");
@@ -184,8 +184,7 @@ public sealed class ToolApplicationTests : IDisposable
     [Fact]
     public async Task Add_NewCatalogInACrlfEditorConfigRepo_IsSeededWithCrlfAsync()
     {
-        // A brand-new catalog has no on-disk convention to match, so the repo's declared end_of_line decides — a
-        // CRLF repo gets CRLF catalogs from the start rather than a file that is rewritten on the next run.
+        // The declared end_of_line is the only authority for how a catalog is written.
         await WriteTemplateAsync();
         var repo = Path.Combine(_directory, "crlf-repo");
         Directory.CreateDirectory(repo);
@@ -199,6 +198,25 @@ public sealed class ToolApplicationTests : IDisposable
         var text = await File.ReadAllTextAsync(Path.Combine(repo, "App.de.arb"));
         Assert.Contains("\r\n", text, StringComparison.Ordinal);
         Assert.DoesNotContain("\n\n", text.Replace("\r\n", "\n", StringComparison.Ordinal), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Sync_DriftedCarriageReturnTarget_IsRewrittenToTheDeclaredLineEndingAsync()
+    {
+        // Once there is a real content change to write, the declared convention decides the whole file. A catalog
+        // sitting in the wrong line ending is a repository configuration matter, not something to preserve forever.
+        await WriteTemplateAsync();
+        await ToolApplication.RunAsync(["add", "de", "--template", _template, "--output", _directory]);
+        var targetPath = Path.Combine(_directory, "de.arb");
+        Catalog target = Read(targetPath);
+        await WriteCatalogRawAsync(targetPath, target with { Entries = [target.Entries[0]] });
+        await RewriteWithCarriageReturnsAsync(targetPath);
+
+        var exit = await ToolApplication.RunAsync(["sync", "--template", _template, "--target", targetPath]);
+
+        Assert.Equal(0, exit);
+        Assert.Equal(2, Read(targetPath).Entries.Count);
+        Assert.DoesNotContain("\r\n", await File.ReadAllTextAsync(targetPath), StringComparison.Ordinal);
     }
 
     [Fact]
