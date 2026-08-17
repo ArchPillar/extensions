@@ -51,7 +51,7 @@ internal sealed class MergeCommand : AsyncCommand<MergeCommand.Settings>
             foreach (Catalog catalog in merged)
             {
                 ToolConsole.Status(ctx, $"Merging {catalog.Culture}…");
-                await CatalogIo.WriteFileAsync(outputProvider, Path.Combine(output, catalog.Culture + CatalogNaming.Extension(outputProvider)), catalog, new CatalogWriteOptions { Minify = true });
+                await CatalogIo.WriteFileAsync(outputProvider, Path.Combine(output, catalog.Culture + CatalogNaming.Extension(outputProvider)), catalog, new CatalogWriteOptions { Minify = true }, cancellationToken);
             }
         });
 

@@ -45,7 +45,7 @@ internal sealed class AddCommand : AsyncCommand<AddCommand.Settings>
                 return ToolConsole.Fail($"'{target}' already exists; pass --force to overwrite.");
             }
 
-            await CatalogIo.WriteFileAsync(provider, target, Reconciler.CreateLanguage(template, language));
+            await CatalogIo.WriteFileAsync(provider, target, Reconciler.CreateLanguage(template, language), cancellationToken: cancellationToken);
             ToolConsole.Success($"Added {language} at {target}");
             return 0;
         }
@@ -65,7 +65,7 @@ internal sealed class AddCommand : AsyncCommand<AddCommand.Settings>
                 return;
             }
 
-            await CatalogIo.WriteFileAsync(scopeProvider, target, Reconciler.CreateLanguage(template, language));
+            await CatalogIo.WriteFileAsync(scopeProvider, target, Reconciler.CreateLanguage(template, language), cancellationToken: cancellationToken);
             created++;
         });
 

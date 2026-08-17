@@ -10,6 +10,9 @@ public sealed class ToolApplicationTests : IDisposable
     private static readonly ArbTranslationFormat _arb = new();
     private static readonly XliffTranslationFormat _xliff = new();
 
+    // A fixed past timestamp, so a "was it rewritten?" assertion does not depend on filesystem clock granularity.
+    private static readonly DateTime _stamp = new(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
     private readonly string _directory;
     private readonly string _template;
 
@@ -54,6 +57,182 @@ public sealed class ToolApplicationTests : IDisposable
         var exit = await ToolApplication.RunAsync(["sync", "--template", _template, "--target", targetPath, "--check"]);
 
         Assert.Equal(0, exit);
+    }
+
+    [Fact]
+    public async Task Sync_Check_PassesWhenUpToDateTargetUsesCarriageReturnsAsync()
+    {
+        // A repo that normalizes line endings (Git autocrlf / text=auto) checks the catalog out with CRLF. The
+        // check gate must compare content, not line endings, so an otherwise up-to-date CRLF catalog is not drift.
+        await WriteTemplateAsync();
+        await ToolApplication.RunAsync(["add", "de", "--template", _template, "--output", _directory]);
+        var targetPath = Path.Combine(_directory, "de.arb");
+        await RewriteWithCarriageReturnsAsync(targetPath);
+
+        var exit = await ToolApplication.RunAsync(["sync", "--template", _template, "--target", targetPath, "--check"]);
+
+        Assert.Equal(0, exit);
+    }
+
+    [Fact]
+    public async Task Sync_TargetUsingCarriageReturns_KeepsThemInsteadOfRewritingToLfAsync()
+    {
+        // Syncing an up-to-date CRLF catalog must leave the bytes untouched. Nothing normalizes them, because
+        // nothing is written: the reconcile found no content change, so the tool never opens the file for writing.
+        await WriteTemplateAsync();
+        await ToolApplication.RunAsync(["add", "de", "--template", _template, "--output", _directory]);
+        var targetPath = Path.Combine(_directory, "de.arb");
+        await RewriteWithCarriageReturnsAsync(targetPath);
+        var before = await File.ReadAllBytesAsync(targetPath);
+
+        var exit = await ToolApplication.RunAsync(["sync", "--template", _template, "--target", targetPath]);
+
+        Assert.Equal(0, exit);
+        var after = await File.ReadAllBytesAsync(targetPath);
+        Assert.Equal(before, after);
+        Assert.Contains("\r\n", await File.ReadAllTextAsync(targetPath), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Sync_UpToDateTarget_LeavesFileTimestampUntouchedAsync()
+    {
+        // An identical rewrite still moves the file's timestamp, and incremental builds, file watchers and caches
+        // key off that — so an up-to-date catalog must not be written at all.
+        await WriteTemplateAsync();
+        await ToolApplication.RunAsync(["add", "de", "--template", _template, "--output", _directory]);
+        var targetPath = Path.Combine(_directory, "de.arb");
+        File.SetLastWriteTimeUtc(targetPath, _stamp);
+
+        var exit = await ToolApplication.RunAsync(["sync", "--template", _template, "--target", targetPath]);
+
+        Assert.Equal(0, exit);
+        Assert.Equal(_stamp, File.GetLastWriteTimeUtc(targetPath));
+    }
+
+    [Fact]
+    public async Task Sync_UpToDateCarriageReturnTarget_LeavesFileTimestampUntouchedAsync()
+    {
+        // The same guarantee for a CRLF checkout: the comparison is of content, so the checkout convention never
+        // reads as drift and the catalog is not re-stamped on every run.
+        await WriteTemplateAsync();
+        await ToolApplication.RunAsync(["add", "de", "--template", _template, "--output", _directory]);
+        var targetPath = Path.Combine(_directory, "de.arb");
+        await RewriteWithCarriageReturnsAsync(targetPath);
+        File.SetLastWriteTimeUtc(targetPath, _stamp);
+
+        var exit = await ToolApplication.RunAsync(["sync", "--template", _template, "--target", targetPath]);
+
+        Assert.Equal(0, exit);
+        Assert.Equal(_stamp, File.GetLastWriteTimeUtc(targetPath));
+    }
+
+    [Fact]
+    public async Task Sync_TargetWithOddLineEndings_IsLeftAloneWhileContentIsUpToDateAsync()
+    {
+        // Formatting the tool did not produce (here, one stray CRLF) is not drift. Since the reconcile decides
+        // whether to write, an up-to-date catalog is never reformatted — the tool has no reason to touch it at all.
+        await WriteTemplateAsync();
+        await ToolApplication.RunAsync(["add", "de", "--template", _template, "--output", _directory]);
+        var targetPath = Path.Combine(_directory, "de.arb");
+        var text = await File.ReadAllTextAsync(targetPath);
+        var firstBreak = text.IndexOf('\n', StringComparison.Ordinal);
+        var mixed = string.Concat(text[..firstBreak], "\r\n", text[(firstBreak + 1)..]);
+        await File.WriteAllTextAsync(targetPath, mixed);
+        File.SetLastWriteTimeUtc(targetPath, _stamp);
+
+        var exit = await ToolApplication.RunAsync(["sync", "--template", _template, "--target", targetPath]);
+
+        Assert.Equal(0, exit);
+        Assert.Equal(mixed, await File.ReadAllTextAsync(targetPath));
+        Assert.Equal(_stamp, File.GetLastWriteTimeUtc(targetPath));
+    }
+
+    [Fact]
+    public async Task Sync_DriftedTarget_StillWritesTheReconciledCatalogAsync()
+    {
+        // The skip must be driven by content equality, not by suppressing writes: a drifted target is still fixed.
+        await WriteTemplateAsync();
+        await ToolApplication.RunAsync(["add", "de", "--template", _template, "--output", _directory]);
+        var targetPath = Path.Combine(_directory, "de.arb");
+        Catalog target = Read(targetPath);
+        await WriteCatalogRawAsync(targetPath, target with { Entries = [target.Entries[0]] });
+        File.SetLastWriteTimeUtc(targetPath, _stamp);
+
+        var exit = await ToolApplication.RunAsync(["sync", "--template", _template, "--target", targetPath]);
+
+        Assert.Equal(0, exit);
+        Assert.Equal(2, Read(targetPath).Entries.Count); // the dropped entry is restored
+        Assert.NotEqual(_stamp, File.GetLastWriteTimeUtc(targetPath));
+    }
+
+    [Fact]
+    public async Task Add_ForcedOverIdenticalCatalog_LeavesFileTimestampUntouchedAsync()
+    {
+        // Covers the shared WriteFileAsync path (add/import/convert/extract), not just sync's own write: even an
+        // explicit overwrite writes nothing when the bytes would be identical.
+        await WriteTemplateAsync();
+        await ToolApplication.RunAsync(["add", "de", "--template", _template, "--output", _directory]);
+        var targetPath = Path.Combine(_directory, "de.arb");
+        File.SetLastWriteTimeUtc(targetPath, _stamp);
+
+        var exit = await ToolApplication.RunAsync(["add", "de", "--template", _template, "--output", _directory, "--force"]);
+
+        Assert.Equal(0, exit);
+        Assert.Equal(_stamp, File.GetLastWriteTimeUtc(targetPath));
+    }
+
+    [Fact]
+    public async Task Add_NewCatalogInACrlfEditorConfigRepo_IsSeededWithCrlfAsync()
+    {
+        // The declared end_of_line is the only authority for how a catalog is written.
+        await WriteTemplateAsync();
+        var repo = Path.Combine(_directory, "crlf-repo");
+        Directory.CreateDirectory(repo);
+        await File.WriteAllTextAsync(Path.Combine(repo, ".editorconfig"), "root = true\n\n[*]\nend_of_line = crlf\n");
+        var template = Path.Combine(repo, "App.en.arb");
+        File.Copy(_template, template);
+
+        var exit = await ToolApplication.RunAsync(["add", "de", "--template", template, "--output", repo]);
+
+        Assert.Equal(0, exit);
+        var text = await File.ReadAllTextAsync(Path.Combine(repo, "App.de.arb"));
+        Assert.Contains("\r\n", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("\n\n", text.Replace("\r\n", "\n", StringComparison.Ordinal), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Sync_DriftedCarriageReturnTarget_IsRewrittenToTheDeclaredLineEndingAsync()
+    {
+        // Once there is a real content change to write, the declared convention decides the whole file. A catalog
+        // sitting in the wrong line ending is a repository configuration matter, not something to preserve forever.
+        await WriteTemplateAsync();
+        await ToolApplication.RunAsync(["add", "de", "--template", _template, "--output", _directory]);
+        var targetPath = Path.Combine(_directory, "de.arb");
+        Catalog target = Read(targetPath);
+        await WriteCatalogRawAsync(targetPath, target with { Entries = [target.Entries[0]] });
+        await RewriteWithCarriageReturnsAsync(targetPath);
+
+        var exit = await ToolApplication.RunAsync(["sync", "--template", _template, "--target", targetPath]);
+
+        Assert.Equal(0, exit);
+        Assert.Equal(2, Read(targetPath).Entries.Count);
+        Assert.DoesNotContain("\r\n", await File.ReadAllTextAsync(targetPath), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Add_NewCatalogWithNoEditorConfigDeclaration_UsesCanonicalLfAsync()
+    {
+        await WriteTemplateAsync();
+        var repo = Path.Combine(_directory, "plain-repo");
+        Directory.CreateDirectory(repo);
+        await File.WriteAllTextAsync(Path.Combine(repo, ".editorconfig"), "root = true\n\n[*]\nindent_size = 4\n");
+        var template = Path.Combine(repo, "App.en.arb");
+        File.Copy(_template, template);
+
+        var exit = await ToolApplication.RunAsync(["add", "de", "--template", template, "--output", repo]);
+
+        Assert.Equal(0, exit);
+        Assert.DoesNotContain("\r\n", await File.ReadAllTextAsync(Path.Combine(repo, "App.de.arb")), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -387,6 +566,14 @@ public sealed class ToolApplicationTests : IDisposable
 
         using FileStream stream = File.Create(path);
         await _arb.WriteAsync(stream, catalog);
+    }
+
+    // Rewrites a catalog on disk with CRLF line endings, mimicking a checkout under Git autocrlf / text=auto.
+    private static async Task RewriteWithCarriageReturnsAsync(string path)
+    {
+        var text = await File.ReadAllTextAsync(path);
+        var crlf = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace("\n", "\r\n", StringComparison.Ordinal);
+        await File.WriteAllTextAsync(path, crlf);
     }
 
     private static async Task WriteCatalogRawAsync(string path, Catalog catalog)

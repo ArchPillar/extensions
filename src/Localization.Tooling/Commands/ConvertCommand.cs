@@ -37,7 +37,7 @@ internal sealed class ConvertCommand : AsyncCommand<ConvertCommand.Settings>
         ITranslationFormat target = CatalogIo.FormatOrDefault(toFormat);
         Catalog catalog = CatalogIo.ReadFile(source, from);
         CatalogIo.WarnOnLostCapabilities(source, target, catalog);
-        await CatalogIo.WriteFileAsync(target, output, catalog);
+        await CatalogIo.WriteFileAsync(target, output, catalog, cancellationToken: cancellationToken);
         ToolConsole.Success($"Converted {from} → {output}");
         return 0;
     }
