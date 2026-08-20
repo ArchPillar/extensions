@@ -16,9 +16,16 @@ internal sealed record ProjectOutputs(string AssemblyFileName, string OutputRoot
 /// only thing that says <em>which</em> project, and why.</summary>
 /// <param name="Outputs">The projects that evaluated, keyed by full path.</param>
 /// <param name="Diagnostics">MSBuild's error output, empty when it had none.</param>
-internal sealed record ProjectEvaluation(IReadOnlyDictionary<string, ProjectOutputs> Outputs, string Diagnostics);
+/// <param name="Fault">Set when the <em>evaluation itself</em> failed — MSBuild could not be started, or its
+/// result could not be read — as opposed to a project failing to evaluate. The two are different faults and
+/// read as opposite things: the first says nothing about the projects in scope, so blaming them for it sends
+/// the reader to look for a broken project that does not exist.</param>
+internal sealed record ProjectEvaluation(IReadOnlyDictionary<string, ProjectOutputs> Outputs, string Diagnostics, string? Fault = null);
 
 /// <summary>One MSBuild invocation's captured output.</summary>
+/// <param name="Output">Standard output, held whole: with <c>-getTargetResult</c> this is the result payload,
+/// parsed as a single JSON document, so a truncated one is no document at all.</param>
+/// <param name="Errors">Standard error, bounded: this one is a log, written for a human to read.</param>
 internal sealed record MsBuildRun(string Output, string Errors);
 
 /// <summary>
@@ -42,6 +49,12 @@ internal sealed record MsBuildRun(string Output, string Errors);
 internal static class ProjectEvaluator
 {
     private const int TimeoutMilliseconds = 120_000;
+    private const int DiagnosticsLimit = 8000;
+
+    private const string UnreadableOutput =
+        "MSBuild ran, but its evaluation output could not be read, so no project's assembly name could be "
+        + "determined. This says nothing about the projects in scope — it is a fault in the tool, or an MSBuild "
+        + "that does not support -getTargetResult. Please report it.";
 
     // Imported into every evaluated project, so the traversal below has a target to call that exists everywhere.
     // Both hooks are needed: a multi-targeting project's outer build imports the cross-targeting targets, not the
@@ -73,16 +86,16 @@ internal static class ProjectEvaluator
             return new ProjectEvaluation(results, string.Empty);
         }
 
-        (IEnumerable<KeyValuePair<string, ProjectOutputs>> evaluated, var diagnostics) = EvaluateBatch(projectPaths);
+        (IEnumerable<KeyValuePair<string, ProjectOutputs>> evaluated, var diagnostics, var fault) = EvaluateBatch(projectPaths);
         foreach ((var path, ProjectOutputs outputs) in evaluated)
         {
             results[path] = outputs;
         }
 
-        return new ProjectEvaluation(results, diagnostics);
+        return new ProjectEvaluation(results, diagnostics, fault);
     }
 
-    private static (IEnumerable<KeyValuePair<string, ProjectOutputs>> Evaluated, string Diagnostics) EvaluateBatch(IReadOnlyList<string> projectPaths)
+    private static (IEnumerable<KeyValuePair<string, ProjectOutputs>> Evaluated, string Diagnostics, string? Fault) EvaluateBatch(IReadOnlyList<string> projectPaths)
     {
         var workspace = Path.Combine(Path.GetTempPath(), "apl-eval-" + Guid.NewGuid().ToString("N"));
         try
@@ -94,20 +107,20 @@ internal static class ProjectEvaluator
             File.WriteAllText(traversal, Traversal(projectPaths, targets));
 
             MsBuildRun? run = RunMsBuild(workspace, [traversal, "-t:ArchPillarAplGetOutputs", "-getTargetResult:ArchPillarAplGetOutputs"]);
+            if (run is null)
+            {
+                return ([], string.Empty, "MSBuild could not be run. Is the .NET SDK installed and on the path?");
+            }
+
             // Parsed whatever the exit code: one project that cannot be evaluated fails the whole task, but the
             // projects that DID evaluate still come back on stdout. Discarding them because the run exited
             // non-zero would report every project in the scope as broken because one of them is.
-            return run is null
-                ? ([], "MSBuild could not be run. Is the .NET SDK installed and on the path?")
-                : (ParseItems(run.Output), run.Errors);
+            (IEnumerable<KeyValuePair<string, ProjectOutputs>> evaluated, var fault) = ParseItems(run.Output);
+            return (evaluated, run.Errors, fault);
         }
-        catch (IOException error)
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
         {
-            return ([], error.Message);
-        }
-        catch (UnauthorizedAccessException error)
-        {
-            return ([], error.Message);
+            return ([], string.Empty, "The temporary workspace this evaluation runs in could not be created: " + error.Message);
         }
         finally
         {
@@ -141,18 +154,20 @@ internal static class ProjectEvaluator
         return builder.ToString();
     }
 
-    private static IEnumerable<KeyValuePair<string, ProjectOutputs>> ParseItems(string output)
+    // An output that will not parse is a fault of its own, and never "the projects are broken": no project's
+    // outputs come back either way, so the two are indistinguishable from the result alone — which is exactly why
+    // they must be told apart here, where the difference is still known.
+    private static (IEnumerable<KeyValuePair<string, ProjectOutputs>> Evaluated, string? Fault) ParseItems(string output)
     {
         var results = new List<KeyValuePair<string, ProjectOutputs>>();
-        JsonElement items;
         try
         {
             using JsonDocument document = JsonDocument.Parse(output);
             if (!document.RootElement.TryGetProperty("TargetResults", out JsonElement targetResults)
                 || !targetResults.TryGetProperty("ArchPillarAplGetOutputs", out JsonElement result)
-                || !result.TryGetProperty("Items", out items))
+                || !result.TryGetProperty("Items", out JsonElement items))
             {
-                return results;
+                return ([], UnreadableOutput);
             }
 
             foreach (JsonElement item in items.EnumerateArray())
@@ -167,10 +182,10 @@ internal static class ProjectEvaluator
         }
         catch (JsonException)
         {
-            return [];
+            return ([], UnreadableOutput);
         }
 
-        return results;
+        return (results, null);
     }
 
     // TargetFileName is the exact answer, but a multi-targeting project's OUTER build does not define it — the
@@ -230,8 +245,8 @@ internal static class ProjectEvaluator
 
             var output = new StringBuilder();
             var errors = new StringBuilder();
-            process.OutputDataReceived += (_, args) => Append(output, args.Data);
-            process.ErrorDataReceived += (_, args) => Append(errors, args.Data);
+            process.OutputDataReceived += (_, args) => AppendPayload(output, args.Data);
+            process.ErrorDataReceived += (_, args) => AppendDiagnostic(errors, args.Data);
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
             if (!process.WaitForExit(TimeoutMilliseconds))
@@ -254,15 +269,23 @@ internal static class ProjectEvaluator
         }
     }
 
-    private static void Append(StringBuilder builder, string? line)
+    // Unbounded, because stdout here is not a log: it is one JSON document, and every project's outputs are in
+    // it. Cut it at any length and it stops being a document — which reads as "no project evaluated", so the
+    // scope reports every project in it as unevaluable, with no diagnostic to say why. Its size is the scope's
+    // size (roughly 1.7 KB a project), so it is the caller's own solution that bounds it.
+    private static void AppendPayload(StringBuilder builder, string? line)
     {
-        if (line is null)
+        if (line is not null)
         {
-            return;
+            builder.AppendLine(line);
         }
+    }
 
-        // Bounded: a diagnostic is for a human to read, and a pathological build log must not be held whole.
-        if (builder.Length < 8000)
+    // Bounded, because stderr is a log: it is for a human to read, and a pathological build's must not be held
+    // whole. Truncating it costs nothing — what went wrong is at the top.
+    private static void AppendDiagnostic(StringBuilder builder, string? line)
+    {
+        if (line is not null && builder.Length < DiagnosticsLimit)
         {
             builder.AppendLine(line);
         }

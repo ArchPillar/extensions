@@ -33,7 +33,7 @@ internal abstract class ScopeSettings : CommandSettings
     public FlagValue<string> Project { get; init; } = new();
 
     [CommandOption("--solution [PATH]")]
-    [Description("A solution (.sln/.slnx or its directory); defaults to the current directory.")]
+    [Description("A solution (.sln/.slnx), a solution filter (.slnf), or a directory; defaults to the current directory.")]
     public FlagValue<string> Solution { get; init; } = new();
 
     [CommandOption("--recurse")]

@@ -72,7 +72,7 @@ internal static class CatalogDirectoryResolver
 
         if (scope.Solution is { } solution)
         {
-            return Path.GetDirectoryName(ScopeDiscovery.ResolveSingleFile(solution, "solution", "*.sln", "*.slnx"))!;
+            return ScopeDiscovery.SolutionDirectory(ScopeDiscovery.ResolveSolutionFile(solution));
         }
 
         CurrentDirectoryScope current = ScopeDiscovery.DiscoverCurrentDirectory();
@@ -93,7 +93,7 @@ internal static class CatalogDirectoryResolver
 
         if (scope.Solution is { } solution)
         {
-            return ScopeDiscovery.SolutionProjects(ScopeDiscovery.ResolveSingleFile(solution, "solution", "*.sln", "*.slnx"));
+            return ScopeDiscovery.SolutionProjects(ScopeDiscovery.ResolveSolutionFile(solution));
         }
 
         CurrentDirectoryScope current = ScopeDiscovery.DiscoverCurrentDirectory();
@@ -118,7 +118,7 @@ internal static class CatalogDirectoryResolver
                 .ProjectClosure(ScopeDiscovery.ResolveSingleFile(project, "project", "*.csproj"), scope.Recurse)
                 .Select(ProjectCatalogDirectory),
             { Solution: { } solution } => ScopeDiscovery
-                .SolutionProjects(ScopeDiscovery.ResolveSingleFile(solution, "solution", "*.sln", "*.slnx"))
+                .SolutionProjects(ScopeDiscovery.ResolveSolutionFile(solution))
                 .Select(ProjectCatalogDirectory),
             _ => DiscoverInCurrentDirectory()
         };
