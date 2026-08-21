@@ -647,20 +647,26 @@ looks for `DisplayAttribute` specifically.
 
 ### Reading an annotation at runtime
 
-**Enums** read their own annotation at runtime: `value.GetLocalizedDisplayName()` reads the member's
-`[Display(Name)]` value as the key (and a `[LocalizedDisplayName]` twin as the source default) and resolves
-it through the localizer under the enum's category — the localized replacement for the usual hand-rolled
-`GetDisplayName()`.
+**Enums** read their own annotation at runtime: `value.GetLocalizedDisplayName()` resolves the member's
+display annotation through the localizer under the enum's category — the localized replacement for the usual
+hand-rolled `GetDisplayName()`. An enum member is a field, so it reads by exactly the same precedence as any
+other member: `[Localized]` wins; failing that the `[Display(Name)]` value is the key and a
+`[LocalizedDisplayName]` twin supplies its source default. A member with no display annotation — or a
+composite/undefined value, which has no single member — renders as its name, matching `Enum.ToString()`.
 
 ```csharp
 public enum AccountStatus
 {
     [Display(Name = "Active")] Active,                                  // text-as-key
     [Display(Name = "account.suspended")] [LocalizedDisplayName("Suspended")] Suspended,   // string id + default
+    [Localized("account.closed", "Closed")] Closed,                     // key and default in one
 }
 
 string label = AccountStatus.Suspended.GetLocalizedDisplayName();   // resolves account.suspended
 ```
+
+> One precedence, one owner: extraction lifts `[Localized]` off an enum member just as it does off a
+> property, so anything narrower here would ship a translation the runtime never asks for.
 
 **Types and members** do the same through `MemberInfo`, for the consumers ASP.NET's DataAnnotations pipeline
 does not reach (Blazor, a console renderer, your own UI). `[Localized]` wins; failing that the system
@@ -774,11 +780,18 @@ interop package is meant to be dropped once you no longer depend on `IStringLoca
 For a clean deployment, merge the per-library files into one bundle per culture at publish time:
 
 ```bash
-dotnet apl merge --input <dir> --output <dir> --format arb
+dotnet apl merge --input <dir> --output <dir>
+#   -> de.aploc, fr.aploc, …
 ```
 
 This runs automatically on `dotnet publish` (`ArchPillarLocalizationMergeOnPublish`, default on). The
 merge reuses the runtime's own load, so a merged bundle resolves identically to the many-files path.
+
+The bundle is **APLOC** (`ArchPillarLocalizationBundleFormat`, default `aploc`; `--format` on the command),
+a deploy-only container rather than an authoring one: the runtime resolves only the translation, so it drops
+the source, state, comments and references, and folds each entry's category into a nested object tree instead
+of repeating the namespace in every flat `Category::Key` member. Pass `--format arb`, `xliff`, or `po` to
+publish an authoring format instead — the runtime reads all four the same way.
 
 ## Pseudo-localization
 
