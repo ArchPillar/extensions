@@ -81,7 +81,7 @@ lifecycle and commands are in [translation-workflow.md](translation-workflow.md)
 | `IStringLocalizer` interop + migration | A separate `…StringLocalizer` package (`AddArchPillarStringLocalizer`): a composing adapter, on-by-default extraction of indexer literals, and a no-op `L(...)` marker — droppable once migration is done. |
 | Display annotations | `[DisplayName]` / `[Display]` / `[Description]` extracted by default (opt-out, text-as-key); optional `[Localized…]` twins supply the source default when you key by a string id; `GetLocalizedDisplayName()` localizes enums; the `…AspNetCore` package routes MVC DataAnnotations through the localizer. |
 | Blazor WebAssembly / HTTP loading | Where there is no file system, the separate `…WebAssembly` package's `host.UseArchPillarLocalizationAsync(options)` registers a build-emitted manifest as a catalog provider and loads the active language up front; the app loads any other language at runtime with `Localizer.LoadCultureAsync(culture)` inside the switch handler (which re-renders normally); `Localizer.CatalogsChanged` is exposed for the rarer background-fill refresh. The `…AspNetCore` package serves the catalog formats as static files (`UseArchPillarTranslationFiles`). |
-| Publishing | A publish-time merge to one bundle per culture; a documented trim / single-file / AOT matrix. |
+| Publishing | A publish-time merge to one compact APLOC bundle per culture (`arb` / `xliff` / `po` on request); a documented trim / single-file / AOT matrix. |
 | Zero external dependencies | The runtime, formats, and ICU parser use only the BCL — no third-party packages. |
 
 > **No external dependencies.** The parsers and format providers are hand-rolled on the BCL rather than

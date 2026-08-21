@@ -187,15 +187,16 @@ Migrating existing `IStringLocalizer` code? Add the `…Localization.StringLocal
 ## 8. Ship it
 
 In development each library keeps its own `{AssemblyName}.{culture}.xliff` files, which the build copies
-beside the binary. On **publish**, the build flattens them into one compact bundle per culture (`de.arb`,
-`fr.arb`, …) so production ships a handful of files instead of one per library — automatically, no
-configuration. The bundle is ARB by default even when you author in XLIFF: a runtime bundle needs only the
-translation, so the most compressible container wins (override with `ArchPillarLocalizationBundleFormat`). The
-files bundle works under **every** publish mode, including trimming and NativeAOT, so it is the default
-everywhere. To embed catalogs in the assemblies instead — for a single-file or self-contained build — opt into
-`ArchPillarLocalizationEmbedTargets=true`; note NativeAOT cannot load culture satellites, so there it is files
-or a main-assembly embed. See [translation-workflow.md](translation-workflow.md#deployment) for the details and
-the trim/AOT matrix in [recommendations.md](recommendations.md).
+beside the binary. On **publish**, the build flattens them into one compact bundle per culture (`de.aploc`,
+`fr.aploc`, …) so production ships a handful of files instead of one per library — automatically, no
+configuration. The bundle is APLOC by default even when you author in XLIFF: a runtime bundle needs only the
+translation, so the most compact container wins (override with `ArchPillarLocalizationBundleFormat` to publish
+`arb`, `xliff`, or `po` instead). The files bundle works under **every** publish mode, including trimming and
+NativeAOT, so it is the default everywhere. To embed catalogs in the assemblies instead — for a single-file
+or self-contained build — opt into `ArchPillarLocalizationEmbedTargets=true`; note NativeAOT cannot load
+culture satellites, so there it is files or a main-assembly embed. See
+[translation-workflow.md](translation-workflow.md#deployment) for the details and the trim/AOT matrix in
+[recommendations.md](recommendations.md).
 
 ## Next
 

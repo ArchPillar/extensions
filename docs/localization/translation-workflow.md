@@ -254,23 +254,63 @@ In development each library owns its `{AssemblyName}.{culture}.xliff` files. For
 paths; the build wires the first two automatically.
 
 - **Files (default).** The build copies each library's catalogs beside the binary, then on **publish**
-  flattens them into **one bundle per culture** (`de.arb`, `fr.arb`, …) via `dotnet apl merge`, so a 300-
-  library app ships a few files, not hundreds. The bundle is ARB regardless of the authoring format
-  (`ArchPillarLocalizationBundleFormat`, default `arb`): a runtime bundle reads only the translation, so the
-  most compressible container wins — a minified ARB bundle gzips to roughly 60% of the XLIFF equivalent, which
-  still carries the now-redundant source. The runtime loads them identically. Works under every publish mode,
-  including trimming and NativeAOT — this is the recommended path.
+  flattens them into **one bundle per culture** (`de.aploc`, `fr.aploc`, …) via `dotnet apl merge`, so a 300-
+  library app ships a few files, not hundreds. The bundle is APLOC regardless of the authoring format
+  (`ArchPillarLocalizationBundleFormat`, default `aploc`): a runtime bundle reads only the translation, so the
+  most compact container wins. APLOC is deploy-only — it stays JSON, but drops the source, state, comments and
+  references an authoring format carries, and folds each entry's category into a nested object tree so a
+  namespace segment is written once instead of repeated in every flat `Category::Key` member. Set the property
+  to `arb`, `xliff`, or `po` to publish one of those instead; the runtime loads them all identically. Works
+  under every publish mode, including trimming and NativeAOT — this is the recommended path.
 - **Embedded / satellites (opt-in, `ArchPillarLocalizationEmbedTargets=true`).** Catalogs become per-culture
   satellite assemblies (or ride in the main assembly), for single-file / self-contained publish.
 - **Manual merge.** Run it yourself for a custom pipeline:
 
   ```bash
   dotnet apl merge --input <published Translations> --output <bundle dir> --source en
+  #   -> <bundle dir>/de.aploc, <bundle dir>/fr.aploc, …   (--format arb|xliff|po for another container)
   ```
 
 The merge skips untranslated entries and includes any genuine source-language overrides (a source language with
 no edits contributes no bundle) — it produces the **runtime** bundle, not a translator file. For the trim /
 single-file / NativeAOT support matrix, see [recommendations.md](recommendations.md).
+
+## Two more commands
+
+Neither belongs to the numbered flow above — one is a step a custom deployment pipeline needs, the other a
+one-off conversion. `manifest` takes the same scope as the other catalog commands; `convert` takes no scope
+at all, naming the single file it reads.
+
+### `manifest` — the index an HTTP client reads
+
+Over HTTP there is no directory to enumerate, so a Blazor WebAssembly client cannot discover which catalogs
+exist. `manifest` writes the index it reads (`apl-catalogs.json`), listing every catalog in scope by culture
+and file name:
+
+```bash
+dotnet apl manifest --solution App.sln
+#   -> Translations/apl-catalogs.json   (or --output <FILE> to place it yourself)
+```
+
+The WebAssembly build runs this for you, so an app using the `…Localization.WebAssembly` package never calls
+it by hand. Reach for it in a **custom pipeline** — the same place you would run `merge` yourself — and run
+it **after** whichever layout you are indexing: once over the dev catalogs, and again over the merged bundle,
+since the two have different file names. A catalog whose name carries no culture segment is skipped rather
+than guessed at.
+
+### `convert` — change one catalog's format
+
+A one-file, one-shot format change, for when a translator returns Portable Object into an XLIFF repo or you
+want to inspect a bundle as ARB:
+
+```bash
+dotnet apl convert --from Translations/App.Web.de.po --to xliff --output Translations/App.Web.de.xliff
+```
+
+It converts a **single file** and refuses to write over its own input. Where the target format cannot carry
+something the source does, it says so rather than dropping it silently — comments, source references, and the
+previous-source drift history each warn if the catalog actually holds any. For the routine handoff, prefer
+`export --format` and `import`, which convert a whole scope and route the results back automatically.
 
 ## Naming convention
 
