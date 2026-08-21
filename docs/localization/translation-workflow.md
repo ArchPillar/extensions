@@ -46,6 +46,10 @@ assembly, and fans out over every in-scope assembly that actually has strings:
 | `--input <dir>` | scan a build-output folder (e.g. `bin/Debug/net10.0` or a publish dir) for assemblies |
 | `--assembly <dll>` | a single assembly (the low-level form) |
 
+Every command also takes **`--verbose`**, which turns on a log on stderr: what the tool is doing, and the output
+of anything it shells out to — notably the MSBuild evaluation below. It is off by default, so a failure that
+depends on what MSBuild said points you at the flag rather than pasting a build log into the error.
+
 A project or solution scope reads **only the assemblies those projects build** — never the packages copied
 beside them. A `bin` folder is mostly other people's code (every NuGet dependency and native interop library
 lands there), and none of it is yours to translate. To cover the libraries an app pulls in, add `--recurse`,

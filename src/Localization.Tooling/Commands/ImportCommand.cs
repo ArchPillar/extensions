@@ -12,7 +12,7 @@ namespace ArchPillar.Extensions.Localization.Tooling.Commands;
 internal sealed class ImportCommand : AsyncCommand<ImportCommand.Settings>
 {
     /// <summary>Options for <c>import</c>.</summary>
-    internal sealed class Settings : CommandSettings
+    internal sealed class Settings : ToolSettings
     {
         [CommandOption("--input <FILE>")]
         [Description("The zip file returned by the translator.")]

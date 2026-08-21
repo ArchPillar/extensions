@@ -154,8 +154,9 @@ public sealed class ScopeResolverTests : IDisposable
 
         Assert.Contains("Broken.csproj", error.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("App.Web.csproj", error.Message, StringComparison.Ordinal);
-        // MSBuild's own diagnostic is what says why, so it must survive to the user.
-        Assert.Contains("MSBuild reported:", error.Message, StringComparison.Ordinal);
+        // Why the project will not evaluate is MSBuild's own output, which is log material rather than part of a
+        // failure message — so the message has to say where to find it.
+        Assert.Contains("--verbose", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -34,6 +34,11 @@ internal static class ToolApplication
             // "--chek" for "--check") cannot silently turn a read-only check into a write.
             config.UseStrictParsing();
 
+            // One place applies --verbose, before whichever command runs: the flag is on all of them, and the
+            // console it switches is shared, so a command that had to turn the log on itself would be adding a
+            // line that says nothing about what that command does.
+            config.SetInterceptor(new VerbosityInterceptor());
+
             config.AddCommand<StatusCommand>("status")
                 .WithDescription("Report the extractable strings per assembly, and translation coverage.");
             config.AddCommand<ExtractCommand>("extract")
@@ -69,6 +74,19 @@ internal static class ToolApplication
         catch (Exception exception)
         {
             return ToolConsole.Fail(exception.Message);
+        }
+    }
+
+    // Applies the parsed --verbose to the console the whole tool logs through, once per invocation and before the
+    // command starts, so everything a command does is inside the log it asked for.
+    private sealed class VerbosityInterceptor : ICommandInterceptor
+    {
+        public void Intercept(CommandContext context, CommandSettings settings)
+        {
+            if (settings is ToolSettings { Verbose: true })
+            {
+                ToolConsole.EnableVerbose();
+            }
         }
     }
 }

@@ -11,22 +11,14 @@ namespace ArchPillar.Extensions.Localization.Tooling.Internal;
 /// project may relocate.</param>
 internal sealed record ProjectOutputs(string AssemblyFileName, string OutputRoot);
 
-/// <summary>The evaluation's result: what each project builds, plus whatever MSBuild reported while working it
-/// out. The diagnostics matter because a project that fails to evaluate fails the whole task — so they are the
-/// only thing that says <em>which</em> project, and why.</summary>
+/// <summary>The evaluation's result: what each project builds. What MSBuild had to say while working it out is
+/// not here — that is log output, and it went to the log as it arrived (see <c>--verbose</c>).</summary>
 /// <param name="Outputs">The projects that evaluated, keyed by full path.</param>
-/// <param name="Diagnostics">MSBuild's error output, empty when it had none.</param>
 /// <param name="Fault">Set when the <em>evaluation itself</em> failed — MSBuild could not be started, or its
 /// result could not be read — as opposed to a project failing to evaluate. The two are different faults and
 /// read as opposite things: the first says nothing about the projects in scope, so blaming them for it sends
 /// the reader to look for a broken project that does not exist.</param>
-internal sealed record ProjectEvaluation(IReadOnlyDictionary<string, ProjectOutputs> Outputs, string Diagnostics, string? Fault = null);
-
-/// <summary>One MSBuild invocation's captured output.</summary>
-/// <param name="Output">Standard output, held whole: with <c>-getTargetResult</c> this is the result payload,
-/// parsed as a single JSON document, so a truncated one is no document at all.</param>
-/// <param name="Errors">Standard error, bounded: this one is a log, written for a human to read.</param>
-internal sealed record MsBuildRun(string Output, string Errors);
+internal sealed record ProjectEvaluation(IReadOnlyDictionary<string, ProjectOutputs> Outputs, string? Fault = null);
 
 /// <summary>
 /// Asks MSBuild what a project builds, rather than inferring it from the project file. The assembly name is not
@@ -49,7 +41,6 @@ internal sealed record MsBuildRun(string Output, string Errors);
 internal static class ProjectEvaluator
 {
     private const int TimeoutMilliseconds = 120_000;
-    private const int DiagnosticsLimit = 8000;
 
     private const string UnreadableOutput =
         "MSBuild ran, but its evaluation output could not be read, so no project's assembly name could be "
@@ -83,19 +74,19 @@ internal static class ProjectEvaluator
         var results = new Dictionary<string, ProjectOutputs>(StringComparer.OrdinalIgnoreCase);
         if (projectPaths.Count == 0)
         {
-            return new ProjectEvaluation(results, string.Empty);
+            return new ProjectEvaluation(results);
         }
 
-        (IEnumerable<KeyValuePair<string, ProjectOutputs>> evaluated, var diagnostics, var fault) = EvaluateBatch(projectPaths);
+        (IEnumerable<KeyValuePair<string, ProjectOutputs>> evaluated, var fault) = EvaluateBatch(projectPaths);
         foreach ((var path, ProjectOutputs outputs) in evaluated)
         {
             results[path] = outputs;
         }
 
-        return new ProjectEvaluation(results, diagnostics, fault);
+        return new ProjectEvaluation(results, fault);
     }
 
-    private static (IEnumerable<KeyValuePair<string, ProjectOutputs>> Evaluated, string Diagnostics, string? Fault) EvaluateBatch(IReadOnlyList<string> projectPaths)
+    private static (IEnumerable<KeyValuePair<string, ProjectOutputs>> Evaluated, string? Fault) EvaluateBatch(IReadOnlyList<string> projectPaths)
     {
         var workspace = Path.Combine(Path.GetTempPath(), "apl-eval-" + Guid.NewGuid().ToString("N"));
         try
@@ -106,21 +97,20 @@ internal static class ProjectEvaluator
             File.WriteAllText(targets, CollectTargets);
             File.WriteAllText(traversal, Traversal(projectPaths, targets));
 
-            MsBuildRun? run = RunMsBuild(workspace, [traversal, "-t:ArchPillarAplGetOutputs", "-getTargetResult:ArchPillarAplGetOutputs"]);
-            if (run is null)
+            var output = RunMsBuild(workspace, [traversal, "-t:ArchPillarAplGetOutputs", "-getTargetResult:ArchPillarAplGetOutputs"]);
+            if (output is null)
             {
-                return ([], string.Empty, "MSBuild could not be run. Is the .NET SDK installed and on the path?");
+                return ([], "MSBuild could not be run. Is the .NET SDK installed and on the path?");
             }
 
             // Parsed whatever the exit code: one project that cannot be evaluated fails the whole task, but the
             // projects that DID evaluate still come back on stdout. Discarding them because the run exited
             // non-zero would report every project in the scope as broken because one of them is.
-            (IEnumerable<KeyValuePair<string, ProjectOutputs>> evaluated, var fault) = ParseItems(run.Output);
-            return (evaluated, run.Errors, fault);
+            return ParseItems(output);
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException)
         {
-            return ([], string.Empty, "The temporary workspace this evaluation runs in could not be created: " + error.Message);
+            return ([], "The temporary workspace this evaluation runs in could not be created: " + error.Message);
         }
         finally
         {
@@ -209,7 +199,7 @@ internal static class ProjectEvaluator
         return new ProjectOutputs(fileName, root.Length == 0 ? "bin" : root);
     }
 
-    private static MsBuildRun? RunMsBuild(string workingDirectory, IReadOnlyList<string> arguments)
+    private static string? RunMsBuild(string workingDirectory, IReadOnlyList<string> arguments)
     {
         var start = new ProcessStartInfo(DotnetHost())
         {
@@ -244,9 +234,8 @@ internal static class ProjectEvaluator
             }
 
             var output = new StringBuilder();
-            var errors = new StringBuilder();
             process.OutputDataReceived += (_, args) => AppendPayload(output, args.Data);
-            process.ErrorDataReceived += (_, args) => AppendDiagnostic(errors, args.Data);
+            process.ErrorDataReceived += (_, args) => LogMsBuild(args.Data);
             process.BeginOutputReadLine();
             process.BeginErrorReadLine();
             if (!process.WaitForExit(TimeoutMilliseconds))
@@ -260,7 +249,7 @@ internal static class ProjectEvaluator
             // machine yields empty output, which would read as "nothing evaluated". Safe from hanging because
             // node reuse is off: nothing outlives the exit.
             process.WaitForExit();
-            return new MsBuildRun(output.ToString(), errors.ToString());
+            return output.ToString();
         }
         catch (Exception error) when (error is System.ComponentModel.Win32Exception or InvalidOperationException or IOException)
         {
@@ -281,13 +270,14 @@ internal static class ProjectEvaluator
         }
     }
 
-    // Bounded, because stderr is a log: it is for a human to read, and a pathological build's must not be held
-    // whole. Truncating it costs nothing — what went wrong is at the top.
-    private static void AppendDiagnostic(StringBuilder builder, string? line)
+    // MSBuild's stderr is log output, so it goes to the log — streamed line by line as it arrives, and dropped
+    // when --verbose is off. Nothing is held: a build's diagnostics have no useful bound, and keeping them to
+    // paste into an exception message is what a log is for instead.
+    private static void LogMsBuild(string? line)
     {
-        if (line is not null && builder.Length < DiagnosticsLimit)
+        if (line is { Length: > 0 })
         {
-            builder.AppendLine(line);
+            ToolConsole.Verbose("msbuild: " + line);
         }
     }
 

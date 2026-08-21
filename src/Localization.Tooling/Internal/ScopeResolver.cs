@@ -109,14 +109,13 @@ internal static class ScopeResolver
     // a solution full of broken projects.
     private static string Failed(List<string> unevaluated, ProjectEvaluation evaluation)
     {
-        var message = (evaluation.Fault ?? Unevaluated(unevaluated))
-            + "\n\nTo read built assemblies without their projects, scope with --input <dir> or --assembly <dll> instead.";
-
-        // MSBuild's own diagnostic is the part that says what is actually wrong with the project, so it is
-        // reported rather than swallowed.
-        return string.IsNullOrWhiteSpace(evaluation.Diagnostics)
-            ? message
-            : message + "\n\nMSBuild reported:\n" + evaluation.Diagnostics.Trim();
+        // What is actually wrong with a project is in MSBuild's own output, which the evaluation logged as it
+        // arrived. Point at it rather than repeating it: a build's diagnostics are a log, and a log pasted into a
+        // one-line failure is unreadable at exactly the size that makes it worth reading.
+        var message = evaluation.Fault ?? Unevaluated(unevaluated);
+        return message
+            + (ToolConsole.IsVerbose ? "\n\nMSBuild's output is in the log above." : "\n\nRe-run with --verbose to see MSBuild's own output, which says why.")
+            + "\nTo read built assemblies without their projects, scope with --input <dir> or --assembly <dll> instead.";
     }
 
     private static string Unevaluated(List<string> projects)
