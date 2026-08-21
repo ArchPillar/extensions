@@ -167,3 +167,4 @@ Key severity overrides are configured in `.editorconfig`. When an analyzer fires
 - **NEVER add, modify, or remove analyzer suppressions or severity overrides in `.editorconfig` without explicit user approval.** Always stop and ask, even if the suppression seems obvious or is needed to make the build pass. This applies to all diagnostics: Roslyn, Roslynator, SonarAnalyzer, and IDE rules.
 - Do not use `this.` qualifier on members
 - Do not create README.md or other documentation files unless explicitly asked
+- Do not schedule recurring check-ins or self-wakeups for pull-request work (no `send_later`, cron, or `/loop` polling of CI, reviews, or merge state). Push the work, report once, and stop; act on pull-request events when they arrive, and let the user ask for a status check when they want one.

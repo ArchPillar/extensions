@@ -41,10 +41,14 @@ assembly, and fans out over every in-scope assembly that actually has strings:
 
 | Scope | Meaning |
 |---|---|
-| `--solution App.sln` | every project in the solution (`.sln` or `.slnx`) |
+| `--solution App.sln` | every project in the solution (`.sln` or `.slnx`), or the subset a solution filter (`.slnf`) keeps |
 | `--project App.csproj` | one project; add `--recurse` to follow its project references |
 | `--input <dir>` | scan a build-output folder (e.g. `bin/Debug/net10.0` or a publish dir) for assemblies |
 | `--assembly <dll>` | a single assembly (the low-level form) |
+
+Every command also takes **`--verbose`**, which turns on a log on stderr: what the tool is doing, and the output
+of anything it shells out to — notably the MSBuild evaluation below. It is off by default, so a failure that
+depends on what MSBuild said points you at the flag rather than pasting a build log into the error.
 
 A project or solution scope reads **only the assemblies those projects build** — never the packages copied
 beside them. A `bin` folder is mostly other people's code (every NuGet dependency and native interop library
@@ -77,7 +81,9 @@ With **no scope at all**, the tool defaults to the current directory like `dotne
 wins, else a lone project. So from your app's folder you can just run `dotnet apl add de`.
 `--project` and `--solution` also accept a **folder** or no value, finding the single file in
 that folder (or the current directory). An ambiguous folder (more than one project/solution) is an error
-rather than a guess.
+rather than a guess. A **solution filter** (`.slnf`) is honoured when you name it — pointing a CI gate at
+one scopes the run to the projects the filter keeps — but is never picked up from a folder: leaving projects
+out is a deliberate choice, not a default.
 
 The catalog commands (`export`, `import`, `merge`, `manifest`) take the **same scope** — the only difference
 is what they read off each in-scope project: its `Translations` folder rather than its built assembly. So

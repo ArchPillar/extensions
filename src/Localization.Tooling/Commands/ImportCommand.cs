@@ -12,7 +12,7 @@ namespace ArchPillar.Extensions.Localization.Tooling.Commands;
 internal sealed class ImportCommand : AsyncCommand<ImportCommand.Settings>
 {
     /// <summary>Options for <c>import</c>.</summary>
-    internal sealed class Settings : CommandSettings
+    internal sealed class Settings : ToolSettings
     {
         [CommandOption("--input <FILE>")]
         [Description("The zip file returned by the translator.")]
@@ -23,7 +23,7 @@ internal sealed class ImportCommand : AsyncCommand<ImportCommand.Settings>
         public FlagValue<string> Project { get; init; } = new();
 
         [CommandOption("--solution [PATH]")]
-        [Description("A solution (.sln/.slnx or its directory) whose catalog directory to write into.")]
+        [Description("A solution (.sln/.slnx), a solution filter (.slnf), or a directory whose catalog directory to write into.")]
         public FlagValue<string> Solution { get; init; } = new();
 
         [CommandOption("--catalog-path <PROJECT_SUBPATH>")]

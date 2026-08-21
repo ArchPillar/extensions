@@ -48,6 +48,70 @@ public sealed class ToolApplicationTests : IDisposable
     }
 
     [Fact]
+    public async Task Status_ScopeWithNothingBuiltInIt_FailsInsteadOfReportingSuccessAsync()
+    {
+        // An unbuilt or cleaned tree: the scope is real, it just has no assembly in it. Nothing was scanned, so
+        // there is no result to report success about — and a CI gate told "0" here would pass having checked
+        // nothing, which is worse than any failure it could report.
+        var empty = Path.Combine(_directory, "nothing-built");
+        Directory.CreateDirectory(empty);
+
+        var exit = await ToolApplication.RunAsync(["status", "--input", empty]);
+
+        Assert.Equal(2, exit);
+    }
+
+    [Fact]
+    public async Task SyncCheck_ScopeWithNothingBuiltInIt_FailsInsteadOfPassingTheGateAsync()
+    {
+        var empty = Path.Combine(_directory, "nothing-built-sync");
+        Directory.CreateDirectory(empty);
+
+        var exit = await ToolApplication.RunAsync(["sync", "--check", "--input", empty]);
+
+        Assert.Equal(2, exit);
+    }
+
+    [Fact]
+    public async Task Status_AssembliesScannedButNoneCarryStrings_SucceedsAsync()
+    {
+        // The other half of the distinction: something WAS scanned and it had no translatable strings. That is an
+        // answer — what an app looks like before anything is marked — so it must stay a success.
+        var scanned = Path.Combine(_directory, "no-strings");
+        Directory.CreateDirectory(scanned);
+        File.Copy(typeof(ToolApplicationTests).Assembly.Location, Path.Combine(scanned, "NoStrings.dll"));
+
+        var exit = await ToolApplication.RunAsync(["status", "--input", scanned]);
+
+        Assert.Equal(0, exit);
+    }
+
+    [Fact]
+    public async Task Merge_InputDirectoryThatDoesNotExist_FailsInsteadOfClaimingItMergedNothingAsync()
+    {
+        // A scope keeps only the directories that exist, so a mistyped --input resolves to none — and "merged 0"
+        // would report a proof that was never made: nothing was read to prove it with.
+        var exit = await ToolApplication.RunAsync(
+            ["merge", "--input", Path.Combine(_directory, "not-here"), "--output", Path.Combine(_directory, "bundles")]);
+
+        Assert.Equal(2, exit);
+    }
+
+    [Fact]
+    public async Task Merge_DirectoryThatExistsButHoldsNoCatalogs_SucceedsAsync()
+    {
+        // The other side of the same rule: the directory was read and provably holds nothing to bundle, so the
+        // promise ("every catalog in scope, bundled per culture") is kept by producing no bundle.
+        var empty = Path.Combine(_directory, "no-catalogs");
+        Directory.CreateDirectory(empty);
+
+        var exit = await ToolApplication.RunAsync(
+            ["merge", "--input", empty, "--output", Path.Combine(_directory, "bundles")]);
+
+        Assert.Equal(0, exit);
+    }
+
+    [Fact]
     public async Task Sync_Check_PassesWhenTargetIsUpToDateAsync()
     {
         await WriteTemplateAsync();

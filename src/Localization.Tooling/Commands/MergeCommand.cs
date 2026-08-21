@@ -27,6 +27,19 @@ internal sealed class MergeCommand : AsyncCommand<MergeCommand.Settings>
     {
         var output = ScopeInput.Require(settings.Output, "--output");
         IReadOnlyList<string> inputDirectories = CatalogDirectoryResolver.ResolveDirectories(settings.ToScope());
+
+        // Merge's promise is "every catalog in scope, bundled per culture". Discovering catalog directories and
+        // finding no catalog in them keeps that promise — there is nothing to bundle, provably, and the run
+        // succeeds having said 0. Finding no directory at all does not: a scope resolves to only the directories
+        // that exist, so none means we read nowhere — a mistyped --input, a project with no catalogs yet — and
+        // "Merged 0" would be claiming a proof that was never made.
+        if (inputDirectories.Count == 0)
+        {
+            return ToolConsole.Fail(
+                "No catalog directory found in scope, so nothing was read. Point --input <dir> at a catalog "
+                + "folder, or scope a project whose catalogs have been extracted.");
+        }
+
         foreach (var inputDirectory in inputDirectories)
         {
             if (CatalogIo.SamePath(inputDirectory, output))

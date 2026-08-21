@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Xml.Linq;
 
 namespace ArchPillar.Extensions.Localization.Tooling.Internal;
@@ -72,19 +73,53 @@ internal static class ScopeDiscovery
         }
     }
 
-    /// <summary>The project files a solution lists (classic <c>.sln</c> or XML <c>.slnx</c>), as absolute
-    /// paths.</summary>
+    /// <summary>Resolves a <c>--solution</c> value to a solution file: a solution itself (<c>.sln</c> or
+    /// <c>.slnx</c>), or a filter over one (<c>.slnf</c>) when named explicitly. Only real solutions are
+    /// discovered from a directory — a filter says which projects to leave out, which is a deliberate choice
+    /// and never a default.</summary>
+    /// <exception cref="ArgumentException">The value names no solution file, or an ambiguous directory.</exception>
+    public static string ResolveSolutionFile(string value) => ResolveSingleFile(value, "solution", "*.sln", "*.slnx");
+
+    /// <summary>The directory a solution scope is rooted at. For a filter this is the directory of the
+    /// <em>filtered solution</em>, not of the filter file: a scope covering part of a solution is still that
+    /// solution's scope, so pointing at a filter must not move where its catalogs live.</summary>
+    /// <exception cref="ArgumentException"><paramref name="solutionPath"/> is a filter that cannot be read.</exception>
+    public static string SolutionDirectory(string solutionPath) =>
+        Path.GetDirectoryName(IsFilter(solutionPath) ? ReadFilter(solutionPath).Solution : solutionPath)!;
+
+    /// <summary>The project files a solution lists (classic <c>.sln</c>, XML <c>.slnx</c>, or the subset a
+    /// <c>.slnf</c> filter keeps), as absolute paths.</summary>
+    /// <exception cref="ArgumentException"><paramref name="solutionPath"/> is not a solution file, or is a
+    /// filter that cannot be read.</exception>
     public static IEnumerable<string> SolutionProjects(string solutionPath)
     {
         var directory = Path.GetDirectoryName(solutionPath)!;
-        if (Path.GetExtension(solutionPath).Equals(".slnx", StringComparison.OrdinalIgnoreCase))
+        var extension = Path.GetExtension(solutionPath);
+        if (extension.Equals(".slnf", StringComparison.OrdinalIgnoreCase))
+        {
+            (var solution, IReadOnlyList<string> projects) = ReadFilter(solutionPath);
+            var solutionDirectory = Path.GetDirectoryName(solution)!;
+            return projects
+                .Where(path => path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
+                .Select(path => Absolute(solutionDirectory, path));
+        }
+
+        if (extension.Equals(".slnx", StringComparison.OrdinalIgnoreCase))
         {
             return XDocument.Load(solutionPath)
                 .Descendants()
                 .Where(e => e.Name.LocalName == "Project")
                 .Select(e => e.Attribute("Path")?.Value)
                 .Where(path => path is { Length: > 0 } && path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase))
-                .Select(path => Path.GetFullPath(Path.Combine(directory, path!.Replace('\\', Path.DirectorySeparatorChar))));
+                .Select(path => Absolute(directory, path!));
+        }
+
+        // Anything else is refused rather than read as a classic .sln. A file that is not one has no Project(
+        // lines, so it would resolve to an empty scope and report success — a check that passes having checked
+        // nothing, which is worse than any failure.
+        if (!extension.Equals(".sln", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArgumentException($"'{solutionPath}' is not a solution file; expected .sln, .slnx or .slnf.");
         }
 
         // Classic .sln: lines like  Project("{GUID}") = "Name", "relative\path.csproj", "{GUID}"
@@ -92,7 +127,7 @@ internal static class ScopeDiscovery
             .Where(line => line.StartsWith("Project(", StringComparison.Ordinal))
             .Select(ProjectPathFromSlnLine)
             .Where(path => path is { Length: > 0 })
-            .Select(path => Path.GetFullPath(Path.Combine(directory, path!.Replace('\\', Path.DirectorySeparatorChar))));
+            .Select(path => Absolute(directory, path!));
     }
 
     /// <summary>The lone solution or project file in the current directory, or an
@@ -120,6 +155,52 @@ internal static class ScopeDiscovery
             _ => throw new ArgumentException("Multiple project files in the current directory; pass one with --project <path>.")
         };
     }
+
+    private static bool IsFilter(string solutionPath) =>
+        Path.GetExtension(solutionPath).Equals(".slnf", StringComparison.OrdinalIgnoreCase);
+
+    // A .slnf is JSON, not a solution file:
+    //   { "solution": { "path": "..\\App.sln", "projects": [ "src\\A\\A.csproj" ] } }
+    // The solution is relative to the filter, and each project to that solution.
+    private static (string Solution, IReadOnlyList<string> Projects) ReadFilter(string filterPath)
+    {
+        using JsonDocument document = ParseFilter(filterPath);
+        if (!document.RootElement.TryGetProperty("solution", out JsonElement solution)
+            || Text(solution, "path") is not { Length: > 0 } path)
+        {
+            throw new ArgumentException($"'{filterPath}' is not a usable solution filter: it names no solution.");
+        }
+
+        var solutionPath = Absolute(Path.GetDirectoryName(Path.GetFullPath(filterPath))!, path);
+        if (!File.Exists(solutionPath))
+        {
+            throw new ArgumentException($"'{filterPath}' filters '{solutionPath}', which does not exist.");
+        }
+
+        List<string> projects = solution.TryGetProperty("projects", out JsonElement listed) && listed.ValueKind == JsonValueKind.Array
+            ? [.. listed.EnumerateArray().Where(entry => entry.ValueKind == JsonValueKind.String).Select(entry => entry.GetString()!)]
+            : [];
+        return (solutionPath, projects);
+    }
+
+    private static JsonDocument ParseFilter(string filterPath)
+    {
+        try
+        {
+            return JsonDocument.Parse(File.ReadAllText(filterPath));
+        }
+        catch (JsonException error)
+        {
+            throw new ArgumentException($"'{filterPath}' is not a readable solution filter: {error.Message}", error);
+        }
+    }
+
+    private static string? Text(JsonElement element, string name) =>
+        element.TryGetProperty(name, out JsonElement value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+
+    // Solution files and filters alike store their paths Windows-style, whatever platform wrote them.
+    private static string Absolute(string directory, string path) =>
+        Path.GetFullPath(Path.Combine(directory, path.Replace('\\', Path.DirectorySeparatorChar)));
 
     private static IEnumerable<string> ProjectReferences(string projectPath)
     {

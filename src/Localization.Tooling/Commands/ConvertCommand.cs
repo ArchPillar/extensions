@@ -8,7 +8,7 @@ namespace ArchPillar.Extensions.Localization.Tooling.Commands;
 internal sealed class ConvertCommand : AsyncCommand<ConvertCommand.Settings>
 {
     /// <summary>Options for <c>convert</c>.</summary>
-    internal sealed class Settings : CommandSettings
+    internal sealed class Settings : ToolSettings
     {
         [CommandOption("--from <FILE>")]
         [Description("The catalog file to convert.")]

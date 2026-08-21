@@ -53,7 +53,7 @@ internal static class ScopeResolver
             { Project: { } project } => ProjectAssemblies(ScopeDiscovery.ProjectClosure(
                 ScopeDiscovery.ResolveSingleFile(project, "project", "*.csproj"), scope.Recurse)),
             { Solution: { } solution } => ProjectAssemblies(
-                ScopeDiscovery.SolutionProjects(ScopeDiscovery.ResolveSingleFile(solution, "solution", "*.sln", "*.slnx"))
+                ScopeDiscovery.SolutionProjects(ScopeDiscovery.ResolveSolutionFile(solution))
                     .SelectMany(project => ScopeDiscovery.ProjectClosure(project, recurse: false))),
             _ => DiscoverInCurrentDirectory(scope.Recurse)
         };
@@ -97,25 +97,34 @@ internal static class ScopeResolver
         List<string> unevaluated = [.. ordered.Where(project => !evaluation.Outputs.ContainsKey(project))];
         if (unevaluated.Count > 0)
         {
-            throw new ArgumentException(Unevaluated(unevaluated, evaluation.Diagnostics));
+            throw new ArgumentException(Failed(unevaluated, evaluation));
         }
 
         return ordered.SelectMany(project => OwnAssemblies(project, evaluation.Outputs[project]));
     }
 
-    private static string Unevaluated(List<string> projects, string diagnostics)
+    // Two different failures end here, and naming them the same thing is what makes the second one unreadable: a
+    // project MSBuild rejects is the project's problem, while an evaluation that never produced a result is the
+    // tool's — and that one leaves every project in scope missing from the outputs, so it would otherwise read as
+    // a solution full of broken projects.
+    private static string Failed(List<string> unevaluated, ProjectEvaluation evaluation)
+    {
+        // What is actually wrong with a project is in MSBuild's own output, which the evaluation logged as it
+        // arrived. Point at it rather than repeating it: a build's diagnostics are a log, and a log pasted into a
+        // one-line failure is unreadable at exactly the size that makes it worth reading.
+        var message = evaluation.Fault ?? Unevaluated(unevaluated);
+        return message
+            + (ToolConsole.IsVerbose ? "\n\nMSBuild's output is in the log above." : "\n\nRe-run with --verbose to see MSBuild's own output, which says why.")
+            + "\nTo read built assemblies without their projects, scope with --input <dir> or --assembly <dll> instead.";
+    }
+
+    private static string Unevaluated(List<string> projects)
     {
         var named = projects.Count == 1
             ? $"project '{projects[0]}'"
             : $"{projects.Count} projects:{string.Concat(projects.Select(project => "\n  " + project))}";
-        var message =
-            $"Could not evaluate {named}. Every project in scope must be one MSBuild can evaluate — the same "
-            + "requirement as building it — because that is where the assembly each project builds is read from. "
-            + "To read built assemblies without their projects, scope with --input <dir> or --assembly <dll> instead.";
-
-        // MSBuild's own diagnostic is the part that says what is actually wrong with the project, so it is
-        // reported rather than swallowed.
-        return string.IsNullOrWhiteSpace(diagnostics) ? message : message + "\n\nMSBuild reported:\n" + diagnostics.Trim();
+        return $"Could not evaluate {named}. Every project in scope must be one MSBuild can evaluate — the same "
+            + "requirement as building it — because that is where the assembly each project builds is read from.";
     }
 
     private static IEnumerable<string> OwnAssemblies(string projectPath, ProjectOutputs outputs)

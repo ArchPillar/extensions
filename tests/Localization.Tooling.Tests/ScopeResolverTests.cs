@@ -154,8 +154,74 @@ public sealed class ScopeResolverTests : IDisposable
 
         Assert.Contains("Broken.csproj", error.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("App.Web.csproj", error.Message, StringComparison.Ordinal);
-        // MSBuild's own diagnostic is what says why, so it must survive to the user.
-        Assert.Contains("MSBuild reported:", error.Message, StringComparison.Ordinal);
+        // Why the project will not evaluate is MSBuild's own output, which is log material rather than part of a
+        // failure message — so the message has to say where to find it.
+        Assert.Contains("--verbose", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Resolve_SolutionLargerThanOneBufferOfMsBuildOutput_ResolvesEveryProject()
+    {
+        // The evaluation's stdout is the -getTargetResult payload — one JSON document carrying every project's
+        // outputs, at roughly 1.7 KB a project. Held as a log and cut at a few thousand characters, it stops
+        // being a document at all: nothing parses, no project has outputs, and the whole scope is reported
+        // unevaluable with no diagnostic to say why. Ten projects is past any such bound; a real solution is
+        // far past it.
+        string[] names = [.. Enumerable.Range(1, 10).Select(index => "Project.Number." + index)];
+        foreach (var name in names)
+        {
+            MakeProject(name);
+            WriteAssembly(name, "bin", "Debug", "net10.0", name + ".dll");
+        }
+
+        var solution = MakeSolution("Big.sln", [.. names.Select(name => Path.Combine(_root, name, name + ".csproj"))]);
+
+        IReadOnlyList<string> resolved = ScopeResolver.Resolve(new ScopeOptions(null, null, null, solution, Recurse: false));
+
+        Assert.Equal([.. names.Order(StringComparer.Ordinal).Select(name => name + ".dll")], resolved.Select(Path.GetFileName));
+    }
+
+    [Fact]
+    public void Resolve_SolutionFilter_ResolvesTheProjectsItKeepsAndNoOthers()
+    {
+        // A .slnf is a subset of a solution, and CI gates are pointed at one. Read as a classic .sln it has no
+        // Project( lines, so it would resolve to nothing and report success — a gate that checks nothing.
+        var web = MakeProject("App.Web");
+        var core = MakeProject("App.Core");
+        WriteAssembly("App.Web", "bin", "Debug", "net10.0", "App.Web.dll");
+        WriteAssembly("App.Core", "bin", "Debug", "net10.0", "App.Core.dll");
+        MakeSolution("App.sln", web, core);
+        var filter = MakeFilter("Backend.slnf", "App.sln", core);
+
+        IReadOnlyList<string> resolved = ScopeResolver.Resolve(new ScopeOptions(null, null, null, filter, Recurse: false));
+
+        Assert.Equal(["App.Core.dll"], resolved.Select(Path.GetFileName));
+    }
+
+    [Fact]
+    public void Resolve_SolutionFilterNamingAMissingSolution_IsReportedRatherThanResolvingToNothing()
+    {
+        var filter = Path.Combine(_root, "Stale.slnf");
+        File.WriteAllText(filter, "{ \"solution\": { \"path\": \"Gone.sln\", \"projects\": [] } }");
+
+        ArgumentException error = Assert.Throws<ArgumentException>(
+            () => ScopeResolver.Resolve(new ScopeOptions(null, null, null, filter, Recurse: false)));
+
+        Assert.Contains("Gone.sln", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Resolve_FileThatIsNotASolution_IsRefusedRatherThanReadAsAnEmptySolution()
+    {
+        // Same failure as the filter above, one level up: any file that is not a solution has no Project( lines,
+        // so treating it as a classic .sln quietly succeeds over an empty scope.
+        var notASolution = Path.Combine(_root, "App.txt");
+        File.WriteAllText(notASolution, "not a solution");
+
+        ArgumentException error = Assert.Throws<ArgumentException>(
+            () => ScopeResolver.Resolve(new ScopeOptions(null, null, null, notASolution, Recurse: false)));
+
+        Assert.Contains(".slnf", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -201,6 +267,19 @@ public sealed class ScopeResolverTests : IDisposable
         IEnumerable<string> lines = projects.Select(project =>
             $"Project(\"{{GUID}}\") = \"{Path.GetFileNameWithoutExtension(project)}\", \"{Path.GetRelativePath(_root, project)}\", \"{{GUID2}}\"");
         File.WriteAllLines(path, lines);
+        return path;
+    }
+
+    // A solution filter as Visual Studio writes one: JSON, with the solution relative to the filter and each
+    // project relative to that solution, in Windows path form.
+    private string MakeFilter(string name, string solutionName, params string[] projects)
+    {
+        var path = Path.Combine(_root, name);
+        // Backslash-separated, and escaped again for JSON — the form a real filter is written in.
+        IEnumerable<string> quoted = projects.Select(project =>
+            "\"" + Path.GetRelativePath(_root, project).Replace(Path.DirectorySeparatorChar.ToString(), "\\\\", StringComparison.Ordinal) + "\"");
+        var listed = string.Join(", ", quoted);
+        File.WriteAllText(path, $"{{ \"solution\": {{ \"path\": \"{solutionName}\", \"projects\": [ {listed} ] }} }}");
         return path;
     }
 
