@@ -87,6 +87,31 @@ public sealed class ToolApplicationTests : IDisposable
     }
 
     [Fact]
+    public async Task Merge_InputDirectoryThatDoesNotExist_FailsInsteadOfClaimingItMergedNothingAsync()
+    {
+        // A scope keeps only the directories that exist, so a mistyped --input resolves to none — and "merged 0"
+        // would report a proof that was never made: nothing was read to prove it with.
+        var exit = await ToolApplication.RunAsync(
+            ["merge", "--input", Path.Combine(_directory, "not-here"), "--output", Path.Combine(_directory, "bundles")]);
+
+        Assert.Equal(2, exit);
+    }
+
+    [Fact]
+    public async Task Merge_DirectoryThatExistsButHoldsNoCatalogs_SucceedsAsync()
+    {
+        // The other side of the same rule: the directory was read and provably holds nothing to bundle, so the
+        // promise ("every catalog in scope, bundled per culture") is kept by producing no bundle.
+        var empty = Path.Combine(_directory, "no-catalogs");
+        Directory.CreateDirectory(empty);
+
+        var exit = await ToolApplication.RunAsync(
+            ["merge", "--input", empty, "--output", Path.Combine(_directory, "bundles")]);
+
+        Assert.Equal(0, exit);
+    }
+
+    [Fact]
     public async Task Sync_Check_PassesWhenTargetIsUpToDateAsync()
     {
         await WriteTemplateAsync();
