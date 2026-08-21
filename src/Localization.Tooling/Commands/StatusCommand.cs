@@ -39,7 +39,7 @@ internal sealed class StatusCommand : AsyncCommand<StatusCommand.Settings>
         // Every project with strings, including those no language has been added for yet — they have no row in the
         // matrix but still belong in the report, and are the whole answer before any translation starts.
         var stringsByProject = new Dictionary<string, int>(StringComparer.Ordinal);
-        await ScopeRunner.ForEachTemplateAsync(settings, "Scanning", (name, catalogDirectory, template) =>
+        var scanned = await ScopeRunner.ForEachTemplateAsync(settings, "Scanning", (name, catalogDirectory, template) =>
         {
             stringsByProject[name] = template.Entries.Count;
             if (Directory.Exists(catalogDirectory))
@@ -59,7 +59,10 @@ internal sealed class StatusCommand : AsyncCommand<StatusCommand.Settings>
 
         if (stringsByProject.Count == 0)
         {
-            ToolConsole.Info("No assemblies with localizable strings found in the given scope. Build first, then point --input/--project/--solution at the output.");
+            // Scanned, and none of them carry a string — an answer, not a failure: it is what an app looks like
+            // before anything is marked for translation. Having scanned nothing at all is the other case, and
+            // ScopeRunner has already failed the command by here.
+            ToolConsole.Info($"Scanned {scanned} assembly(ies); none contain translatable strings.");
             return 0;
         }
 

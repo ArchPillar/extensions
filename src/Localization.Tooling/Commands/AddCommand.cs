@@ -53,7 +53,7 @@ internal sealed class AddCommand : AsyncCommand<AddCommand.Settings>
         ITranslationFormat scopeProvider = CatalogIo.FormatOrDefault(settings.Format);
         var created = 0;
         var skipped = 0;
-        await ScopeRunner.ForEachTemplateAsync(settings, $"Adding {language}", async (name, catalogDirectory, template) =>
+        _ = await ScopeRunner.ForEachTemplateAsync(settings, $"Adding {language}", async (name, catalogDirectory, template) =>
         {
             var target = Path.Combine(catalogDirectory, CatalogNaming.FileName(name, language, scopeProvider));
 

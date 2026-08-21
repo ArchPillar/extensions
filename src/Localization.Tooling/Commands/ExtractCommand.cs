@@ -20,7 +20,7 @@ internal sealed class ExtractCommand : AsyncCommand<ExtractCommand.Settings>
         var sourceLanguage = settings.Source;
         ITranslationFormat provider = CatalogIo.FormatOrDefault(settings.Format);
         var count = 0;
-        await ScopeRunner.ForEachTemplateAsync(settings, "Extracting", async (name, catalogDirectory, template) =>
+        _ = await ScopeRunner.ForEachTemplateAsync(settings, "Extracting", async (name, catalogDirectory, template) =>
         {
             var sourcePath = Path.Combine(catalogDirectory, CatalogNaming.FileName(name, sourceLanguage, provider));
 

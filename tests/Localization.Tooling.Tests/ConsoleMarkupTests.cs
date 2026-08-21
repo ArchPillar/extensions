@@ -64,6 +64,9 @@ public sealed class ConsoleMarkupTests : IDisposable
         // typo used to surface as "Could not find color or style" instead of a real message.
         var bin = Path.Combine(_directory, "bin");
         Directory.CreateDirectory(bin);
+        // Something for the scope to scan — a scope with nothing built in it is a failure of its own now, and
+        // this test is about the label, which is rendered before any of that.
+        await File.WriteAllBytesAsync(Path.Combine(bin, "NotAnAssembly.dll"), [0x4D, 0x5A, 0x00, 0x00]);
 
         Assert.Equal(0, await ToolApplication.RunAsync(["add", "[x]", "--input", bin, "--output", _directory]));
     }

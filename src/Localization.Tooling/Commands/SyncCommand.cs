@@ -51,7 +51,7 @@ internal sealed class SyncCommand : AsyncCommand<SyncCommand.Settings>
         var driftedTargets = new List<string>();
         var synced = 0;
         var any = false;
-        await ScopeRunner.ForEachTemplateAsync(settings, "Syncing", async (name, catalogDirectory, template) =>
+        _ = await ScopeRunner.ForEachTemplateAsync(settings, "Syncing", async (name, catalogDirectory, template) =>
         {
             any = true;
             foreach (var targetPath in CatalogNaming.TargetCatalogsFor(catalogDirectory, name, sourceLanguage))
