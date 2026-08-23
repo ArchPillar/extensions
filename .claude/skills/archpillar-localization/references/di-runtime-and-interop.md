@@ -189,9 +189,10 @@ model; every helper has a `LocalizationContext` overload for isolated resolution
 multi-tenant hosting).
 
 **Enums** read their own annotation at runtime: `value.GetLocalizedDisplayName()` resolves the
-member's `[Display(Name)]` value (key) — with a `[LocalizedDisplayName]` twin as the default —
-under the enum's category. **MVC/Razor Pages** route DataAnnotations through the localizer with one
-call (in `…Localization.AspNetCore`):
+member's display annotation under the enum's category, by the same precedence as any other member:
+`[Localized]` wins; failing that the `[Display(Name)]` value is the key, with a
+`[LocalizedDisplayName]` twin as the default. **MVC/Razor Pages** route DataAnnotations through the
+localizer with one call (in `…Localization.AspNetCore`):
 
 ```csharp
 builder.Services.AddControllersWithViews().AddArchPillarDataAnnotationsLocalization();

@@ -105,9 +105,9 @@ covered by the tool, not the editor.
   are deferred.
 - **Authoring format:** a single format per project, defaulting to `xliff` (source and translation
   as distinct first-class fields; opens cleanly in Poedit/Lokalize/TMS tools). The **published bundle**
-  is a separate knob defaulting to `arb` — a runtime bundle reads only the translation, so the most
-  compact, compressible container wins (a minified ARB bundle gzips to ~60% of the XLIFF equivalent,
-  which still carries the redundant source). The runtime still loads mixed formats and prefers by
+  is a separate knob — a runtime bundle reads only the translation, so the most compact container wins.
+  It defaulted to `arb` when this decision was taken; **amended by D-O**, which keeps the separate-knob
+  reasoning and changes the default to `aploc`. The runtime still loads mixed formats and prefers by
   fidelity (D-14).
 - **Qualified-identity convention:** `Category` and `Key` combine as `category + "\u0004" + key`
   (the gettext `EOT` convention), defined once in `Abstractions` (`TranslationKey.ComposeQualified`)
@@ -388,6 +388,31 @@ project — not a per-machine variant. Consequences:
 
 Reading symbols costs well under a millisecond per assembly, so D-K's "tens of milliseconds" claim stands.
 
+### D-O — The published bundle is APLOC, a deploy-only container; authoring formats stay for authoring.
+
+`ArchPillarLocalizationBundleFormat` and `apl merge` default to **`aploc`** (`.aploc`), not `arb`. This
+**amends D-E** and **D-8** (spec `00`), which recorded `arb` as the bundle default; the reasoning that made
+the bundle a separate knob from the authoring format is unchanged — only the container it picks.
+
+*Decision:* ship a fourth format that is explicitly **not** an authoring or interchange format. APLOC stays
+JSON, so the runtime reads it with the same `System.Text.Json` reader ARB already uses — no new parser, and
+JSON escaping covers values with newlines, quotes, or `=`. What it changes is the shape: an entry's category
+folds into a **nested object tree**, one nested object per dot-segment, so a namespace segment is written once
+however many keys hang beneath it, rather than repeated in every flat `Category::Key` member as ARB requires.
+It is lossy on write by design — source, state, comments, references and fingerprints are all dropped, since
+the runtime resolves only the value — and `convert` moves a catalog back to an authoring format.
+
+*Why not keep ARB:* the flat member name repeats the full category on every entry and carries a redundant
+`@`-metadata twin restating that same category. On a real 19-entry catalog the bundle is **667 bytes against
+ARB's 4200** (430 vs 592 gzipped). Note the gzip figures: compression already dedups the repeated prefixes, so
+this is chosen for the smaller raw payload a WebAssembly client parses and the far more readable pretty form,
+**not** a large wire win. The earlier "most compressible container" framing in D-E overstated that axis.
+
+*Consequence:* authoring in XLIFF and publishing in APLOC is the default, each step optimizing for a different
+thing. Set the property (or `merge --format`) to `arb`, `xliff`, or `po` to publish one of those instead — the
+runtime loads all four identically. `.aploc` joins the AspNetCore content-type registrations, and is therefore
+the extension a hosted WebAssembly client fetches unless the default is overridden.
+
 ## What is unchanged from the specs
 
 All other decisions in `00-architecture.md` (D-1 … D-14) stand, except where **D-L** amends them: the in-code
@@ -395,7 +420,7 @@ default remains the terminal fallback (D-1), though the source language is now a
 override layer above it (D-L); stable symbolic keys (D-2);
 attribute-driven detection (D-3); the typed key registry (D-4); ICU MessageFormat as the one
 grammar (D-6); embedded CLDR plural data (D-7); the three shipped formats (D-8), now defaulting to
-XLIFF for authoring and ARB for the published bundle (amended in D-E); opt-in hot reload (D-9); delete-on-removal of obsolete keys (D-11); on-demand languages
+XLIFF for authoring and APLOC for the published bundle (amended in D-E, then D-O); opt-in hot reload (D-9); delete-on-removal of obsolete keys (D-11); on-demand languages
 (D-12); `convert` as a tool capability (D-13); runtime loads-all-formats-prefers-by-fidelity
 (D-14). `IStringLocalizer` / DI interop stays deferred to an integration phase (D-5).
 

@@ -289,8 +289,12 @@ and file name:
 
 ```bash
 dotnet apl manifest --solution App.sln
-#   -> Translations/apl-catalogs.json   (or --output <FILE> to place it yourself)
+#   -> apl-catalogs.json in the FIRST catalog directory in scope
+dotnet apl manifest --solution App.sln --output dist/Translations/apl-catalogs.json
 ```
+
+Across a multi-project scope the default location is whichever catalog directory resolves first, which is
+rarely the one you want — pass `--output` and say where it goes.
 
 The WebAssembly build runs this for you, so an app using the `…Localization.WebAssembly` package never calls
 it by hand. Reach for it in a **custom pipeline** — the same place you would run `merge` yourself — and run
@@ -308,9 +312,11 @@ dotnet apl convert --from Translations/App.Web.de.po --to xliff --output Transla
 ```
 
 It converts a **single file** and refuses to write over its own input. Where the target format cannot carry
-something the source does, it says so rather than dropping it silently — comments, source references, and the
-previous-source drift history each warn if the catalog actually holds any. For the routine handoff, prefer
-`export --format` and `import`, which convert a whole scope and route the results back automatically.
+something the source does, it says so rather than losing it silently: comments, source references, and the
+previous-source drift history each warn if the catalog actually holds any, and converting to a format with no
+explicit state field warns that translation state will be **inferred and may be approximate** — the one case
+where the result is not merely thinner but potentially wrong. For the routine handoff, prefer `export --format`
+and `import`, which convert a whole scope and route the results back automatically.
 
 ## Naming convention
 
@@ -322,7 +328,7 @@ thing the *tooling* keys on:
   assembly prefix keeps two libraries' `de` catalogs from colliding in one folder, and lets `import` route a
   returned translation back to its origin assembly by file name. The authoring commands write this shape, and
   the samples follow it.
-- **Bundled / published catalogs** are bare `{culture}.{ext}` (e.g. `de.arb`) — one per culture after `merge`.
+- **Bundled / published catalogs** are bare `{culture}.{ext}` (e.g. `de.aploc`) — one per culture after `merge`.
   At that point the per-assembly identity has been flattened away, so the simple name is the convention.
 
 Because resolution is content-based, you can deviate (a hand-authored `de.arb` dropped in a folder still

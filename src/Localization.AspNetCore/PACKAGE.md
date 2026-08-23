@@ -1,9 +1,10 @@
 # ArchPillar.Extensions.Localization.AspNetCore
 
 Optional ASP.NET Core hosting helpers for `ArchPillar.Extensions.Localization`. A hosted Blazor WebAssembly
-client fetches its translation catalogs (`.arb`, `.xliff`, `.po`) over HTTP, but the static file middleware
-returns 404 for unknown file extensions by default — so the catalogs never load and the app silently falls back
-to its in-code defaults. These helpers register the catalog content types.
+client fetches its translation catalogs (`.aploc` — the default published-bundle format — plus `.arb`,
+`.xliff`, `.po`) over HTTP, but the static file middleware returns 404 for unknown file extensions by
+default — so the catalogs never load and the app silently falls back to its in-code defaults. These helpers
+register the catalog content types.
 
 For a single static-files registration, use the one-call convenience:
 
