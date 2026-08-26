@@ -8,9 +8,9 @@
 // client's merged bundle and apl-catalogs.json manifest reach the deployed wwwroot at all.
 //
 // MapStaticAssets (not plain UseStaticFiles) serves the composed assets: it honours the catalog content-type
-// mappings the package targets register (.arb is application/json, etc.) and the fingerprinted routes, so a
-// GET for a bare file name the manifest lists (e.g. /Translations/de.arb) resolves. Plain UseStaticFiles would
-// 404 on the unknown .arb type.
+// mappings the package targets register (.aploc and .arb are application/json, etc.) and the fingerprinted
+// routes, so a GET for a bare file name the manifest lists (e.g. /Translations/de.aploc) resolves. Plain
+// UseStaticFiles would 404 on the unknown .aploc type.
 // ---------------------------------------------------------------------------
 var builder = WebApplication.CreateBuilder(args);
 

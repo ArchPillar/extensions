@@ -231,12 +231,14 @@ everything up front, and a client loads only the active language. Set it explici
 WebAssembly client there is no directory; the same narrow download is achieved with `LoadCultureAsync` per the
 HTTP section above.)
 
-## Serve `.arb` catalogs from ASP.NET Core — register the content type
+## Serve catalog files from ASP.NET Core — register the content types
 
 The static file middleware returns 404 for an unknown file extension by default, so an ASP.NET Core host
-serving a WebAssembly client's catalogs 404s every `.arb` (and `.xliff` / `.po`) request — and the client
-silently falls back to its in-code defaults. Add the `ArchPillar.Extensions.Localization.AspNetCore` package
-and register the catalog content types:
+serving a WebAssembly client's catalogs 404s every `.aploc` (and `.arb` / `.xliff` / `.xlf` / `.po`)
+request — and the client silently falls back to its in-code defaults. `.aploc` is the one to watch: it is
+the default published-bundle extension, so it is what a hosted client fetches unless you overrode
+`ArchPillarLocalizationBundleFormat`. Add the `ArchPillar.Extensions.Localization.AspNetCore` package and
+register the catalog content types:
 
 ```csharp
 app.UseArchPillarTranslationFiles();          // serve the catalog formats from the web root

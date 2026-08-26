@@ -23,9 +23,9 @@ masks it.
   and **no** raw per-culture catalogs under `wwwroot/_content` (the authority already merged them; the publish-time
   prune removes the copies that flow up a level past the authority).
 - Serving with `MapStaticAssets()`, not plain `UseStaticFiles()`: the former honours the catalog content-type
-  mappings the package targets register (`.arb` is `application/json`, XLIFF is XML, …) and the fingerprinted
-  routes, so a `GET` for a bare file name the manifest lists (`/Translations/de.arb`) resolves. Plain
-  `UseStaticFiles()` 404s on the unknown `.arb` type — a manifest that loads but whose entries 404 is its own
+  mappings the package targets register (`.aploc` and `.arb` are `application/json`, XLIFF is XML, …) and the
+  fingerprinted routes, so a `GET` for a bare file name the manifest lists (`/Translations/de.aploc`) resolves.
+  Plain `UseStaticFiles()` 404s on the unknown `.aploc` type — a manifest that loads but whose entries 404 is its own
   failure mode.
 
 ## Running
@@ -49,8 +49,9 @@ dotnet publish samples/Localization/Localization.WasmHostSample -c Release --no-
 ```
 
 - `out/wwwroot/Translations/apl-catalogs.json` — the catalog manifest, present.
-- `out/wwwroot/Translations/*.arb` — the merged per-culture bundle(s), present, and containing the library's strings
-  as well as the client's own.
+- `out/wwwroot/Translations/*.aploc` — the merged per-culture bundle(s), present, and containing the library's
+  strings as well as the client's own. (`.aploc` is the default bundle format; it follows
+  `ArchPillarLocalizationBundleFormat` if you override it.)
 - `out/wwwroot/_content/**/Translations/*` — the libraries' raw catalogs, **absent** (merged, not shipped raw).
 - `out/Translations/*` — beside-the-binary file copies, **absent** (a WebAssembly app has no file system to read
   them, so the copy is suppressed rather than leaked to the host root).
