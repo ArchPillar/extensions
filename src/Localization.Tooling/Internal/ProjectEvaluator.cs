@@ -9,7 +9,11 @@ namespace ArchPillar.Extensions.Localization.Tooling.Internal;
 /// <param name="AssemblyFileName">The output assembly's file name (<c>TargetFileName</c>), e.g. <c>Acme.Web.dll</c>.</param>
 /// <param name="OutputRoot">The project-relative output root (<c>BaseOutputPath</c>, normally <c>bin</c>), which a
 /// project may relocate.</param>
-internal sealed record ProjectOutputs(string AssemblyFileName, string OutputRoot);
+/// <param name="ReferenceDirectories">The directories holding the assemblies this project compiles against, as
+/// MSBuild resolved them. Extraction must read a called method's declaring assembly to learn whether it is
+/// translatable, and probing what happens to sit beside the target answers that by luck; this is the same list
+/// the compiler was given (issue #100).</param>
+internal sealed record ProjectOutputs(string AssemblyFileName, string OutputRoot, IReadOnlyList<string> ReferenceDirectories);
 
 /// <summary>The evaluation's result: what each project builds. What MSBuild had to say while working it out is
 /// not here — that is log output, and it went to the log as it arrived (see <c>--verbose</c>).</summary>
@@ -52,12 +56,41 @@ internal static class ProjectEvaluator
     // common ones, and would otherwise report "target does not exist".
     private const string CollectTargets = """
         <Project>
-          <Target Name="ArchPillarAplGetOutputs" Returns="@(ArchPillarAplOutput)">
+          <PropertyGroup>
+            <!-- ResolveReferences is what populates ReferencePath, and it is depended on only where it will
+                 work. Two cases where it will not, and where asking anyway would turn "I could not find this
+                 project's references" into "this project is broken":
+                   * no restore — it reads project.assets.json, which an unrestored project does not have;
+                   * a multi-targeting project's OUTER build, which imports the cross-targeting targets and does
+                     not define the target at all (naming a nonexistent target fails the project).
+                 Depending through a property makes both cases cost the references and nothing else: the
+                 properties below are still read, and the scan falls back to probing, reporting and not pruning.
+                 (CallTarget with ContinueOnError looks like the tidier answer and is not — the items the called
+                 target produces do not come back to the caller, so ReferencePath reads empty.) -->
+            <ArchPillarAplRefDepends Condition="'$(TargetFramework)' != '' and Exists('$(ProjectAssetsFile)')">ResolveReferences</ArchPillarAplRefDepends>
+          </PropertyGroup>
+          <Target Name="ArchPillarAplGetOutputs" DependsOnTargets="$(ArchPillarAplRefDepends)" Returns="@(ArchPillarAplOutput)">
+            <!-- Outer build of a multi-targeting project: dispatch to ONE inner build for its references, not to
+                 every framework. The attributes that decide translatability are the same in every framework's
+                 build of a given library, so one framework's answer is the answer — and asking all of them cost
+                 this repository 23s against 2s for asking one. -->
+            <PropertyGroup Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' != ''">
+              <ArchPillarAplInnerTfm>$(TargetFrameworks.Split(';')[0])</ArchPillarAplInnerTfm>
+            </PropertyGroup>
+            <MSBuild Condition="'$(ArchPillarAplInnerTfm)' != ''"
+                     Projects="$(MSBuildProjectFullPath)" Targets="ArchPillarAplGetOutputs"
+                     Properties="TargetFramework=$(ArchPillarAplInnerTfm)"
+                     SkipNonexistentProjects="true" ContinueOnError="true">
+              <Output TaskParameter="TargetOutputs" ItemName="ArchPillarAplInner" />
+            </MSBuild>
             <ItemGroup>
+              <ArchPillarAplRefDir Include="@(ReferencePath->'%(RootDir)%(Directory)'->Distinct())" />
+              <ArchPillarAplRefDir Include="@(ArchPillarAplInner->'%(AplReferenceDirs)')" />
               <ArchPillarAplOutput Include="$(MSBuildProjectFullPath)">
                 <AplTargetFileName>$(TargetFileName)</AplTargetFileName>
                 <AplAssemblyName>$(AssemblyName)</AplAssemblyName>
                 <AplBaseOutputPath>$(BaseOutputPath)</AplBaseOutputPath>
+                <AplReferenceDirs>@(ArchPillarAplRefDir->Distinct())</AplReferenceDirs>
               </ArchPillarAplOutput>
             </ItemGroup>
           </Target>
@@ -97,7 +130,16 @@ internal static class ProjectEvaluator
             File.WriteAllText(targets, CollectTargets);
             File.WriteAllText(traversal, Traversal(projectPaths, targets));
 
-            var output = RunMsBuild(workspace, [traversal, "-t:ArchPillarAplGetOutputs", "-getTargetResult:ArchPillarAplGetOutputs"]);
+            // BuildProjectReferences=false is what keeps this an evaluation. ResolveReferences (which populates
+            // ReferencePath) otherwise pulls in ResolveProjectReferences and *builds* every referenced project —
+            // 15s for a single project against well under one. The referenced assemblies are already built, since
+            // the scan reads built assemblies in the first place; this asks where they are, not for them to exist.
+            var output = RunMsBuild(workspace, [
+                traversal,
+                "-t:ArchPillarAplGetOutputs",
+                "-getTargetResult:ArchPillarAplGetOutputs",
+                "-p:BuildProjectReferences=false"
+            ]);
             if (output is null)
             {
                 return ([], "MSBuild could not be run. Is the .NET SDK installed and on the path?");
@@ -163,7 +205,11 @@ internal static class ProjectEvaluator
             foreach (JsonElement item in items.EnumerateArray())
             {
                 var path = Text(item, "FullPath");
-                ProjectOutputs? outputs = OutputsFrom(Text(item, "AplTargetFileName"), Text(item, "AplAssemblyName"), Text(item, "AplBaseOutputPath"));
+                ProjectOutputs? outputs = OutputsFrom(
+                    Text(item, "AplTargetFileName"),
+                    Text(item, "AplAssemblyName"),
+                    Text(item, "AplBaseOutputPath"),
+                    Text(item, "AplReferenceDirs"));
                 if (path.Length > 0 && outputs is not null)
                 {
                     results.Add(new KeyValuePair<string, ProjectOutputs>(path, outputs));
@@ -181,7 +227,7 @@ internal static class ProjectEvaluator
     // TargetFileName is the exact answer, but a multi-targeting project's OUTER build does not define it — the
     // file name exists once per framework. AssemblyName is evaluated there (which is the part reading XML gets
     // wrong), and every .NET SDK target framework emits a .dll, so the name is completed from it.
-    private static ProjectOutputs? OutputsFrom(string targetFileName, string assemblyName, string baseOutputPath)
+    private static ProjectOutputs? OutputsFrom(string targetFileName, string assemblyName, string baseOutputPath, string referenceDirs)
     {
         var fileName = targetFileName;
         if (fileName.Length == 0 && assemblyName.Length > 0)
@@ -196,7 +242,10 @@ internal static class ProjectEvaluator
 
         // MSBuild reports an output path in its own convention — a trailing separator, and '\' even on Unix.
         var root = baseOutputPath.Replace('\\', Path.DirectorySeparatorChar).TrimEnd(Path.DirectorySeparatorChar);
-        return new ProjectOutputs(fileName, root.Length == 0 ? "bin" : root);
+        return new ProjectOutputs(
+            fileName,
+            root.Length == 0 ? "bin" : root,
+            [.. referenceDirs.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)]);
     }
 
     private static string? RunMsBuild(string workingDirectory, IReadOnlyList<string> arguments)

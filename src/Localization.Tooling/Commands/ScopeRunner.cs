@@ -28,7 +28,8 @@ internal static class ScopeRunner
         var flat = settings.FlatDirectory;
         return ToolConsole.StatusAsync($"{verb}…", async ctx =>
         {
-            IReadOnlyList<string> assemblies = ScopeResolver.Resolve(scope);
+            ScopeAssemblies resolved = ScopeResolver.ResolveScope(scope);
+            IReadOnlyList<string> assemblies = resolved.Assemblies;
 
             // Nothing to scan is a failed command, not a quiet success. The projects evaluated (or this would
             // already have thrown), so the scope is real and simply has no build output in it — an unbuilt or
@@ -41,7 +42,10 @@ internal static class ScopeRunner
                     + "first, or point --input <dir> or --assembly <dll> at build output that exists.");
             }
 
-            using var extractor = new AssemblyStringExtractor(settings.ReferenceDirectories);
+            // What the scope's projects compile against, as MSBuild resolved it, plus anything --reference added.
+            // Asked once for the whole scan: this is the same evaluation the assembly lookup above already ran.
+            using var extractor = new AssemblyStringExtractor(
+                [.. resolved.ReferenceDirectories, .. settings.ReferenceDirectories]);
             // Translation comments cannot be read from the binary, so scan the project's source once per root and
             // reuse it for every assembly it built (multi-targeting produces several). The same root is what file
             // references are recorded relative to, so the catalog carries no machine-specific path.

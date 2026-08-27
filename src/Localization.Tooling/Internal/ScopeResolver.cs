@@ -16,12 +16,31 @@ internal sealed record ScopeOptions(string? Assembly, string? Input, string? Pro
 /// </summary>
 internal static class ScopeResolver
 {
+    /// <summary>
+    /// The in-scope assemblies together with the directories their projects compile against, from one MSBuild
+    /// evaluation. The two come back together because they are one question asked once: an <c>--assembly</c> or
+    /// <c>--input</c> scope names no project, so it has assemblies and no references, while a project or
+    /// solution scope answers both. Extraction probes those directories in addition to what sits beside each
+    /// assembly, so a declaring assembly is found because the build said where it is rather than because it
+    /// happened to be copied next door (issue #100).
+    /// </summary>
+    public static ScopeAssemblies ResolveScope(ScopeOptions scope)
+    {
+        List<string> references = [];
+        IReadOnlyList<string> assemblies = Resolve(scope, references);
+        return new ScopeAssemblies(
+            assemblies,
+            [.. references.Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal)]);
+    }
+
     /// <summary>Returns the in-scope assembly paths, deduplicated by file name (newest build wins). Whether an
     /// assembly actually has translatable strings is decided later, when its IL is read.</summary>
-    public static IReadOnlyList<string> Resolve(ScopeOptions scope)
+    public static IReadOnlyList<string> Resolve(ScopeOptions scope) => Resolve(scope, references: null);
+
+    private static IReadOnlyList<string> Resolve(ScopeOptions scope, List<string>? references)
     {
         var byName = new Dictionary<string, (string Path, DateTime Written)>(StringComparer.OrdinalIgnoreCase);
-        foreach (var path in CandidateAssemblies(scope))
+        foreach (var path in CandidateAssemblies(scope, references))
         {
             var name = Path.GetFileNameWithoutExtension(path);
             DateTime written = File.GetLastWriteTimeUtc(path);
@@ -36,7 +55,7 @@ internal static class ScopeResolver
         return [.. byName.Values.Select(entry => entry.Path).OrderBy(Path.GetFileNameWithoutExtension, StringComparer.Ordinal)];
     }
 
-    private static IEnumerable<string> CandidateAssemblies(ScopeOptions scope)
+    private static IEnumerable<string> CandidateAssemblies(ScopeOptions scope, List<string>? references)
     {
         if (scope.Assembly is { Length: > 0 } assembly)
         {
@@ -51,11 +70,11 @@ internal static class ScopeResolver
         {
             { Input: { Length: > 0 } input } => AssembliesUnder(input),
             { Project: { } project } => ProjectAssemblies(ScopeDiscovery.ProjectClosure(
-                ScopeDiscovery.ResolveSingleFile(project, "project", "*.csproj"), scope.Recurse)),
+                ScopeDiscovery.ResolveSingleFile(project, "project", "*.csproj"), scope.Recurse), references),
             { Solution: { } solution } => ProjectAssemblies(
                 ScopeDiscovery.SolutionProjects(ScopeDiscovery.ResolveSolutionFile(solution))
-                    .SelectMany(project => ScopeDiscovery.ProjectClosure(project, recurse: false))),
-            _ => DiscoverInCurrentDirectory(scope.Recurse)
+                    .SelectMany(project => ScopeDiscovery.ProjectClosure(project, recurse: false)), references),
+            _ => DiscoverInCurrentDirectory(scope.Recurse, references)
         };
 
         return assemblies.Distinct(StringComparer.OrdinalIgnoreCase);
@@ -63,18 +82,18 @@ internal static class ScopeResolver
 
     // With no scope at all, default to the current directory like `dotnet build`: a lone solution wins, else
     // a lone project; an ambiguous or empty directory is an error rather than a guess.
-    private static IEnumerable<string> DiscoverInCurrentDirectory(bool recurse)
+    private static IEnumerable<string> DiscoverInCurrentDirectory(bool recurse, List<string>? references)
     {
         CurrentDirectoryScope current = ScopeDiscovery.DiscoverCurrentDirectory();
         if (current.Solution is { } solution)
         {
             return ProjectAssemblies(ScopeDiscovery.SolutionProjects(solution)
-                .SelectMany(project => ScopeDiscovery.ProjectClosure(project, recurse: false)));
+                .SelectMany(project => ScopeDiscovery.ProjectClosure(project, recurse: false)), references);
         }
 
         if (current.Project is { } project)
         {
-            return ProjectAssemblies(ScopeDiscovery.ProjectClosure(project, recurse));
+            return ProjectAssemblies(ScopeDiscovery.ProjectClosure(project, recurse), references);
         }
 
         throw new ArgumentException("No project or solution found in the current directory. Run from your app folder, or pass --project, --solution, or --input <dir>.");
@@ -85,7 +104,7 @@ internal static class ScopeResolver
     // expression, or an import, none of which are visible in the XML. Every project is evaluated in one batch,
     // so the scan pays for it once. The file is then found by name under the project's output root, which
     // covers every configuration and target framework built while excluding the dependencies beside them.
-    private static IEnumerable<string> ProjectAssemblies(IEnumerable<string> projects)
+    private static IEnumerable<string> ProjectAssemblies(IEnumerable<string> projects, List<string>? references)
     {
         List<string> ordered = [.. projects.Distinct(StringComparer.OrdinalIgnoreCase)];
         ProjectEvaluation evaluation = ProjectEvaluator.EvaluateAll(ordered);
@@ -100,6 +119,9 @@ internal static class ScopeResolver
             throw new ArgumentException(Failed(unevaluated, evaluation));
         }
 
+        // The same evaluation that said what each project builds also said what it builds against, so the
+        // reference directories are collected here rather than by asking MSBuild a second time.
+        references?.AddRange(ordered.SelectMany(project => evaluation.Outputs[project].ReferenceDirectories));
         return ordered.SelectMany(project => OwnAssemblies(project, evaluation.Outputs[project]));
     }
 

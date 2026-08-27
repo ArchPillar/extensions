@@ -49,8 +49,9 @@ assembly, and fans out over every in-scope assembly that actually has strings:
 Extraction has to read a called method's *declaring* assembly to learn whether it is translatable, so a wrapper
 API reached through a `ProjectReference` with `Private="false"` — referenced for compilation, deliberately not
 copied — is not beside the assembly that calls it, and its call sites cannot be classified. The build passes the
-references it actually compiled against automatically. Supply them by hand with **`--reference <DIRS>`** (a
-`;`-separated list, repeatable) when scanning a `--assembly`/`--input` path with no project to consult. A scan
+references it actually compiled against automatically, and a `--project`/`--solution` scope asks MSBuild for the
+same list as part of the evaluation it already runs. Supply them by hand with **`--reference <DIRS>`** (a
+`;`-separated list, repeatable) only when scanning an `--assembly`/`--input` path, which names no project to ask. A scan
 that could not resolve something says so, and **never prunes** on that run: a key missing from an incomplete
 extraction is not evidence the key is obsolete.
 

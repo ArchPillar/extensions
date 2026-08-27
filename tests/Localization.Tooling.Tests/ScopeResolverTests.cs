@@ -250,6 +250,37 @@ public sealed class ScopeResolverTests : IDisposable
         Assert.Null(TemplateBuilder.Build(extractor, native, "en"));
     }
 
+    [Fact]
+    public void ResolveScope_RestoredProject_ReturnsTheDirectoriesItCompilesAgainst()
+    {
+        // A restored, built project from this repository: a synthetic fixture has no restore, so ResolveReferences
+        // is deliberately skipped for it (see the sibling tests, which pin that it still evaluates).
+        var project = Path.Combine(RepositoryRoot(), "src", "Localization.Tooling", "ArchPillar.Extensions.Localization.Tooling.csproj");
+
+        ScopeAssemblies resolved = ScopeResolver.ResolveScope(new ScopeOptions(null, null, project, null, Recurse: false));
+
+        // The regression this guards: the directories silently came back empty once, which reads as "resolved
+        // fine, nothing to add" and quietly restores the guess-from-what-is-next-door behaviour of issue #100.
+        Assert.NotEmpty(resolved.ReferenceDirectories);
+        Assert.Contains(
+            resolved.ReferenceDirectories,
+            directory => directory.Contains("Localization.Abstractions", StringComparison.OrdinalIgnoreCase));
+    }
+
+    // The repository root, found by walking up from the test binary to the directory holding the solution.
+    private static string RepositoryRoot()
+    {
+        for (var directory = AppContext.BaseDirectory; directory is not null; directory = Path.GetDirectoryName(directory))
+        {
+            if (Directory.EnumerateFiles(directory, "*.slnx").Any())
+            {
+                return directory;
+            }
+        }
+
+        throw new InvalidOperationException("Could not locate the repository root from the test output directory.");
+    }
+
     private string MakeProject(string name, string? assemblyName = null)
     {
         var directory = Path.Combine(_root, name);
