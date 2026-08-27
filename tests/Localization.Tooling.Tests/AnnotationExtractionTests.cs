@@ -440,7 +440,7 @@ public sealed class AnnotationExtractionTests : IDisposable
             """);
 
         using var extractor = new AssemblyStringExtractor();
-        Catalog template = Assert.IsType<Catalog>(TemplateBuilder.Build(extractor, path, "en"));
+        Catalog template = Assert.IsType<AssemblyTemplate>(TemplateBuilder.Build(extractor, path, "en")).Catalog;
         Assert.Contains(template.Entries, entry => entry.Key == "Email address");
     }
 

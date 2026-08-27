@@ -13,10 +13,22 @@ internal sealed class AssemblyModuleReader : IDisposable
     private readonly DefaultAssemblyResolver _resolver = new();
     private readonly HashSet<string> _searchDirectories = new(StringComparer.OrdinalIgnoreCase);
 
-    public AssemblyModuleReader()
+    /// <summary>
+    /// Creates a reader. <paramref name="referenceDirectories"/> are extra probe paths (the tool's
+    /// <c>--reference</c> option), registered ahead of any assembly's own directory so a caller can supply a
+    /// declaring assembly that the build does not copy beside its callers.
+    /// </summary>
+    public AssemblyModuleReader(IEnumerable<string>? referenceDirectories = null)
     {
         // The tool's own base directory carries the ArchPillar reference assemblies when running in-process.
         AddSearchDirectory(AppContext.BaseDirectory);
+        foreach (var directory in referenceDirectories ?? [])
+        {
+            if (Directory.Exists(directory))
+            {
+                AddSearchDirectory(Path.GetFullPath(directory));
+            }
+        }
     }
 
     /// <summary>

@@ -36,7 +36,7 @@ internal sealed class ExtractCommand : AsyncCommand<ExtractCommand.Settings>
             // A re-extract that changed nothing leaves the catalog untouched: this runs on every build, and
             // rewriting identical content would move the timestamp incremental builds and watchers key off.
             var pending = await CatalogIo.PendingWriteAsync(
-                provider, sourcePath, Reconciler.ReconcileSource(template, existing), existing, options);
+                provider, sourcePath, Reconciler.ReconcileSource(template.Catalog, existing, template.IsComplete), existing, options);
             if (pending is not null)
             {
                 await CatalogIo.WriteBytesAsync(sourcePath, pending, cancellationToken);

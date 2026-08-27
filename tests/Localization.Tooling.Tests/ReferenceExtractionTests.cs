@@ -168,8 +168,8 @@ public sealed class ReferenceExtractionTests : IDisposable
     private static Catalog BuildTemplateWithRoot(string assemblyPath, string? referenceRoot)
     {
         using var extractor = new AssemblyStringExtractor();
-        return Assert.IsType<Catalog>(
-            TemplateBuilder.Build(extractor, assemblyPath, "en", comments: null, referenceRoot: referenceRoot));
+        return Assert.IsType<AssemblyTemplate>(
+            TemplateBuilder.Build(extractor, assemblyPath, "en", comments: null, referenceRoot: referenceRoot)).Catalog;
     }
 
     private static CatalogEntry Single(Catalog catalog) => Assert.Single(catalog.Entries);

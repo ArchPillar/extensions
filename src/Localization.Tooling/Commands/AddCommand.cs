@@ -65,7 +65,7 @@ internal sealed class AddCommand : AsyncCommand<AddCommand.Settings>
                 return;
             }
 
-            await CatalogIo.WriteFileAsync(scopeProvider, target, Reconciler.CreateLanguage(template, language), cancellationToken: cancellationToken);
+            await CatalogIo.WriteFileAsync(scopeProvider, target, Reconciler.CreateLanguage(template.Catalog, language), cancellationToken: cancellationToken);
             created++;
         });
 

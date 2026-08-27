@@ -25,7 +25,7 @@ internal static class TemplateBuilder
     /// by display annotations (<c>[DisplayName]</c> / <c>[Display]</c> / <c>[Description]</c> and the
     /// <c>[Localized…]</c> twins); pass <see langword="false"/> to opt out and emit only the IL call sites. IL call
     /// sites take precedence over an annotation on the same (category, key), whose file references are unioned.</summary>
-    public static Catalog? Build(
+    public static AssemblyTemplate? Build(
         AssemblyStringExtractor extractor,
         string assemblyPath,
         string sourceLanguage,
@@ -33,8 +33,13 @@ internal static class TemplateBuilder
         string? referenceRoot = null,
         bool includeAnnotations = true)
     {
-        (IReadOnlyList<RawCallSite> callSites, IReadOnlyList<RawCallSite> annotations) = extractor.Extract(assemblyPath, includeAnnotations);
-        if (callSites.Count == 0 && annotations.Count == 0)
+        (CallSiteScan scan, IReadOnlyList<RawCallSite> annotations) = extractor.Extract(assemblyPath, includeAnnotations);
+        IReadOnlyList<RawCallSite> callSites = scan.Sites;
+
+        // An assembly with nothing found *and* nothing left unanswered has no template. One with unresolved
+        // references is not the same thing: it may well have strings that went unseen, and saying "no template"
+        // there is what let a caller conclude every key in an existing catalog was obsolete.
+        if (callSites.Count == 0 && annotations.Count == 0 && scan.IsComplete)
         {
             return null;
         }
@@ -77,7 +82,7 @@ internal static class TemplateBuilder
             });
         }
 
-        return new Catalog { Culture = sourceLanguage, Entries = entries };
+        return new AssemblyTemplate(new Catalog { Culture = sourceLanguage, Entries = entries }, scan);
     }
 
     // A file reference as a path relative to the project root, with '/' separators so the catalog is identical on

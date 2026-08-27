@@ -233,9 +233,9 @@ public sealed class ScopeResolverTests : IDisposable
         File.WriteAllBytes(native, [0x4D, 0x5A, 0x00, 0x00, 0xFF, 0xFF]);
 
         using var extractor = new AssemblyStringExtractor();
-        (IReadOnlyList<RawCallSite> callSites, IReadOnlyList<RawCallSite> annotations) = extractor.Extract(native, includeAnnotations: true);
+        (CallSiteScan callSites, IReadOnlyList<RawCallSite> annotations) = extractor.Extract(native, includeAnnotations: true);
 
-        Assert.Empty(callSites);
+        Assert.Empty(callSites.Sites);
         Assert.Empty(annotations);
     }
 

@@ -22,7 +22,7 @@ internal static class ScopeRunner
     /// </para>
     /// </summary>
     /// <exception cref="ArgumentException">The scope resolved to no built assembly at all.</exception>
-    public static Task<int> ForEachTemplateAsync(AuthoringScopeSettings settings, string verb, Func<string, string, Catalog, Task> perAssembly)
+    public static Task<int> ForEachTemplateAsync(AuthoringScopeSettings settings, string verb, Func<string, string, AssemblyTemplate, Task> perAssembly)
     {
         ScopeOptions scope = settings.ToScope();
         var flat = settings.FlatDirectory;
@@ -41,7 +41,7 @@ internal static class ScopeRunner
                     + "first, or point --input <dir> or --assembly <dll> at build output that exists.");
             }
 
-            using var extractor = new AssemblyStringExtractor();
+            using var extractor = new AssemblyStringExtractor(settings.ReferenceDirectories);
             // Translation comments cannot be read from the binary, so scan the project's source once per root and
             // reuse it for every assembly it built (multi-targeting produces several). The same root is what file
             // references are recorded relative to, so the catalog carries no machine-specific path.
@@ -52,17 +52,26 @@ internal static class ScopeRunner
                 ToolConsole.Status(ctx, $"{verb} {name}…");
                 var root = CatalogDirectoryResolver.ProjectRootOf(path);
                 // References are opt-in (--references): with no root to record them against, none are recorded.
-                Catalog? template = TemplateBuilder.Build(
+                AssemblyTemplate? template = TemplateBuilder.Build(
                     extractor,
                     path,
                     settings.Source,
                     CommentsFor(root, commentsByRoot),
                     settings.IncludeReferences ? root : null,
                     settings.IncludeAnnotations);
-                if (template is not null)
+                if (template is null)
                 {
-                    await perAssembly(name, flat ?? CatalogDirectoryResolver.CatalogDirectoryFor(path, scope, settings.CatalogFolder), template);
+                    continue;
                 }
+
+                // Say it once, here, rather than in each command: an incomplete scan is the thing a reader has
+                // to know about, and it stayed invisible for as long as it was only an absence (issue #100).
+                if (!template.IsComplete)
+                {
+                    ToolConsole.Warn($"{name}: {template.Describe()}. Its catalogs will not be pruned; pass --reference <DIR> to point at the missing assemblies.");
+                }
+
+                await perAssembly(name, flat ?? CatalogDirectoryResolver.CatalogDirectoryFor(path, scope, settings.CatalogFolder), template);
             }
 
             return assemblies.Count;

@@ -6,12 +6,13 @@ using Microsoft.CodeAnalysis.Emit;
 namespace ArchPillar.Extensions.Localization.Tooling.Tests;
 
 /// <summary>
-/// Reproduction for issue #100: a call site made through an attributed wrapper declared in another assembly is
-/// silently dropped when that assembly cannot be resolved beside the one being read. The same
-/// <c>Library.dll</c>, byte for byte, is read from two directories that differ only by whether the declaring
-/// assembly sits beside it.
+/// Issue #100: a call site made through an attributed wrapper declared in another assembly used to be silently
+/// dropped when that assembly could not be resolved beside the one being read. The same <c>Library.dll</c>, byte
+/// for byte, is read from two directories that differ only by whether the declaring assembly sits beside it —
+/// pinning both that the loss is now reported rather than silent, and that pointing the scan at the wrapper
+/// (what the build's <c>--reference</c> arguments do) recovers the site outright.
 /// </summary>
-public sealed class UnresolvableWrapperReproTests : IDisposable
+public sealed class UnresolvableWrapperTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), "apl-repro-" + Guid.NewGuid().ToString("N"));
 
@@ -59,20 +60,40 @@ public sealed class UnresolvableWrapperReproTests : IDisposable
     }
 
     [Fact]
-    public void Extract_WrapperAssemblyMissing_SilentlyDropsTheWrappedCallSite()
+    public void Extract_WrapperAssemblyMissing_ReportsTheCallSiteItCouldNotClassify()
     {
         var directory = Stage("alone", copyHelpers: false);
 
-        IReadOnlyList<RawCallSite> sites = ExtractFrom(Path.Combine(directory, "Library.dll"));
+        CallSiteScan scan = ScanOf(Path.Combine(directory, "Library.dll"));
 
-        // The defect: the identical assembly yields one fewer string, with no diagnostic of any kind. The
-        // wrapped site is indistinguishable from "not a translation method", so sync later prunes its unit.
-        RawCallSite only = Assert.Single(sites);
+        // The site still cannot be read — the attributes that would classify it are in the missing assembly —
+        // but the scan now says so instead of passing for a complete one. That is what stops the prune.
+        RawCallSite only = Assert.Single(scan.Sites);
         Assert.Equal("Save", only.Key);
+        Assert.False(scan.IsComplete);
+        Assert.Equal(1, scan.UnclassifiedCallCount);
+        Assert.Equal("Helpers", Assert.Single(scan.UnresolvedAssemblies));
     }
 
     [Fact]
-    public void Extract_AfterReadingAnAssemblyBesideTheWrapper_LeaksResolutionIntoTheUnresolvableOne()
+    public void Extract_WrapperSuppliedByReferenceDirectory_FindsBothAndIsComplete()
+    {
+        var alone = Stage("alone", copyHelpers: false);
+        var build = Path.Combine(_root, "build");
+
+        // What the build now passes as --reference: the directories it actually compiled against. The wrapper is
+        // resolved from where it really lives, so the result no longer depends on what sits beside Library.dll.
+        using var extractor = new AssemblyStringExtractor([build]);
+        CallSiteScan scan = extractor.Extract(Path.Combine(alone, "Library.dll"), includeAnnotations: false).CallSites;
+
+        Assert.True(scan.IsComplete);
+        Assert.Equal(
+            ["Save", "TermsConsent.required"],
+            scan.Sites.Select(site => site.Key).OrderBy(key => key, StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public void Extract_AfterReadingAnAssemblyBesideTheWrapper_StillLeaksResolutionIntoTheUnresolvableOne()
     {
         var with = Stage("with", copyHelpers: true);
         var alone = Stage("alone", copyHelpers: false);
@@ -81,13 +102,15 @@ public sealed class UnresolvableWrapperReproTests : IDisposable
         // wrapper registers that directory on the shared resolver, and it is never removed — so the very next
         // read of the identical, wrapper-less assembly now resolves through it.
         using var extractor = new AssemblyStringExtractor();
-        IReadOnlyList<RawCallSite> first = extractor.Extract(Path.Combine(with, "Library.dll"), includeAnnotations: false).CallSites;
-        IReadOnlyList<RawCallSite> second = extractor.Extract(Path.Combine(alone, "Library.dll"), includeAnnotations: false).CallSites;
+        IReadOnlyList<RawCallSite> first = extractor.Extract(Path.Combine(with, "Library.dll"), includeAnnotations: false).CallSites.Sites;
+        IReadOnlyList<RawCallSite> second = extractor.Extract(Path.Combine(alone, "Library.dll"), includeAnnotations: false).CallSites.Sites;
 
         Assert.Equal(2, first.Count);
 
-        // This is why --solution and --project disagree: scope decides which directories are on the probe list,
-        // so the same assembly extracts differently depending on what was scanned before it.
+        // Still true, and deliberately pinned: scope decides which directories are on the probe list, so the
+        // same assembly can extract differently depending on what was scanned before it. The guards above are
+        // what make that harmless — the narrow answer is now reported and never prunes — and --reference is how
+        // a caller makes it moot. Remove this assertion only when resolution stops depending on scan order.
         Assert.Equal(2, second.Count);
     }
 
@@ -115,7 +138,9 @@ public sealed class UnresolvableWrapperReproTests : IDisposable
         return staged;
     }
 
-    private static IReadOnlyList<RawCallSite> ExtractFrom(string assemblyPath)
+    private static IReadOnlyList<RawCallSite> ExtractFrom(string assemblyPath) => ScanOf(assemblyPath).Sites;
+
+    private static CallSiteScan ScanOf(string assemblyPath)
     {
         using var extractor = new AssemblyStringExtractor();
         return extractor.Extract(assemblyPath, includeAnnotations: false).CallSites;

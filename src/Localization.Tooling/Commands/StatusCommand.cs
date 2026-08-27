@@ -41,7 +41,7 @@ internal sealed class StatusCommand : AsyncCommand<StatusCommand.Settings>
         var stringsByProject = new Dictionary<string, int>(StringComparer.Ordinal);
         var scanned = await ScopeRunner.ForEachTemplateAsync(settings, "Scanning", (name, catalogDirectory, template) =>
         {
-            stringsByProject[name] = template.Entries.Count;
+            stringsByProject[name] = template.Catalog.Entries.Count;
             if (Directory.Exists(catalogDirectory))
             {
                 foreach (var path in CatalogNaming.TargetCatalogsFor(catalogDirectory, name, sourceLanguage))
@@ -50,7 +50,7 @@ internal sealed class StatusCommand : AsyncCommand<StatusCommand.Settings>
                     rows.Add(new TranslationProgressRow(
                         name,
                         CatalogNaming.CultureOf(path),
-                        TranslationProgress.Measure(catalog, template.Entries.Count)));
+                        TranslationProgress.Measure(catalog, template.Catalog.Entries.Count)));
                 }
             }
 
