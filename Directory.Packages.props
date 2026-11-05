@@ -9,18 +9,18 @@
     <!-- Framework-specific: .NET 8                                         -->
     <!-- ================================================================== -->
     <ItemGroup Condition="'$(TargetFramework)' == 'net8.0'">
-        <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="8.0.29" />
-        <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="8.0.29" />
-        <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.29" />
-        <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.29" />
-        <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.29" />
-        <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="8.0.29" />
-        <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.29" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="8.0.33" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="8.0.33" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.33" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.33" />
+        <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.33" />
+        <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="8.0.33" />
+        <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.33" />
         <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />
         <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
         <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.2" />
-        <PackageVersion Include="Microsoft.Extensions.Localization" Version="8.0.29" />
-        <PackageVersion Include="Microsoft.Extensions.Localization.Abstractions" Version="8.0.29" />
+        <PackageVersion Include="Microsoft.Extensions.Localization" Version="8.0.33" />
+        <PackageVersion Include="Microsoft.Extensions.Localization.Abstractions" Version="8.0.33" />
         <PackageVersion Include="Microsoft.Extensions.Hosting" Version="8.0.1" />
         <PackageVersion Include="Microsoft.Extensions.Logging" Version="8.0.1" />
         <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="8.0.1" />
@@ -30,58 +30,58 @@
     <!-- Framework-specific: .NET 9                                         -->
     <!-- ================================================================== -->
     <ItemGroup Condition="'$(TargetFramework)' == 'net9.0'">
-        <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="9.0.18" />
-        <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.18" />
-        <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.18" />
-        <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.18" />
-        <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.18" />
-        <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="9.0.18" />
-        <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="9.0.18" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="9.0.22" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.22" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.22" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="9.0.22" />
+        <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.22" />
+        <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="9.0.22" />
+        <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="9.0.22" />
         <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
-        <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.18" />
-        <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.18" />
-        <PackageVersion Include="Microsoft.Extensions.Localization" Version="9.0.18" />
-        <PackageVersion Include="Microsoft.Extensions.Localization.Abstractions" Version="9.0.18" />
-        <PackageVersion Include="Microsoft.Extensions.Hosting" Version="9.0.18" />
-        <PackageVersion Include="Microsoft.Extensions.Logging" Version="9.0.18" />
-        <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="9.0.18" />
+        <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="9.0.22" />
+        <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.22" />
+        <PackageVersion Include="Microsoft.Extensions.Localization" Version="9.0.22" />
+        <PackageVersion Include="Microsoft.Extensions.Localization.Abstractions" Version="9.0.22" />
+        <PackageVersion Include="Microsoft.Extensions.Hosting" Version="9.0.22" />
+        <PackageVersion Include="Microsoft.Extensions.Logging" Version="9.0.22" />
+        <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="9.0.22" />
     </ItemGroup>
 
     <!-- ================================================================== -->
     <!-- Framework-specific: .NET 10                                        -->
     <!-- ================================================================== -->
     <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
-        <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.10" />
-        <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.10" />
-        <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.10" />
-        <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.10" />
-        <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.10" />
-        <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.10" />
-        <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.10" />
-        <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.10" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="10.0.14" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.14" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.14" />
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.14" />
+        <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.14" />
+        <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
+        <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.14" />
+        <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.14" />
         <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
-        <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.10" />
-        <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.10" />
-        <PackageVersion Include="Microsoft.Extensions.Localization" Version="10.0.10" />
-        <PackageVersion Include="Microsoft.Extensions.Localization.Abstractions" Version="10.0.10" />
-        <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.10" />
-        <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.10" />
-        <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="10.0.10" />
+        <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.14" />
+        <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.14" />
+        <PackageVersion Include="Microsoft.Extensions.Localization" Version="10.0.14" />
+        <PackageVersion Include="Microsoft.Extensions.Localization.Abstractions" Version="10.0.14" />
+        <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.14" />
+        <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.14" />
+        <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="10.0.14" />
         <!-- Upgrades for the NuGet security audit (NU1903). -->
-        <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
-        <PackageVersion Include="Microsoft.OpenApi" Version="2.11.0" />
+        <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.14" />
+        <PackageVersion Include="Microsoft.OpenApi" Version="2.13.0" />
     </ItemGroup>
 
     <!-- ================================================================== -->
     <!-- Framework-agnostic                                                 -->
     <!-- ================================================================== -->
     <ItemGroup>
-        <PackageVersion Include="OpenIddict.AspNetCore" Version="7.6.0" />
-        <PackageVersion Include="OpenIddict.EntityFrameworkCore" Version="7.6.0" />
+        <PackageVersion Include="OpenIddict.AspNetCore" Version="7.8.0" />
+        <PackageVersion Include="OpenIddict.EntityFrameworkCore" Version="7.8.0" />
         <PackageVersion Include="Bogus" Version="35.6.5" />
-        <PackageVersion Include="Scalar.AspNetCore" Version="2.16.18" />
-        <PackageVersion Include="Spectre.Console" Version="0.55.0" />
-        <PackageVersion Include="Spectre.Console.Cli" Version="0.55.0" />
+        <PackageVersion Include="Scalar.AspNetCore" Version="2.19.0" />
+        <PackageVersion Include="Spectre.Console" Version="0.57.2" />
+        <PackageVersion Include="Spectre.Console.Cli" Version="0.57.2" />
     </ItemGroup>
     <ItemGroup>
         <!--Brixter private packages-->
@@ -89,7 +89,7 @@
     </ItemGroup>
     <ItemGroup>
         <!-- Source Link -->
-        <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.301" />
+        <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.403" />
     </ItemGroup>
     <ItemGroup>
         <!-- Roslyn (analyzers + source generator); host-provided, referenced PrivateAssets=all.
@@ -104,27 +104,20 @@
     </ItemGroup>
     <ItemGroup>
         <!-- Analyzers -->
-        <PackageVersion Include="Roslynator.Analyzers" Version="4.16.0" />
-        <PackageVersion Include="Roslynator.Formatting.Analyzers" Version="4.16.0" />
+        <PackageVersion Include="Roslynator.Analyzers" Version="5.0.1" />
+        <PackageVersion Include="Roslynator.Formatting.Analyzers" Version="5.0.1" />
         <PackageVersion Include="SecurityCodeScan.VS2019" Version="5.6.7" />
-        <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.31.0.145097" />
+        <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.35.0.4138" />
     </ItemGroup>
     <ItemGroup>
         <!-- Testing -->
-        <PackageVersion Include="coverlet.collector" Version="10.0.1" />
-        <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.8.1" />
+        <PackageVersion Include="coverlet.collector" Version="10.1.0" />
+        <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
         <PackageVersion Include="xunit" Version="2.9.3" />
-        <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+        <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
         <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
         <PackageVersion Include="BenchmarkDotNet.Annotations" Version="0.15.8" />
-        <PackageVersion Include="Testcontainers.PostgreSql" Version="4.13.0" />
-        <!-- Transitive pin, not a direct reference. Testcontainers 4.13.0 (the latest) depends on
-             SSH.NET 2025.1.0, which carries a high-severity advisory (GHSA-q939-rpr3-3284); NuGet
-             audit raises NU1903, and warnings-as-errors turns that into a Release build failure.
-             There is no Testcontainers release that moves off it, so the graph is pinned forward
-             instead. Testcontainers asks for >= 2025.1.0, so 2026.0.0 satisfies its range. Drop
-             this once Testcontainers ships a version that depends on a non-vulnerable SSH.NET. -->
-        <PackageVersion Include="SSH.NET" Version="2026.0.0" />
+        <PackageVersion Include="Testcontainers.PostgreSql" Version="4.16.0" />
         <!-- End of Testing -->
     </ItemGroup>
 </Project>

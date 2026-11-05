@@ -138,8 +138,8 @@ public sealed class PluralRulesTests
     }
 
     [Theory]
-    // m7: CldrPluralData's "Many" rule for these Romance languages is
-    // "e = 0 and i != 0 and i % 1000000 = 0 and v = 0 or e != 0..5" -- the "e != 0..5" disjunct is how CLDR
+    // m7: CldrPluralData's "Many" rule for these Romance languages is the
+    // condition "e = 0 and i != 0 and i % 1000000 = 0 and v = 0 or e != 0..5". The "e != 0..5" disjunct is how CLDR
     // selects "many" for a million-scale-and-above COMPACT value. Before the fix, e was hard-coded 0 for
     // every caller, so this disjunct could never fire and a mantissa outside 0..1 (e.g. compacted "2") wrongly
     // fell through to "other". With the true compact exponent (6 for a million-scale bucket, verified against

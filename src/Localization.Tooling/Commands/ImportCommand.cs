@@ -35,7 +35,7 @@ internal sealed class ImportCommand : AsyncCommand<ImportCommand.Settings>
         public string? Output { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var zipPath = ScopeInput.Require(settings.Input, "--input");
 
