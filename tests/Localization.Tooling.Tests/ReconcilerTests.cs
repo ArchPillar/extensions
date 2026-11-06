@@ -336,6 +336,53 @@ public sealed class ReconcilerTests
         Assert.Equal("hand-kept note", entry.Comment);
     }
 
+    [Fact]
+    public void Reconcile_PruneOff_KeepsATranslationMissingFromTheTemplate()
+    {
+        // An incomplete extraction left the key out, which says nothing about whether it is obsolete. Its
+        // translation is the one thing the tool cannot get back, so it survives untouched.
+        Catalog template = MakeCatalog("en", Entry("home", "Home", Fp("Home")));
+        Catalog target = MakeCatalog("da", Entry("unseen", "Unseen", Fp("Unseen"), "Uset", TranslationState.Translated));
+
+        Catalog reconciled = Reconciler.Reconcile(template, target, prune: false);
+
+        CatalogEntry kept = Assert.Single(reconciled.Entries, entry => entry.Key == "unseen");
+        Assert.Equal("Uset", kept.TranslatedMessage);
+        Assert.Equal(TranslationState.Translated, kept.State);
+    }
+
+    [Fact]
+    public void Reconcile_PruneOff_KeepsEntriesInIdentityOrder()
+    {
+        // Appending what was kept would move it to the end on every incomplete scan and back on the next complete
+        // one. ARB writes entries as given, so that is a rewritten catalog and false drift from sync --check.
+        Catalog template = MakeCatalog("en", Entry("b.current", "Current", Fp("Current")));
+        Catalog target = MakeCatalog(
+            "da",
+            Entry("a.kept", "First", Fp("First")),
+            Entry("b.current", "Current", Fp("Current")),
+            Entry("c.kept", "Last", Fp("Last")));
+
+        Catalog reconciled = Reconciler.Reconcile(template, target, prune: false);
+
+        Assert.Equal(["a.kept", "b.current", "c.kept"], reconciled.Entries.Select(entry => entry.Key));
+    }
+
+    [Fact]
+    public void ReconcileSource_PruneOff_KeepsEntriesInIdentityOrder()
+    {
+        Catalog template = MakeCatalog("en", Entry("b.current", "Current", Fp("Current")));
+        Catalog existing = MakeCatalog(
+            "en",
+            Entry("a.kept", "First", Fp("First")),
+            Entry("b.current", "Current", Fp("Current")),
+            Entry("c.kept", "Last", Fp("Last")));
+
+        Catalog reconciled = Reconciler.ReconcileSource(template, existing, prune: false);
+
+        Assert.Equal(["a.kept", "b.current", "c.kept"], reconciled.Entries.Select(entry => entry.Key));
+    }
+
     private static CatalogEntry Entry(
         string key,
         string source,

@@ -17,10 +17,10 @@ internal sealed record ScopeOptions(string? Assembly, string? Input, string? Pro
 internal static class ScopeResolver
 {
     /// <summary>
-    /// The in-scope assemblies together with the directories their projects compile against, from one MSBuild
-    /// evaluation. The two come back together because they are one question asked once: an <c>--assembly</c> or
-    /// <c>--input</c> scope names no project, so it has assemblies and no references, while a project or
-    /// solution scope answers both. Extraction probes those directories in addition to what sits beside each
+    /// The in-scope assemblies together with the directories their projects compile against. The two come back
+    /// together because they are one question: an <c>--assembly</c> or <c>--input</c> scope names no project, so
+    /// it has assemblies and no references, while a project or solution scope answers both, for the configuration
+    /// each assembly was actually built in. Extraction probes those directories in addition to what sits beside each
     /// assembly, so a declaring assembly is found because the build said where it is rather than because it
     /// happened to be copied next door (issue #100).
     /// </summary>
@@ -119,11 +119,51 @@ internal static class ScopeResolver
             throw new ArgumentException(Failed(unevaluated, evaluation));
         }
 
-        // The same evaluation that said what each project builds also said what it builds against, so the
-        // reference directories are collected here rather than by asking MSBuild a second time.
-        references?.AddRange(ordered.SelectMany(project => evaluation.Outputs[project].ReferenceDirectories));
+        references?.AddRange(ReferencesOfNewestBuilds(ordered, evaluation.Outputs));
         return ordered.SelectMany(project => OwnAssemblies(project, evaluation.Outputs[project]));
     }
+
+    // MSBuild resolves references for one configuration, while a scan reads whichever build of a project is newest,
+    // and the two have to agree: after a Release-only build the Debug answer points at nothing, and beside a stale
+    // Debug build it points at an old wrapper that may read as "not translatable". The evaluation that said what
+    // each project builds usually matches, so it is reused; only a project built otherwise is asked again. One that
+    // then fails to evaluate contributes nothing, which reports and does not prune, rather than the wrong answer.
+    private static List<string> ReferencesOfNewestBuilds(List<string> projects, IReadOnlyDictionary<string, ProjectOutputs> outputs)
+    {
+        var directories = new List<string>();
+        var builtElsewhere = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var project in projects)
+        {
+            ProjectOutputs evaluated = outputs[project];
+            if (NewestBuildConfiguration(project, evaluated) is not { } built
+                || built.Equals(evaluated.Configuration, StringComparison.OrdinalIgnoreCase))
+            {
+                directories.AddRange(evaluated.ReferenceDirectories);
+                continue;
+            }
+
+            if (!builtElsewhere.TryGetValue(built, out List<string>? group))
+            {
+                group = [];
+                builtElsewhere[built] = group;
+            }
+
+            group.Add(project);
+        }
+
+        foreach ((var configuration, List<string> group) in builtElsewhere)
+        {
+            ProjectEvaluation evaluation = ProjectEvaluator.EvaluateAll(group, configuration);
+            directories.AddRange(evaluation.Outputs.Values.SelectMany(project => project.ReferenceDirectories));
+        }
+
+        return directories;
+    }
+
+    private static string? NewestBuildConfiguration(string project, ProjectOutputs outputs) =>
+        OwnAssemblies(project, outputs).MaxBy(File.GetLastWriteTimeUtc) is { } newest
+            ? AssemblyModuleReader.BuildConfigurationOf(newest)
+            : null;
 
     // Two different failures end here, and naming them the same thing is what makes the second one unreadable: a
     // project MSBuild rejects is the project's problem, while an evaluation that never produced a result is the

@@ -80,7 +80,7 @@ internal class AuthoringScopeSettings : ScopeSettings
     public bool References { get; init; }
 
     [CommandOption("--reference <DIRS>")]
-    [Description("Directories to resolve references from, in addition to those beside each assembly; ';'-separated, repeatable.")]
+    [Description("Directories to resolve references from, in addition to those beside each assembly; ';'-separated, repeatable. @FILE reads them from a file, one per line.")]
     public string[] Reference { get; init; } = [];
 
     [CommandOption("--catalog-path <PROJECT_SUBPATH>")]
@@ -95,10 +95,13 @@ internal class AuthoringScopeSettings : ScopeSettings
     /// The extra probe directories the reference resolver should search. Extraction reads a call's declaring
     /// assembly to learn whether it is translatable, so an assembly the build does not copy beside its callers
     /// (a <c>ProjectReference</c> with <c>Private=false</c>) leaves those call sites unclassified; this is how a
-    /// caller supplies it without staging files by hand.
+    /// caller supplies it without staging files by hand. An <c>@FILE</c> entry names a file listing them one per
+    /// line, which is how the build passes its own list: every reference directory on a command line would not fit.
     /// </summary>
     public IReadOnlyList<string> ReferenceDirectories =>
-        [.. Reference.SelectMany(value => value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))];
+        [.. Reference
+            .SelectMany(value => value.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            .SelectMany(ExpandReference)];
 
     /// <summary>Whether attribute-carried strings are extracted (on unless <c>--no-annotations</c>).</summary>
     public bool IncludeAnnotations => !NoAnnotations;
@@ -122,6 +125,9 @@ internal class AuthoringScopeSettings : ScopeSettings
     protected override string? InputPath => Input;
 
     protected override string? AssemblyPath => Assembly;
+
+    private static IEnumerable<string> ExpandReference(string entry) =>
+        entry.StartsWith('@') ? File.ReadLines(entry[1..]) : [entry];
 }
 
 /// <summary>

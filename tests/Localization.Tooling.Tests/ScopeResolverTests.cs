@@ -255,7 +255,7 @@ public sealed class ScopeResolverTests : IDisposable
     {
         // A restored, built project from this repository: a synthetic fixture has no restore, so ResolveReferences
         // is deliberately skipped for it (see the sibling tests, which pin that it still evaluates).
-        var project = Path.Combine(RepositoryRoot(), "src", "Localization.Tooling", "ArchPillar.Extensions.Localization.Tooling.csproj");
+        var project = Path.Combine(TestToolchain.RepositoryRoot(), "src", "Localization.Tooling", "ArchPillar.Extensions.Localization.Tooling.csproj");
 
         ScopeAssemblies resolved = ScopeResolver.ResolveScope(new ScopeOptions(null, null, project, null, Recurse: false));
 
@@ -267,18 +267,37 @@ public sealed class ScopeResolverTests : IDisposable
             directory => directory.Contains("Localization.Abstractions", StringComparison.OrdinalIgnoreCase));
     }
 
-    // The repository root, found by walking up from the test binary to the directory holding the solution.
-    private static string RepositoryRoot()
+    [Fact]
+    public async Task ResolveScope_NewestBuildIsRelease_ResolvesReferencesFromThatConfigurationAsync()
     {
-        for (var directory = AppContext.BaseDirectory; directory is not null; directory = Path.GetDirectoryName(directory))
-        {
-            if (Directory.EnumerateFiles(directory, "*.slnx").Any())
-            {
-                return directory;
-            }
-        }
+        // What a Release CI leaves on a machine that has also built Debug. The scan reads the newest build, so its
+        // references must be that build's too: Debug's copy of a wrapper is a different, possibly stale assembly,
+        // and one that predates [Translatable] reads as a definite "not translatable" on a complete scan.
+        var wrapper = MakeProject("Wrapper");
+        var app = MakeProject("App");
+        await File.WriteAllTextAsync(app, $"""
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+              <ItemGroup><ProjectReference Include="{wrapper}" /></ItemGroup>
+            </Project>
+            """);
+        await BuildAsync(app, "Debug");
+        await BuildAsync(app, "Release");
 
-        throw new InvalidOperationException("Could not locate the repository root from the test output directory.");
+        ScopeAssemblies resolved = ScopeResolver.ResolveScope(new ScopeOptions(null, null, app, null, Recurse: false));
+
+        var release = Path.Combine("Wrapper", "bin", "Release");
+        var debug = Path.Combine("Wrapper", "bin", "Debug");
+        Assert.Contains(resolved.ReferenceDirectories, directory => directory.Contains(release, StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(resolved.ReferenceDirectories, directory => directory.Contains(debug, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static async Task BuildAsync(string project, string configuration)
+    {
+        (var exitCode, var output) = await TestToolchain.RunDotnetAsync(
+            Path.GetDirectoryName(project)!, "build", project, "-c", configuration, "-nologo", "-nodeReuse:false", "-p:UseSharedCompilation=false");
+
+        Assert.True(exitCode == 0, output);
     }
 
     private string MakeProject(string name, string? assemblyName = null)

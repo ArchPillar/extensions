@@ -70,6 +70,18 @@ internal sealed class AssemblyModuleReader : IDisposable
         }
     }
 
+    // The configuration an assembly was built in, as the SDK stamped it into [AssemblyConfiguration]; null when it
+    // cannot be read or carries none. The binary is the authority here, because the folder it sits in only
+    // suggests an answer: an output path is the project's to rename.
+    public static string? BuildConfigurationOf(string assemblyPath)
+    {
+        using var reader = new AssemblyModuleReader();
+        using ModuleDefinition? module = reader.Read(assemblyPath);
+        CustomAttribute? stamp = module?.Assembly?.CustomAttributes
+            .FirstOrDefault(attribute => attribute.AttributeType.FullName == "System.Reflection.AssemblyConfigurationAttribute");
+        return stamp?.ConstructorArguments[0].Value is string { Length: > 0 } configuration ? configuration : null;
+    }
+
     /// <summary>Every type in the module, including nested types, depth-first.</summary>
     public static IEnumerable<TypeDefinition> AllTypes(ModuleDefinition module) => Descend(module.Types);
 

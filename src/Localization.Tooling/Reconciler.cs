@@ -32,12 +32,7 @@ internal static class Reconciler
 
         // Keys present in the target but no longer in the template are dropped (Decision D-11) — unless the
         // template is incomplete, in which case they are kept exactly as they were.
-        if (!prune)
-        {
-            entries.AddRange(Ordered(target.Entries).Where(entry => !matched.Contains(Composite(entry))));
-        }
-
-        return target with { Entries = entries };
+        return target with { Entries = prune ? entries : WithUnmatched(entries, target.Entries, matched) };
     }
 
     public static Catalog CreateLanguage(Catalog template, string culture) =>
@@ -68,13 +63,18 @@ internal static class Reconciler
 
         // As in Reconcile: an incomplete extraction is no basis for deleting a source entry either — and the
         // source catalog is where a hand-edited wording lives, so dropping one loses an edit, not just a key.
-        if (!prune)
+        return existingSource with
         {
-            entries.AddRange(Ordered(existingSource.Entries).Where(entry => !matched.Contains(Composite(entry))));
-        }
-
-        return existingSource with { Culture = template.Culture, Entries = entries };
+            Culture = template.Culture,
+            Entries = prune ? entries : WithUnmatched(entries, existingSource.Entries, matched)
+        };
     }
+
+    // The merged entries plus every existing one the template did not mention, in identity order. Merged in rather
+    // than appended: a format that writes entries as given would otherwise see an incomplete scan reorder a catalog
+    // it changed nothing in, and the next complete scan reorder it back.
+    private static List<CatalogEntry> WithUnmatched(List<CatalogEntry> merged, IReadOnlyList<CatalogEntry> existing, HashSet<string> matched) =>
+        Ordered([.. merged, .. existing.Where(entry => !matched.Contains(Composite(entry)))]);
 
     // A source entry that equals the in-code default: no stored translation and NeedsTranslation, so the
     // runtime loader drops it (the default already covers it) and it tracks the current default each extract.

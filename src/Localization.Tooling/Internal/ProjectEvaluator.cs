@@ -13,7 +13,12 @@ namespace ArchPillar.Extensions.Localization.Tooling.Internal;
 /// MSBuild resolved them. Extraction must read a called method's declaring assembly to learn whether it is
 /// translatable, and probing what happens to sit beside the target answers that by luck; this is the same list
 /// the compiler was given (issue #100).</param>
-internal sealed record ProjectOutputs(string AssemblyFileName, string OutputRoot, IReadOnlyList<string> ReferenceDirectories);
+/// <param name="Configuration">The build configuration those directories were resolved for.</param>
+internal sealed record ProjectOutputs(
+    string AssemblyFileName,
+    string OutputRoot,
+    IReadOnlyList<string> ReferenceDirectories,
+    string Configuration);
 
 /// <summary>The evaluation's result: what each project builds. What MSBuild had to say while working it out is
 /// not here — that is log output, and it went to the log as it arrived (see <c>--verbose</c>).</summary>
@@ -91,6 +96,7 @@ internal static class ProjectEvaluator
                 <AplAssemblyName>$(AssemblyName)</AplAssemblyName>
                 <AplBaseOutputPath>$(BaseOutputPath)</AplBaseOutputPath>
                 <AplReferenceDirs>@(ArchPillarAplRefDir->Distinct())</AplReferenceDirs>
+                <AplConfiguration>$(Configuration)</AplConfiguration>
               </ArchPillarAplOutput>
             </ItemGroup>
           </Target>
@@ -100,9 +106,10 @@ internal static class ProjectEvaluator
     /// <summary>
     /// The outputs of every project that could be evaluated, keyed by project path. A project missing from the
     /// result could not be evaluated — which is the same thing as not being buildable, so the caller reports it
-    /// rather than guessing a name for an assembly that cannot exist.
+    /// rather than guessing a name for an assembly that cannot exist. <paramref name="configuration"/> evaluates
+    /// that build configuration instead of each project's default.
     /// </summary>
-    public static ProjectEvaluation EvaluateAll(IReadOnlyList<string> projectPaths)
+    public static ProjectEvaluation EvaluateAll(IReadOnlyList<string> projectPaths, string? configuration = null)
     {
         var results = new Dictionary<string, ProjectOutputs>(StringComparer.OrdinalIgnoreCase);
         if (projectPaths.Count == 0)
@@ -110,7 +117,7 @@ internal static class ProjectEvaluator
             return new ProjectEvaluation(results);
         }
 
-        (IEnumerable<KeyValuePair<string, ProjectOutputs>> evaluated, var fault) = EvaluateBatch(projectPaths);
+        (IEnumerable<KeyValuePair<string, ProjectOutputs>> evaluated, var fault) = EvaluateBatch(projectPaths, configuration);
         foreach ((var path, ProjectOutputs outputs) in evaluated)
         {
             results[path] = outputs;
@@ -119,7 +126,9 @@ internal static class ProjectEvaluator
         return new ProjectEvaluation(results, fault);
     }
 
-    private static (IEnumerable<KeyValuePair<string, ProjectOutputs>> Evaluated, string? Fault) EvaluateBatch(IReadOnlyList<string> projectPaths)
+    private static (IEnumerable<KeyValuePair<string, ProjectOutputs>> Evaluated, string? Fault) EvaluateBatch(
+        IReadOnlyList<string> projectPaths,
+        string? configuration)
     {
         var workspace = Path.Combine(Path.GetTempPath(), "apl-eval-" + Guid.NewGuid().ToString("N"));
         try
@@ -128,7 +137,7 @@ internal static class ProjectEvaluator
             var targets = Path.Combine(workspace, "collect.targets");
             var traversal = Path.Combine(workspace, "collect.proj");
             File.WriteAllText(targets, CollectTargets);
-            File.WriteAllText(traversal, Traversal(projectPaths, targets));
+            File.WriteAllText(traversal, Traversal(projectPaths, targets, configuration));
 
             // BuildProjectReferences=false is what keeps this an evaluation. ResolveReferences (which populates
             // ReferencePath) otherwise pulls in ResolveProjectReferences and *builds* every referenced project —
@@ -160,7 +169,7 @@ internal static class ProjectEvaluator
         }
     }
 
-    private static string Traversal(IReadOnlyList<string> projectPaths, string targets)
+    private static string Traversal(IReadOnlyList<string> projectPaths, string targets, string? configuration)
     {
         var builder = new StringBuilder("<Project>\n  <ItemGroup>\n");
         foreach (var path in projectPaths)
@@ -174,13 +183,17 @@ internal static class ProjectEvaluator
         // ContinueOnError lets the projects that DO evaluate come back even when one of them cannot (the task
         // still reports failure, which is why the output is read regardless of exit code).
         // SkipNonexistentProjects covers a solution that lists a project that has been deleted.
+        // The configuration travels here rather than as -p: because it is read out of an assembly, and this is the
+        // one place its characters are escaped: a ';' on the command line would start another global property.
         var escapedTargets = Escape(targets);
+        var configurationProperty = configuration is null ? string.Empty : ";Configuration=" + Escape(configuration);
         builder.Append("  </ItemGroup>\n")
             .Append("  <Target Name=\"ArchPillarAplGetOutputs\" Returns=\"@(ArchPillarAplResult)\">\n")
             .Append("    <MSBuild Projects=\"@(ArchPillarAplProject)\" Targets=\"ArchPillarAplGetOutputs\"\n")
             .Append("             SkipNonexistentProjects=\"true\" ContinueOnError=\"true\"\n")
             .Append("             Properties=\"CustomAfterMicrosoftCommonTargets=").Append(escapedTargets)
-            .Append(";CustomAfterMicrosoftCommonCrossTargetingTargets=").Append(escapedTargets).Append("\">\n")
+            .Append(";CustomAfterMicrosoftCommonCrossTargetingTargets=").Append(escapedTargets)
+            .Append(configurationProperty).Append("\">\n")
             .Append("      <Output TaskParameter=\"TargetOutputs\" ItemName=\"ArchPillarAplResult\" />\n")
             .Append("    </MSBuild>\n  </Target>\n</Project>\n");
         return builder.ToString();
@@ -209,7 +222,8 @@ internal static class ProjectEvaluator
                     Text(item, "AplTargetFileName"),
                     Text(item, "AplAssemblyName"),
                     Text(item, "AplBaseOutputPath"),
-                    Text(item, "AplReferenceDirs"));
+                    Text(item, "AplReferenceDirs"),
+                    Text(item, "AplConfiguration"));
                 if (path.Length > 0 && outputs is not null)
                 {
                     results.Add(new KeyValuePair<string, ProjectOutputs>(path, outputs));
@@ -227,7 +241,12 @@ internal static class ProjectEvaluator
     // TargetFileName is the exact answer, but a multi-targeting project's OUTER build does not define it — the
     // file name exists once per framework. AssemblyName is evaluated there (which is the part reading XML gets
     // wrong), and every .NET SDK target framework emits a .dll, so the name is completed from it.
-    private static ProjectOutputs? OutputsFrom(string targetFileName, string assemblyName, string baseOutputPath, string referenceDirs)
+    private static ProjectOutputs? OutputsFrom(
+        string targetFileName,
+        string assemblyName,
+        string baseOutputPath,
+        string referenceDirs,
+        string configuration)
     {
         var fileName = targetFileName;
         if (fileName.Length == 0 && assemblyName.Length > 0)
@@ -245,7 +264,8 @@ internal static class ProjectEvaluator
         return new ProjectOutputs(
             fileName,
             root.Length == 0 ? "bin" : root,
-            [.. referenceDirs.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)]);
+            [.. referenceDirs.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)],
+            configuration);
     }
 
     private static string? RunMsBuild(string workingDirectory, IReadOnlyList<string> arguments)

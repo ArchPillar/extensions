@@ -20,9 +20,19 @@ internal sealed class ExtractCommand : AsyncCommand<ExtractCommand.Settings>
         var sourceLanguage = settings.Source;
         ITranslationFormat provider = CatalogIo.FormatOrDefault(settings.Format);
         var count = 0;
+        var withheld = new List<string>();
         _ = await ScopeRunner.ForEachTemplateAsync(settings, "Extracting", async (name, catalogDirectory, template) =>
         {
             var sourcePath = Path.Combine(catalogDirectory, CatalogNaming.FileName(name, sourceLanguage, provider));
+
+            // An existing catalog keeps what an incomplete scan could not see. A new one has nothing to keep, so it
+            // would hold only part of the assembly's strings, and a catalog file cannot say so: `sync --template`
+            // would take it for the whole template and prune every translation it left out.
+            if (!template.IsComplete && !File.Exists(sourcePath))
+            {
+                withheld.Add(name);
+                return;
+            }
 
             // Merge into the existing source catalog rather than overwrite it, so it is a stable, git-tracked
             // artifact whose hand-edited source wording survives a re-extract. A first extract has no file yet,
@@ -44,6 +54,13 @@ internal sealed class ExtractCommand : AsyncCommand<ExtractCommand.Settings>
 
             count++;
         });
+
+        if (withheld.Count > 0)
+        {
+            return ToolConsole.Fail(
+                $"No catalog written for {string.Join(", ", withheld)}: the scan was incomplete, and a partial template "
+                + "would read as the whole one. Pass --reference <DIR> to point at the missing assemblies.");
+        }
 
         if (count == 0)
         {

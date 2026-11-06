@@ -30,18 +30,21 @@
          not copied) left its call sites unclassified and absent from the template, and a later prune then deleted
          their translations (issue #100). This target runs AfterTargets="Build", so ReferencePath is already
          resolved: the authoritative answer is free here, where guessing from the output directory is not.
-         Directories are deduplicated, and the trailing separator is trimmed so a quoted Windows path does not end
-         in a backslash that would escape its own closing quote. -->
+         The directories go through a file, not the command line: Exec runs through cmd.exe on Windows, which caps a
+         line at 8191 characters, and a project with a hundred or so packages has more than that to pass. -->
     <ItemGroup>
       <_ArchPillarExtractReferenceDir Include="@(ReferencePath->'%(RootDir)%(Directory)'->Distinct())" />
     </ItemGroup>
     <PropertyGroup>
-      <!-- One option carrying a ';'-separated list, not one option per directory: ';' cannot occur in a path on
-           either platform, and a single argument cannot run into a command-line length limit. Each directory
-           keeps its trailing separator and the list gets one more ';' at the end, so the closing quote never
-           follows a backslash that would escape it on Windows; the tool drops the resulting empty entry. -->
-      <_ArchPillarExtractReferenceDirArgs Condition="'@(_ArchPillarExtractReferenceDir)' != ''">--reference &quot;@(_ArchPillarExtractReferenceDir, ';');&quot;</_ArchPillarExtractReferenceDirArgs>
+      <_ArchPillarExtractReferenceFile>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)', 'ArchPillar.Localization.references.txt'))</_ArchPillarExtractReferenceFile>
+      <_ArchPillarExtractReferenceDirArgs Condition="'@(_ArchPillarExtractReferenceDir)' != ''">--reference &quot;@$(_ArchPillarExtractReferenceFile)&quot;</_ArchPillarExtractReferenceDirArgs>
     </PropertyGroup>
+    <WriteLinesToFile Condition="'@(_ArchPillarExtractReferenceDir)' != ''"
+                      File="$(_ArchPillarExtractReferenceFile)" Lines="@(_ArchPillarExtractReferenceDir)"
+                      Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <ItemGroup>
+      <FileWrites Include="$(_ArchPillarExtractReferenceFile)" />
+    </ItemGroup>
     <!-- The tool's output option, not its catalog-path option: this target already runs once per project and
          NormalizePath has resolved ArchPillarLocalizationCatalogPath to one exact directory, so there is nothing
          left for the tool to scope. The catalog-path option is for the tool discovering a scope itself; here

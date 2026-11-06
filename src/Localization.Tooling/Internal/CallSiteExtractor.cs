@@ -141,7 +141,11 @@ internal sealed class CallSiteExtractor
             && args[receiver].Constant is { } name)
         {
             // The indexer is an instance property getter: no method type parameters, never an extension.
-            sites.Add(new RawCallSite(name, name, CategoryOf(args, receiver, target, scopeIndex: -1, isExtension: false), FileOf(method, instruction)));
+            if (CategoryOf(args, receiver, target, scopeIndex: -1, isExtension: false, unclassified) is { } indexerCategory)
+            {
+                sites.Add(new RawCallSite(name, name, indexerCategory, FileOf(method, instruction)));
+            }
+
             return;
         }
 
@@ -169,9 +173,10 @@ internal sealed class CallSiteExtractor
             return;
         }
 
-        if (ConstantAt(args, receiver, binding.KeyIndex) is { } key && ConstantAt(args, receiver, binding.DefaultIndex) is { } def)
+        if (ConstantAt(args, receiver, binding.KeyIndex) is { } key
+            && ConstantAt(args, receiver, binding.DefaultIndex) is { } def
+            && CategoryOf(args, receiver, target, binding.ScopeIndex, binding.IsExtension, unclassified) is { } category)
         {
-            var category = CategoryOf(args, receiver, target, binding.ScopeIndex, binding.IsExtension);
             sites.Add(new RawCallSite(key, def, category, FileOf(method, instruction)));
         }
     }
@@ -352,8 +357,16 @@ internal sealed class CallSiteExtractor
     // the runtime and the Roslyn detector, rather than only the direct-receiver case. IStringLocalizer<T> is a
     // framework type and carries no [TranslationScope], so a generic receiver with no marker anywhere falls back
     // to its own first type argument (its long-standing behaviour). A non-generic receiver with no marked base
-    // (the concrete DefaultLocalizer, or an unknown type) is the global category.
-    private static string CategoryOf(IReadOnlyList<Slot> args, int receiver, MethodReference target, int scopeIndex, bool isExtension)
+    // (the concrete DefaultLocalizer, or an unknown type) is the global category. Null when the walk could not be
+    // finished: the scope may be declared on what is missing, so the category is unknown and the call is recorded
+    // as unclassified. Filing it globally instead would add a second unit and prune the real one.
+    private static string? CategoryOf(
+        IReadOnlyList<Slot> args,
+        int receiver,
+        MethodReference target,
+        int scopeIndex,
+        bool isExtension,
+        UnclassifiedCalls unclassified)
     {
         var methodScope = MethodScope(target, scopeIndex);
         if (methodScope is not null)
@@ -377,13 +390,16 @@ internal sealed class CallSiteExtractor
             receiverType = byReference.ElementType;
         }
 
-        foreach (GenericInstanceType candidate in SelfBasesAndInterfaces(receiverType))
+        (var scoped, var missingAssembly) = ScopeOnTypeChain(receiverType);
+        if (scoped is not null)
         {
-            var scoped = ScopedArgument(candidate);
-            if (scoped is not null)
-            {
-                return scoped;
-            }
+            return scoped;
+        }
+
+        if (missingAssembly is not null)
+        {
+            unclassified.Record(missingAssembly);
+            return null;
         }
 
         // Same guard as ScopedArgument: an unsubstituted type parameter is not a category — its FullName is an IL
@@ -495,35 +511,39 @@ internal sealed class CallSiteExtractor
         return false;
     }
 
-    // The receiver type, then each base type up the chain, then the interfaces seen along the way — each yielded
-    // where it is a constructed generic type, so a [TranslationScope] argument can be read off it. Mirrors the
-    // Roslyn detector's self-bases-and-interfaces walk; resolution failure simply ends the walk.
-    private static IEnumerable<GenericInstanceType> SelfBasesAndInterfaces(TypeReference type)
+    // The first [TranslationScope] argument on the receiver type, then each base type up the chain and the
+    // interfaces seen along the way, mirroring the Roslyn detector's self-bases-and-interfaces walk. A type that
+    // cannot be resolved ends the walk, and the assembly it lives in is returned because the scope may well be
+    // declared there. The framework is the exception: it declares no scope, so stopping at it loses nothing.
+    private static (string? Scope, string? MissingAssembly) ScopeOnTypeChain(TypeReference type)
     {
         TypeReference? current = type;
         while (current is not null)
         {
-            if (current is GenericInstanceType generic)
+            if (current is GenericInstanceType generic && ScopedArgument(generic) is { } scoped)
             {
-                yield return generic;
+                return (scoped, null);
             }
 
             TypeDefinition? definition = TryResolveType(current);
             if (definition is null)
             {
-                yield break;
+                return (null, IsFrameworkScope(current.Scope) ? null : current.Scope.Name);
             }
 
             foreach (InterfaceImplementation implementation in definition.Interfaces)
             {
-                if (implementation.InterfaceType is GenericInstanceType genericInterface)
+                if (implementation.InterfaceType is GenericInstanceType genericInterface
+                    && ScopedArgument(genericInterface) is { } onInterface)
                 {
-                    yield return genericInterface;
+                    return (onInterface, null);
                 }
             }
 
             current = definition.BaseType;
         }
+
+        return (null, null);
     }
 
     private static TypeDefinition? TryResolveType(TypeReference reference)
