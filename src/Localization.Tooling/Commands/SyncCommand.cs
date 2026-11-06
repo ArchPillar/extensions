@@ -37,7 +37,7 @@ internal sealed class SyncCommand : AsyncCommand<SyncCommand.Settings>
             var targetPath = ScopeInput.Require(settings.Target, "--target");
             Catalog template = CatalogIo.ReadFile(CatalogIo.ProviderFor(templatePath), templatePath);
             var targetName = CatalogNaming.Split(Path.GetFileNameWithoutExtension(targetPath)).Name;
-            var drifted = await SyncTargetAsync(template, targetPath, targetName.Length == 0 ? null : targetName, check, cancellationToken);
+            var drifted = await SyncTargetAsync(template, targetPath, targetName.Length == 0 ? null : targetName, check, cancellationToken, prune: true);
             if (check)
             {
                 return drifted ? ToolConsole.Drift($"'{targetPath}' is out of date; run sync to update it.") : 0;
@@ -56,7 +56,7 @@ internal sealed class SyncCommand : AsyncCommand<SyncCommand.Settings>
             any = true;
             foreach (var targetPath in CatalogNaming.TargetCatalogsFor(catalogDirectory, name, sourceLanguage))
             {
-                if (await SyncTargetAsync(template, targetPath, name, check, cancellationToken))
+                if (await SyncTargetAsync(template.Catalog, targetPath, name, check, cancellationToken, template.IsComplete))
                 {
                     driftedTargets.Add(targetPath);
                 }
@@ -92,11 +92,12 @@ internal sealed class SyncCommand : AsyncCommand<SyncCommand.Settings>
         string targetPath,
         string? sourceName,
         bool check,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool prune)
     {
         ITranslationFormat targetProvider = CatalogIo.ProviderFor(targetPath);
         Catalog existing = CatalogIo.ReadFile(targetProvider, targetPath);
-        Catalog reconciled = Reconciler.Reconcile(template, existing);
+        Catalog reconciled = Reconciler.Reconcile(template, existing, prune);
 
         // The reconcile itself decides whether there is anything to write; an up-to-date target is left untouched
         // rather than rewritten, so its timestamp survives for incremental builds and file watchers.

@@ -24,11 +24,32 @@
            happens to live — moving a call then rewrites the catalog for every language. Needs a PDB. -->
       <_ArchPillarExtractReferencesArg Condition="'$(ArchPillarLocalizationExtractReferences)' == 'true'">--references</_ArchPillarExtractReferencesArg>
     </PropertyGroup>
+    <!-- Hand the tool the assemblies this project actually compiled against. Extraction has to read a called
+         method's declaring assembly to learn whether it is translatable, and it can only probe what sits beside
+         the target — so a wrapper reached through a ProjectReference with Private=false (referenced, deliberately
+         not copied) left its call sites unclassified and absent from the template, and a later prune then deleted
+         their translations (issue #100). This target runs AfterTargets="Build", so ReferencePath is already
+         resolved: the authoritative answer is free here, where guessing from the output directory is not.
+         The directories go through a file, not the command line: Exec runs through cmd.exe on Windows, which caps a
+         line at 8191 characters, and a project with a hundred or so packages has more than that to pass. -->
+    <ItemGroup>
+      <_ArchPillarExtractReferenceDir Include="@(ReferencePath->'%(RootDir)%(Directory)'->Distinct())" />
+    </ItemGroup>
+    <PropertyGroup>
+      <_ArchPillarExtractReferenceFile>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '$(IntermediateOutputPath)', 'ArchPillar.Localization.references.txt'))</_ArchPillarExtractReferenceFile>
+      <_ArchPillarExtractReferenceDirArgs Condition="'@(_ArchPillarExtractReferenceDir)' != ''">--reference &quot;@$(_ArchPillarExtractReferenceFile)&quot;</_ArchPillarExtractReferenceDirArgs>
+    </PropertyGroup>
+    <WriteLinesToFile Condition="'@(_ArchPillarExtractReferenceDir)' != ''"
+                      File="$(_ArchPillarExtractReferenceFile)" Lines="@(_ArchPillarExtractReferenceDir)"
+                      Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <ItemGroup>
+      <FileWrites Include="$(_ArchPillarExtractReferenceFile)" />
+    </ItemGroup>
     <!-- The tool's output option, not its catalog-path option: this target already runs once per project and
          NormalizePath has resolved ArchPillarLocalizationCatalogPath to one exact directory, so there is nothing
          left for the tool to scope. The catalog-path option is for the tool discovering a scope itself; here
          MSBuild has already done that. -->
-    <Exec Command="$(ArchPillarLocalizationToolCommand) extract --assembly &quot;$(TargetPath)&quot; --output &quot;$([MSBuild]::NormalizePath('$(ArchPillarLocalizationCatalogPath)'))&quot; --source $(ArchPillarLocalizationSourceLanguage) --format $(ArchPillarLocalizationFormat) $(_ArchPillarExtractAnnotationsArg) $(_ArchPillarExtractReferencesArg)"
+    <Exec Command="$(ArchPillarLocalizationToolCommand) extract --assembly &quot;$(TargetPath)&quot; --output &quot;$([MSBuild]::NormalizePath('$(ArchPillarLocalizationCatalogPath)'))&quot; --source $(ArchPillarLocalizationSourceLanguage) --format $(ArchPillarLocalizationFormat) $(_ArchPillarExtractAnnotationsArg) $(_ArchPillarExtractReferencesArg) $(_ArchPillarExtractReferenceDirArgs)"
           ContinueOnError="$(ArchPillarLocalizationToolContinueOnError)"
           StandardOutputImportance="low" />
   </Target>

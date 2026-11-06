@@ -25,7 +25,7 @@ internal sealed class CallSiteExtractor
     // One method-binding cache for the whole batch: a method called across many assemblies (ILocalizer.Translate
     // above all) is resolved once for the run. Keyed by the method's declaring assembly + signature, so nothing
     // assembly-local leaks between scans.
-    private readonly Dictionary<string, Binding?> _bindings = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Resolution> _bindings = new(StringComparer.Ordinal);
 
     // A simulated evaluation-stack slot: the constant string it holds (from ldstr) and its static type (for a
     // receiver), either of which may be unknown.
@@ -36,7 +36,18 @@ internal sealed class CallSiteExtractor
     // and whether the method is an extension — whose receiver is its first argument rather than a `this` slot.
     private readonly record struct Binding(int KeyIndex, int DefaultIndex, int ScopeIndex, bool IsExtension);
 
-    public IReadOnlyList<RawCallSite> Extract(ModuleDefinition module)
+    // What asking "is this method translatable?" can answer. The third case is the one that matters: a method
+    // whose declaring assembly could not be resolved carries attributes nobody read, so it is *unknown*, not
+    // negative. Collapsing it into "not translatable" is what let an incomplete extraction pass for a complete
+    // one, and a catalog prune then delete a translation that was never obsolete (issue #100).
+    private readonly record struct Resolution(Binding? Binding, string? UnresolvedAssembly)
+    {
+        public static readonly Resolution NotTranslatable = new(null, null);
+
+        public static Resolution Unresolved(string assembly) => new(null, assembly);
+    }
+
+    public CallSiteScan Extract(ModuleDefinition module)
     {
         // Early-out: an assembly that references neither localizer cannot contain a translatable call, so skip
         // reading its method bodies entirely — keeping a solution-wide scan cheap over unrelated assemblies.
@@ -44,25 +55,26 @@ internal sealed class CallSiteExtractor
                 reference.Name is "ArchPillar.Extensions.Localization" or "ArchPillar.Extensions.Localization.Abstractions"
                 or "Microsoft.Extensions.Localization.Abstractions"))
         {
-            return [];
+            return CallSiteScan.Empty;
         }
 
         var sites = new List<RawCallSite>();
+        var unclassified = new UnclassifiedCalls();
         foreach (TypeDefinition type in AssemblyModuleReader.AllTypes(module))
         {
             foreach (MethodDefinition method in type.Methods)
             {
                 if (method.HasBody)
                 {
-                    ScanMethod(method, sites, _bindings);
+                    ScanMethod(method, sites, _bindings, unclassified);
                 }
             }
         }
 
-        return sites;
+        return new CallSiteScan(sites, [.. unclassified.Assemblies.Order(StringComparer.Ordinal)], unclassified.Count);
     }
 
-    private static void ScanMethod(MethodDefinition method, List<RawCallSite> sites, Dictionary<string, Binding?> bindings)
+    private static void ScanMethod(MethodDefinition method, List<RawCallSite> sites, Dictionary<string, Resolution> bindings, UnclassifiedCalls unclassified)
     {
         var stack = new List<Slot>();
         foreach (Instruction instruction in method.Body.Instructions)
@@ -79,7 +91,7 @@ internal sealed class CallSiteExtractor
             {
                 var argCount = target.Parameters.Count + (target.HasThis ? 1 : 0);
                 IReadOnlyList<Slot> args = Pop(stack, argCount);
-                Recognize(target, args, sites, bindings, method, instruction);
+                Recognize(target, args, sites, bindings, unclassified, method, instruction);
                 if (target.ReturnType.FullName != "System.Void")
                 {
                     stack.Add(new Slot(null, Constructed(target.ReturnType, target)));
@@ -114,7 +126,8 @@ internal sealed class CallSiteExtractor
         MethodReference target,
         IReadOnlyList<Slot> args,
         List<RawCallSite> sites,
-        Dictionary<string, Binding?> bindings,
+        Dictionary<string, Resolution> bindings,
+        UnclassifiedCalls unclassified,
         MethodDefinition method,
         Instruction instruction)
     {
@@ -128,7 +141,11 @@ internal sealed class CallSiteExtractor
             && args[receiver].Constant is { } name)
         {
             // The indexer is an instance property getter: no method type parameters, never an extension.
-            sites.Add(new RawCallSite(name, name, CategoryOf(args, receiver, target, scopeIndex: -1, isExtension: false), FileOf(method, instruction)));
+            if (CategoryOf(args, receiver, target, scopeIndex: -1, isExtension: false, unclassified) is { } indexerCategory)
+            {
+                sites.Add(new RawCallSite(name, name, indexerCategory, FileOf(method, instruction)));
+            }
+
             return;
         }
 
@@ -141,14 +158,25 @@ internal sealed class CallSiteExtractor
 
         // Whether this method is translatable (and which parameters are the key/default) is resolved
         // once per distinct method and cached, so the resolve does not repeat across its many call sites.
-        if (BindingFor(target, bindings) is not { } binding)
+        Resolution resolution = BindingFor(target, bindings);
+        if (resolution.UnresolvedAssembly is { } unresolved)
+        {
+            // A call binding a literal string into an assembly we could not read. It may or may not be a
+            // translation site — the attributes that would say are in the assembly that is missing — so it is
+            // recorded rather than dropped, and the commands downstream refuse to prune against this template.
+            unclassified.Record(unresolved);
+            return;
+        }
+
+        if (resolution.Binding is not { } binding)
         {
             return;
         }
 
-        if (ConstantAt(args, receiver, binding.KeyIndex) is { } key && ConstantAt(args, receiver, binding.DefaultIndex) is { } def)
+        if (ConstantAt(args, receiver, binding.KeyIndex) is { } key
+            && ConstantAt(args, receiver, binding.DefaultIndex) is { } def
+            && CategoryOf(args, receiver, target, binding.ScopeIndex, binding.IsExtension, unclassified) is { } category)
         {
-            var category = CategoryOf(args, receiver, target, binding.ScopeIndex, binding.IsExtension);
             sites.Add(new RawCallSite(key, def, category, FileOf(method, instruction)));
         }
     }
@@ -184,20 +212,22 @@ internal sealed class CallSiteExtractor
         return governing?.IsHidden == false ? governing.Document?.Url : null;
     }
 
-    // The translation binding for a distinct method, computed once and cached (null = not a translation method).
-    // The key folds in the declaring assembly so two distinct methods that share a signature across assemblies
-    // are never conflated, while the same method referenced from many assemblies maps to one entry.
-    private static Binding? BindingFor(MethodReference target, Dictionary<string, Binding?> bindings)
+    // The translation binding for a distinct method, computed once and cached. The key folds in the declaring
+    // assembly so two distinct methods that share a signature across assemblies are never conflated, while the
+    // same method referenced from many assemblies maps to one entry. An unresolved answer is cached too — the
+    // probe path does not change mid-scan — but every call site that hits it is still counted, so the report
+    // says how much of this assembly went unclassified rather than how many distinct methods did.
+    private static Resolution BindingFor(MethodReference target, Dictionary<string, Resolution> bindings)
     {
         var key = target.DeclaringType.Scope.Name + "/" + target.FullName;
-        if (bindings.TryGetValue(key, out Binding? cached))
+        if (bindings.TryGetValue(key, out Resolution cached))
         {
             return cached;
         }
 
-        Binding? binding = ComputeBinding(target);
-        bindings[key] = binding;
-        return binding;
+        Resolution resolution = ComputeBinding(target);
+        bindings[key] = resolution;
+        return resolution;
     }
 
     // Decides translatability by the same rule the source-level detector applies: a parameter carrying
@@ -206,24 +236,29 @@ internal sealed class CallSiteExtractor
     // (one parameter carries both), and any user wrapper — without naming a single type or method. A translatable
     // method is never declared in the framework, so a System.* / Microsoft.* method is rejected by scope without
     // resolving (and thus loading) that assembly.
-    private static Binding? ComputeBinding(MethodReference target)
+    private static Resolution ComputeBinding(MethodReference target)
     {
         if (IsFrameworkScope(target.DeclaringType.Scope))
         {
-            return null;
+            return Resolution.NotTranslatable;
         }
 
         MethodDefinition? definition = TryResolve(target);
         if (definition is null)
         {
-            return null;
+            // Not "not a translation method" — the declaring assembly is not beside the one being read, so its
+            // parameter attributes were never seen. A translation method always carries its key on a string
+            // parameter, so a target with none cannot be one however it resolves, and stays a plain negative.
+            return target.Parameters.Any(parameter => parameter.ParameterType.FullName == "System.String")
+                ? Resolution.Unresolved(target.DeclaringType.Scope.Name)
+                : Resolution.NotTranslatable;
         }
 
         var keyIndex = IndexOfParameterWith(definition, TranslatableAttribute);
         var defaultIndex = IndexOfParameterWith(definition, TranslationDefaultAttribute);
         return keyIndex < 0 || defaultIndex < 0
-            ? null
-            : new Binding(keyIndex, defaultIndex, IndexOfScopedTypeParameter(definition), HasAttribute(definition, ExtensionAttribute));
+            ? Resolution.NotTranslatable
+            : new Resolution(new Binding(keyIndex, defaultIndex, IndexOfScopedTypeParameter(definition), HasAttribute(definition, ExtensionAttribute)), null);
     }
 
     // The index of the method's own [TranslationScope] type parameter, or -1 when it has none.
@@ -322,8 +357,16 @@ internal sealed class CallSiteExtractor
     // the runtime and the Roslyn detector, rather than only the direct-receiver case. IStringLocalizer<T> is a
     // framework type and carries no [TranslationScope], so a generic receiver with no marker anywhere falls back
     // to its own first type argument (its long-standing behaviour). A non-generic receiver with no marked base
-    // (the concrete DefaultLocalizer, or an unknown type) is the global category.
-    private static string CategoryOf(IReadOnlyList<Slot> args, int receiver, MethodReference target, int scopeIndex, bool isExtension)
+    // (the concrete DefaultLocalizer, or an unknown type) is the global category. Null when the walk could not be
+    // finished: the scope may be declared on what is missing, so the category is unknown and the call is recorded
+    // as unclassified. Filing it globally instead would add a second unit and prune the real one.
+    private static string? CategoryOf(
+        IReadOnlyList<Slot> args,
+        int receiver,
+        MethodReference target,
+        int scopeIndex,
+        bool isExtension,
+        UnclassifiedCalls unclassified)
     {
         var methodScope = MethodScope(target, scopeIndex);
         if (methodScope is not null)
@@ -347,13 +390,16 @@ internal sealed class CallSiteExtractor
             receiverType = byReference.ElementType;
         }
 
-        foreach (GenericInstanceType candidate in SelfBasesAndInterfaces(receiverType))
+        (var scoped, var missingAssembly) = ScopeOnTypeChain(receiverType);
+        if (scoped is not null)
         {
-            var scoped = ScopedArgument(candidate);
-            if (scoped is not null)
-            {
-                return scoped;
-            }
+            return scoped;
+        }
+
+        if (missingAssembly is not null)
+        {
+            unclassified.Record(missingAssembly);
+            return null;
         }
 
         // Same guard as ScopedArgument: an unsubstituted type parameter is not a category — its FullName is an IL
@@ -465,35 +511,39 @@ internal sealed class CallSiteExtractor
         return false;
     }
 
-    // The receiver type, then each base type up the chain, then the interfaces seen along the way — each yielded
-    // where it is a constructed generic type, so a [TranslationScope] argument can be read off it. Mirrors the
-    // Roslyn detector's self-bases-and-interfaces walk; resolution failure simply ends the walk.
-    private static IEnumerable<GenericInstanceType> SelfBasesAndInterfaces(TypeReference type)
+    // The first [TranslationScope] argument on the receiver type, then each base type up the chain and the
+    // interfaces seen along the way, mirroring the Roslyn detector's self-bases-and-interfaces walk. A type that
+    // cannot be resolved ends the walk, and the assembly it lives in is returned because the scope may well be
+    // declared there. The framework is the exception: it declares no scope, so stopping at it loses nothing.
+    private static (string? Scope, string? MissingAssembly) ScopeOnTypeChain(TypeReference type)
     {
         TypeReference? current = type;
         while (current is not null)
         {
-            if (current is GenericInstanceType generic)
+            if (current is GenericInstanceType generic && ScopedArgument(generic) is { } scoped)
             {
-                yield return generic;
+                return (scoped, null);
             }
 
             TypeDefinition? definition = TryResolveType(current);
             if (definition is null)
             {
-                yield break;
+                return (null, IsFrameworkScope(current.Scope) ? null : current.Scope.Name);
             }
 
             foreach (InterfaceImplementation implementation in definition.Interfaces)
             {
-                if (implementation.InterfaceType is GenericInstanceType genericInterface)
+                if (implementation.InterfaceType is GenericInstanceType genericInterface
+                    && ScopedArgument(genericInterface) is { } onInterface)
                 {
-                    yield return genericInterface;
+                    return (onInterface, null);
                 }
             }
 
             current = definition.BaseType;
         }
+
+        return (null, null);
     }
 
     private static TypeDefinition? TryResolveType(TypeReference reference)

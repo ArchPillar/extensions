@@ -36,7 +36,7 @@ public sealed class TemplateBuilderCommentTests : IDisposable
         CommentIndex comments = SourceCommentScanner.Scan(_root);
 
         using var extractor = new AssemblyStringExtractor();
-        Catalog template = Assert.IsType<Catalog>(TemplateBuilder.Build(extractor, assembly, "en", comments));
+        Catalog template = Assert.IsType<AssemblyTemplate>(TemplateBuilder.Build(extractor, assembly, "en", comments)).Catalog;
 
         CatalogEntry entry = Assert.Single(template.Entries, candidate => candidate.Key == "home.title");
         Assert.Equal("shown in the header", entry.Comment);

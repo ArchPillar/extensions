@@ -46,6 +46,17 @@ assembly, and fans out over every in-scope assembly that actually has strings:
 | `--input <dir>` | scan a build-output folder (e.g. `bin/Debug/net10.0` or a publish dir) for assemblies |
 | `--assembly <dll>` | a single assembly (the low-level form) |
 
+Extraction has to read a called method's *declaring* assembly to learn whether it is translatable, so a wrapper
+API reached through a `ProjectReference` with `Private="false"` — referenced for compilation, deliberately not
+copied — is not beside the assembly that calls it, and its call sites cannot be classified. The build passes the
+references it actually compiled against automatically, and a `--project`/`--solution` scope asks MSBuild for the
+same list, for the configuration each assembly was built in. Supply them by hand with **`--reference <DIRS>`** (a
+`;`-separated list, repeatable, or `@FILE` to read them from a file, one per line) only when scanning an
+`--assembly`/`--input` path, which names no project to ask. A scan that could not resolve something says so, and
+**never prunes** on that run: a key missing from an incomplete extraction is not evidence the key is obsolete. For
+the same reason `extract` will not create a new source catalog from an incomplete scan. It fails instead, because a
+partial catalog would read as the whole template.
+
 Every command also takes **`--verbose`**, which turns on a log on stderr: what the tool is doing, and the output
 of anything it shells out to — notably the MSBuild evaluation below. It is off by default, so a failure that
 depends on what MSBuild said points you at the flag rather than pasting a build log into the error.

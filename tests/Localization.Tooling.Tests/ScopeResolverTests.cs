@@ -233,9 +233,9 @@ public sealed class ScopeResolverTests : IDisposable
         File.WriteAllBytes(native, [0x4D, 0x5A, 0x00, 0x00, 0xFF, 0xFF]);
 
         using var extractor = new AssemblyStringExtractor();
-        (IReadOnlyList<RawCallSite> callSites, IReadOnlyList<RawCallSite> annotations) = extractor.Extract(native, includeAnnotations: true);
+        (CallSiteScan callSites, IReadOnlyList<RawCallSite> annotations) = extractor.Extract(native, includeAnnotations: true);
 
-        Assert.Empty(callSites);
+        Assert.Empty(callSites.Sites);
         Assert.Empty(annotations);
     }
 
@@ -248,6 +248,56 @@ public sealed class ScopeResolverTests : IDisposable
         using var extractor = new AssemblyStringExtractor();
 
         Assert.Null(TemplateBuilder.Build(extractor, native, "en"));
+    }
+
+    [Fact]
+    public void ResolveScope_RestoredProject_ReturnsTheDirectoriesItCompilesAgainst()
+    {
+        // A restored, built project from this repository: a synthetic fixture has no restore, so ResolveReferences
+        // is deliberately skipped for it (see the sibling tests, which pin that it still evaluates).
+        var project = Path.Combine(TestToolchain.RepositoryRoot(), "src", "Localization.Tooling", "ArchPillar.Extensions.Localization.Tooling.csproj");
+
+        ScopeAssemblies resolved = ScopeResolver.ResolveScope(new ScopeOptions(null, null, project, null, Recurse: false));
+
+        // The regression this guards: the directories silently came back empty once, which reads as "resolved
+        // fine, nothing to add" and quietly restores the guess-from-what-is-next-door behaviour of issue #100.
+        Assert.NotEmpty(resolved.ReferenceDirectories);
+        Assert.Contains(
+            resolved.ReferenceDirectories,
+            directory => directory.Contains("Localization.Abstractions", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public async Task ResolveScope_NewestBuildIsRelease_ResolvesReferencesFromThatConfigurationAsync()
+    {
+        // What a Release CI leaves on a machine that has also built Debug. The scan reads the newest build, so its
+        // references must be that build's too: Debug's copy of a wrapper is a different, possibly stale assembly,
+        // and one that predates [Translatable] reads as a definite "not translatable" on a complete scan.
+        var wrapper = MakeProject("Wrapper");
+        var app = MakeProject("App");
+        await File.WriteAllTextAsync(app, $"""
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
+              <ItemGroup><ProjectReference Include="{wrapper}" /></ItemGroup>
+            </Project>
+            """);
+        await BuildAsync(app, "Debug");
+        await BuildAsync(app, "Release");
+
+        ScopeAssemblies resolved = ScopeResolver.ResolveScope(new ScopeOptions(null, null, app, null, Recurse: false));
+
+        var release = Path.Combine("Wrapper", "bin", "Release");
+        var debug = Path.Combine("Wrapper", "bin", "Debug");
+        Assert.Contains(resolved.ReferenceDirectories, directory => directory.Contains(release, StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(resolved.ReferenceDirectories, directory => directory.Contains(debug, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static async Task BuildAsync(string project, string configuration)
+    {
+        (var exitCode, var output) = await TestToolchain.RunDotnetAsync(
+            Path.GetDirectoryName(project)!, "build", project, "-c", configuration, "-nologo", "-nodeReuse:false", "-p:UseSharedCompilation=false");
+
+        Assert.True(exitCode == 0, output);
     }
 
     private string MakeProject(string name, string? assemblyName = null)

@@ -13,10 +13,22 @@ internal sealed class AssemblyModuleReader : IDisposable
     private readonly DefaultAssemblyResolver _resolver = new();
     private readonly HashSet<string> _searchDirectories = new(StringComparer.OrdinalIgnoreCase);
 
-    public AssemblyModuleReader()
+    /// <summary>
+    /// Creates a reader. <paramref name="referenceDirectories"/> are extra probe paths (the tool's
+    /// <c>--reference</c> option), registered ahead of any assembly's own directory so a caller can supply a
+    /// declaring assembly that the build does not copy beside its callers.
+    /// </summary>
+    public AssemblyModuleReader(IEnumerable<string>? referenceDirectories = null)
     {
         // The tool's own base directory carries the ArchPillar reference assemblies when running in-process.
         AddSearchDirectory(AppContext.BaseDirectory);
+        foreach (var directory in referenceDirectories ?? [])
+        {
+            if (Directory.Exists(directory))
+            {
+                AddSearchDirectory(Path.GetFullPath(directory));
+            }
+        }
     }
 
     /// <summary>
@@ -56,6 +68,18 @@ internal sealed class AssemblyModuleReader : IDisposable
         {
             return null;
         }
+    }
+
+    // The configuration an assembly was built in, as the SDK stamped it into [AssemblyConfiguration]; null when it
+    // cannot be read or carries none. The binary is the authority here, because the folder it sits in only
+    // suggests an answer: an output path is the project's to rename.
+    public static string? BuildConfigurationOf(string assemblyPath)
+    {
+        using var reader = new AssemblyModuleReader();
+        using ModuleDefinition? module = reader.Read(assemblyPath);
+        CustomAttribute? stamp = module?.Assembly?.CustomAttributes
+            .FirstOrDefault(attribute => attribute.AttributeType.FullName == "System.Reflection.AssemblyConfigurationAttribute");
+        return stamp?.ConstructorArguments[0].Value is string { Length: > 0 } configuration ? configuration : null;
     }
 
     /// <summary>Every type in the module, including nested types, depth-first.</summary>

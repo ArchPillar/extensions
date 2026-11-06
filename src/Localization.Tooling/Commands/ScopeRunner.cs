@@ -22,13 +22,14 @@ internal static class ScopeRunner
     /// </para>
     /// </summary>
     /// <exception cref="ArgumentException">The scope resolved to no built assembly at all.</exception>
-    public static Task<int> ForEachTemplateAsync(AuthoringScopeSettings settings, string verb, Func<string, string, Catalog, Task> perAssembly)
+    public static Task<int> ForEachTemplateAsync(AuthoringScopeSettings settings, string verb, Func<string, string, AssemblyTemplate, Task> perAssembly)
     {
         ScopeOptions scope = settings.ToScope();
         var flat = settings.FlatDirectory;
         return ToolConsole.StatusAsync($"{verb}…", async ctx =>
         {
-            IReadOnlyList<string> assemblies = ScopeResolver.Resolve(scope);
+            ScopeAssemblies resolved = ScopeResolver.ResolveScope(scope);
+            IReadOnlyList<string> assemblies = resolved.Assemblies;
 
             // Nothing to scan is a failed command, not a quiet success. The projects evaluated (or this would
             // already have thrown), so the scope is real and simply has no build output in it — an unbuilt or
@@ -41,7 +42,10 @@ internal static class ScopeRunner
                     + "first, or point --input <dir> or --assembly <dll> at build output that exists.");
             }
 
-            using var extractor = new AssemblyStringExtractor();
+            // What the scope's projects compile against, as MSBuild resolved it, plus anything --reference added.
+            // Asked once for the whole scan: this is the same evaluation the assembly lookup above already ran.
+            using var extractor = new AssemblyStringExtractor(
+                [.. resolved.ReferenceDirectories, .. settings.ReferenceDirectories]);
             // Translation comments cannot be read from the binary, so scan the project's source once per root and
             // reuse it for every assembly it built (multi-targeting produces several). The same root is what file
             // references are recorded relative to, so the catalog carries no machine-specific path.
@@ -52,17 +56,26 @@ internal static class ScopeRunner
                 ToolConsole.Status(ctx, $"{verb} {name}…");
                 var root = CatalogDirectoryResolver.ProjectRootOf(path);
                 // References are opt-in (--references): with no root to record them against, none are recorded.
-                Catalog? template = TemplateBuilder.Build(
+                AssemblyTemplate? template = TemplateBuilder.Build(
                     extractor,
                     path,
                     settings.Source,
                     CommentsFor(root, commentsByRoot),
                     settings.IncludeReferences ? root : null,
                     settings.IncludeAnnotations);
-                if (template is not null)
+                if (template is null)
                 {
-                    await perAssembly(name, flat ?? CatalogDirectoryResolver.CatalogDirectoryFor(path, scope, settings.CatalogFolder), template);
+                    continue;
                 }
+
+                // Say it once, here, rather than in each command: an incomplete scan is the thing a reader has
+                // to know about, and it stayed invisible for as long as it was only an absence (issue #100).
+                if (!template.IsComplete)
+                {
+                    ToolConsole.Warn($"{name}: {template.Describe()}. Its catalogs will not be pruned; pass --reference <DIR> to point at the missing assemblies.");
+                }
+
+                await perAssembly(name, flat ?? CatalogDirectoryResolver.CatalogDirectoryFor(path, scope, settings.CatalogFolder), template);
             }
 
             return assemblies.Count;

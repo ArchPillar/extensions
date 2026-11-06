@@ -10,19 +10,29 @@ namespace ArchPillar.Extensions.Localization.Tooling;
 /// </summary>
 internal static class Reconciler
 {
-    public static Catalog Reconcile(Catalog template, Catalog target)
+    /// <summary>
+    /// Merges <paramref name="target"/> against <paramref name="template"/>. <paramref name="prune"/> is the
+    /// D-11 delete-on-removal rule, and the caller turns it off when the template is known to be incomplete: a
+    /// key missing from an extraction that could not read every referenced assembly is not evidence the key is
+    /// obsolete, and deleting a translated unit on that evidence is unrecoverable from the tool's side.
+    /// </summary>
+    public static Catalog Reconcile(Catalog template, Catalog target, bool prune = true)
     {
         Dictionary<string, CatalogEntry> existing = Index(target);
         var entries = new List<CatalogEntry>();
+        var matched = new HashSet<string>(StringComparer.Ordinal);
         foreach (CatalogEntry source in Ordered(template.Entries))
         {
-            entries.Add(existing.TryGetValue(Composite(source), out CatalogEntry? current)
+            var identity = Composite(source);
+            matched.Add(identity);
+            entries.Add(existing.TryGetValue(identity, out CatalogEntry? current)
                 ? Merge(source, current)
                 : New(source));
         }
 
-        // Keys present in the target but no longer in the template are simply dropped (Decision D-11).
-        return target with { Entries = entries };
+        // Keys present in the target but no longer in the template are dropped (Decision D-11) — unless the
+        // template is incomplete, in which case they are kept exactly as they were.
+        return target with { Entries = prune ? entries : WithUnmatched(entries, target.Entries, matched) };
     }
 
     public static Catalog CreateLanguage(Catalog template, string culture) =>
@@ -37,19 +47,34 @@ internal static class Reconciler
     /// <see cref="TranslationState.Translated"/> override (flagged <see cref="TranslationState.NeedsReview"/>
     /// when the in-code default has drifted under it). Keys gone from the template are dropped (Decision D-11).
     /// </summary>
-    public static Catalog ReconcileSource(Catalog template, Catalog existingSource)
+    public static Catalog ReconcileSource(Catalog template, Catalog existingSource, bool prune = true)
     {
         Dictionary<string, CatalogEntry> existing = Index(existingSource);
         var entries = new List<CatalogEntry>();
+        var matched = new HashSet<string>(StringComparer.Ordinal);
         foreach (CatalogEntry source in Ordered(template.Entries))
         {
-            entries.Add(existing.TryGetValue(Composite(source), out CatalogEntry? current)
+            var identity = Composite(source);
+            matched.Add(identity);
+            entries.Add(existing.TryGetValue(identity, out CatalogEntry? current)
                 ? MergeSource(source, current)
                 : Echo(source));
         }
 
-        return existingSource with { Culture = template.Culture, Entries = entries };
+        // As in Reconcile: an incomplete extraction is no basis for deleting a source entry either — and the
+        // source catalog is where a hand-edited wording lives, so dropping one loses an edit, not just a key.
+        return existingSource with
+        {
+            Culture = template.Culture,
+            Entries = prune ? entries : WithUnmatched(entries, existingSource.Entries, matched)
+        };
     }
+
+    // The merged entries plus every existing one the template did not mention, in identity order. Merged in rather
+    // than appended: a format that writes entries as given would otherwise see an incomplete scan reorder a catalog
+    // it changed nothing in, and the next complete scan reorder it back.
+    private static List<CatalogEntry> WithUnmatched(List<CatalogEntry> merged, IReadOnlyList<CatalogEntry> existing, HashSet<string> matched) =>
+        Ordered([.. merged, .. existing.Where(entry => !matched.Contains(Composite(entry)))]);
 
     // A source entry that equals the in-code default: no stored translation and NeedsTranslation, so the
     // runtime loader drops it (the default already covers it) and it tracks the current default each extract.

@@ -23,7 +23,7 @@ internal static class GeneratorPipeline
         {
             var assembly = EmitAssembly(developerCode, "GoldenPath", directory);
             using var extractor = new AssemblyStringExtractor();
-            Catalog template = TemplateBuilder.Build(extractor, assembly, "en")
+            Catalog template = TemplateBuilder.Build(extractor, assembly, "en")?.Catalog
                 ?? new Catalog { Culture = "en", Entries = [] };
             return ToArb(template);
         }
