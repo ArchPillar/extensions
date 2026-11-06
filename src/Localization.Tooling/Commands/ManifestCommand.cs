@@ -21,7 +21,7 @@ internal sealed class ManifestCommand : AsyncCommand<ManifestCommand.Settings>
         public string? Output { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         IReadOnlyList<string> inputDirectories = CatalogDirectoryResolver.ResolveDirectories(settings.ToScope());
         if (inputDirectories.Count == 0)

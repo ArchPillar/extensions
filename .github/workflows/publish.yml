@@ -40,6 +40,9 @@ jobs:
           dotnet pack src/Mapper/ArchPillar.Extensions.Mapper.csproj -c Release --no-build -o ./nupkgs -p:PackageVersion=$VERSION
           dotnet pack src/Mapper.EntityFrameworkCore/ArchPillar.Extensions.Mapper.EntityFrameworkCore.csproj -c Release --no-build -o ./nupkgs -p:PackageVersion=$VERSION
 
+          # Primitives
+          dotnet pack src/Primitives/ArchPillar.Extensions.Primitives.csproj -c Release --no-build -o ./nupkgs -p:PackageVersion=$VERSION
+
           # Localization. The analyzer and code-fixes are bundled into the main package, not published.
           for project in \
             Localization/ArchPillar.Extensions.Localization \
