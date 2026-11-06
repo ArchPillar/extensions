@@ -15,7 +15,7 @@ internal sealed class ExtractCommand : AsyncCommand<ExtractCommand.Settings>
         public string? Format { get; init; }
     }
 
-    protected override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
+    public override async Task<int> ExecuteAsync(CommandContext context, Settings settings, CancellationToken cancellationToken)
     {
         var sourceLanguage = settings.Source;
         ITranslationFormat provider = CatalogIo.FormatOrDefault(settings.Format);
