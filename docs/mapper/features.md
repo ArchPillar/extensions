@@ -724,37 +724,39 @@ the two capabilities below.
 
 ### Direct mapper calls in hand-written queries
 
-`Project(mapper)` projects a whole row. Sometimes you instead want a custom `Select` and to map only *one* property with a mapper. Without the integration, EF Core cannot translate a `Mapper.Map()` / `Project()` call sitting inside your own projection — it is a delegate call. With it, those calls are inlined into the mapper's projection expression at query-compilation time, so the whole query is still translated server-side:
+`Project(mapper)` projects a whole row. Sometimes you instead want a custom `Select` and to map only *one* property with a mapper. Without the integration, EF Core cannot translate a `Mapper.Map()` / `Project()` call sitting inside your own projection — it is a delegate call. With it, finish the query with `ApplyMappers()` and those calls are inlined into the mapper's projection expression, so the whole query is still translated server-side:
 
 ```csharp
+using ArchPillar.Extensions.Mapper.EntityFrameworkCore;
+
 var rows = await db.Orders
     .Where(o => o.IsActive)
     .Select(o => new OrderRow
     {
         OrderId       = o.Id,                                        // your own projection
         CustomerEmail = o.Customer.Email,                           // your own projection
+        Status        = mappers.StatusMapper.Map(o.Status),         // an enum mapper, as a flat SQL CASE
         Order         = mappers.Order.Map(o),                       // one property via a mapper
         Lines         = o.Lines.Project(mappers.OrderLine).ToList(), // a collection via a mapper
     })
+    .ApplyMappers()
     .ToListAsync();
 ```
 
 Both scalar `Map()` and collection `Project()` are inlined; nested mappers, enum mappers, and variables inside them resolve exactly as they do for a top-level `Project(mapper)`.
 
-### Hand-written queries with `Invoke` — `ApplyMappers()`
+### Why `ApplyMappers()` — and what happens without it
 
-The automatic interceptor runs *after* EF Core's parameter extraction, so it cannot inline a mapper that contains an `Invoke` call (a nested mapping deliberately opted out of expression-tree inlining). For those queries, call `ApplyMappers()` — the explicit, opt-in counterpart that runs the same rewrite at query-construction time, *before* parameter extraction, so the `Invoke` box parameterizes normally:
+`ApplyMappers()` runs at query-construction time, *before* EF Core's parameter extraction. Prefer it on every query that mixes your own projection with mapper calls.
 
-```csharp
-using ArchPillar.Extensions.Mapper.EntityFrameworkCore;
+Without it, an automatic interceptor runs the same rewrite at query-compilation time, *after* parameter extraction. That works for the simple case, but it cannot handle two others, and both fail with an error pointing to `ApplyMappers()`:
 
-var rows = await db.Orders
-    .Select(o => new OrderRow { OrderId = o.Id, Order = mappers.Order.Map(o)! })
-    .ApplyMappers()   // inline before EF sees the query → Invoke-containing mappers work
-    .ToListAsync();
-```
+- **A mapper captured in a closure** — a local variable or a method parameter, which is how a minimal API handler receives injected services. EF Core has already turned the closure into a query parameter, so the mapper can no longer be read. A mapper reached through a field or a primary constructor parameter is not affected.
+- **A mapper that contains an `Invoke` call** — a nested mapping deliberately opted out of expression-tree inlining.
 
-Whole-row `.Project(mapper)` already runs at construction time, so it supports `Invoke`-containing mappers without the explicit call.
+A mapper reached through a field also has a cost without `ApplyMappers()`: the object holding that field becomes part of EF Core's query cache key, so a handler created per request recompiles its query on every request.
+
+Whole-row `.Project(mapper)` already runs at construction time, so it never needs the explicit call.
 
 ### Requesting optional properties at the call site
 

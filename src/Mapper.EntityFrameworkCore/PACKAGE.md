@@ -16,7 +16,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
         .UseNpgsql(connectionString)
         .UseArchPillarMapper());
 
-// 2. Call mappers directly inside a hand-written query — translated server-side
+// 2. Call mappers directly inside a hand-written query, and finish with ApplyMappers()
+//    (using ArchPillar.Extensions.Mapper.EntityFrameworkCore) — translated server-side
 var summaries = await db.Orders
     .Where(o => o.Customer.UserId == userId)
     .Select(o => new OrderSummary
@@ -26,8 +27,11 @@ var summaries = await db.Orders
         Customer = mappers.Customer.Map(o.Customer),           // single property via a mapper
         Lines    = o.Lines.Project(mappers.OrderLine).ToList(),  // collection via a mapper
     })
+    .ApplyMappers()
     .ToListAsync();
 ```
+
+`ApplyMappers()` resolves the mappers before EF Core extracts query parameters, so it also works when `mappers` is a local variable or a method parameter, as in a minimal API handler.
 
 Whole-row projection (`db.Orders.Project(mappers.Order)`) works without this package — the core library is provider-agnostic. This package is for the cases above, where a mapper call sits *inside* a query you wrote by hand.
 

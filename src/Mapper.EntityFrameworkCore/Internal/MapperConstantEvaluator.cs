@@ -17,9 +17,27 @@ internal static class MapperConstantEvaluator
             return constant.Value;
         }
 
-        Func<object?> accessor = Expression
-            .Lambda<Func<object?>>(Expression.Convert(expression, typeof(object)))
-            .Compile();
+        Func<object?> accessor = Compile(expression);
         return accessor();
+    }
+
+    private static Func<object?> Compile(Expression expression)
+    {
+        try
+        {
+            return Expression
+                .Lambda<Func<object?>>(Expression.Convert(expression, typeof(object)))
+                .Compile();
+        }
+        catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
+        {
+            // Which of the two is thrown depends on the EF Core version: both mean the expression reaches a query
+            // parameter, which has no value until the query runs.
+            throw new InvalidOperationException(
+                "A mapper call in this query uses a value captured in a closure, such as a local variable or a " +
+                "method parameter, which cannot be read once EF has lifted it into a query parameter. Call " +
+                ".ApplyMappers() on the query, so the mapper is resolved before parameter extraction.",
+                exception);
+        }
     }
 }

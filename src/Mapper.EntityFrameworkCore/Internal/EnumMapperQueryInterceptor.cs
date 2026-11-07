@@ -16,6 +16,18 @@ internal sealed class EnumMapperQueryInterceptor : IQueryExpressionInterceptor
             : new EnumMapperCallRewriter(store).Visit(queryExpression);
     }
 
+    internal static bool IsEnumMapperType(Type? type)
+    {
+        return type?.IsGenericType == true
+            && type.GetGenericTypeDefinition() == typeof(EnumMapper<,>);
+    }
+
+    internal static bool IsSymmetricEnumMapperType(Type? type)
+    {
+        return type?.IsGenericType == true
+            && type.GetGenericTypeDefinition() == typeof(SymmetricEnumMapper<,>);
+    }
+
     private sealed class EnumMapperCallRewriter(EnumMappingStore store) : ExpressionVisitor
     {
         protected override Expression VisitMethodCall(MethodCallExpression node)
@@ -115,18 +127,6 @@ internal sealed class EnumMapperQueryInterceptor : IQueryExpressionInterceptor
                 .MakeGenericMethod(sourceType, destType);
 
             return Expression.Call(nonNullableMethod, sourceArg);
-        }
-
-        private static bool IsEnumMapperType(Type? type)
-        {
-            return type?.IsGenericType == true
-                && type.GetGenericTypeDefinition() == typeof(EnumMapper<,>);
-        }
-
-        private static bool IsSymmetricEnumMapperType(Type? type)
-        {
-            return type?.IsGenericType == true
-                && type.GetGenericTypeDefinition() == typeof(SymmetricEnumMapper<,>);
         }
     }
 }

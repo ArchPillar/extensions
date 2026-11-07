@@ -25,62 +25,59 @@ mapper is used.
 
 `Project(mapper)` projects a whole row. When you instead want a custom `Select` and to map only
 *one* property with a mapper, the companion package inlines the `Map()` / `Project()` call into
-the mapper's projection expression at query-compilation time, so the whole query is still
-translated server-side:
+the mapper's projection expression, so the whole query is still translated server-side:
 
 ```csharp
+using ArchPillar.Extensions.Mapper.EntityFrameworkCore;
+
 var rows = await db.Orders
     .Where(o => o.IsActive)
     .Select(o => new OrderRow
     {
         OrderId       = o.Id,                                          // your own projection
         CustomerEmail = o.Customer.Email,                             // your own projection
+        Status        = mappers.OrderStatusMapper.Map(o.Status),      // an enum mapper, flat SQL CASE
         Order         = mappers.Order.Map(o),                         // one property via a mapper
         Lines         = o.Lines.Project(mappers.OrderLine).ToList(),  // a collection via a mapper
     })
+    .ApplyMappers()
     .ToListAsync();
 ```
 
 Scalar `Map()` and collection `Project()` are both inlined; nested mappers, enum mappers, and
 variables inside them resolve exactly as for a top-level `Project(mapper)`.
 
-This is **mix mode** — your own projection mixed with mapper calls. Two ways to inline it: the
-automatic `IQueryExpressionInterceptor` enabled by `UseArchPillarMapper()`, or an explicit
-`ApplyMappers()` call on the query (see below).
+This is **mix mode** — your own projection mixed with mapper calls. Two ways to inline it: an
+explicit `ApplyMappers()` call on the query, or the automatic `IQueryExpressionInterceptor`
+enabled by `UseArchPillarMapper()`.
 
-> **Recommendation: prefer the explicit `ApplyMappers()` helper for mix-mode queries.** The
-> automatic interceptor works for the common case, but it runs *after* EF Core's parameter
-> extraction, which breaks the one combination below. Inlining manually with `ApplyMappers()`
-> avoids that edge case entirely and makes the inlining point visible in the query.
+> **Recommendation: always call `ApplyMappers()` on mix-mode queries.** The automatic interceptor
+> runs *after* EF Core's parameter extraction, which breaks the combinations below and recompiles
+> the query for every new handler instance. `ApplyMappers()` avoids all of that and makes the
+> inlining point visible in the query.
 
 > `Map()` / `Project()` used **inside a mapper definition** are always inlined by the core
 > library and never need this package. The companion is only for direct calls inside your own
 > queries.
 
-## The edge case that bites: mix mode + `Invoke`
+## What breaks without `ApplyMappers()`
 
-**Mix mode combined with inline escaping (`Invoke`) only works if `ApplyMappers()` is called.**
-The automatic interceptor runs *after* EF Core's parameter extraction, so it cannot inline a
-mapper that contains an `Invoke` call (a nested mapping that deliberately opted out of
-expression-tree inlining) — the invoke box would be spliced in too late to be lifted into a
-query parameter, and EF rejects it as a captured constant. The interceptor detects this and
-throws a clear error pointing here.
+The automatic interceptor runs *after* EF Core's parameter extraction, so two kinds of mix-mode
+query only work with `ApplyMappers()`. Both throw a clear error pointing to it:
 
-The fix — and the reason to prefer it for all mix-mode queries — is `ApplyMappers()`, the
-explicit counterpart that runs the same rewrite at query-construction time, *before* parameter
-extraction, so the box (and any variable boxes) parameterize normally:
+- **A mapper captured in a closure** — a local variable or a method parameter, which is how a
+  minimal API handler receives injected services. EF Core has already turned the closure into a
+  query parameter, so the mapper can no longer be read. A mapper reached through a field or a
+  primary constructor parameter is not affected.
+- **A mapper that contains `Invoke`** (a nested mapping that deliberately opted out of
+  expression-tree inlining) — the invoke box would be spliced in too late to be lifted into a
+  query parameter, and EF rejects it as a captured constant.
 
-```csharp
-using ArchPillar.Extensions.Mapper.EntityFrameworkCore;
+`ApplyMappers()` runs the same rewrite at query-construction time, *before* parameter extraction,
+so the mapper can still be read and the box (and any variable boxes) parameterize normally.
 
-var rows = await db.Orders
-    .Select(o => new OrderRow { OrderId = o.Id, Order = mappers.Order.Map(o)! })
-    .ApplyMappers()   // inline before EF sees the query → Invoke-containing mappers work
-    .ToListAsync();
-```
-
-Whole-row `.Project(mapper)` already runs at construction time, so it supports
-`Invoke`-containing mappers without the explicit call.
+Whole-row `.Project(mapper)` already runs at construction time, so it never needs the explicit
+call.
 
 ## Requesting optional properties at the call site
 
