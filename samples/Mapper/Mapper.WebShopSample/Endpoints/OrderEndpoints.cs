@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using ArchPillar.Extensions.Mapper;
+using ArchPillar.Extensions.Mapper.EntityFrameworkCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using OpenIddict.Abstractions;
@@ -71,8 +72,9 @@ public static class OrderEndpoints
     {
         Guid userId = GetUserId(principal);
 
-        // The enum mapper, the single nested mapper, and the collection Project()
-        // are all inlined and translated to SQL by UseArchPillarMapper — one round trip.
+        // ApplyMappers resolves the mappers this handler captured before EF Core lifts them
+        // into query parameters. The enum mapper, the single nested mapper, and the collection
+        // Project() are then all translated to SQL — one round trip.
         List<OrderSummary> summaries = await db.Orders
             .Where(o => o.Customer.UserId == userId)
             .Select(o => new OrderSummary
@@ -82,6 +84,7 @@ public static class OrderEndpoints
                 Customer = mappers.Customer.Map(o.Customer),
                 Lines    = o.Lines.Project(mappers.OrderLine).ToList(),
             })
+            .ApplyMappers()
             .ToListAsync();
 
         return Results.Ok(summaries);

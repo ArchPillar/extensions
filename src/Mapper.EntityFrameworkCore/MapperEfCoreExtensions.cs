@@ -73,13 +73,15 @@ public static class MapperEfCoreExtensions
     /// <para>
     /// This is the explicit, opt-in counterpart to the automatic inlining performed
     /// by <see cref="MapperDbContextOptionsExtensions.UseArchPillarMapper"/>. Because
-    /// it runs <em>before</em> EF Core's parameter extraction, it supports mappers
-    /// that contain <see cref="Mapper{TSource,TDest}.Invoke(TSource)"/> calls (the
-    /// nested mapping runs in memory on the materialised source) — which the
-    /// automatic interceptor cannot, since it runs after parameter extraction.
+    /// it runs <em>before</em> EF Core's parameter extraction, it supports what the
+    /// automatic interceptor cannot, since that runs after parameter extraction:
+    /// mappers captured in a closure (a local variable or a method parameter), and
+    /// mappers that contain <see cref="Mapper{TSource,TDest}.Invoke(TSource)"/> calls
+    /// (the nested mapping runs in memory on the materialised source). Enum mapper
+    /// calls stay in the query, and are translated to a flat SQL <c>CASE</c>.
     /// </para>
     /// <para>
-    /// Use it on a query whose projection calls a mapper that contains <c>Invoke</c>:
+    /// Use it on any query that mixes your own projection with mapper calls:
     /// <code>
     /// var rows = await db.Orders
     ///     .Select(o => new Row { Id = o.Id, Dto = mappers.Order.Map(o)! })
@@ -95,7 +97,8 @@ public static class MapperEfCoreExtensions
     {
         ArgumentNullException.ThrowIfNull(query);
 
-        Expression rewritten = new MapperCallRewriter(flattenVariableBoxes: false).Visit(query.Expression);
-        return query.Provider.CreateQuery<TSource>(rewritten);
+        Expression inlined = new MapperCallRewriter(flattenVariableBoxes: false).Visit(query.Expression);
+        Expression resolved = new EnumMapperAccessorResolver().Visit(inlined);
+        return query.Provider.CreateQuery<TSource>(resolved);
     }
 }

@@ -24,9 +24,9 @@ using Mapper.WebShopSample.Models;
 //   - Optional nested members (Order.Lines, User.Profile) materialised only
 //     when Include() opts them in.
 //   - EnumMapper (OrderStatusCode) translated to a flat SQL CASE, and the EF
-//     Core integration (UseArchPillarMapper) inlining an enum-mapper call, a
-//     single nested mapper, and a collection Project() in one hand-written
-//     Select (the /orders/summary endpoint).
+//     Core integration (UseArchPillarMapper with ApplyMappers) inlining an
+//     enum-mapper call, a single nested mapper, and a collection Project() in
+//     one hand-written Select (the /orders/summary endpoint).
 //   - Edge paths: not-found (404) reads, ownership-scoped queries for non-admins,
 //     and validation failures on create/place-order (bad category, no lines).
 //

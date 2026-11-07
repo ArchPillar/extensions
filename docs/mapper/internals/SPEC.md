@@ -695,20 +695,20 @@ options.UseArchPillarMapper();
 
 #### Direct mapper calls in hand-written queries
 
-`Project(mapper)` projects an entire row. To produce a custom projection where only some properties come from a mapper, call `Map()` / `Project()` directly inside a `Select`:
+`Project(mapper)` projects an entire row. To produce a custom projection where only some properties come from a mapper, call `Map()` / `Project()` directly inside a `Select` and finish with `ApplyMappers()`:
 
 ```csharp
-db.Orders.Select(o => new OrderRow
-{
-    OrderId = o.Id,                                        // hand-written
-    Order   = mappers.Order.Map(o),                       // scalar mapper call
-    Lines   = o.Lines.Project(mappers.OrderLine).ToList(), // collection mapper call
-});
+db.Orders
+    .Select(o => new OrderRow
+    {
+        OrderId = o.Id,                                        // hand-written
+        Order   = mappers.Order.Map(o),                       // scalar mapper call
+        Lines   = o.Lines.Project(mappers.OrderLine).ToList(), // collection mapper call
+    })
+    .ApplyMappers();
 ```
 
-An `IQueryExpressionInterceptor` rewrites these calls at query-compilation time, replacing each `Map(src)` with the mapper's `ToExpression()` body (parameter-substituted with `src`, reference-type navigations null-guarded) and each `src.Project(mapper)` with `Enumerable.Select(src, projection)`. The LINQ provider then sees a single inlined `MemberInitExpression` — no delegate calls — and translates the whole query server-side. This mirrors the build-time inlining the core library performs inside mapper definitions (§4), extended to arbitrary user queries.
-
-Because EF Core's funcletizer parameterizes captured closures before query compilation, an `IEvaluatableExpressionFilterPlugin` keeps mapper accessors (and their `MapperContext`) from being parameterized so the interceptor can resolve the mapper instance.
+The rewrite replaces each `Map(src)` with the mapper's `ToExpression()` body (parameter-substituted with `src`, reference-type navigations null-guarded) and each `src.Project(mapper)` with `Enumerable.Select(src, projection)`. The LINQ provider then sees a single inlined `MemberInitExpression` — no delegate calls — and translates the whole query server-side. This mirrors the build-time inlining the core library performs inside mapper definitions (§4), extended to arbitrary user queries.
 
 Optional properties and variables are requested at the call site via `ProjectionOptions`-aware overloads in the EF Core package:
 
@@ -717,24 +717,24 @@ mappers.Order.Map(o, c => c.Include(m => m.CustomerName));
 o.Lines.Project(mappers.OrderLine, c => c.Include(m => m.SupplierName));
 ```
 
-##### Hand-written queries with `Invoke` — `ApplyMappers()`
+##### `ApplyMappers()` and the automatic interceptor
 
-The interceptor runs **after** EF Core's parameter extraction, so it cannot inline a mapper that contains an `Invoke` call (§4): the invoke box would be spliced in too late to be lifted into a query parameter, and EF rejects it as a captured constant. The interceptor detects this and throws a clear error pointing here.
+`ApplyMappers()` is the supported path for mixed queries. It runs the rewrite at **query-construction time**, before EF Core's parameter extraction, so everything in the query can still be read and any variable or invoke boxes parameterize normally.
 
-For those queries, call `ApplyMappers()` — the explicit, opt-in counterpart that runs the *same* rewrite at **query-construction time**, before parameter extraction, so the box (and any variable boxes) parameterize normally:
+Queries that skip the call get the *same* rewrite from an `IQueryExpressionInterceptor` at query-compilation time. That is a convenience, not a second supported path: it runs **after** parameter extraction, which limits it in two ways, and each throws a clear error pointing to `ApplyMappers()`:
 
-```csharp
-var rows = await db.Orders
-    .Select(o => new OrderRow { OrderId = o.Id, Order = mappers.Order.Map(o)! })
-    .ApplyMappers()   // inline before EF sees the query → Invoke-containing mappers work
-    .ToListAsync();
-```
+- **Mappers captured in a closure.** An `IEvaluatableExpressionFilterPlugin` keeps mapper accessors (and their `MapperContext`) from being parameterized, but it cannot protect what an accessor hangs off. EF Core lifts a compiler-generated closure into a query parameter, and an interceptor has no access to parameter values. A mapper reached through a field or primary constructor parameter hangs off `this`, a plain constant, so it stays readable.
+- **Mappers that contain `Invoke`** (§4). The invoke box would be spliced in too late to be lifted into a query parameter, and EF rejects it as a captured constant.
 
-`ApplyMappers()` and the automatic interceptor share one rewriter; the only difference is timing (and that `ApplyMappers()` leaves variable substitutions as funcletizable boxes rather than folding them to constants). Projecting a whole row with `.Project(mapper)` already runs at construction time and so supports `Invoke` without the explicit call.
+Reaching a mapper through `this` has a cost of its own: `this` stays in the query, so EF Core's query cache key changes with it, and a handler created per request recompiles the query on every request. `ApplyMappers()` removes regular mappers from the query before EF Core sees it, so it has no such cost.
+
+`ApplyMappers()` and the automatic interceptor share one rewriter; the differences are timing, and that `ApplyMappers()` leaves variable substitutions as funcletizable boxes rather than folding them to constants. Projecting a whole row with `.Project(mapper)` already runs at construction time and so needs no explicit call.
 
 #### Enum mappers → flat SQL CASE
 
 `EnumMapper.Map()` and `SymmetricEnumMapper.Map()` / `.MapReverse()` calls used directly in a query are translated by a custom `IMethodCallTranslator` into a flat SQL `CASE operand WHEN … THEN … END` with one branch per enum value, rather than the nested conditional chain emitted by the provider-agnostic path. This keeps SQL nesting shallow for enums with many values. Enum mapper tables are computed on demand the first time a given enum mapper is used in a query.
+
+`ApplyMappers()` leaves these calls in the query for the translator, but replaces each accessor with the mapper it resolves to, as a constant, so the table can still be built after a closure has been parameterized. That constant is part of EF Core's query cache key, which is one more reason to register `MapperContext`s as singletons: a new mapper instance per request would recompile the query each time. Without `ApplyMappers()`, a captured enum mapper fails only until its table is stored, because the instance is needed only to build the table.
 
 **Limitations**: the integration recognizes mappers reached through the `context.Mapper` access pattern; mappers reached only through a non-`MapperContext` facade are not inlined. Variable values bound at an inline call site bake in as constants captured at compile time.
 

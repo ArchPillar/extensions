@@ -10,10 +10,11 @@ namespace ArchPillar.Extensions.Mapper.EntityFrameworkCore.Internal;
 /// a property with a mapper while the whole query is still translated server-side.
 /// <para>
 /// This interceptor runs <em>after</em> EF Core's parameter extraction, so it
-/// cannot inline a mapper that contains an <see cref="Mapper{TSource,TDest}.Invoke(TSource)"/>
-/// call — for those, callers use <c>ApplyMappers()</c> (which rewrites at query
-/// construction, before parameter extraction). Enum mappers are handled separately
-/// by <see cref="EnumMapperQueryInterceptor"/>.
+/// cannot inline a mapper captured in a closure or one that contains an
+/// <see cref="Mapper{TSource,TDest}.Invoke(TSource)"/> call — for those, callers use
+/// <c>ApplyMappers()</c> (which rewrites at query construction, before parameter
+/// extraction). Enum mappers are handled separately by
+/// <see cref="EnumMapperQueryInterceptor"/>.
 /// </para>
 /// </summary>
 internal sealed class MapperInliningInterceptor : IQueryExpressionInterceptor
