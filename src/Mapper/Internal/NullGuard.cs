@@ -9,9 +9,11 @@ namespace ArchPillar.Extensions.Mapper.Internal;
 /// translates without comparing the source entity.
 /// <para>
 /// When the source is a <c>FirstOrDefault</c> / <c>SingleOrDefault</c> call
-/// (with or without a predicate), the test projects a scalar marker instead:
-/// <c>seq[.Where(predicate)].Select(e =&gt; e == null ? (int?)null : 1).FirstOrDefault() == null</c>.
-/// That has exactly the semantics of <c>seq.FirstOrDefault() == null</c>, but EF Core
+/// (with or without a predicate), optionally followed by a member chain
+/// (<c>seq.FirstOrDefault(predicate).A.B</c>), the test projects a scalar marker instead:
+/// <c>seq[.Where(predicate)][.Select(x =&gt; x.A.B)].Select(e =&gt; e == null ? (int?)null : 1).FirstOrDefault() == null</c>.
+/// That has the semantics of <c>seq.FirstOrDefault() == null</c> (for a member chain,
+/// an empty sequence yields null instead of throwing in memory), but EF Core
 /// translates it to a scalar <c>(SELECT 1 … LIMIT 1) IS NULL</c> rather than an entity
 /// comparison, which it may otherwise translate by joining the subquery ranked with
 /// <c>ROW_NUMBER() OVER (PARTITION BY …)</c>. Keeping the <c>x == null ? null : body</c>
@@ -40,7 +42,16 @@ internal static class NullGuard
 
     private static Expression? TryBuildMarker(Expression source)
     {
-        if (source is not MethodCallExpression { Method: { IsGenericMethod: true } method } call
+        // Peel a member chain hanging off the call: seq.FirstOrDefault().A.B
+        var members = new Stack<MemberInfo>();
+        Expression current = source;
+        while (current is MemberExpression { Expression: { } inner } member)
+        {
+            members.Push(member.Member);
+            current = inner;
+        }
+
+        if (current is not MethodCallExpression { Method: { IsGenericMethod: true } method } call
             || (method.DeclaringType != typeof(Enumerable) && method.DeclaringType != typeof(Queryable))
             || (method.Name != nameof(Enumerable.FirstOrDefault) && method.Name != nameof(Enumerable.SingleOrDefault)))
         {
@@ -66,6 +77,19 @@ internal static class NullGuard
             return null;
         }
 
+        if (members.Count > 0)
+        {
+            ParameterExpression item = Expression.Parameter(elementType, "item");
+            Expression path = item;
+            foreach (MemberInfo member in members)
+            {
+                path = Expression.MakeMemberAccess(path, member);
+            }
+
+            sequence = Select(declaringType, sequence, Expression.Lambda(path, item));
+            elementType = path.Type;
+        }
+
         ParameterExpression element = Expression.Parameter(elementType, "element");
         LambdaExpression marker = Expression.Lambda(
             Expression.Condition(
@@ -74,16 +98,17 @@ internal static class NullGuard
                 Expression.Constant(1, typeof(int?))),
             element);
 
-        Expression markers = Expression.Call(
-            FindMethod(declaringType, nameof(Enumerable.Select), 2, type => IsLambdaOf(type, null))
-                .MakeGenericMethod(elementType, typeof(int?)),
-            sequence,
-            declaringType == typeof(Queryable) ? Expression.Quote(marker) : marker);
-
         return Expression.Call(
             FindMethod(declaringType, nameof(Enumerable.FirstOrDefault), 1, _ => true).MakeGenericMethod(typeof(int?)),
-            markers);
+            Select(declaringType, sequence, marker));
     }
+
+    private static MethodCallExpression Select(Type declaringType, Expression sequence, LambdaExpression selector)
+        => Expression.Call(
+            FindMethod(declaringType, nameof(Enumerable.Select), 2, type => IsLambdaOf(type, null))
+                .MakeGenericMethod(selector.Parameters[0].Type, selector.ReturnType),
+            sequence,
+            declaringType == typeof(Queryable) ? Expression.Quote(selector) : selector);
 
     private static MethodInfo FindMethod(
         Type declaringType, string name, int parameterCount, Func<Type, bool> lastParameter)

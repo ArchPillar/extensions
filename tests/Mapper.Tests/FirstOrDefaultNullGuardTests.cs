@@ -60,6 +60,7 @@ public sealed class FirstOrDefaultNullGuardTests : IDisposable
         List<GuardOrderDto> results = await _db.Orders
             .Project(_mappers.Order)
             .OrderByDescending(d => d.Primary!.Name)
+            .ThenBy(d => d.PrimaryViaMember!.Name)
             .ToListAsync();
 
         Assert.Equal([1, 2], results.Select(d => d.Id));
@@ -136,6 +137,7 @@ public sealed class FirstOrDefaultNullGuardTests : IDisposable
         Assert.Equal("Alice", withContacts.Primary?.Name);
         Assert.Equal("Bob", withContacts.Named?.Name);
         Assert.Equal("Alice", withContacts.Only?.Name);
+        Assert.Equal("Alice", withContacts.PrimaryViaMember?.Name);
 
         // The first contact has no backup: FirstOrDefault() is null even though
         // a later contact has one, so the guard must yield null rather than map.
@@ -146,6 +148,7 @@ public sealed class FirstOrDefaultNullGuardTests : IDisposable
         Assert.Null(withoutContacts.Named);
         Assert.Null(withoutContacts.Only);
         Assert.Null(withoutContacts.FirstBackup);
+        Assert.Null(withoutContacts.PrimaryViaMember);
     }
 
     private static List<GuardOrder> CreateOrders()
@@ -203,6 +206,7 @@ internal sealed class GuardOrderDto
     public GuardPersonDto? Named { get; set; }
     public GuardPersonDto? Only { get; set; }
     public GuardPersonDto? FirstBackup { get; set; }
+    public GuardPersonDto? PrimaryViaMember { get; set; }
 }
 
 internal sealed class GuardPersonDto
@@ -229,6 +233,7 @@ internal sealed class GuardMappers : MapperContext
             Named = Person.Map(o.Contacts.Select(c => c.Person).FirstOrDefault(p => p.Name == "Bob")!),
             Only = Person.Map(o.Contacts.Where(c => c.IsPrimary).Select(c => c.Person).SingleOrDefault()!),
             FirstBackup = Person.Map(o.Contacts.OrderBy(c => c.Id).Select(c => c.Backup).FirstOrDefault()!),
+            PrimaryViaMember = Person.Map(o.Contacts.FirstOrDefault(c => c.IsPrimary)!.Person),
         });
     }
 }
