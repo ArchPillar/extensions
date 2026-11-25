@@ -512,7 +512,7 @@ For object mapping, the compiled delegate performs an upfront null check and ret
 
 For expression projection, the top-level source gets no null check — the query root is never null. A nested `Map(src.X)` over a reference-type source is inlined behind a null guard, `src.X == null ? null : body`, compared against a typed null constant so EF Core folds it into a foreign-key `IS NULL` check.
 
-When the nested source is a `FirstOrDefault()` / `SingleOrDefault()` call (with or without a predicate), the guard is an existence check instead: `!seq[.Where(predicate)].Take(1).Any(e => e != null)`. It has exactly the semantics of `seq.FirstOrDefault() == null`, but translates to `NOT EXISTS (… LIMIT 1)` rather than an entity comparison, which EF Core can otherwise only translate by joining the subquery ranked with `ROW_NUMBER() OVER (PARTITION BY …)`. The `defaultValue` overloads keep the plain null comparison.
+When the nested source is a `FirstOrDefault()` / `SingleOrDefault()` call (with or without a predicate), the guard tests a scalar marker instead of the entity: `seq[.Where(predicate)].Select(e => e == null ? (int?)null : 1).FirstOrDefault() == null`. It has exactly the semantics of `seq.FirstOrDefault() == null`, but translates to a scalar `(SELECT 1 … LIMIT 1) IS NULL` rather than an entity comparison, which EF Core may otherwise translate by joining the subquery ranked with `ROW_NUMBER() OVER (PARTITION BY …)`. The guard keeps the `x == null ? null : body` shape so EF Core can still bind member access through it (`.Project(mapper).OrderBy(d => d.Nested.Name)`); an `Any()`-based test breaks that. The `defaultValue` overloads keep the plain null comparison.
 
 ### 11. Mapper Inheritance
 

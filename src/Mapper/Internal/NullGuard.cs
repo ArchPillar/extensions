@@ -5,15 +5,18 @@ namespace ArchPillar.Extensions.Mapper.Internal;
 
 /// <summary>
 /// Wraps an inlined nested-mapper body in the null guard
-/// <c>source is null ? null : body</c>, choosing a test the LINQ provider
-/// translates without materialising the source entity.
+/// <c>source is null ? null : body</c>, choosing a null test the LINQ provider
+/// translates without comparing the source entity.
 /// <para>
 /// When the source is a <c>FirstOrDefault</c> / <c>SingleOrDefault</c> call
-/// (with or without a predicate), the null test becomes an existence check,
-/// <c>!seq[.Where(predicate)].Take(1).Any(e =&gt; e != null)</c>. That has exactly the
-/// semantics of <c>seq.FirstOrDefault() == null</c>, but EF Core translates it to
-/// <c>NOT EXISTS (… LIMIT 1)</c> instead of an entity comparison, which it can only
-/// translate by joining the subquery ranked with <c>ROW_NUMBER() OVER (PARTITION BY …)</c>.
+/// (with or without a predicate), the test projects a scalar marker instead:
+/// <c>seq[.Where(predicate)].Select(e =&gt; e == null ? (int?)null : 1).FirstOrDefault() == null</c>.
+/// That has exactly the semantics of <c>seq.FirstOrDefault() == null</c>, but EF Core
+/// translates it to a scalar <c>(SELECT 1 … LIMIT 1) IS NULL</c> rather than an entity
+/// comparison, which it may otherwise translate by joining the subquery ranked with
+/// <c>ROW_NUMBER() OVER (PARTITION BY …)</c>. Keeping the <c>x == null ? null : body</c>
+/// shape also lets EF Core bind member access through the guard, so a later
+/// <c>OrderBy(d =&gt; d.Nested.Name)</c> still translates.
 /// </para>
 /// <para>
 /// Any other source is compared against a typed null constant rather than a
@@ -27,13 +30,15 @@ internal static class NullGuard
 {
     internal static Expression Wrap(Expression source, Expression body)
     {
-        Expression isNull = TryBuildEmptyCheck(source)
-            ?? Expression.Equal(source, Expression.Constant(null, source.Type));
+        Expression nullTest = TryBuildMarker(source) ?? source;
 
-        return Expression.Condition(isNull, Expression.Constant(null, body.Type), body);
+        return Expression.Condition(
+            Expression.Equal(nullTest, Expression.Constant(null, nullTest.Type)),
+            Expression.Constant(null, body.Type),
+            body);
     }
 
-    private static Expression? TryBuildEmptyCheck(Expression source)
+    private static Expression? TryBuildMarker(Expression source)
     {
         if (source is not MethodCallExpression { Method: { IsGenericMethod: true } method } call
             || (method.DeclaringType != typeof(Enumerable) && method.DeclaringType != typeof(Queryable))
@@ -47,10 +52,11 @@ internal static class NullGuard
         ParameterInfo[] parameters = method.GetParameters();
         Expression sequence = call.Arguments[0];
 
-        if (parameters.Length == 2 && IsPredicate(parameters[1].ParameterType))
+        if (parameters.Length == 2 && IsLambdaOf(parameters[1].ParameterType, typeof(bool)))
         {
             sequence = Expression.Call(
-                FindMethod(declaringType, nameof(Enumerable.Where), IsPredicate).MakeGenericMethod(elementType),
+                FindMethod(declaringType, nameof(Enumerable.Where), 2, type => IsLambdaOf(type, typeof(bool)))
+                    .MakeGenericMethod(elementType),
                 sequence,
                 call.Arguments[1]);
         }
@@ -60,30 +66,35 @@ internal static class NullGuard
             return null;
         }
 
-        sequence = Expression.Call(
-            FindMethod(declaringType, nameof(Enumerable.Take), type => type == typeof(int)).MakeGenericMethod(elementType),
-            sequence,
-            Expression.Constant(1));
-
         ParameterExpression element = Expression.Parameter(elementType, "element");
-        LambdaExpression notNull = Expression.Lambda(
-            Expression.NotEqual(element, Expression.Constant(null, elementType)),
+        LambdaExpression marker = Expression.Lambda(
+            Expression.Condition(
+                Expression.Equal(element, Expression.Constant(null, elementType)),
+                Expression.Constant(null, typeof(int?)),
+                Expression.Constant(1, typeof(int?))),
             element);
 
-        return Expression.Not(Expression.Call(
-            FindMethod(declaringType, nameof(Enumerable.Any), IsPredicate).MakeGenericMethod(elementType),
+        Expression markers = Expression.Call(
+            FindMethod(declaringType, nameof(Enumerable.Select), 2, type => IsLambdaOf(type, null))
+                .MakeGenericMethod(elementType, typeof(int?)),
             sequence,
-            declaringType == typeof(Queryable) ? Expression.Quote(notNull) : notNull));
+            declaringType == typeof(Queryable) ? Expression.Quote(marker) : marker);
+
+        return Expression.Call(
+            FindMethod(declaringType, nameof(Enumerable.FirstOrDefault), 1, _ => true).MakeGenericMethod(typeof(int?)),
+            markers);
     }
 
-    private static MethodInfo FindMethod(Type declaringType, string name, Func<Type, bool> secondParameter)
+    private static MethodInfo FindMethod(
+        Type declaringType, string name, int parameterCount, Func<Type, bool> lastParameter)
         => declaringType
             .GetMethods(BindingFlags.Public | BindingFlags.Static)
             .Single(m => m.Name == name
-                && m.GetParameters() is { Length: 2 } parameters
-                && secondParameter(parameters[1].ParameterType));
+                && m.GetParameters() is { } parameters
+                && parameters.Length == parameterCount
+                && lastParameter(parameters[^1].ParameterType));
 
-    private static bool IsPredicate(Type type)
+    private static bool IsLambdaOf(Type type, Type? result)
     {
         if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Expression<>))
         {
@@ -92,6 +103,6 @@ internal static class NullGuard
 
         return type.IsGenericType
             && type.GetGenericTypeDefinition() == typeof(Func<,>)
-            && type.GetGenericArguments()[1] == typeof(bool);
+            && (result is null || type.GetGenericArguments()[1] == result);
     }
 }

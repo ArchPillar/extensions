@@ -7,9 +7,10 @@ namespace ArchPillar.Extensions.Mapper;
 /// <summary>
 /// Verifies that a nested <c>Map(...)</c> over a <c>FirstOrDefault()</c> /
 /// <c>SingleOrDefault()</c> source is guarded by an existence check rather than
-/// an entity comparison, so EF Core emits <c>EXISTS</c> instead of joining the
-/// subquery ranked with <c>ROW_NUMBER()</c> — while keeping the exact
-/// <c>FirstOrDefault() == null</c> semantics in memory and in SQL.
+/// a scalar marker rather than an entity comparison, so EF Core emits a scalar
+/// <c>(SELECT 1 … LIMIT 1) IS NULL</c> instead of joining the subquery ranked with
+/// <c>ROW_NUMBER()</c> — while keeping the exact <c>FirstOrDefault() == null</c>
+/// semantics in memory and in SQL, and letting later operators reach through the guard.
 /// </summary>
 public sealed class FirstOrDefaultNullGuardTests : IDisposable
 {
@@ -46,12 +47,33 @@ public sealed class FirstOrDefaultNullGuardTests : IDisposable
     }
 
     [Fact]
-    public void Project_FirstOrDefaultSource_GuardsWithExistsInsteadOfRowNumber()
+    public void Project_FirstOrDefaultSource_DoesNotRankWithRowNumber()
     {
         var sql = _db.Orders.Project(_mappers.Order).ToQueryString();
 
         Assert.DoesNotContain("ROW_NUMBER", sql, StringComparison.Ordinal);
-        Assert.Contains("EXISTS", sql, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Project_ThenOrderByNestedMember_TranslatesThroughGuardAsync()
+    {
+        List<GuardOrderDto> results = await _db.Orders
+            .Project(_mappers.Order)
+            .OrderByDescending(d => d.Primary!.Name)
+            .ToListAsync();
+
+        Assert.Equal([1, 2], results.Select(d => d.Id));
+    }
+
+    [Fact]
+    public async Task Project_ThenFilterOnNestedMember_TranslatesThroughGuardAsync()
+    {
+        List<GuardOrderDto> results = await _db.Orders
+            .Project(_mappers.Order)
+            .Where(d => d.Named!.Name == "Bob")
+            .ToListAsync();
+
+        Assert.Equal(1, Assert.Single(results).Id);
     }
 
     [Fact]
@@ -66,7 +88,7 @@ public sealed class FirstOrDefaultNullGuardTests : IDisposable
     }
 
     [Fact]
-    public async Task InlinedMap_FirstOrDefaultSource_GuardsWithExistsAsync()
+    public async Task InlinedMap_FirstOrDefaultSource_DoesNotRankWithRowNumberAsync()
     {
         IQueryable<GuardPersonDto?> query = _db.Orders
             .OrderBy(o => o.Id)
@@ -77,7 +99,6 @@ public sealed class FirstOrDefaultNullGuardTests : IDisposable
         List<GuardPersonDto?> results = await query.ToListAsync();
 
         Assert.DoesNotContain("ROW_NUMBER", sql, StringComparison.Ordinal);
-        Assert.Contains("EXISTS", sql, StringComparison.Ordinal);
         Assert.Equal("Alice", results[0]?.Name);
         Assert.Null(results[1]);
     }
@@ -97,7 +118,8 @@ public sealed class FirstOrDefaultNullGuardTests : IDisposable
         protected override Expression VisitBinary(BinaryExpression node)
         {
             if (node.NodeType == ExpressionType.Equal
-                && node.Left is MethodCallExpression { Method.Name: "FirstOrDefault" or "SingleOrDefault" })
+                && node.Left is MethodCallExpression { Method.Name: "FirstOrDefault" or "SingleOrDefault" } call
+                && !call.Type.IsValueType)
             {
                 Found = true;
             }
