@@ -145,7 +145,7 @@ public sealed class SymmetricEnumMapper<TLeft, TRight> : IMapper, IReversibleMap
     // -----------------------------------------------------------------
 
     LambdaExpression IMapper.GetRawExpression(
-        IncludeSet includes, int depth, bool guardNullOptionalCollections)
+        IncludeSet includes, int depth, bool guardNullCollections)
         => ToExpression();
 
     void IMapper.Compile()
@@ -155,7 +155,7 @@ public sealed class SymmetricEnumMapper<TLeft, TRight> : IMapper, IReversibleMap
     }
 
     LambdaExpression IReversibleMapper.GetReverseRawExpression(
-        IncludeSet includes, int depth, bool guardNullOptionalCollections)
+        IncludeSet includes, int depth, bool guardNullCollections)
         => ToReverseExpression();
 
     // -----------------------------------------------------------------

@@ -26,7 +26,7 @@ namespace ArchPillar.Extensions.Mapper.Internal;
 /// </para>
 /// </summary>
 internal sealed class NestedMapperInliner(
-    IncludeSet includes, int depth = 0, bool guardNullOptionalCollections = false) : ExpressionVisitor
+    IncludeSet includes, int depth = 0, bool guardNullCollections = false) : ExpressionVisitor
 {
     internal const int MaxNestingDepth = 32;
 
@@ -58,7 +58,7 @@ internal sealed class NestedMapperInliner(
                 IncludeSet memberIncludes = includes.IncludeAll
                     ? IncludeSet.All
                     : includes.Nested.GetValueOrDefault(memberName, IncludeSet.Empty);
-                Expression visited = new NestedMapperInliner(memberIncludes, depth, guardNullOptionalCollections)
+                Expression visited = new NestedMapperInliner(memberIncludes, depth, guardNullCollections)
                     .Visit(assignment.Expression);
                 newBindings.Add(Expression.Bind(assignment.Member, visited));
             }
@@ -114,9 +114,9 @@ internal sealed class NestedMapperInliner(
         {
             LambdaExpression nestedLambda = node.Method.Name == "MapReverse"
                 ? CompileReversibleMapperAccessor(node.Object!)
-                    .GetReverseRawExpression(includes, depth + 1, guardNullOptionalCollections)
+                    .GetReverseRawExpression(includes, depth + 1, guardNullCollections)
                 : CompileMapperAccessor(node.Object!)
-                    .GetRawExpression(includes, depth + 1, guardNullOptionalCollections);
+                    .GetRawExpression(includes, depth + 1, guardNullCollections);
             Expression srcExpr = Visit(node.Arguments[0]);
 
             // Nullable value type source (e.g. TSource?) — unwrap via .Value,
@@ -164,7 +164,7 @@ internal sealed class NestedMapperInliner(
         {
             IMapper nestedMapper = CompileMapperAccessor(node.Arguments[1]);
             LambdaExpression nestedLambda = nestedMapper.GetRawExpression(
-                includes, depth + 1, guardNullOptionalCollections);
+                includes, depth + 1, guardNullCollections);
             Expression srcExpr = Visit(node.Arguments[0]);
             Type srcType  = nestedLambda.Parameters[0].Type;
             Type destType = nestedLambda.ReturnType;

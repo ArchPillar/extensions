@@ -72,7 +72,9 @@ Order = CreateMapper<Order, OrderDto>(src => new OrderDto
 });
 ```
 
-If the source collection is `null`, an **optional** property maps to `null` (a guard is emitted for in-memory mapping, including when the mapper is inlined into a parent); a **required** collection property mapped from a `null` source throws `ArgumentNullException`. In EF Core projection the guard is omitted — collection navigations are never `null` in the database.
+The source and destination collections must agree on nullability. A source collection declared nullable (`List<LineSource>?`) can only feed a nullable destination (`List<LineDto>?`). Mapping it into a non-nullable destination fails when the mapper is built, naming the property. Fix it by declaring the destination nullable or the source non-nullable. Coalescing in the mapping, `(src.Lines ?? new List<LineSource>()).Project(OrderLine).ToList()`, also works in memory, but EF Core cannot translate it in a projection. Nullability is read from nullable reference type annotations, so code without them is not checked.
+
+At runtime, a `null` source collection maps to `null` when the source is declared nullable or the property is optional; a guard is emitted for in-memory mapping, including when the mapper is inlined into a parent. A source collection declared non-nullable that is `null` anyway throws `ArgumentNullException`. In EF Core projection the guard is omitted: collection navigations are never `null` in the database, and a nullable navigation materialises as an empty collection.
 
 ### Dictionaries
 

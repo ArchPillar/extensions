@@ -14,5 +14,5 @@ internal interface IReversibleMapper
     /// Returns the reverse mapping expression with no variable replacement applied.
     /// </summary>
     public LambdaExpression GetReverseRawExpression(
-        IncludeSet includes, int depth = 0, bool guardNullOptionalCollections = false);
+        IncludeSet includes, int depth = 0, bool guardNullCollections = false);
 }

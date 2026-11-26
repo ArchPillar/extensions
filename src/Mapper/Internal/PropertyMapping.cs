@@ -21,11 +21,17 @@ internal enum MappingKind { Required, Optional, Ignored }
 /// property. When <see langword="null"/>, <c>MapTo</c> uses the default
 /// <see cref="CollectionMapToMode.Shallow"/> mode (replace the collection reference).
 /// </param>
+/// <param name="NullableCollectionSource">
+/// <see langword="true"/> when the destination is a collection whose source chain starts
+/// from a member declared nullable. In-memory mapping then maps a <see langword="null"/>
+/// source collection to <see langword="null"/> instead of throwing.
+/// </param>
 internal sealed record PropertyMapping(
     MemberInfo              Destination,
     LambdaExpression?       Source,
     MappingKind             Kind,
-    CollectionMapToConfig?  CollectionConfig = null);
+    CollectionMapToConfig?  CollectionConfig = null,
+    bool                    NullableCollectionSource = false);
 
 /// <summary>
 /// Configuration for collection handling in <c>MapTo</c>, stored on
