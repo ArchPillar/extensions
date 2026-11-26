@@ -514,6 +514,13 @@ For expression projection, the top-level source gets no null check — the query
 
 When the nested source is a `FirstOrDefault()` / `SingleOrDefault()` call (with or without a predicate), optionally followed by a member chain (`seq.FirstOrDefault(predicate).Employee.Account`), the guard tests a scalar marker instead of the entity: `seq[.Where(predicate)][.Select(x => x.Employee.Account)].Select(e => e == null ? (int?)null : 1).FirstOrDefault() == null`. It has the semantics of `seq.FirstOrDefault() == null` (for a member chain, an empty sequence maps to `null` in memory instead of throwing), but translates to a scalar `(SELECT 1 … LIMIT 1) IS NULL` rather than an entity comparison, which EF Core translates by joining the subquery ranked with `ROW_NUMBER() OVER (PARTITION BY …)` when the compared entity owns types (`OwnsOne`). The guard keeps the `x == null ? null : body` shape so EF Core can still bind member access through it (`.Project(mapper).OrderBy(d => d.Nested.Name)`); an `Any()`-based test breaks that. The `defaultValue` overloads keep the plain null comparison.
 
+**`NullHandling` (in-memory only).** The `NullHandling` mode decides what in-memory mapping does with a `null` nested source; it is set through `GlobalMapperOptions.SetNullHandling`, an override of `MapperContext.DefaultNullHandling`, or `MapperBuilder.SetNullHandling`, and each mapper applies its own mode to its own expressions, including when inlined into a parent. Nullability is read from nullable reference type annotations; a member without them never triggers `Strict`.
+
+- `Lenient` (default) follows EF Core. A nested object maps to `null`. For a collection mapping whose body is an `Enumerable` chain over a reference-type source, a destination declared non-nullable gets the chain's root source coalesced with `Enumerable.Empty<T>()` (so `ToList` / `ToHashSet` / `ToDictionary` still yield the destination's type), and any other destination gets `source == null ? null : body`.
+- `Strict` treats the annotations as a contract. A nested `Map(src.X)` whose source is declared non-nullable, or a collection whose source or destination is declared non-nullable, gets `source == null ? NullSource.Fail<T>(message) : body`, where the message names the mapper and the member. The failure is a call to a throwing helper, not a `throw` expression, and it is only emitted into expressions compiled for in-memory mapping.
+
+`MapTo` reuses the in-memory bodies, so `Deep` mode clears the destination for an empty or `null` result and throws under `Strict`; `DeepWithIdentity` reads its own source accessor and applies the same `Strict` check to it. LINQ projection emits no collection guard and no `Strict` check: EF Core never yields a `null` navigation collection, and cannot translate a coalesce (`src.Items ?? new List<T>()`) over one.
+
 ### 11. Mapper Inheritance
 
 When mapping a single source type to a destination type hierarchy (e.g., `DocumentSummaryDto` → `DocumentDetailDto`), use `Inherit()` to reuse the base mapper's property mappings in derived mappers. This avoids duplicating shared mapping logic.
@@ -755,6 +762,9 @@ public abstract class MapperContext
     protected virtual CoverageValidation DefaultCoverageValidation
         => CoverageValidation.NonNullableProperties;
 
+    protected virtual NullHandling DefaultNullHandling
+        => NullHandling.Lenient;
+
     protected static MapperBuilder<TSource, TDest> CreateMapper<TSource, TDest>(
         Expression<Func<TSource, TDest>>? memberInitExpression = null);
 
@@ -816,6 +826,8 @@ public sealed class MapperBuilder<TSource, TDest>
         Expression<Func<TDest, TValue>> dest);
 
     public MapperBuilder<TSource, TDest> SetCoverageValidation(CoverageValidation mode);
+
+    public MapperBuilder<TSource, TDest> SetNullHandling(NullHandling mode);
 
     public MapperBuilder<TSource, TDest> WithTransformers(params IExpressionTransformer[] transformers);
 
@@ -1004,6 +1016,12 @@ public sealed class GlobalMapperOptions
 {
     public IReadOnlyList<IExpressionTransformer> Transformers { get; }
     public GlobalMapperOptions AddTransformer(IExpressionTransformer transformer);
+
+    public CoverageValidation DefaultCoverageValidation { get; }
+    public GlobalMapperOptions SetCoverageValidation(CoverageValidation mode);
+
+    public NullHandling DefaultNullHandling { get; }
+    public GlobalMapperOptions SetNullHandling(NullHandling mode);
 }
 ```
 

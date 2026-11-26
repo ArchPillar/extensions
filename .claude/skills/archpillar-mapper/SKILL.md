@@ -160,6 +160,11 @@ instance, clear + re-add), `DeepWithIdentity` (match by key → per-element `Mod
 Coverage modes: `NonNullableProperties` (default), `AllProperties`, `None`. Set per-mapper with
 `.SetCoverageValidation(…)` or per-context by overriding `DefaultCoverageValidation`.
 
+Null handling (in-memory only): `Lenient` (default — `null` object → `null`, `null` collection →
+empty, or `null` if the destination is nullable) or `Strict` (a `null` that contradicts a
+non-nullable annotation throws). Set via `GlobalMapperOptions.SetNullHandling(…)`,
+`DefaultNullHandling`, or `.SetNullHandling(…)`.
+
 ## Production defaults
 
 - Register the context as a **singleton** (`AddSingleton<AppMappers>()`) — transient recompiles

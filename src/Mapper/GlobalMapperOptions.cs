@@ -51,4 +51,25 @@ public sealed class GlobalMapperOptions
         DefaultCoverageValidation = mode;
         return this;
     }
+
+    /// <summary>
+    /// Gets the global default <see cref="Mapper.NullHandling"/> mode applied to every
+    /// mapper across all <see cref="MapperContext"/> instances, unless a context overrides
+    /// <see cref="MapperContext.DefaultNullHandling"/> or an individual mapper calls
+    /// <see cref="MapperBuilder{TSource,TDest}.SetNullHandling"/>.
+    /// Defaults to <see cref="NullHandling.Lenient"/>.
+    /// </summary>
+    public NullHandling DefaultNullHandling { get; private set; } = NullHandling.Lenient;
+
+    /// <summary>
+    /// Sets the global default <see cref="Mapper.NullHandling"/> mode for every mapper
+    /// across all contexts. A context-level <see cref="MapperContext.DefaultNullHandling"/>
+    /// override or a per-mapper <see cref="MapperBuilder{TSource,TDest}.SetNullHandling"/>
+    /// call still takes precedence over this value.
+    /// </summary>
+    public GlobalMapperOptions SetNullHandling(NullHandling mode)
+    {
+        DefaultNullHandling = mode;
+        return this;
+    }
 }

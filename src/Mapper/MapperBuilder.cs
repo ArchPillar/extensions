@@ -27,10 +27,12 @@ public sealed class MapperBuilder<TSource, TDest>
     private readonly List<IExpressionTransformer>          _mapperTransformers = [];
     private readonly Dictionary<string, CollectionMapToConfig> _collectionConfigs = new(StringComparer.Ordinal);
     private CoverageValidation                             _coverageValidation;
+    private NullHandling                                   _nullHandling;
 
     internal MapperBuilder(
         Expression<Func<TSource, TDest>>? memberInitExpression,
         CoverageValidation coverageValidation = CoverageValidation.NonNullableProperties,
+        NullHandling nullHandling = NullHandling.Lenient,
         IReadOnlyList<IExpressionTransformer>? globalTransformers = null,
         IReadOnlyList<IExpressionTransformer>? contextTransformers = null)
     {
@@ -39,6 +41,7 @@ public sealed class MapperBuilder<TSource, TDest>
 
         _memberInitExpression = memberInitExpression;
         _coverageValidation   = coverageValidation;
+        _nullHandling         = nullHandling;
         _globalTransformers   = globalTransformers ?? [];
         _contextTransformers  = contextTransformers ?? [];
     }
@@ -51,6 +54,7 @@ public sealed class MapperBuilder<TSource, TDest>
     internal MapperBuilder(
         IReadOnlyList<PropertyMapping> inheritedMappings,
         CoverageValidation coverageValidation,
+        NullHandling nullHandling,
         IReadOnlyList<IExpressionTransformer>? globalTransformers,
         IReadOnlyList<IExpressionTransformer>? contextTransformers)
     {
@@ -59,6 +63,7 @@ public sealed class MapperBuilder<TSource, TDest>
         _memberInitExpression = null;
         _mappings.AddRange(inheritedMappings);
         _coverageValidation  = coverageValidation;
+        _nullHandling        = nullHandling;
         _globalTransformers  = globalTransformers ?? [];
         _contextTransformers = contextTransformers ?? [];
     }
@@ -80,6 +85,16 @@ public sealed class MapperBuilder<TSource, TDest>
     public MapperBuilder<TSource, TDest> SetCoverageValidation(CoverageValidation mode)
     {
         _coverageValidation = mode;
+        return this;
+    }
+
+    /// <summary>
+    /// Overrides the <see cref="NullHandling"/> mode for this mapper, replacing the
+    /// default inherited from the <see cref="MapperContext"/>.
+    /// </summary>
+    public MapperBuilder<TSource, TDest> SetNullHandling(NullHandling mode)
+    {
+        _nullHandling = mode;
         return this;
     }
 
@@ -311,7 +326,7 @@ public sealed class MapperBuilder<TSource, TDest>
         // Combine transformers: global → per-context → per-mapper
         List<IExpressionTransformer> allTransformers = [.. _globalTransformers, .. _contextTransformers, .. _mapperTransformers];
 
-        return new Mapper<TSource, TDest>([.. rawMappings.Values], allTransformers);
+        return new Mapper<TSource, TDest>([.. rawMappings.Values], _nullHandling, allTransformers);
     }
 
     /// <summary>

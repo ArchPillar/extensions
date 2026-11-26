@@ -22,15 +22,14 @@ internal interface IMapper
     /// from circular mapper references.
     /// </para>
     /// <para>
-    /// The <paramref name="guardNullOptionalCollections"/> parameter propagates
-    /// the in-memory null-guard for optional collection sources into the inlined
-    /// body so that a nested mapper receives the same protection as a top-level
-    /// one. It is <see langword="false"/> for LINQ projection (EF Core never
-    /// sees a null collection navigation).
+    /// The <paramref name="inMemory"/> parameter marks an expression built for
+    /// in-memory mapping, so the nested mapper applies its <see cref="NullHandling"/>
+    /// to its own collection sources and nested objects. It is <see langword="false"/>
+    /// for LINQ projection (EF Core never sees a null collection navigation).
     /// </para>
     /// </summary>
     public LambdaExpression GetRawExpression(
-        IncludeSet includes, int depth = 0, bool guardNullOptionalCollections = false);
+        IncludeSet includes, int depth = 0, bool inMemory = false);
 
     /// <summary>
     /// Forces expression assembly and delegate compilation with default

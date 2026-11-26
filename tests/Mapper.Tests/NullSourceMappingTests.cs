@@ -45,7 +45,7 @@ public class NullSourceMappingTests
     }
 
     [Fact]
-    public void Map_RequiredCollectionNull_Throws()
+    public void Map_RequiredCollectionNull_MapsToEmpty()
     {
         var mappers = new NullRequiredMappers();
         var source = new RequiredCollectionSource
@@ -54,7 +54,10 @@ public class NullSourceMappingTests
             Items = null!,
         };
 
-        Assert.Throws<ArgumentNullException>(() => mappers.Root.Map(source));
+        RequiredCollectionDest? dest = mappers.Root.Map(source);
+
+        Assert.NotNull(dest);
+        Assert.Empty(dest.Items);
     }
 }
 

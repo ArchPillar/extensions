@@ -63,12 +63,18 @@ Nested mapper references resolve lazily, so order does not matter at runtime —
   regardless of how the mapper is used. If a use case never needs expression projection, a plain
   constructor call is simpler and more explicit than a mapper.
 - **Null source → null destination.** Every mapper returns `null` for a `null` source, on both
-  paths — no configuration. In-memory mapping does an upfront null check; projection emits no
-  guard (the LINQ provider handles null propagation).
-- **Null behavior for collections.** An *optional* collection from a `null` source maps to
-  `null` (a guard is emitted for in-memory mapping). A *required* collection from a `null`
-  source throws `ArgumentNullException`. In EF Core projection the guard is omitted — collection
-  navigations are never `null` in the database.
+  paths — no configuration. In-memory mapping does an upfront null check. In projection the
+  top-level source gets no check, and a nested `Map(src.X)` is inlined behind a
+  `src.X == null ? null : …` guard.
+- **`null` nested sources follow `NullHandling` (in-memory only).** `Lenient` (default) behaves
+  like EF Core: a `null` nested object maps to `null`; a `null` collection maps to an empty
+  collection when the destination is declared non-nullable and to `null` when it is declared
+  nullable. `Strict` throws, naming the mapper and member, when a `null` contradicts a non-nullable
+  annotation — use it to surface forgotten `Include`s and deserialiser gaps. Set it via
+  `GlobalMapperOptions.SetNullHandling`, a context's `DefaultNullHandling`, or
+  `.SetNullHandling(…)`. EF Core projection is unaffected — collection navigations are never
+  `null` in the database. Don't coalesce in a mapper (`src.Items ?? new List<T>()`): EF Core
+  cannot translate it.
 - **`MapTo` is in-memory only** — there is no LINQ/EF Core equivalent. `source == null` is a
   no-op; `destination == null` throws. Scalar-only `MapTo` is zero-allocation.
 - **Design models to be acyclic.** Avoid circular references in the source/destination model

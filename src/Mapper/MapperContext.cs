@@ -66,6 +66,7 @@ public abstract class MapperContext
     private readonly IReadOnlyList<IExpressionTransformer> _globalTransformers;
     private readonly List<IExpressionTransformer>          _contextTransformers = [];
     private readonly CoverageValidation                    _globalCoverageValidation;
+    private readonly NullHandling                          _globalNullHandling;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="MapperContext"/> class
@@ -86,6 +87,7 @@ public abstract class MapperContext
     {
         _globalTransformers       = globalOptions?.Transformers ?? [];
         _globalCoverageValidation = globalOptions?.DefaultCoverageValidation ?? CoverageValidation.NonNullableProperties;
+        _globalNullHandling       = globalOptions?.DefaultNullHandling ?? NullHandling.Lenient;
     }
 
     // -------------------------------------------------------------------------
@@ -106,6 +108,24 @@ public abstract class MapperContext
     /// </summary>
     protected virtual CoverageValidation DefaultCoverageValidation
         => _globalCoverageValidation;
+
+    // -------------------------------------------------------------------------
+    // Null handling
+    // -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Gets the default <see cref="Mapper.NullHandling"/> mode applied to all mappers
+    /// created by this context. Override in a subclass to change the default for all
+    /// mappers in the context. Individual mappers can further override via
+    /// <see cref="MapperBuilder{TSource,TDest}.SetNullHandling"/>.
+    /// <para>
+    /// When not overridden, this falls back to the
+    /// <see cref="GlobalMapperOptions.DefaultNullHandling"/> supplied to the constructor,
+    /// or <see cref="NullHandling.Lenient"/> when no global options were provided.
+    /// </para>
+    /// </summary>
+    protected virtual NullHandling DefaultNullHandling
+        => _globalNullHandling;
 
     // -------------------------------------------------------------------------
     // Expression transformers
@@ -152,7 +172,7 @@ public abstract class MapperContext
     /// </summary>
     protected InheritedMapperBuilder<TSource, TBase> Inherit<TSource, TBase>(
         Mapper<TSource, TBase> baseMapper)
-        => new(baseMapper.Mappings, DefaultCoverageValidation, _globalTransformers, _contextTransformers);
+        => new(baseMapper.Mappings, DefaultCoverageValidation, DefaultNullHandling, _globalTransformers, _contextTransformers);
 
     /// <summary>
     /// Creates a mapper builder for <typeparamref name="TSource"/> →
@@ -172,7 +192,7 @@ public abstract class MapperContext
     /// </summary>
     protected MapperBuilder<TSource, TDest> CreateMapper<TSource, TDest>(
         Expression<Func<TSource, TDest>>? memberInitExpression = null)
-        => new(memberInitExpression, DefaultCoverageValidation, _globalTransformers, _contextTransformers);
+        => new(memberInitExpression, DefaultCoverageValidation, DefaultNullHandling, _globalTransformers, _contextTransformers);
 
     /// <summary>
     /// Creates a clone mapper builder for <typeparamref name="T"/> that
@@ -205,6 +225,7 @@ public abstract class MapperContext
         return new MapperBuilder<T, T>(
             mappings,
             DefaultCoverageValidation,
+            DefaultNullHandling,
             _globalTransformers,
             _contextTransformers);
     }
