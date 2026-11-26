@@ -158,7 +158,7 @@ internal sealed class MapperCallRewriter(bool flattenVariableBoxes) : Expression
     /// <summary>
     /// Substitutes <paramref name="source"/> for the projection's parameter.
     /// Reference-type sources (other than the never-null query root parameter)
-    /// are wrapped in a null guard, matching nested mapper inlining semantics.
+    /// are wrapped in a <see cref="NullGuard"/>, matching nested mapper inlining semantics.
     /// </summary>
     private static Expression InlineScalar(LambdaExpression projection, Expression source)
     {
@@ -166,14 +166,7 @@ internal sealed class MapperCallRewriter(bool flattenVariableBoxes) : Expression
 
         if (!source.Type.IsValueType && source is not ParameterExpression)
         {
-            // Compare against a typed null constant rather than a DefaultExpression
-            // so EF Core's entity-equality rewrite folds it into an FK IS NULL check
-            // instead of attempting EF.Property<TKey>(default(Nav), "Id"), which fails
-            // when the navigation's key uses a value converter.
-            return Expression.Condition(
-                Expression.Equal(source, Expression.Constant(null, source.Type)),
-                Expression.Constant(null, body.Type),
-                body);
+            return NullGuard.Wrap(source, body);
         }
 
         return body;

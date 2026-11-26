@@ -153,15 +153,7 @@ internal sealed class NestedMapperInliner(
 
             if (!srcExpr.Type.IsValueType)
             {
-                // Compare against a typed null constant rather than a DefaultExpression:
-                // EF Core's entity-equality rewrite tries to read the key off a
-                // DefaultExpression node (EF.Property<TKey>(default(Nav), "Id")),
-                // which fails to translate when the key uses a value converter.
-                // Expression.Constant(null, type) folds cleanly into an FK IS NULL check.
-                return Expression.Condition(
-                    Expression.Equal(srcExpr, Expression.Constant(null, srcExpr.Type)),
-                    Expression.Constant(null, inlinedBody.Type),
-                    inlinedBody);
+                return NullGuard.Wrap(srcExpr, inlinedBody);
             }
 
             return inlinedBody;
