@@ -10,7 +10,8 @@ namespace ArchPillar.Extensions.Mapper.Internal;
 /// <item>
 /// <c>Mapper&lt;X,Y&gt;.Map(srcExpr)</c> and <c>EnumMapper&lt;X,Y&gt;.Map(srcExpr)</c>
 /// are replaced with the nested mapper's expression body, parameter-substituted with
-/// <c>srcExpr</c>. Reference-type source expressions are wrapped in a null guard.
+/// <c>srcExpr</c>. Reference-type source expressions are wrapped in a null guard; for an in-memory
+/// <see cref="NullHandling.Strict"/> mapper, a source declared non-nullable fails instead.
 /// </item>
 /// <item>
 /// <c>srcColl.Project(mapper)</c> is replaced with
@@ -26,9 +27,15 @@ namespace ArchPillar.Extensions.Mapper.Internal;
 /// </para>
 /// </summary>
 internal sealed class NestedMapperInliner(
-    IncludeSet includes, int depth = 0, bool guardNullCollections = false) : ExpressionVisitor
+    IncludeSet includes,
+    int depth = 0,
+    bool inMemory = false,
+    NullHandling nullHandling = NullHandling.Lenient,
+    string owner = "Mapper") : ExpressionVisitor
 {
     internal const int MaxNestingDepth = 32;
+
+    private NullabilityInfoContext? _nullability;
 
     private static readonly MethodInfo _enumerableSelectMethod =
         typeof(Enumerable)
@@ -58,7 +65,7 @@ internal sealed class NestedMapperInliner(
                 IncludeSet memberIncludes = includes.IncludeAll
                     ? IncludeSet.All
                     : includes.Nested.GetValueOrDefault(memberName, IncludeSet.Empty);
-                Expression visited = new NestedMapperInliner(memberIncludes, depth, guardNullCollections)
+                Expression visited = new NestedMapperInliner(memberIncludes, depth, inMemory, nullHandling, owner)
                     .Visit(assignment.Expression);
                 newBindings.Add(Expression.Bind(assignment.Member, visited));
             }
@@ -114,9 +121,9 @@ internal sealed class NestedMapperInliner(
         {
             LambdaExpression nestedLambda = node.Method.Name == "MapReverse"
                 ? CompileReversibleMapperAccessor(node.Object!)
-                    .GetReverseRawExpression(includes, depth + 1, guardNullCollections)
+                    .GetReverseRawExpression(includes, depth + 1, inMemory)
                 : CompileMapperAccessor(node.Object!)
-                    .GetRawExpression(includes, depth + 1, guardNullCollections);
+                    .GetRawExpression(includes, depth + 1, inMemory);
             Expression srcExpr = Visit(node.Arguments[0]);
 
             // Nullable value type source (e.g. TSource?) — unwrap via .Value,
@@ -153,6 +160,21 @@ internal sealed class NestedMapperInliner(
 
             if (!srcExpr.Type.IsValueType)
             {
+                if (inMemory
+                    && nullHandling == NullHandling.Strict
+                    && NullSource.ReadState(srcExpr, _nullability ??= new()) == NullabilityState.NotNull)
+                {
+                    var message =
+                        $"{owner}: the source {NullSource.Describe(srcExpr)} passed to the nested mapper for " +
+                        $"'{TypeDisplay.Describe(inlinedBody.Type)}' is null, but it is declared non-nullable. Load or " +
+                        "initialise it, or declare it nullable. This mapper uses NullHandling.Strict; with " +
+                        "NullHandling.Lenient it would map to null.";
+                    return Expression.Condition(
+                        Expression.Equal(srcExpr, Expression.Constant(null, srcExpr.Type)),
+                        NullSource.BuildFail(inlinedBody.Type, message),
+                        inlinedBody);
+                }
+
                 return NullGuard.Wrap(srcExpr, inlinedBody);
             }
 
@@ -164,7 +186,7 @@ internal sealed class NestedMapperInliner(
         {
             IMapper nestedMapper = CompileMapperAccessor(node.Arguments[1]);
             LambdaExpression nestedLambda = nestedMapper.GetRawExpression(
-                includes, depth + 1, guardNullCollections);
+                includes, depth + 1, inMemory);
             Expression srcExpr = Visit(node.Arguments[0]);
             Type srcType  = nestedLambda.Parameters[0].Type;
             Type destType = nestedLambda.ReturnType;

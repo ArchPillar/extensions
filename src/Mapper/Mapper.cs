@@ -58,6 +58,7 @@ namespace ArchPillar.Extensions.Mapper;
 public sealed class Mapper<TSource, TDest> : IMapper, IInvokeExpressionBuilder
 {
     private readonly IReadOnlyList<IExpressionTransformer>                       _transformers;
+    private readonly NullHandling                                                _nullHandling;
     private readonly Lazy<Func<TSource?, List<(object, object?)>?, TDest?>>  _compiled;
     private readonly Lazy<Action<TSource, TDest, List<(object, object?)>?>>  _compiledMapTo;
 
@@ -70,9 +71,11 @@ public sealed class Mapper<TSource, TDest> : IMapper, IInvokeExpressionBuilder
 
     internal Mapper(
         IReadOnlyList<PropertyMapping> allMappings,
+        NullHandling nullHandling = NullHandling.Lenient,
         IReadOnlyList<IExpressionTransformer>? transformers = null)
     {
         Mappings = allMappings;
+        _nullHandling = nullHandling;
         _transformers = transformers ?? [];
         _compiled = new(() =>
         {
@@ -99,7 +102,7 @@ public sealed class Mapper<TSource, TDest> : IMapper, IInvokeExpressionBuilder
     /// <see cref="VariableDictReplacer"/> in a single post-build pass.
     /// </summary>
     private Expression<Func<TSource, TDest>> BuildExpression(
-        IncludeSet includes, int depth = 0, bool guardNullCollections = false)
+        IncludeSet includes, int depth = 0, bool inMemory = false)
     {
         if (depth > NestedMapperInliner.MaxNestingDepth)
         {
@@ -111,6 +114,7 @@ public sealed class Mapper<TSource, TDest> : IMapper, IInvokeExpressionBuilder
         ValidateIncludes(includes);
 
         ParameterExpression sourceParam = Expression.Parameter(typeof(TSource), "src");
+        NullabilityInfoContext? nullability = inMemory ? new() : null;
 
         var bindings = new List<MemberBinding>();
         foreach (PropertyMapping mapping in Mappings)
@@ -129,12 +133,12 @@ public sealed class Mapper<TSource, TDest> : IMapper, IInvokeExpressionBuilder
                 ? IncludeSet.All
                 : includes.Nested.GetValueOrDefault(mapping.Destination.Name, IncludeSet.Empty);
 
-            body = new NestedMapperInliner(nestedIncludes, depth, guardNullCollections).Visit(body);
+            body = new NestedMapperInliner(nestedIncludes, depth, inMemory, _nullHandling, Describe())
+                .Visit(body);
 
-            if (guardNullCollections
-                && (mapping.Kind == MappingKind.Optional || mapping.NullableCollectionSource))
+            if (nullability is not null)
             {
-                body = GuardNullCollectionSource(body);
+                body = GuardNullCollectionSource(body, mapping.Destination, nullability);
             }
 
             MemberBinding binding;
@@ -218,44 +222,73 @@ public sealed class Mapper<TSource, TDest> : IMapper, IInvokeExpressionBuilder
     }
 
     // -------------------------------------------------------------------------
-    // Null-guard for collection sources that may be null (in-memory only)
+    // Null handling for collection sources (in-memory only)
     // -------------------------------------------------------------------------
 
     /// <summary>
-    /// Wraps a mapping body with a null guard when it contains a LINQ collection
-    /// chain (e.g. <c>Select(...).ToList()</c>). Applied to optional mappings and
-    /// to mappings whose collection source is declared nullable. Walks the
-    /// <see cref="Enumerable"/> method call chain to find the root collection
-    /// source; if the source is a nullable reference type, the body is wrapped
-    /// with <c>source == null ? default : body</c>.
-    /// <para>
-    /// This prevents <see cref="ArgumentNullException"/> from
-    /// <c>Enumerable.Select</c> when such a collection source is null during
-    /// in-memory mapping. Expression projections (EF Core) do not use
-    /// this guard — collection navigations are never null in the database.
-    /// </para>
+    /// Applies the mapper's <see cref="NullHandling"/> to a mapping body that is a LINQ
+    /// collection chain (e.g. <c>src.Lines.Select(...).ToList()</c>) whose root source is
+    /// a reference type:
+    /// <list type="bullet">
+    /// <item><see cref="NullHandling.Strict"/>, and either the source or the destination
+    /// is declared non-nullable: a <see langword="null"/> source fails with a message
+    /// naming both.</item>
+    /// <item>Destination declared non-nullable: the root source is coalesced with an empty
+    /// sequence, so the chain yields an empty collection of the destination's type.</item>
+    /// <item>Otherwise: <c>source == null ? null : body</c>.</item>
+    /// </list>
+    /// Expression projections (EF Core) never use this guard: collection navigations are
+    /// never <see langword="null"/> in the database.
     /// </summary>
-    private static Expression GuardNullCollectionSource(Expression body)
+    private Expression GuardNullCollectionSource(
+        Expression body, MemberInfo destination, NullabilityInfoContext nullability)
     {
-        if (ExtractCollectionSource(body) is not { Type.IsValueType: false } source)
+        if (FindInnermostCollectionCall(body) is not { } innermost
+            || innermost.Arguments[0] is not { Type.IsValueType: false } source)
         {
             return body;
         }
 
-        return Expression.Condition(
-            Expression.Equal(source, Expression.Default(source.Type)),
-            Expression.Default(body.Type),
-            body);
+        NullabilityState sourceState      = NullSource.ReadState(source, nullability);
+        NullabilityState destinationState = NullSource.WriteState(destination, nullability);
+        Expression isNull = Expression.Equal(source, Expression.Constant(null, source.Type));
+
+        if (_nullHandling == NullHandling.Strict
+            && (sourceState == NullabilityState.NotNull || destinationState == NullabilityState.NotNull))
+        {
+            var declared = sourceState == NullabilityState.NotNull
+                ? NullSource.Describe(source)
+                : $"destination property '{destination.Name}'";
+            var message =
+                $"{Describe()}: the source collection {NullSource.Describe(source)} for destination property " +
+                $"'{destination.Name}' is null, but {declared} is declared non-nullable. Load or initialise the " +
+                "collection, or declare both sides nullable. This mapper uses NullHandling.Strict; with " +
+                "NullHandling.Lenient it would map to an empty collection or null.";
+            return Expression.Condition(isNull, NullSource.BuildFail(body.Type, message), body);
+        }
+
+        Type sequenceType = innermost.Method.GetParameters()[0].ParameterType;
+        Type elementType  = sequenceType.IsGenericType ? sequenceType.GetGenericArguments()[0] : typeof(object);
+        MethodCallExpression empty = Expression.Call(typeof(Enumerable), nameof(Enumerable.Empty), [elementType]);
+
+        if (destinationState == NullabilityState.NotNull && sequenceType.IsAssignableFrom(empty.Type))
+        {
+            MethodCallExpression coalesced = innermost.Update(
+                innermost.Object,
+                [Expression.Coalesce(Expression.Convert(source, sequenceType), empty), .. innermost.Arguments.Skip(1)]);
+            return new NodeReplacer(innermost, coalesced).Visit(body)!;
+        }
+
+        return Expression.Condition(isNull, Expression.Default(body.Type), body);
     }
 
     /// <summary>
-    /// Walks an <see cref="Enumerable"/> method call chain
-    /// (<c>ToList</c>, <c>ToArray</c>, <c>ToHashSet</c>, <c>Select</c>,
-    /// <c>Where</c>, <c>ToDictionary</c>, etc.) and returns the innermost
-    /// non-<see cref="Enumerable"/> source expression, or <see langword="null"/>
-    /// if the expression is not a recognisable LINQ chain.
+    /// Walks an <see cref="Enumerable"/> method call chain (<c>ToList</c>, <c>ToArray</c>,
+    /// <c>ToHashSet</c>, <c>Select</c>, <c>Where</c>, <c>ToDictionary</c>, etc.) and returns
+    /// the innermost call, whose first argument is the chain's root source, or
+    /// <see langword="null"/> if the expression is not a recognisable LINQ chain.
     /// </summary>
-    private static Expression? ExtractCollectionSource(Expression expression)
+    private static MethodCallExpression? FindInnermostCollectionCall(Expression expression)
     {
         if (expression is not MethodCallExpression call
             || call.Method.DeclaringType != typeof(Enumerable)
@@ -264,10 +297,11 @@ public sealed class Mapper<TSource, TDest> : IMapper, IInvokeExpressionBuilder
             return null;
         }
 
-        Expression source = call.Arguments[0];
-
-        return ExtractCollectionSource(source) ?? source;
+        return FindInnermostCollectionCall(call.Arguments[0]) ?? call;
     }
+
+    private static string Describe()
+        => $"Mapper '{TypeDisplay.Describe(typeof(TSource))}' -> '{TypeDisplay.Describe(typeof(TDest))}'";
 
     // -------------------------------------------------------------------------
     // In-memory object mapping
@@ -284,7 +318,7 @@ public sealed class Mapper<TSource, TDest> : IMapper, IInvokeExpressionBuilder
     {
         ParameterExpression bindingsParam = Expression.Parameter(VariableDictReplacer.BindingsType, "vars");
         Expression<Func<TSource, TDest>> raw = BuildExpression(
-            IncludeSet.All, guardNullCollections: true);
+            IncludeSet.All, inMemory: true);
         Expression withLookups = new VariableDictReplacer(bindingsParam).Visit(raw);
         Expression body = new SelectorCompiler(bindingsParam).Visit(((LambdaExpression)withLookups).Body);
         return Expression.Lambda<Func<TSource, List<(object, object?)>?, TDest>>(
@@ -367,9 +401,9 @@ public sealed class Mapper<TSource, TDest> : IMapper, IInvokeExpressionBuilder
     /// <see cref="CollectionMapToMode.Deep"/>: preserves the destination
     /// collection instance by clearing and re-adding mapped items. Falls back
     /// to assignment when the destination collection is <see langword="null"/>.
-    /// The source expression is null-guarded so that a <see langword="null"/>
-    /// source collection results in the destination being cleared rather than
-    /// an <see cref="ArgumentNullException"/> from the LINQ chain.
+    /// The source expression has already had the mapper's <see cref="NullHandling"/>
+    /// applied, so a <see langword="null"/> source collection arrives here as an empty
+    /// collection or <see langword="null"/>, both of which clear the destination.
     /// </summary>
     private static ConditionalExpression BuildDeepCollectionUpdate(
         MemberExpression destAccess, Expression sourceExpression, Type elementType)
@@ -378,15 +412,10 @@ public sealed class Mapper<TSource, TDest> : IMapper, IInvokeExpressionBuilder
         Type enumerableType = typeof(IEnumerable<>).MakeGenericType(elementType);
         MethodInfo replaceMethod = _replaceContentsMethod.MakeGenericMethod(elementType);
 
-        // Guard the source expression: if the root collection is null, pass
-        // null to ReplaceContents (which clears the dest) instead of letting
-        // Select(null, ...).ToList() throw.
-        Expression guardedSource = GuardNullCollectionSource(sourceExpression);
-
         Expression replaceCall = Expression.Call(
             replaceMethod,
             Expression.Convert(destAccess, collectionType),
-            Expression.Convert(guardedSource, enumerableType));
+            Expression.Convert(sourceExpression, enumerableType));
 
         return Expression.IfThenElse(
             Expression.NotEqual(destAccess, Expression.Default(destAccess.Type)),
@@ -402,7 +431,7 @@ public sealed class Mapper<TSource, TDest> : IMapper, IInvokeExpressionBuilder
     /// Skips the merge (no-op) when the destination collection is
     /// <see langword="null"/>.
     /// </summary>
-    private static Expression BuildIdentityMerge(
+    private Expression BuildIdentityMerge(
         MemberExpression destAccess,
         ParameterExpression srcParam,
         CollectionMapToConfig config)
@@ -418,6 +447,21 @@ public sealed class Mapper<TSource, TDest> : IMapper, IInvokeExpressionBuilder
         LambdaExpression sourceAccessor = config.SourceCollectionAccessor!;
         Expression sourceCollection = new ParameterReplacer(sourceAccessor.Parameters[0], srcParam)
             .Visit(sourceAccessor.Body);
+
+        if (_nullHandling == NullHandling.Strict
+            && !sourceCollection.Type.IsValueType
+            && NullSource.ReadState(sourceCollection, new NullabilityInfoContext()) == NullabilityState.NotNull)
+        {
+            var message =
+                $"{Describe()}: the source collection {NullSource.Describe(sourceCollection)} for destination property " +
+                $"'{destAccess.Member.Name}' is null, but it is declared non-nullable. Load or initialise the collection, " +
+                "or declare it nullable. This mapper uses NullHandling.Strict; with NullHandling.Lenient it would " +
+                "clear the destination collection.";
+            sourceCollection = Expression.Condition(
+                Expression.Equal(sourceCollection, Expression.Constant(null, sourceCollection.Type)),
+                NullSource.BuildFail(sourceCollection.Type, message),
+                sourceCollection);
+        }
 
         MethodInfo mergeMethod = _mergeWithIdentityMethod.MakeGenericMethod(sourceItemType, destItemType, keyType);
         Type collectionType = typeof(ICollection<>).MakeGenericType(destItemType);
@@ -590,9 +634,9 @@ public sealed class Mapper<TSource, TDest> : IMapper, IInvokeExpressionBuilder
     }
 
     LambdaExpression IMapper.GetRawExpression(
-        IncludeSet includes, int depth, bool guardNullCollections)
+        IncludeSet includes, int depth, bool inMemory)
     {
-        return BuildExpression(includes, depth, guardNullCollections);
+        return BuildExpression(includes, depth, inMemory);
     }
 
     void IMapper.Compile()

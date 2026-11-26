@@ -27,10 +27,12 @@ public sealed class MapperBuilder<TSource, TDest>
     private readonly List<IExpressionTransformer>          _mapperTransformers = [];
     private readonly Dictionary<string, CollectionMapToConfig> _collectionConfigs = new(StringComparer.Ordinal);
     private CoverageValidation                             _coverageValidation;
+    private NullHandling                                   _nullHandling;
 
     internal MapperBuilder(
         Expression<Func<TSource, TDest>>? memberInitExpression,
         CoverageValidation coverageValidation = CoverageValidation.NonNullableProperties,
+        NullHandling nullHandling = NullHandling.Lenient,
         IReadOnlyList<IExpressionTransformer>? globalTransformers = null,
         IReadOnlyList<IExpressionTransformer>? contextTransformers = null)
     {
@@ -39,6 +41,7 @@ public sealed class MapperBuilder<TSource, TDest>
 
         _memberInitExpression = memberInitExpression;
         _coverageValidation   = coverageValidation;
+        _nullHandling         = nullHandling;
         _globalTransformers   = globalTransformers ?? [];
         _contextTransformers  = contextTransformers ?? [];
     }
@@ -51,6 +54,7 @@ public sealed class MapperBuilder<TSource, TDest>
     internal MapperBuilder(
         IReadOnlyList<PropertyMapping> inheritedMappings,
         CoverageValidation coverageValidation,
+        NullHandling nullHandling,
         IReadOnlyList<IExpressionTransformer>? globalTransformers,
         IReadOnlyList<IExpressionTransformer>? contextTransformers)
     {
@@ -59,6 +63,7 @@ public sealed class MapperBuilder<TSource, TDest>
         _memberInitExpression = null;
         _mappings.AddRange(inheritedMappings);
         _coverageValidation  = coverageValidation;
+        _nullHandling        = nullHandling;
         _globalTransformers  = globalTransformers ?? [];
         _contextTransformers = contextTransformers ?? [];
     }
@@ -80,6 +85,16 @@ public sealed class MapperBuilder<TSource, TDest>
     public MapperBuilder<TSource, TDest> SetCoverageValidation(CoverageValidation mode)
     {
         _coverageValidation = mode;
+        return this;
+    }
+
+    /// <summary>
+    /// Overrides the <see cref="NullHandling"/> mode for this mapper, replacing the
+    /// default inherited from the <see cref="MapperContext"/>.
+    /// </summary>
+    public MapperBuilder<TSource, TDest> SetNullHandling(NullHandling mode)
+    {
+        _nullHandling = mode;
         return this;
     }
 
@@ -226,13 +241,8 @@ public sealed class MapperBuilder<TSource, TDest>
         //      general common type, so a source that produces a *base* type of the
         //      destination property (e.g. a nested mapper targeting a base DTO)
         //      compiles but cannot bind to the more-derived destination.
-        //   3. A collection destination must be at least as nullable as its source
-        //      collection: a source declared nullable cannot feed a non-nullable
-        //      destination.
-        // Catch these here at build time with a clear message rather than deferring
+        // Catch both here at build time with a clear message rather than deferring
         // to the first compile / projection.
-        var nullabilityCtx = new NullabilityInfoContext();
-        List<string> nullableCollectionSources = [];
         foreach (PropertyMapping mapping in rawMappings.Values)
         {
             if (mapping.Kind == MappingKind.Ignored)
@@ -272,33 +282,12 @@ public sealed class MapperBuilder<TSource, TDest>
                     "This usually means type inference widened the mapped value to a base type — for example a nested " +
                     "mapper that targets a base type of the destination property. Map to the destination's exact type.");
             }
-
-            if (NullableCollectionSource.IsCollection(destinationType)
-                && NullableCollectionSource.FindNullableRoot(mapping.Source, nullabilityCtx) is { } nullableRoot)
-            {
-                if (NullableCollectionSource.IsDeclaredNonNullable(mapping.Destination, nullabilityCtx))
-                {
-                    throw new InvalidOperationException(
-                        $"Mapper '{TypeDisplay.Describe(typeof(TSource))}' -> '{TypeDisplay.Describe(typeof(TDest))}': " +
-                        $"destination property '{mapping.Destination.Name}' is a non-nullable collection, but its source " +
-                        $"starts from '{nullableRoot.DeclaringType?.Name}.{nullableRoot.Name}', which is declared nullable. " +
-                        "The nullability of a collection must match: declare the destination nullable, or declare the source " +
-                        $"non-nullable. Coalescing in the mapping (src.{nullableRoot.Name} ?? new …()) also works for in-memory " +
-                        "mapping, but EF Core cannot translate it in a projection.");
-                }
-
-                nullableCollectionSources.Add(mapping.Destination.Name);
-            }
-        }
-
-        foreach (var name in nullableCollectionSources)
-        {
-            rawMappings[name] = rawMappings[name] with { NullableCollectionSource = true };
         }
 
         // Validate that every settable destination property is accounted for.
         if (_coverageValidation != CoverageValidation.None)
         {
+            var nullabilityCtx = new NullabilityInfoContext();
             List<string> uncovered =
             [
                 .. from p in typeof(TDest).GetProperties(BindingFlags.Public | BindingFlags.Instance)
@@ -337,7 +326,7 @@ public sealed class MapperBuilder<TSource, TDest>
         // Combine transformers: global → per-context → per-mapper
         List<IExpressionTransformer> allTransformers = [.. _globalTransformers, .. _contextTransformers, .. _mapperTransformers];
 
-        return new Mapper<TSource, TDest>([.. rawMappings.Values], allTransformers);
+        return new Mapper<TSource, TDest>([.. rawMappings.Values], _nullHandling, allTransformers);
     }
 
     /// <summary>

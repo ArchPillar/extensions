@@ -13,17 +13,20 @@ public sealed class InheritedMapperBuilder<TSource, TBase>
 {
     private readonly IReadOnlyList<PropertyMapping>          _baseMappings;
     private readonly CoverageValidation                     _coverageValidation;
+    private readonly NullHandling                           _nullHandling;
     private readonly IReadOnlyList<IExpressionTransformer>  _globalTransformers;
     private readonly IReadOnlyList<IExpressionTransformer>  _contextTransformers;
 
     internal InheritedMapperBuilder(
         IReadOnlyList<PropertyMapping> baseMappings,
         CoverageValidation coverageValidation,
+        NullHandling nullHandling,
         IReadOnlyList<IExpressionTransformer> globalTransformers,
         IReadOnlyList<IExpressionTransformer> contextTransformers)
     {
         _baseMappings        = baseMappings;
         _coverageValidation  = coverageValidation;
+        _nullHandling        = nullHandling;
         _globalTransformers  = globalTransformers;
         _contextTransformers = contextTransformers;
     }
@@ -40,6 +43,7 @@ public sealed class InheritedMapperBuilder<TSource, TBase>
         return new MapperBuilder<TSource, TDest>(
             _baseMappings,
             _coverageValidation,
+            _nullHandling,
             _globalTransformers,
             _contextTransformers);
     }
@@ -61,6 +65,7 @@ public sealed class InheritedMapperBuilder<TSource, TBase>
         return new MapperBuilder<TDerivedSource, TDest>(
             _baseMappings,
             _coverageValidation,
+            _nullHandling,
             _globalTransformers,
             _contextTransformers);
     }

@@ -71,7 +71,7 @@ public sealed class EnumMapper<TSource, TDest>(Func<TSource, TDest> mappingMetho
         => _nullableExpression.Value;
 
     LambdaExpression IMapper.GetRawExpression(
-        IncludeSet includes, int depth, bool guardNullCollections)
+        IncludeSet includes, int depth, bool inMemory)
     {
         return ToExpression();
     }

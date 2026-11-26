@@ -58,7 +58,7 @@ Order = CreateMapper<Order, OrderDto>(src => new OrderDto
 });
 ```
 
-If `src.Customer` is `null`, the result is `null` — a null guard is emitted automatically for reference types.
+If `src.Customer` is `null`, the result is `null` — a null guard is emitted automatically for reference types. With [`NullHandling.Strict`](#null-handling), in-memory mapping instead fails when `src.Customer` is declared non-nullable.
 
 ### Collections
 
@@ -72,9 +72,7 @@ Order = CreateMapper<Order, OrderDto>(src => new OrderDto
 });
 ```
 
-The source and destination collections must agree on nullability. A source collection declared nullable (`List<LineSource>?`) can only feed a nullable destination (`List<LineDto>?`). Mapping it into a non-nullable destination fails when the mapper is built, naming the property. Fix it by declaring the destination nullable or the source non-nullable. Coalescing in the mapping, `(src.Lines ?? new List<LineSource>()).Project(OrderLine).ToList()`, also works in memory, but EF Core cannot translate it in a projection. Nullability is read from nullable reference type annotations, so code without them is not checked.
-
-At runtime, a `null` source collection maps to `null` when the source is declared nullable or the property is optional; a guard is emitted for in-memory mapping, including when the mapper is inlined into a parent. A source collection declared non-nullable that is `null` anyway throws `ArgumentNullException`. In EF Core projection the guard is omitted: collection navigations are never `null` in the database, and a nullable navigation materialises as an empty collection.
+If the source collection is `null` during in-memory mapping, the destination gets an empty collection when it is declared non-nullable, and `null` when it is declared nullable. That matches EF Core, which never materialises a `null` collection navigation. [`NullHandling.Strict`](#null-handling) turns a `null` the annotations rule out into an error instead. In EF Core projection no guard is emitted: collection navigations are never `null` in the database.
 
 ### Dictionaries
 
@@ -509,6 +507,34 @@ public class StrictMappers : MapperContext
 ```
 
 Individual mappers can still override via `.SetCoverageValidation()`.
+
+## Null Handling
+
+`NullHandling` decides what in-memory mapping does when a nested source is `null`. LINQ projection is unaffected: the database never yields a `null` collection navigation, and a missing reference projects to `null` either way.
+
+| `null` source, in memory | `Lenient` (default) | `Strict` |
+|---|---|---|
+| nested object, `Map(src.X)` | `null` | throws if `X` is declared non-nullable, otherwise `null` |
+| collection, destination declared nullable | `null` | throws if the source is declared non-nullable, otherwise `null` |
+| collection, destination declared non-nullable | empty collection | throws |
+
+`Lenient` behaves like EF Core: a missing reference is `null`, a missing collection is empty, and a nullable destination keeps `null` as the signal that the source was `null` too. `Strict` treats nullable reference type annotations as a contract, so a forgotten `Include` or a gap left by a deserialiser fails with a message naming the mapper and the member, instead of silently mapping to "nothing". Members without annotations never throw. Under `Strict`, `MapTo` collection modes throw the same way; under `Lenient` they clear the destination collection.
+
+Set the mode globally, per context, or per mapper:
+
+```csharp
+var options = new GlobalMapperOptions().SetNullHandling(NullHandling.Strict);
+
+public class AppMappers : MapperContext
+{
+    protected override NullHandling DefaultNullHandling => NullHandling.Strict;
+}
+
+Order = CreateMapper<Order, OrderDto>(src => new OrderDto { /* … */ })
+    .SetNullHandling(NullHandling.Strict);
+```
+
+Each mapper applies its own mode, including when it is inlined into a parent.
 
 ## Mapper Inheritance
 
